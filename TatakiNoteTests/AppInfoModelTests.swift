@@ -1,0 +1,155 @@
+import Foundation
+import Testing
+@testable import TatakiNote
+
+/// @note p0-716
+@MainActor
+final class PermissionCallLog {
+    private(set) var calls: [String] = []
+
+    func record(_ call: String) {
+        calls.append(call)
+    }
+}
+
+/// @note p0-717
+@MainActor
+final class LoggingPermissionStub: AccessibilityPermissionChecking {
+    let isTrusted: Bool
+    private let log: PermissionCallLog
+
+    init(isTrusted: Bool, log: PermissionCallLog) {
+        self.isTrusted = isTrusted
+        self.log = log
+    }
+
+    func requestSystemPrompt() {
+        log.record("prompt")
+    }
+}
+
+/// @note p0-718
+@MainActor
+final class LoggingSettingsOpenerStub: AccessibilitySettingsOpening {
+    private let log: PermissionCallLog
+
+    init(log: PermissionCallLog) {
+        self.log = log
+    }
+
+    func openAccessibilitySettings() {
+        log.record("open")
+    }
+}
+
+@MainActor
+struct AppInfoModelTests {
+    private func makeModel(_ infoDictionary: [String: Any]) -> AppInfoModel {
+        AppInfoModel(
+            infoDictionary: infoDictionary,
+            permissionStatus: PermissionGuideModel(permission: OverriddenAccessibilityPermission(isTrusted: true))
+        )
+    }
+
+    /// @note p0-719
+    private func waitUntil(_ condition: () -> Bool) async throws -> Bool {
+        for _ in 0..<200 {
+            if condition() {
+                return true
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        return condition()
+    }
+
+    // MARK: - バージョン
+
+    @Test("AC-8: バージョン番号とビルド番号を Info.plist の値から読み、無い・空・文字列でないなら読めない(nil)")
+    func readsVersionAndBuild() {
+        let model = makeModel(["CFBundleShortVersionString": "1.2", "CFBundleVersion": "34"])
+        #expect(model.version == "1.2")
+        #expect(model.build == "34")
+
+        let missing = makeModel([:])
+        #expect(missing.version == nil)
+        #expect(missing.build == nil)
+
+        let empty = makeModel(["CFBundleShortVersionString": "", "CFBundleVersion": ""])
+        #expect(empty.version == nil)
+        #expect(empty.build == nil)
+
+        let numbers = makeModel(["CFBundleShortVersionString": 1.2, "CFBundleVersion": 34])
+        #expect(numbers.version == nil)
+        #expect(numbers.build == nil)
+    }
+
+    @Test("AC-8: 表示は「版 (ビルド)」で、読めない側は「不明」、両方読めなければ「不明」だけ")
+    func versionText() {
+        let unknown = String(localized: "不明")
+
+        #expect(makeModel(["CFBundleShortVersionString": "1.2", "CFBundleVersion": "34"]).versionText == "1.2 (34)")
+        #expect(makeModel(["CFBundleVersion": "34"]).versionText == "\(unknown) (34)")
+        #expect(makeModel(["CFBundleShortVersionString": "1.2"]).versionText == "1.2 (\(unknown))")
+        #expect(makeModel([:]).versionText == unknown)
+    }
+
+    // MARK: - 許可の状態
+
+    @Test("AC-10: 表示している間に許可が変わると、開き直さなくても確かめ直しで変わり、取り消すと確かめ直しをやめる")
+    func watchPermissionFollowsChangesUntilCancelled() async throws {
+        let permission = GuidePermissionStub(isTrusted: false)
+        let model = AppInfoModel(
+            infoDictionary: [:],
+            permissionStatus: PermissionGuideModel(permission: permission, opener: SettingsOpenerStub())
+        )
+        #expect(!model.permissionStatus.isTrusted)
+
+        let watching = Task { await model.watchPermission(interval: .milliseconds(10)) }
+
+        permission.isTrusted = true
+        #expect(try await waitUntil { model.permissionStatus.isTrusted })
+        permission.isTrusted = false
+        #expect(try await waitUntil { !model.permissionStatus.isTrusted })
+
+        // @note p0-720
+        watching.cancel()
+        await watching.value
+
+        // @note p0-721
+        permission.isTrusted = true
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(!model.permissionStatus.isTrusted)
+    }
+
+    @Test("AC-11: 「システム設定を開く」は、許可が無ければシステムのダイアログを求めてからアクセシビリティの設定を開く")
+    func openSystemSettingsRequestsPromptFirst() {
+        let log = PermissionCallLog()
+        let model = AppInfoModel(
+            infoDictionary: [:],
+            permissionStatus: PermissionGuideModel(
+                permission: LoggingPermissionStub(isTrusted: false, log: log),
+                opener: LoggingSettingsOpenerStub(log: log)
+            )
+        )
+
+        model.permissionStatus.openSystemSettings()
+
+        #expect(log.calls == ["prompt", "open"])
+    }
+
+    @Test("AC-11: 「システム設定を開く」は、許可があればダイアログを求めずにアクセシビリティの設定を開く")
+    func openSystemSettingsSkipsPromptWhenTrusted() {
+        let log = PermissionCallLog()
+        let model = AppInfoModel(
+            infoDictionary: [:],
+            permissionStatus: PermissionGuideModel(
+                permission: LoggingPermissionStub(isTrusted: true, log: log),
+                opener: LoggingSettingsOpenerStub(log: log)
+            )
+        )
+
+        model.permissionStatus.openSystemSettings()
+
+        #expect(log.calls == ["open"])
+    }
+}
