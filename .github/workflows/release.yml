@@ -38,15 +38,7 @@ jobs:
 
       - name: Select Xcode
         if: steps.check.outputs.release == 'yes'
-        run: |
-          xcode="$(ls -d /Applications/Xcode_${XCODE_MAJOR}*.app 2>/dev/null | sort -V | tail -1)"
-          if [ -z "$xcode" ]; then
-            echo "::error::Xcode ${XCODE_MAJOR} not found on this runner"
-            ls -d /Applications/Xcode*.app
-            exit 1
-          fi
-          sudo xcode-select -s "$xcode"
-          xcodebuild -version
+        run: ./scripts/release.sh select-xcode
 
       - name: Unit tests
         if: steps.check.outputs.release == 'yes'

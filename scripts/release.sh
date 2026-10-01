@@ -3,6 +3,7 @@
 # 使い方: ./scripts/release.sh <コマンド> [オプション]
 #   check            VERSION の版をリリースするかを判定する(release=yes / release=no を出力。
 #                    GitHub Actions では GITHUB_OUTPUT にも書く)。公開済みなら no、未作成か下書きなら yes
+#   select-xcode     CI 用。/Applications/Xcode_<XCODE_MAJOR>*.app の一番新しいものを選ぶ(sudo を使う)
 #   test             単体テスト(TatakiNoteTests)を署名なしで流す
 #   build [--keychain <キーチェーン>]
 #                    Release ビルド → 証明書で署名 → 検証 → dist/ に TatakiNote.app と
@@ -70,6 +71,18 @@ cmd_check() {
   if [ -n "${GITHUB_OUTPUT:-}" ]; then
     { echo "release=$release"; echo "version=$VERSION"; } >> "$GITHUB_OUTPUT"
   fi
+}
+
+cmd_select_xcode() {
+  local major="${XCODE_MAJOR:?XCODE_MAJOR を指定してください}" xcode
+  xcode="$(ls -d /Applications/Xcode_"$major"*.app 2>/dev/null | sort -V | tail -1 || true)"
+  if [ -z "$xcode" ]; then
+    echo "Xcode $major がありません。ある Xcode:" >&2
+    ls -d /Applications/Xcode*.app >&2 || true
+    exit 1
+  fi
+  sudo xcode-select -s "$xcode"
+  xcodebuild -version
 }
 
 cmd_test() {
@@ -182,12 +195,13 @@ cmd_upload() {
   [ "$state" = published ] || echo "GitHub の Releases で下書きを確認し、Publish してください。"
 }
 
-[ $# -ge 1 ] || { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+[ $# -ge 1 ] || { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 cmd="$1"; shift
 case "$cmd" in
   check) cmd_check "$@" ;;
+  select-xcode) cmd_select_xcode "$@" ;;
   test) cmd_test "$@" ;;
   build) cmd_build "$@" ;;
   upload) cmd_upload "$@" ;;
-  *) die "不明なコマンド: $cmd(check / test / build / upload)" ;;
+  *) die "不明なコマンド: $cmd(check / select-xcode / test / build / upload)" ;;
 esac
