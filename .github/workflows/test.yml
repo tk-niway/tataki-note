@@ -1,0 +1,33 @@
+# main への Pull Request で単体テストを流す。リポジトリのルールセットでこのジョブ(Unit tests)を
+# 必須にして、落ちたらマージできないようにしている。
+# paths で絞らない(絞ると、対象外の PR で必須のチェックが始まらずマージできなくなる)。
+name: Test
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  XCODE_MAJOR: "27"
+
+jobs:
+  unit-tests:
+    name: Unit tests
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: ./scripts/release.sh select-xcode
+
+      - name: Unit tests
+        run: ./scripts/release.sh test

@@ -14,9 +14,11 @@ macOS 14 以降
 
 ## 入手とインストール
 
-1. [Releases](../../releases) から最新の `TatakiNote.app` を入手します。
+1. [Releases](../../releases) から最新の `TatakiNote-<版>.zip` をダウンロードし、開いて `TatakiNote.app` を取り出します。
 2. `TatakiNote.app` を「アプリケーション」フォルダに入れて開きます。
 3. 初めて開くときに「開けません」などの警告が出たら、「システム設定」の「プライバシーとセキュリティ」を開き、TatakiNote について「このまま開く」を押します。TatakiNote は Apple の公証を受けていないため、初回だけこの確認が要ります。
+
+新しい版に更新するときは、TatakiNote を終了してから同じ手順で「アプリケーション」フォルダの `TatakiNote.app` を置き換えます。アクセシビリティの許可はそのまま引き継がれます。各版の変更点は [Releases](../../releases) に載せています。
 
 ## 最初にやること
 
