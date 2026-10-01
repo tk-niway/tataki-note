@@ -3,7 +3,7 @@
 # 使い方: ./scripts/release.sh <コマンド> [オプション]
 #   check            VERSION の版をリリースするかを判定する(release=yes / release=no を出力。
 #                    GitHub Actions では GITHUB_OUTPUT にも書く)。公開済みなら no、未作成か下書きなら yes
-#   select-xcode     CI 用。/Applications/Xcode_<XCODE_MAJOR>*.app の一番新しいものを選ぶ(sudo を使う)
+#   select-xcode     CI 用。/Applications/Xcode_<XCODE_MAJOR>*.app の一番新しいもの(無ければ、ある中で一番新しい Xcode)を選ぶ(sudo を使う)
 #   test             単体テスト(TatakiNoteTests)を署名なしで流す
 #   build [--keychain <キーチェーン>]
 #                    Release ビルド → 証明書で署名 → 検証 → dist/ に TatakiNote.app と
@@ -77,9 +77,10 @@ cmd_select_xcode() {
   local major="${XCODE_MAJOR:?XCODE_MAJOR を指定してください}" xcode
   xcode="$(ls -d /Applications/Xcode_"$major"*.app 2>/dev/null | sort -V | tail -1 || true)"
   if [ -z "$xcode" ]; then
-    echo "Xcode $major がありません。ある Xcode:" >&2
-    ls -d /Applications/Xcode*.app >&2 || true
-    exit 1
+    # ランナーの画像に新しい Xcode が入るまでは、ある中で一番新しいものを使う
+    xcode="$(ls -d /Applications/Xcode_[0-9]*.app 2>/dev/null | sort -V | tail -1 || true)"
+    [ -n "$xcode" ] || die "Xcode がありません"
+    echo "::warning::Xcode $major がランナーにありません。$(basename "$xcode") を使います"
   fi
   sudo xcode-select -s "$xcode"
   xcodebuild -version
