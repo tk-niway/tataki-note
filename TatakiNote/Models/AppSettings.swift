@@ -47,6 +47,16 @@ import Observation
         }
     }
 
+    /// 選んだフォントのファミリー名。`selectPanelFont(_:)` と `resetPanelFontToSystem()` で変える。
+    private(set) var panelFontFamilyName: String? {
+        didSet {
+            if panelFontFamilyName?.isEmpty == true {
+                panelFontFamilyName = nil
+            }
+            store.savePanelFontFamilyName(panelFontFamilyName)
+        }
+    }
+
     /// @note p0-162
     var panelFontSize: Double {
         didSet {
@@ -120,7 +130,15 @@ import Observation
         self.autoShowApps = store.loadAutoShowApps()
         // @note p0-171
         self.theme = store.loadAppTheme()
-        self.panelFontName = store.loadPanelFontName()
+        let loadedFontName = store.loadPanelFontName()
+        var loadedFamilyName = store.loadPanelFontFamilyName()
+        if loadedFamilyName == nil, let loadedFontName, !PanelTextStyle.isSystemFontName(loadedFontName),
+           let family = NSFont(name: loadedFontName, size: CGFloat(PanelTextStyle.defaultFontSize))?.familyName {
+            loadedFamilyName = family
+            store.savePanelFontFamilyName(family)
+        }
+        self.panelFontName = loadedFontName
+        self.panelFontFamilyName = loadedFamilyName
         self.panelFontSize = store.loadPanelFontSize()
         self.panelOpacity = store.loadPanelOpacity()
         self.hiddenPanelStatusItems = store.loadHiddenPanelStatusItems()
@@ -140,7 +158,30 @@ import Observation
 
     /// @note p0-173
     var panelFont: NSFont {
-        PanelTextStyle.font(name: panelFontName, size: panelFontSize)
+        PanelTextStyle.font(name: panelFontName, familyName: panelFontFamilyName, size: panelFontSize)
+    }
+
+    /// システムフォントではなく、Mac にある書体を使っているときのその書体。
+    var resolvedPanelFont: NSFont? {
+        PanelTextStyle.resolvedFont(name: panelFontName, familyName: panelFontFamilyName, size: panelFontSize)
+    }
+
+    /// フォントパネルで選んだ書体と大きさを設定に入れる。
+    func selectPanelFont(_ font: NSFont) {
+        if PanelTextStyle.isSystemFontName(font.fontName) {
+            panelFontName = nil
+            panelFontFamilyName = nil
+        } else {
+            panelFontName = font.fontName
+            panelFontFamilyName = font.familyName
+        }
+        panelFontSize = Double(font.pointSize).rounded()
+    }
+
+    /// フォントをシステムフォントに戻す。文字サイズは変えない。
+    func resetPanelFontToSystem() {
+        panelFontName = nil
+        panelFontFamilyName = nil
     }
 
     /// @note p0-174

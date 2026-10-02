@@ -13,6 +13,7 @@ struct SettingsView: View {
     let appInfo: AppInfoModel
     /// @note p0-700
     let panelDefaultSize: PanelDefaultSizeModel
+    let onShowFontPanel: () -> Void
     let onQuit: () -> Void
 
     /// @note p0-701
@@ -27,6 +28,7 @@ struct SettingsView: View {
         launchAtLogin: LaunchAtLoginModel,
         appInfo: AppInfoModel,
         panelDefaultSize: PanelDefaultSizeModel,
+        onShowFontPanel: @escaping () -> Void,
         onQuit: @escaping () -> Void
     ) {
         self.settings = settings
@@ -34,6 +36,7 @@ struct SettingsView: View {
         self.launchAtLogin = launchAtLogin
         self.appInfo = appInfo
         self.panelDefaultSize = panelDefaultSize
+        self.onShowFontPanel = onShowFontPanel
         self.onQuit = onQuit
         _editorModel = State(initialValue: EditorSettingsModel(settings: settings))
         _keySettingsModel = State(initialValue: PanelKeySettingsModel(settings: settings))
@@ -51,7 +54,12 @@ struct SettingsView: View {
                 case .general:
                     GeneralSettingsView(settings: settings, keySettings: keySettingsModel, launchAtLogin: launchAtLogin)
                 case .editor:
-                    EditorSettingsView(settings: settings, model: editorModel, panelDefaultSize: panelDefaultSize)
+                    EditorSettingsView(
+                        settings: settings,
+                        model: editorModel,
+                        panelDefaultSize: panelDefaultSize,
+                        onShowFontPanel: onShowFontPanel
+                    )
                 case .appInfo:
                     AppInfoSettingsView(model: appInfo)
                 }

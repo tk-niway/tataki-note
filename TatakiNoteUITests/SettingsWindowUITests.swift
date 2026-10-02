@@ -115,9 +115,9 @@ final class SettingsWindowUITests: XCTestCase {
 
         let editor = element(in: app, identifier: sidebarEditorID)
         editor.click()
-        let fontPicker = element(in: app, identifier: "settings.fontPicker")
-        app.revealInSettings(fontPicker)
-        assertRightEdgeHasTrailingPadding(fontPicker, scrollView: scrollView)
+        let resetFont = element(in: app, identifier: "settings.resetFontToSystem")
+        app.revealInSettings(resetFont)
+        assertRightEdgeHasTrailingPadding(resetFont, scrollView: scrollView)
 
         let appInfo = element(in: app, identifier: sidebarAppInfoID)
         appInfo.click()
