@@ -34,7 +34,6 @@ struct PanelTextStyleTests {
         let names: [String?] = [
             nil,
             "",
-            // @note p0-1001
             systemFontName,
             ".AppleSystemUIFont",
             ".NoSuchHiddenFont",

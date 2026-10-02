@@ -1,15 +1,13 @@
 import Foundation
 
-/// @note p0-423
+/// パネルの帯に出す、書いた量の数え方。
 enum TextStatistics {
-    /// @note p0-424
     static func characterCount(of text: String) -> Int {
         text.reduce(0) { count, character in
             character.isNewline ? count : count + 1
         }
     }
 
-    /// @note p0-425
     static func lineCount(of text: String) -> Int {
         guard !text.isEmpty else { return 0 }
         return text.reduce(1) { count, character in
@@ -18,12 +16,10 @@ enum TextStatistics {
     }
 }
 
-/// @note p0-426
+/// パネルの帯に出す中身(左からの並び)。
 struct PanelStatusBarContent: Equatable {
     enum Entry: Equatable, Identifiable {
-        /// @note p0-427
         case keyHint(item: PanelStatusItem, key: String, label: String)
-        /// @note p0-428
         case count(item: PanelStatusItem, text: String)
 
         var item: PanelStatusItem {
@@ -38,10 +34,8 @@ struct PanelStatusBarContent: Equatable {
 
     let entries: [Entry]
 
-    /// @note p0-429
     var isEmpty: Bool { entries.isEmpty }
 
-    /// @note p0-430
     init(text: String, items: [PanelStatusItem], commitKey: PanelShortcut?, commitAndSendKey: PanelShortcut?) {
         entries = items.compactMap { item in
             Self.entry(for: item, text: text, commitKey: commitKey, commitAndSendKey: commitAndSendKey)
@@ -54,7 +48,6 @@ struct PanelStatusBarContent: Equatable {
         commitKey: PanelShortcut?,
         commitAndSendKey: PanelShortcut?
     ) -> Entry? {
-        // @note p0-431
         switch item {
         case .lineBreak:
             return .keyHint(item: item, key: "↩", label: String(localized: "改行"))
@@ -67,7 +60,6 @@ struct PanelStatusBarContent: Equatable {
             guard let key = commitAndSendKey?.displayText else { return nil }
             return .keyHint(item: item, key: key, label: String(localized: "確定+送信"))
         case .characterCount:
-            // @note p0-432
             let count = TextStatistics.characterCount(of: text).formatted()
             return .count(item: item, text: String(localized: "\(count)文字"))
         case .lineCount:

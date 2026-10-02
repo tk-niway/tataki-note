@@ -26,17 +26,11 @@ struct TextStatisticsTests {
     @Test("AC-8: 絵文字・濁点付きの文字・結合文字・国旗は、見た目の1文字を1と数える")
     func characterCountCountsGraphemeClusters() {
         let cases: [(text: String, count: Int)] = [
-            // @note p0-1110
             ("👨‍👩‍👧", 1),
-            // @note p0-1111
             ("\u{304B}\u{3099}", 1),
-            // @note p0-1112
             ("が", 1),
-            // @note p0-1113
             ("🇯🇵", 1),
-            // @note p0-1114
             ("👍🏽", 1),
-            // @note p0-1115
             ("e\u{0301}", 1),
             ("a👨‍👩‍👧b\n🇯🇵", 4),
         ]

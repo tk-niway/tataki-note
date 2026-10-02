@@ -3,14 +3,12 @@ import SwiftUI
 import Testing
 @testable import TatakiNote
 
-/// @note p0-1038
 @MainActor
 final class LineEditingTextViewDelegate: NSObject, NSTextViewDelegate {
     let textUndoManager = UndoManager()
     private(set) var textDidChangeCount = 0
 
     override init() {
-        // @note p0-1039
         textUndoManager.groupsByEvent = false
         super.init()
     }
@@ -24,7 +22,6 @@ final class LineEditingTextViewDelegate: NSObject, NSTextViewDelegate {
     }
 }
 
-/// @note p0-1040
 @MainActor
 final class LineEditingTextViewFixture {
     let textView = PromptTextView()
@@ -41,7 +38,6 @@ final class LineEditingTextViewFixture {
         textView.setSelectedRange(selection)
     }
 
-    /// @note p0-1041
     var marked: String {
         MarkedText.render(textView.string, selection: textView.selectedRange())
     }
@@ -50,7 +46,6 @@ final class LineEditingTextViewFixture {
         delegate.textUndoManager
     }
 
-    /// @note p0-1042
     func writeFullLine(_ line: String) {
         pasteboard.clearContents()
         pasteboard.declareTypes([.string, LineEditing.fullLinePasteboardType], owner: nil)
@@ -102,7 +97,6 @@ struct PromptTextViewLineEditingTests {
         #expect(selected.textView.string == "b\na")
         #expect(selected.textView.selectedRange() == NSRange(location: 2, length: 1))
 
-        // @note p0-1043
         let expanded = LineEditingTextViewFixture("|a\nb")
         defer { expanded.pasteboard.releaseGlobally() }
         expanded.textView.expandLineSelection()
@@ -138,7 +132,6 @@ struct PromptTextViewLineEditingTests {
         #expect(middle.pasteboard.string(forType: .string) == "beta\n")
         #expect(middle.hasFullLineMark)
 
-        // @note p0-1044
         let last = LineEditingTextViewFixture("alpha\nga|mma")
         defer { last.pasteboard.releaseGlobally() }
         last.textView.cutLineOrSelection()
@@ -179,7 +172,6 @@ struct PromptTextViewLineEditingTests {
         english.textView.selectWordAtCursor()
         #expect(english.marked == "[hello] world")
 
-        // @note p0-1045
         let japanese = LineEditingTextViewFixture("日|本語の文章")
         defer { japanese.pasteboard.releaseGlobally() }
         japanese.textView.selectWordAtCursor()
@@ -274,7 +266,6 @@ struct PromptTextViewLineEditingTests {
     }
 }
 
-/// @note p0-1046
 private final class DraftBox {
     var text = ""
 }

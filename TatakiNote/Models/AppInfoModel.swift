@@ -1,13 +1,10 @@
 import Foundation
 import Observation
 
-/// @note p0-150
+/// 設定画面の「アプリ情報」の状態(バージョン・アクセシビリティの許可の状態)。
 @Observable final class AppInfoModel {
-    /// @note p0-151
     let version: String?
-    /// @note p0-152
     let build: String?
-    /// @note p0-153
     let permissionStatus: PermissionGuideModel
 
     init(infoDictionary: [String: Any], permissionStatus: PermissionGuideModel) {
@@ -16,7 +13,6 @@ import Observation
         self.permissionStatus = permissionStatus
     }
 
-    /// @note p0-154
     var versionText: String {
         let unknown = String(localized: "不明")
         guard version != nil || build != nil else { return unknown }
@@ -25,11 +21,9 @@ import Observation
         return String(localized: "\(versionPart) (\(buildPart))")
     }
 
-    /// @note p0-155
     func watchPermission(interval: Duration = .seconds(1)) async {
         while !Task.isCancelled {
             permissionStatus.refresh()
-            // @note p0-156
             try? await Task.sleep(for: interval)
         }
     }

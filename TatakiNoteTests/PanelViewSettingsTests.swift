@@ -3,7 +3,6 @@ import SwiftUI
 import Testing
 @testable import TatakiNote
 
-/// @note p0-1002
 @MainActor
 private final class PanelViewHarness {
     let settings: AppSettings
@@ -13,7 +12,6 @@ private final class PanelViewHarness {
     private let suiteName = UUID().uuidString
     private let defaults: UserDefaults
 
-    /// @note p0-1003
     init(configure: (AppSettings) -> Void = { _ in }) throws {
         defaults = try #require(UserDefaults(suiteName: suiteName))
         settings = AppSettings(store: SettingsStore(defaults: defaults))
@@ -22,7 +20,6 @@ private final class PanelViewHarness {
         hostingView = NSHostingView(
             rootView: PanelView(model: model, settings: settings, onKeyInput: { _ in false }, onClose: {})
         )
-        // @note p0-1004
         hostingView.sizingOptions = []
         panel.contentView = hostingView
         panel.setContentSize(PanelMetrics.defaultSize)
@@ -33,7 +30,6 @@ private final class PanelViewHarness {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    /// @note p0-1005
     func settle() {
         for _ in 0..<3 {
             RunLoop.current.run(until: Date().addingTimeInterval(0.01))
@@ -41,7 +37,6 @@ private final class PanelViewHarness {
         }
     }
 
-    /// @note p0-1006
     @discardableResult
     func settle(until condition: () -> Bool) -> Bool {
         let deadline = Date().addingTimeInterval(2)
@@ -56,12 +51,10 @@ private final class PanelViewHarness {
         Self.firstSubview(of: PromptTextView.self, in: hostingView)
     }
 
-    /// @note p0-1007
     var editorHeight: CGFloat? {
         textView?.enclosingScrollView?.frame.height
     }
 
-    /// @note p0-1008
     var textFonts: [NSFont?] {
         guard let storage = textView?.textStorage else { return [] }
         var fonts: [NSFont?] = []
@@ -86,7 +79,6 @@ private final class PanelViewHarness {
 
 @MainActor
 struct PanelViewSettingsTests {
-    /// @note p0-1009
     private let alphaTolerance: CGFloat = 0.001
 
     @Test("AC-1: 何も設定していなければ、入力欄の文字はシステムフォント 14pt")
@@ -144,7 +136,6 @@ struct PanelViewSettingsTests {
         #expect(textView.string == "abc\nxyz")
         #expect(harness.model.text == "abc\nxyz")
 
-        // @note p0-1010
         harness.settings.panelFontName = nil
         #expect(harness.settle { textView.font == NSFont.systemFont(ofSize: 20) })
         #expect(harness.textFonts == [NSFont.systemFont(ofSize: 20)])
@@ -160,9 +151,7 @@ struct PanelViewSettingsTests {
         harness.model.text = Array(repeating: "line", count: 60).joined(separator: "\n")
         #expect(harness.settle { textView.string.hasPrefix("line\nline") })
 
-        // @note p0-1011
         #expect(harness.editorHeight == heightBefore)
-        // @note p0-1012
         let scrollView = try #require(textView.enclosingScrollView)
         #expect(harness.settle { textView.frame.height > scrollView.contentView.bounds.height })
     }
@@ -175,16 +164,13 @@ struct PanelViewSettingsTests {
         harness.model.text = Array(repeating: "line", count: 60).joined(separator: "\n")
         #expect(harness.settle { textView.string.hasPrefix("line\nline") })
 
-        // @note p0-1013
         textView.scrollRangeToVisible(NSRange(location: 0, length: 0))
         #expect(harness.settle { !textView.visibleRect.contains(CGPoint(x: 0, y: textView.frame.height - 1)) })
 
-        // @note p0-1014
         let end = (textView.string as NSString).length
         textView.setSelectedRange(NSRange(location: end, length: 0))
         textView.insertText("z", replacementRange: NSRange(location: end, length: 0))
 
-        // @note p0-1015
         #expect(harness.settle {
             let newEnd = (textView.string as NSString).length
             guard newEnd > 0, let textContainer = textView.textContainer else { return false }
@@ -250,7 +236,6 @@ struct PanelViewSettingsTests {
         #expect(harness.settle { harness.panel.appearance?.name == .darkAqua })
     }
 
-    // @note p0-1016
 
     @Test("AC-10: 開いたまますべて非表示にすると、帯と区切り線ごと消えて入力欄が帯の高さ + 1 だけ広がり、1つ戻すと帯が戻る")
     func hidingAllItemsRemovesStatusBar() throws {
@@ -262,7 +247,6 @@ struct PanelViewSettingsTests {
         let expectedHeight = heightWithBar + PanelMetrics.statusBarHeight + 1
         #expect(harness.settle { abs((harness.editorHeight ?? 0) - expectedHeight) < 0.5 })
 
-        // @note p0-1017
         harness.settings.setPanelStatusItem(.lineCount, isVisible: true)
         #expect(harness.settle { abs((harness.editorHeight ?? 0) - heightWithBar) < 0.5 })
     }
@@ -273,16 +257,13 @@ struct PanelViewSettingsTests {
         defer { harness.removeDefaults() }
         let heightWithBar = try #require(harness.editorHeight)
 
-        // @note p0-1018
         harness.settings.hiddenPanelStatusItems = [.lineBreak, .close, .characterCount, .lineCount]
         #expect(harness.settle { abs((harness.editorHeight ?? 0) - heightWithBar) < 0.5 })
 
-        // @note p0-1019
         harness.settings.commitAndSendKey = nil
         let expectedHeight = heightWithBar + PanelMetrics.statusBarHeight + 1
         #expect(harness.settle { abs((harness.editorHeight ?? 0) - expectedHeight) < 0.5 })
 
-        // @note p0-1020
         harness.settings.commitKey = .commandReturn
         #expect(harness.settle { abs((harness.editorHeight ?? 0) - heightWithBar) < 0.5 })
     }

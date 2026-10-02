@@ -4,7 +4,6 @@ import Testing
 
 @MainActor
 struct EditorSettingsModelTests {
-    /// @note p0-822
     private func makeSettings(suite name: String) throws -> AppSettings {
         let defaults = try #require(UserDefaults(suiteName: name))
         return AppSettings(store: SettingsStore(defaults: defaults))
@@ -202,7 +201,6 @@ struct EditorSettingsModelTests {
         let settings = try makeSettings(suite: suite)
         let model = EditorSettingsModel(settings: settings)
 
-        // @note p0-833
         #expect(model.statusItemNote(.commit) == .keyNotAssigned)
         #expect(model.statusItemNote(.commitAndSend) == nil)
         for item in [PanelStatusItem.lineBreak, .close, .characterCount, .lineCount] {
@@ -215,7 +213,6 @@ struct EditorSettingsModelTests {
         settings.commitAndSendKey = nil
         #expect(model.statusItemNote(.commitAndSend) == .keyNotAssigned)
 
-        // @note p0-834
         model.setStatusItem(.commitAndSend, isVisible: false)
         #expect(model.statusItemNote(.commitAndSend) == .keyNotAssigned)
     }

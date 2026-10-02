@@ -22,7 +22,6 @@ struct AutoShowLaunchContextTests {
             [:],
             ["HOME": "/Users/test", "PATH": "/usr/bin"],
             ["TATAKINOTE_ACCESSIBILITY_OVERRIDE": "trusted"],
-            // @note p0-789
             ["XCTestSessionIdentifier": "abc", "XCTestManagerVariant": "DDI"],
         ]
         for environment in otherLaunches {

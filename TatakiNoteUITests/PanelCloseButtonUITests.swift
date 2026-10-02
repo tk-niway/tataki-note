@@ -1,11 +1,9 @@
 import XCTest
 
-// @note p0-1234
 final class PanelCloseButtonUITests: XCTestCase {
     private let timeout: TimeInterval = 5
     private let tolerance: CGFloat = 2
 
-    /// @note p0-1235
     private let settingsSuiteName = "TatakiNoteUITests.\(UUID().uuidString)"
 
     override func setUpWithError() throws {
@@ -16,7 +14,6 @@ final class PanelCloseButtonUITests: XCTestCase {
         UserDefaults(suiteName: settingsSuiteName)?.removePersistentDomain(forName: settingsSuiteName)
     }
 
-    // @note p0-1236
     @MainActor
     func testAC1_AC2_closeButtonClosesAndKeepsDraft() throws {
         let app = try launchApp(seed: nil)
@@ -35,7 +32,6 @@ final class PanelCloseButtonUITests: XCTestCase {
     }
 
     // AC-1
-    // @note p0-1237
     @MainActor
     func testAC1_closeButtonVisibleWithoutStatusBar() throws {
         let app = try launchApp(seed: [
@@ -50,7 +46,6 @@ final class PanelCloseButtonUITests: XCTestCase {
     }
 
     // AC-3
-    // @note p0-1238
     @MainActor
     func testAC3_closeButtonKeepsDraggedSize() throws {
         let app = try launchApp(seed: nil)
@@ -72,7 +67,6 @@ final class PanelCloseButtonUITests: XCTestCase {
     private func launchApp(seed: [String: Any]?) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["TATAKINOTE_SETTINGS_SUITE"] = settingsSuiteName
-        // @note p0-1239
         app.launchEnvironment[AccessibilityOverride.key] = AccessibilityOverride.trusted
         if let seed {
             app.launchEnvironment["TATAKINOTE_SETTINGS_SEED"] = try settingsSeedJSON(seed)
@@ -81,24 +75,20 @@ final class PanelCloseButtonUITests: XCTestCase {
         return app
     }
 
-    /// @note p0-1240
     private func settingsSeedJSON(_ values: [String: Any]) throws -> String {
         let data = try JSONSerialization.data(withJSONObject: values, options: [.sortedKeys])
         return String(decoding: data, as: UTF8.self)
     }
 
-    /// @note p0-1241
     @MainActor
     private func openPanel(in app: XCUIApplication) -> XCUIElement {
         openPanelFromMenu(in: app)
         XCTAssertTrue(app.textViews["promptPanel.textView"].waitForExistence(timeout: timeout))
-        // @note p0-1242
         let panel = app.dialogs["promptPanel"]
         XCTAssertTrue(panel.waitForExistence(timeout: timeout), "パネルの窓が見つからない")
         return panel
     }
 
-    /// @note p0-1243
     @MainActor
     private func dragBottomRightCorner(of panel: XCUIElement, by offset: CGVector) {
         let corner = panel.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 1)).withOffset(CGVector(dx: -2, dy: -2))
@@ -134,7 +124,6 @@ final class PanelCloseButtonUITests: XCTestCase {
         clickShownMenuItem(item)
     }
 
-    // @note p0-1244
     @MainActor
     private func clickShownMenuItem(_ item: XCUIElement) {
         let deadline = Date().addingTimeInterval(timeout)
@@ -145,7 +134,6 @@ final class PanelCloseButtonUITests: XCTestCase {
         item.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
     }
 
-    // @note p0-1245
     @MainActor
     private func openPanelMenuItem(in app: XCUIApplication) -> XCUIElement {
         let byIdentifier = app.menuItems["menu.openPanel"]

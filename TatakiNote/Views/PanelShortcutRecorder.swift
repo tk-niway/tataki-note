@@ -1,12 +1,10 @@
 import AppKit
 import SwiftUI
 
-/// @note p0-619
+/// 確定キー・確定+送信キーの記録ボックス。
 struct PanelShortcutRecorder: NSViewRepresentable {
     let displayText: String?
-    /// @note p0-620
     let isRecording: Bool
-    /// @note p0-621
     let isRecordingNow: () -> Bool
     let onBeginRecording: () -> Void
     let onRecord: (PanelShortcutCandidate) -> Bool
@@ -29,7 +27,7 @@ struct PanelShortcutRecorder: NSViewRepresentable {
     }
 }
 
-/// @note p0-622
+/// `PanelShortcutRecorder` の中身。
 final class PanelShortcutRecorderField: NSSearchField, NSSearchFieldDelegate {
     var onBeginRecording: (() -> Void)?
     var onRecord: ((PanelShortcutCandidate) -> Bool)?
@@ -37,7 +35,6 @@ final class PanelShortcutRecorderField: NSSearchField, NSSearchFieldDelegate {
     var onEndRecording: (() -> Void)?
 
     private var isRecordingKeys = false
-    /// @note p0-623
     private var isBeginningRecording = false
     private var localMonitor: Any?
     private var hasRegisteredValue = false
@@ -58,7 +55,6 @@ final class PanelShortcutRecorderField: NSSearchField, NSSearchFieldDelegate {
     private func commonInit() {
         delegate = self
         menu = nil
-        // @note p0-624
         searchMenuTemplate = nil
         (cell as? NSSearchFieldCell)?.searchButtonCell = nil
         sendsSearchStringImmediately = false
@@ -73,11 +69,9 @@ final class PanelShortcutRecorderField: NSSearchField, NSSearchFieldDelegate {
         set {}
     }
 
-    /// @note p0-625
     override var acceptsFirstResponder: Bool { isRecordingKeys }
     override var canBecomeKeyView: Bool { isRecordingKeys }
 
-    /// @note p0-626
     override func hitTest(_ point: NSPoint) -> NSView? {
         super.hitTest(point) == nil ? nil : self
     }
@@ -103,7 +97,6 @@ final class PanelShortcutRecorderField: NSSearchField, NSSearchFieldDelegate {
     func updateDisplay(text: String?, isRecording: Bool) {
         hasRegisteredValue = text != nil
         (cell as? PanelShortcutRecorderCell)?.showsCancelButtonEvenWhenEmpty = hasRegisteredValue
-        // @note p0-627
         if isRecordingKeys, !isRecording, !isBeginningRecording {
             isRecordingKeys = false
             stopMonitoring()
@@ -119,9 +112,7 @@ final class PanelShortcutRecorderField: NSSearchField, NSSearchFieldDelegate {
         isRecordingKeys = true
         isBeginningRecording = true
         defer { isBeginningRecording = false }
-        // @note p0-628
         onBeginRecording?()
-        // @note p0-629
         stringValue = ""
         placeholderString = recordingPlaceholder
         startMonitoring()
@@ -155,7 +146,6 @@ final class PanelShortcutRecorderField: NSSearchField, NSSearchFieldDelegate {
 
     private func handleMonitoredEvent(_ event: NSEvent) -> NSEvent? {
         guard isRecordingKeys else {
-            // @note p0-630
             stopMonitoring()
             return event
         }
@@ -201,12 +191,10 @@ final class PanelShortcutRecorderField: NSSearchField, NSSearchFieldDelegate {
         }
     }
 
-    // @note p0-631
     func controlTextDidEndEditing(_ notification: Notification) {
         endRecordingKeys()
     }
 
-    // @note p0-632
     override func viewWillMove(toWindow newWindow: NSWindow?) {
         super.viewWillMove(toWindow: newWindow)
         if newWindow == nil {
@@ -229,7 +217,6 @@ final class PanelShortcutRecorderField: NSSearchField, NSSearchFieldDelegate {
     }
 
     deinit {
-        // @note p0-633
         if let localMonitor {
             NSEvent.removeMonitor(localMonitor)
         }
@@ -237,11 +224,10 @@ final class PanelShortcutRecorderField: NSSearchField, NSSearchFieldDelegate {
     }
 }
 
-/// @note p0-634
+/// 記録中に表記を消していても、登録があれば × ボタンを出すセル。
 final class PanelShortcutRecorderCell: NSSearchFieldCell {
     var showsCancelButtonEvenWhenEmpty = false
 
-    // @note p0-635
     private var retainedCancelButtonCell: NSButtonCell?
 
     override var cancelButtonCell: NSButtonCell? {

@@ -67,10 +67,10 @@ struct PanelShortcutTests {
             [36, "1048576"],
             [true, 1_048_576],
             [36, true],
-            [36, 0], // @note p0-975
-            [36, NSEvent.ModifierFlags.function.rawValue], // @note p0-976
-            [36, -1], // @note p0-977
-            [36.5, 1_048_576], // @note p0-978
+            [36, 0],
+            [36, NSEvent.ModifierFlags.function.rawValue],
+            [36, -1],
+            [36.5, 1_048_576],
         ]
         for value in cases {
             #expect(PanelShortcut(storedValue: value) == nil, "\(value)")

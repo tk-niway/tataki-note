@@ -1,9 +1,8 @@
 import AppKit
 
-/// @note p0-26
+/// アクセシビリティの許可(他のアプリにキーを送るのに要る)。
 protocol AccessibilityPermissionChecking {
     var isTrusted: Bool { get }
-    /// @note p0-27
     func requestSystemPrompt()
 }
 
@@ -18,10 +17,9 @@ struct SystemAccessibilityPermission: AccessibilityPermissionChecking {
     }
 }
 
-/// @note p0-28
+/// 許可の有無を決め打ちで返す(UI テストで使う)。
 struct OverriddenAccessibilityPermission: AccessibilityPermissionChecking {
     let isTrusted: Bool
 
-    /// @note p0-29
     func requestSystemPrompt() {}
 }

@@ -8,10 +8,8 @@ struct PromptTextViewFontTests {
     private let newFont = NSFont.monospacedSystemFont(ofSize: 20, weight: .regular)
     private let otherFont = NSFont.systemFont(ofSize: 26)
 
-    /// @note p0-1029
     private let noReplacement = NSRange(location: NSNotFound, length: 0)
 
-    /// @note p0-1030
     private func makeTextView(_ text: String, font: NSFont) -> PromptTextView {
         let textView = PromptTextView()
         textView.isRichText = false
@@ -21,7 +19,6 @@ struct PromptTextViewFontTests {
         return textView
     }
 
-    /// @note p0-1031
     private func fonts(in textView: PromptTextView) -> [NSFont?] {
         guard let storage = textView.textStorage else { return [] }
         var fonts: [NSFont?] = []
@@ -35,7 +32,6 @@ struct PromptTextViewFontTests {
         textView.typingAttributes[.font] as? NSFont
     }
 
-    /// @note p0-1032
     private func startComposing(_ marked: String, in textView: PromptTextView) {
         textView.setMarkedText(
             marked,
@@ -57,7 +53,6 @@ struct PromptTextViewFontTests {
         #expect(textView.string == "one\ntwo three")
         #expect(textView.selectedRange() == NSRange(location: 4, length: 3))
 
-        // @note p0-1033
         textView.applyFont(newFont)
         #expect(fonts(in: textView) == [newFont])
         #expect(typingFont(of: textView) == newFont)
@@ -76,7 +71,6 @@ struct PromptTextViewFontTests {
         #expect(textView.string == "one!\none!")
         #expect(fonts(in: textView) == [newFont])
 
-        // @note p0-1034
         let empty = makeTextView("", font: oldFont)
         empty.applyFont(otherFont)
         #expect(typingFont(of: empty) == otherFont)
@@ -101,7 +95,6 @@ struct PromptTextViewFontTests {
         #expect(fonts(in: textView) == [newFont])
         #expect(typingFont(of: textView) == newFont)
 
-        // @note p0-1035
         textView.applyFont(newFont)
         #expect(fonts(in: textView) == [newFont])
         #expect(typingFont(of: textView) == newFont)
@@ -109,7 +102,6 @@ struct PromptTextViewFontTests {
 
     @Test("AC-3: 変換中に変わったフォントは、変換を確定する(insertText)と、呼び直さなくても当たる")
     func appliesPendingFontOnInsertText() {
-        // @note p0-1036
         let converted = makeTextView("abc", font: oldFont)
         startComposing("にほんご", in: converted)
         converted.applyFont(newFont)
@@ -121,7 +113,6 @@ struct PromptTextViewFontTests {
         #expect(fonts(in: converted) == [newFont])
         #expect(typingFont(of: converted) == newFont)
 
-        // @note p0-1037
         let unchanged = makeTextView("abc", font: oldFont)
         startComposing("にほんご", in: unchanged)
         unchanged.applyFont(newFont)

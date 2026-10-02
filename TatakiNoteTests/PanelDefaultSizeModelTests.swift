@@ -5,7 +5,6 @@ import os
 import Testing
 @testable import TatakiNote
 
-/// @note p0-907
 @MainActor
 @Observable final class HeldPanelSizeSource {
     var size: CGSize?
@@ -13,13 +12,11 @@ import Testing
 
 @MainActor
 struct PanelDefaultSizeModelTests {
-    /// @note p0-908
     private func makeSettings(suite name: String) throws -> AppSettings {
         let defaults = try #require(UserDefaults(suiteName: name))
         return AppSettings(store: SettingsStore(defaults: defaults))
     }
 
-    /// @note p0-909
     private func makeModel(suite name: String, source: HeldPanelSizeSource? = nil) throws -> PanelDefaultSizeModel {
         let source = source ?? HeldPanelSizeSource()
         return PanelDefaultSizeModel(settings: try makeSettings(suite: name), currentPanelSize: { source.size })
@@ -29,7 +26,6 @@ struct PanelDefaultSizeModelTests {
         UserDefaults(suiteName: name)?.removePersistentDomain(forName: name)
     }
 
-    /// @note p0-910
     private func countCanUseChanges(of model: PanelDefaultSizeModel) -> OSAllocatedUnfairLock<Int> {
         let changes = OSAllocatedUnfairLock(initialState: 0)
         withObservationTracking {
@@ -53,7 +49,6 @@ struct PanelDefaultSizeModelTests {
         #expect(PanelDefaultSizeModel.initialSize == CGSize(width: 520, height: 340))
         #expect(PanelDefaultSizeModel.widthRange == 320...4000)
         #expect(PanelDefaultSizeModel.heightRange == 160...4000)
-        // @note p0-911
         #expect(Double(PanelDefaultSizeModel.widthRange.lowerBound) == PanelMetrics.defaultWidthRange.lowerBound)
         #expect(Double(PanelDefaultSizeModel.widthRange.upperBound) == PanelMetrics.defaultWidthRange.upperBound)
         #expect(Double(PanelDefaultSizeModel.heightRange.lowerBound) == PanelMetrics.defaultHeightRange.lowerBound)
@@ -117,14 +112,12 @@ struct PanelDefaultSizeModelTests {
         model.useCurrentPanelSize()
         #expect(model.width == 700)
         #expect(model.height == 451)
-        // @note p0-912
         #expect(model.canUseCurrentPanelSize)
 
         let relaunched = try makeModel(suite: suite)
         #expect(relaunched.width == 700)
         #expect(relaunched.height == 451)
 
-        // @note p0-913
         source.size = CGSize(width: 5000, height: 100)
         model.useCurrentPanelSize()
         #expect(model.width == 4000)
@@ -139,13 +132,11 @@ struct PanelDefaultSizeModelTests {
         let model = try makeModel(suite: suite, source: source)
         #expect(!model.canUseCurrentPanelSize)
 
-        // @note p0-914
         let afterDrag = countCanUseChanges(of: model)
         source.size = CGSize(width: 600, height: 400)
         #expect(afterDrag.withLock { $0 } == 1)
         #expect(model.canUseCurrentPanelSize)
 
-        // @note p0-915
         let afterInsert = countCanUseChanges(of: model)
         source.size = nil
         #expect(afterInsert.withLock { $0 } == 1)
@@ -170,7 +161,6 @@ struct PanelDefaultSizeModelTests {
         #expect(relaunched.width == 520)
         #expect(relaunched.height == 340)
 
-        // @note p0-916
         relaunched.resetToInitial()
         #expect(relaunched.width == 520)
         #expect(relaunched.height == 340)

@@ -1,24 +1,20 @@
 import AppKit
 import SwiftUI
 
-/// @note p0-646
+/// パネルの中身。
 struct PanelView: View {
     @Bindable var model: PanelModel
-    /// @note p0-647
     let settings: AppSettings
     let onKeyInput: (PanelKeyInput) -> Bool
     let onClose: () -> Void
 
-    /// @note p0-648
     private static let placeholderInset = NSSize(
         width: PanelMetrics.textContainerInset.width + NSTextContainer().lineFragmentPadding,
         height: PanelMetrics.textContainerInset.height
     )
 
-    /// @note p0-649
     private static let closeButtonHitSize: CGFloat = 20
 
-    /// @note p0-650
     private static let titleText = "TatakiNote"
 
     var body: some View {
@@ -38,7 +34,6 @@ struct PanelView: View {
                             .accessibilityHidden(true)
                     }
                 }
-            // @note p0-651
             if !content.isEmpty {
                 Divider()
                 PanelStatusBar(content: content)
@@ -46,11 +41,8 @@ struct PanelView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor).ignoresSafeArea())
-        // @note p0-652
         .windowStyle(theme: settings.theme, opacity: settings.panelOpacity)
-        // @note p0-653
         .overlay(alignment: .top) {
-            // @note p0-654
             Text(Self.titleText)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.secondary)
@@ -81,7 +73,6 @@ struct PanelView: View {
         .accessibilityIdentifier("promptPanel.closeButton")
     }
 
-    /// @note p0-655
     private struct CloseButtonStyle: ButtonStyle {
         @State private var isHovering = false
 
@@ -92,7 +83,6 @@ struct PanelView: View {
         }
     }
 
-    /// @note p0-656
     private var statusBarContent: PanelStatusBarContent {
         PanelStatusBarContent(
             text: model.text,

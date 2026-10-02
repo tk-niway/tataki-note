@@ -1,19 +1,15 @@
 import AppKit
 import UserNotifications
 
-/// @note p0-92
+/// 挿入できなかったことを利用者に伝える内容。
 struct InsertionFailureNotice: Equatable {
     enum Reason: Equatable {
-        /// @note p0-93
         case noTarget
-        /// @note p0-94
         case targetNotActivated(appName: String?)
-        /// @note p0-95
         case noTextInput(appName: String?)
     }
 
     var reason: Reason
-    /// @note p0-96
     var isDraftKept: Bool
 
     var title: String {
@@ -31,7 +27,6 @@ struct InsertionFailureNotice: Equatable {
         case .targetNotActivated(let appName?):
             return String(localized: "“\(appName)”に挿入できませんでした。")
         case .targetNotActivated(nil):
-            // @note p0-97
             return String(localized: "挿入先のアプリに挿入できませんでした。")
         case .noTextInput(let appName?):
             return String(localized: "“\(appName)”で入力欄が選ばれていませんでした。")
@@ -52,21 +47,18 @@ protocol InsertionFailureNotifying {
     func notify(_ notice: InsertionFailureNotice) async
 }
 
-/// @note p0-98
+/// 通知を出せるか。
 enum NotificationAvailability: Equatable {
     case available
-    /// @note p0-99
     case notDetermined
     case unavailable
 
     init(authorizationStatus: UNAuthorizationStatus, alertSetting: UNNotificationSetting, alertStyle: UNAlertStyle) {
-        // @note p0-100
         if authorizationStatus == .notDetermined {
             self = .notDetermined
         } else if authorizationStatus == .authorized && alertSetting == .enabled && alertStyle != .none {
             self = .available
         } else {
-            // @note p0-101
             self = .unavailable
         }
     }
@@ -78,9 +70,8 @@ protocol UserNotificationPosting {
     func post(title: String, body: String, identifier: String) async throws
 }
 
-/// @note p0-102
+/// 挿入できなかったことを通知で伝える。通知が出せないときはビープ音を鳴らす。
 final class InsertionFailureNotifier: InsertionFailureNotifying {
-    /// @note p0-103
     static let notificationIdentifier = "insertionFailed"
 
     private let poster: UserNotificationPosting
@@ -97,7 +88,6 @@ final class InsertionFailureNotifier: InsertionFailureNotifying {
             beep()
             return
         case .notDetermined:
-            // @note p0-104
             guard await poster.requestAuthorization() else {
                 beep()
                 return
@@ -113,19 +103,17 @@ final class InsertionFailureNotifier: InsertionFailureNotifying {
     }
 }
 
-/// @note p0-105
+/// 通知センターで通知を出す。
 final class SystemUserNotificationPoster: NSObject, UserNotificationPosting, UNUserNotificationCenterDelegate {
     private let center: UNUserNotificationCenter
 
     init(center: UNUserNotificationCenter = .current()) {
         self.center = center
         super.init()
-        // @note p0-106
         center.delegate = self
     }
 
     func availability() async -> NotificationAvailability {
-        // @note p0-107
         let settings = await center.notificationSettings()
         return NotificationAvailability(
             authorizationStatus: settings.authorizationStatus,
@@ -135,7 +123,6 @@ final class SystemUserNotificationPoster: NSObject, UserNotificationPosting, UNU
     }
 
     func requestAuthorization() async -> Bool {
-        // @note p0-108
         (try? await center.requestAuthorization(options: [.alert])) ?? false
     }
 
@@ -143,12 +130,10 @@ final class SystemUserNotificationPoster: NSObject, UserNotificationPosting, UNU
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        // @note p0-109
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
         try await center.add(request)
     }
 
-    // @note p0-110
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification

@@ -9,7 +9,6 @@ struct SettingsSectionTests {
         #expect(SettingsSection.allCases == [.general, .editor, .appInfo])
         #expect(SettingsSection.allCases.map(\.displayName) == ["一般", "エディタ設定", "アプリ情報"])
         #expect(SettingsSection.allCases.map(\.systemImage) == ["gearshape", "textformat", "info.circle"])
-        // @note p0-1047
         #expect(SettingsSection.allCases.map(\.rawValue) == ["general", "editor", "appInfo"])
     }
 
@@ -32,7 +31,6 @@ struct SettingsSectionTests {
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
 
-        // @note p0-1048
         let controller = SettingsWindowController(
             settings: settings,
             launchAtLogin: LaunchAtLoginModel(service: InMemoryLoginItemService()),

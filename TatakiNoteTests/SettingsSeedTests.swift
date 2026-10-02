@@ -156,7 +156,6 @@ struct SettingsSeedTests {
 
     @Test("AC-13: suite の指定が無ければ、設定の値があっても suite を作らず標準の保存先を返し、何も書かない")
     func settingsDefaultsDoesNotSeedStandard() {
-        // @note p0-1050
         var requestedNames: [String] = []
         let defaults = AppLaunchContext.settingsDefaults(environment: [SettingsSeed.environmentKey: "{"]) { requested in
             requestedNames.append(requested)

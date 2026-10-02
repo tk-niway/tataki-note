@@ -7,7 +7,6 @@ struct TargetWindowLocatorTests {
     private let targetPID: pid_t = 101
     private let otherPID: pid_t = 202
 
-    /// @note p0-1101
     private func window(pid: pid_t, layer: Int, bounds: CGRect) -> [String: Any] {
         [
             kCGWindowOwnerPID as String: NSNumber(value: pid),
@@ -20,12 +19,9 @@ struct TargetWindowLocatorTests {
     func picksFirstNormalWindowOfTarget() {
         let expected = CGRect(x: 100, y: 200, width: 800, height: 600)
         let windowList: [[String: Any]] = [
-            // @note p0-1102
             window(pid: otherPID, layer: 0, bounds: CGRect(x: 0, y: 0, width: 300, height: 300)),
-            // @note p0-1103
             window(pid: targetPID, layer: 101, bounds: CGRect(x: 10, y: 10, width: 200, height: 400)),
             window(pid: targetPID, layer: 0, bounds: expected),
-            // @note p0-1104
             window(pid: targetPID, layer: 0, bounds: CGRect(x: 2000, y: 0, width: 800, height: 600)),
         ]
 
@@ -55,7 +51,6 @@ struct TargetWindowLocatorTests {
                 kCGWindowOwnerPID as String: NSNumber(value: targetPID),
                 kCGWindowLayer as String: NSNumber(value: 0),
             ],
-            // @note p0-1105
             [
                 kCGWindowOwnerPID as String: NSNumber(value: targetPID),
                 kCGWindowBounds as String: CGRect(x: 0, y: 0, width: 10, height: 10).dictionaryRepresentation,
@@ -79,7 +74,6 @@ struct TargetWindowLocatorTests {
 
     @Test("AC-5, AC-7: 選んだウィンドウの枠を左下が原点の座標に直すと、重なりの大きい画面が選ばれる")
     func selectedWindowLeadsToScreen() {
-        // @note p0-1106
         let screenA = ScreenGeometry(
             frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
             visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 875)
@@ -88,7 +82,6 @@ struct TargetWindowLocatorTests {
             frame: CGRect(x: 1440, y: 0, width: 1920, height: 1080),
             visibleFrame: CGRect(x: 1440, y: 0, width: 1920, height: 1055)
         )
-        // @note p0-1107
         let windowList = [window(pid: targetPID, layer: 0, bounds: CGRect(x: 2000, y: 700, width: 800, height: 200))]
 
         let bounds = TargetWindowLocator.frontWindowBounds(in: windowList, processIdentifier: targetPID)

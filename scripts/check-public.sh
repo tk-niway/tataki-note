@@ -17,12 +17,9 @@
 #   - `// MARK: <見出し>`
 #   - 宣言の直前の `///`(private・fileprivate でない、外から呼ばれる型・メソッド・プロパティなどの説明)
 #   - テストの受け入れ条件の目印 `// AC-<番号>`
-#   - `// @note p<N>-<k>`(古い形。ALLOW_NOTE_IDS=1 の間だけ)
 #   `/* */` は使わない。コメントに TODO・今後の予定・一時的な対応の印を書かない。
 # - どのファイルにも、コミットメッセージにも、手元の作業場所のパスを書かない。
 set -euo pipefail
-
-ALLOW_NOTE_IDS=1
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SELF="scripts/check-public.sh"
@@ -145,7 +142,7 @@ if [ -s "$LIST" ]; then
     swift_paths=()
     while IFS=$'\t' read -r _ path; do swift_paths+=("$path"); done <"$TMP/swift"
     # shellcheck disable=SC2016
-    LC_ALL=C awk -v allow_note="$ALLOW_NOTE_IDS" -v words="$COMMENT_WORDS_RE" '
+    LC_ALL=C awk -v words="$COMMENT_WORDS_RE" '
       # lex(行) … 文字列・ブロックコメントの外で最初に現れる // の位置を CPOS に(無ければ 0)、
       #   /* を含めば HAS_BLOCK を 1 に。複数行の文字列とブロックコメントは ML / BLK で次の行へ持ち越す
       function lex(s,   i, n, c, c2, j) {
@@ -212,9 +209,7 @@ if [ -s "$LIST" ]; then
           text = substr(line, CPOS + 2); doc = 0
           if (substr(text, 1, 1) == "/") { doc = 1; text = substr(text, 2) }
           text = trim(text)
-          if (allow_note && text ~ /^@note p[0-9]+-[0-9]+$/) {
-            # 古い形の ID。中身はコードの外にあるので、そのまま通す
-          } else if (!doc && text ~ /^MARK:/) {
+          if (!doc && text ~ /^MARK:/) {
             if (text ~ words) report(name, FNR, "コメントに予定や一時的な対応を書きません: " text)
           } else if (!doc && text ~ /^AC-[0-9]+([ ,]+AC-[0-9]+)*$/) {
             # テストの受け入れ条件の目印

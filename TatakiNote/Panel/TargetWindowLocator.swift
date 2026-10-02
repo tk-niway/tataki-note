@@ -1,11 +1,9 @@
 import AppKit
 
-/// @note p0-513
+/// 挿入先のアプリの最前面のウィンドウの位置を、ウィンドウの一覧から求める。
 enum TargetWindowLocator {
-    /// @note p0-514
     static func frontWindowBounds(in windowList: [[String: Any]], processIdentifier: pid_t) -> CGRect? {
         for window in windowList {
-            // @note p0-515
             guard let owner = window[kCGWindowOwnerPID as String] as? NSNumber,
                   owner.int32Value == processIdentifier
             else { continue }
@@ -16,7 +14,6 @@ enum TargetWindowLocator {
         return nil
     }
 
-    /// @note p0-516
     private static func rect(from value: Any?) -> CGRect? {
         guard let dictionary = value as? [String: Any],
               ["X", "Y", "Width", "Height"].allSatisfy({ dictionary[$0] is NSNumber })
@@ -24,7 +21,6 @@ enum TargetWindowLocator {
         return CGRect(dictionaryRepresentation: dictionary as CFDictionary)
     }
 
-    /// @note p0-517
     static func frontWindowFrame(processIdentifier: pid_t) -> CGRect? {
         guard let windowList = CGWindowListCopyWindowInfo(
             [.optionOnScreenOnly, .excludeDesktopElements],

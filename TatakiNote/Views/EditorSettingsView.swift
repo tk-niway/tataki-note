@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// @note p0-600
+/// 設定画面の「エディタ設定」。
 struct EditorSettingsView: View {
     @Bindable var settings: AppSettings
     @Bindable var model: EditorSettingsModel
@@ -73,7 +73,6 @@ struct EditorSettingsView: View {
                         HStack(spacing: 16) {
                             HStack(spacing: 6) {
                                 Text("幅")
-                                // @note p0-602
                                 TextField("幅", value: $panelDefaultSize.width, format: .number.grouping(.never))
                                     .labelsHidden()
                                     .multilineTextAlignment(.trailing)
@@ -109,7 +108,6 @@ struct EditorSettingsView: View {
                                 .accessibilityIdentifier("settings.panelDefaultHeightStepper")
                             }
                         }
-                        // @note p0-603
                         Button("今のパネルの大きさを既定にする") {
                             panelDefaultSize.useCurrentPanelSize()
                         }
@@ -132,7 +130,6 @@ struct EditorSettingsView: View {
                         Toggle(item.displayName, isOn: statusItemBinding(item))
                             .toggleStyle(.checkbox)
                             .accessibilityIdentifier("settings.statusItem.\(item.rawValue)")
-                        // @note p0-604
                         if model.statusItemNote(item) == .keyNotAssigned {
                             SettingDescription(text: "キーを登録していないあいだは帯に出ません")
                                 .padding(.leading, 20)
@@ -146,7 +143,6 @@ struct EditorSettingsView: View {
 
             LabeledContent("ショートカットキー") {
                 VStack(alignment: .leading, spacing: 6) {
-                    // @note p0-605
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(EditorShortcuts.all) { shortcut in
                             if shortcut.id != EditorShortcuts.all.first?.id {

@@ -1,18 +1,14 @@
 import AppKit
 import SwiftUI
 
-/// @note p0-708
+/// 載せた窓に外観(テーマ)と透明度を当てる、大きさを持たないビュー。
 final class WindowStyleApplierView: NSView {
-    /// @note p0-709
     static let alphaTolerance: CGFloat = 0.001
 
-    /// @note p0-710
     var appearanceName: NSAppearance.Name?
 
-    /// @note p0-711
     var windowAlphaValue: CGFloat?
 
-    /// @note p0-712
     func apply() {
         guard let window else { return }
         if window.appearance?.name != appearanceName {
@@ -29,14 +25,13 @@ final class WindowStyleApplierView: NSView {
     }
 }
 
-/// @note p0-713
+/// `WindowStyleApplierView` を SwiftUI に置くための部品。
 struct WindowStyleApplier: NSViewRepresentable {
     let appearanceName: NSAppearance.Name?
     let windowAlphaValue: CGFloat?
 
     func makeNSView(context: Context) -> WindowStyleApplierView {
         let view = WindowStyleApplierView()
-        // @note p0-714
         view.appearanceName = appearanceName
         view.windowAlphaValue = windowAlphaValue
         return view
@@ -50,7 +45,6 @@ struct WindowStyleApplier: NSViewRepresentable {
 }
 
 extension View {
-    /// @note p0-715
     func windowStyle(theme: AppTheme, opacity: Double? = nil) -> some View {
         background {
             WindowStyleApplier(

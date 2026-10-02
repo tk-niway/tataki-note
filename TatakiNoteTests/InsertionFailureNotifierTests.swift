@@ -4,7 +4,6 @@ import UserNotifications
 
 struct NotificationPostError: Error {}
 
-/// @note p0-878
 @MainActor
 final class UserNotificationPosterStub: UserNotificationPosting {
     var availabilityValue: NotificationAvailability

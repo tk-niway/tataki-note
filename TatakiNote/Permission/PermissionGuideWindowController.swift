@@ -1,14 +1,12 @@
 import AppKit
 import SwiftUI
 
-/// @note p0-520
+/// アクセシビリティの許可の案内のウィンドウ。
 final class PermissionGuideWindowController: NSObject, NSWindowDelegate {
     let model: PermissionGuideModel
 
-    /// @note p0-521
     private let settings: AppSettings
     private var window: NSWindow?
-    /// @note p0-522
     private var refreshTimer: Timer?
 
     init(model: PermissionGuideModel, settings: AppSettings) {
@@ -17,13 +15,11 @@ final class PermissionGuideWindowController: NSObject, NSWindowDelegate {
         super.init()
     }
 
-    /// @note p0-523
     func show(reason: PermissionGuideReason) {
         model.present(reason: reason)
         bringWindowToFront()
     }
 
-    /// @note p0-524
     func showOnLaunchIfNeeded() {
         guard model.presentOnLaunchIfNeeded() else { return }
         bringWindowToFront()
@@ -33,7 +29,6 @@ final class PermissionGuideWindowController: NSObject, NSWindowDelegate {
         window?.close()
     }
 
-    // @note p0-525
     func windowWillClose(_ notification: Notification) {
         stopRefreshing()
         model.dismiss()
@@ -46,21 +41,17 @@ final class PermissionGuideWindowController: NSObject, NSWindowDelegate {
         } else {
             window = makeWindow()
             self.window = window
-            // @note p0-526
             if let contentView = window.contentView {
                 window.setContentSize(contentView.fittingSize)
             }
             window.center()
         }
-        // @note p0-527
         NSApp.activate()
         window.makeKeyAndOrderFront(nil)
-        // @note p0-528
         window.orderFrontRegardless()
         startRefreshing()
     }
 
-    /// @note p0-529
     func makeWindow() -> NSWindow {
         let window = NSWindow(
             contentRect: .zero,
@@ -72,7 +63,6 @@ final class PermissionGuideWindowController: NSObject, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.identifier = NSUserInterfaceItemIdentifier("permissionGuide")
-        // @note p0-530
         window.contentView = NSHostingView(
             rootView: PermissionGuideRootView(
                 settings: settings,
@@ -90,7 +80,6 @@ final class PermissionGuideWindowController: NSObject, NSWindowDelegate {
                 self?.model.refresh()
             }
         }
-        // @note p0-531
         RunLoop.main.add(timer, forMode: .common)
         refreshTimer = timer
     }
@@ -101,7 +90,6 @@ final class PermissionGuideWindowController: NSObject, NSWindowDelegate {
     }
 }
 
-/// @note p0-532
 private struct PermissionGuideRootView: View {
     let settings: AppSettings
     let model: PermissionGuideModel

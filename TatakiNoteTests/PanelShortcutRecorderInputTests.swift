@@ -33,7 +33,7 @@ struct PanelShortcutRecorderInputTests {
         #expect(PanelShortcutRecorderInput.action(keyCode: 40, modifiers: []) == .record)
         #expect(PanelShortcutRecorderInput.action(keyCode: 40, modifiers: [.command]) == .record)
         #expect(PanelShortcutRecorderInput.action(keyCode: KeyCode.returnKey, modifiers: []) == .record)
-        #expect(PanelShortcutRecorderInput.action(keyCode: 48, modifiers: []) == .record) // @note p0-971
+        #expect(PanelShortcutRecorderInput.action(keyCode: 48, modifiers: []) == .record)
     }
 
     @Test("AC-27: isOutsideClick は、別の窓なら常に外")
@@ -45,12 +45,9 @@ struct PanelShortcutRecorderInputTests {
     @Test("AC-27: isOutsideClick は、同じ窓で記録ボックスの枠(少し広げた範囲)の外なら外")
     func outsideClickWithinSameWindow() {
         let bounds = CGRect(x: 0, y: 0, width: 160, height: 22)
-        // @note p0-972
         #expect(!PanelShortcutRecorderInput.isOutsideClick(location: CGPoint(x: 80, y: 11), recorderBounds: bounds, isSameWindow: true))
-        // @note p0-973
         #expect(!PanelShortcutRecorderInput.isOutsideClick(location: CGPoint(x: -1, y: 11), recorderBounds: bounds, isSameWindow: true))
         #expect(!PanelShortcutRecorderInput.isOutsideClick(location: CGPoint(x: 161, y: 11), recorderBounds: bounds, isSameWindow: true))
-        // @note p0-974
         #expect(PanelShortcutRecorderInput.isOutsideClick(location: CGPoint(x: -10, y: 11), recorderBounds: bounds, isSameWindow: true))
         #expect(PanelShortcutRecorderInput.isOutsideClick(location: CGPoint(x: 80, y: 100), recorderBounds: bounds, isSameWindow: true))
     }

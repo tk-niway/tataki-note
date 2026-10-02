@@ -36,9 +36,7 @@ struct PanelStatusItemTests {
             (.commandReturn, nil, [], [.close, .lineBreak, .commit, .characterCount, .lineCount]),
             (nil, nil, [], [.close, .lineBreak, .characterCount, .lineCount]),
             (.shiftReturn, .commandReturn, [], PanelStatusItem.allCases),
-            // @note p0-997
             (nil, nil, [.close], [.lineBreak, .characterCount, .lineCount]),
-            // @note p0-998
             (nil, nil, [.lineBreak, .close, .characterCount, .lineCount], []),
         ]
         for (commitKey, commitAndSendKey, hidden, expected) in cases {

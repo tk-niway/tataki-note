@@ -1,12 +1,10 @@
-/// @note p0-312
+/// 以前の版で保存した確定キー・確定+送信キーの値を `PanelShortcut?` に読み替える。
 enum PanelActionKey: String, CaseIterable, Sendable {
     case shiftEnter
     case commandEnter
     case commandShiftEnter
-    /// @note p0-313
     case none
 
-    /// @note p0-314
     var shortcut: PanelShortcut? {
         switch self {
         case .shiftEnter: .shiftReturn

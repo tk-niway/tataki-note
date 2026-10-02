@@ -1,24 +1,20 @@
 import AppKit
 
-/// @note p0-30
+/// 確定の結果。
 enum CommitOutcome: Equatable {
-    /// @note p0-31
     case inserted
-    /// @note p0-32
     case notInserted
 }
 
-/// @note p0-33
+/// 確定の後、パネルを閉じてから行う処理。
 final class CommitPerformer {
     private let model: PanelModel
     private let permission: AccessibilityPermissionChecking
     private let inserter: TextInserting
     private let notifier: InsertionFailureNotifying
 
-    /// @note p0-34
     var onPermissionDenied: (() -> Void)?
 
-    // @note p0-35
     init(
         model: PanelModel,
         permission: AccessibilityPermissionChecking,
@@ -31,21 +27,18 @@ final class CommitPerformer {
         self.notifier = notifier
     }
 
-    /// @note p0-36
     @discardableResult
     func perform(_ plan: CommitPlan, shouldSendAfterInsert: Bool = false) async -> CommitOutcome {
         switch plan {
         case .dismissOnly:
             break
         case .permissionDenied:
-            // @note p0-37
             if let onPermissionDenied {
                 onPermissionDenied()
             } else {
                 permission.requestSystemPrompt()
             }
         case .noTarget:
-            // @note p0-38
             await notifier.notify(InsertionFailureNotice(reason: .noTarget, isDraftKept: true))
         case .insert(let text, let target):
             let reason: InsertionFailureNotice.Reason

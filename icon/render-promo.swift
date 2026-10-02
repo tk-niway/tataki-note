@@ -1,4 +1,3 @@
-// @note p0-1509
 import AppKit
 
 let iconDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
@@ -24,7 +23,6 @@ func hiragino(_ weight: String, _ size: CGFloat) -> NSFont {
     NSFont(name: "HiraginoSans-\(weight)", size: size) ?? .systemFont(ofSize: size)
 }
 
-/// @note p0-1510
 func render(_ name: String, width: Int, height: Int, draw: (CGSize) -> Void) throws {
     let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
                                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
@@ -38,7 +36,6 @@ func render(_ name: String, width: Int, height: Int, draw: (CGSize) -> Void) thr
     print("書き出しました: \(outDir.appendingPathComponent(name).path)")
 }
 
-/// @note p0-1511
 func drawIcon(in rect: CGRect) {
     NSGraphicsContext.saveGraphicsState()
     let shadow = NSShadow()
@@ -50,7 +47,6 @@ func drawIcon(in rect: CGRect) {
     NSGraphicsContext.restoreGraphicsState()
 }
 
-/// @note p0-1512
 func drawBackground(_ size: CGSize, sheets: [(center: CGPoint, scale: CGFloat, degrees: CGFloat)]) {
     NSGradient(starting: color(0xF7FCEC), ending: color(0xE2F2CC))!
         .draw(in: CGRect(origin: .zero, size: size), angle: -35)
@@ -66,12 +62,10 @@ func drawBackground(_ size: CGSize, sheets: [(center: CGPoint, scale: CGFloat, d
     }
 }
 
-// @note p0-1513
 try render("icon-1024.png", width: 1024, height: 1024) { size in
     drawIcon(in: CGRect(origin: .zero, size: size))
 }
 
-// @note p0-1514
 try render("banner-1200x630.png", width: 1200, height: 630) { size in
     drawBackground(size, sheets: [
         (CGPoint(x: 1120, y: 560), 0.9, 18),
@@ -87,7 +81,6 @@ try render("banner-1200x630.png", width: 1200, height: 630) { size in
     }
 }
 
-// @note p0-1515
 try render("square-1080.png", width: 1080, height: 1080) { size in
     drawBackground(size, sheets: [
         (CGPoint(x: 990, y: 980), 0.9, 18),

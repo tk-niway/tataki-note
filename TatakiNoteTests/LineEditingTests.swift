@@ -2,7 +2,6 @@ import AppKit
 import Testing
 @testable import TatakiNote
 
-/// @note p0-892
 @MainActor
 enum MarkedText {
     static func parse(_ marked: String) -> (text: String, selection: NSRange) {
@@ -39,7 +38,6 @@ enum MarkedText {
         return before + "[" + string.substring(with: selection) + "]" + after
     }
 
-    /// @note p0-893
     static func applying(_ edit: LineEdit, to text: String) -> String {
         let string = text as NSString
         guard NSMaxRange(edit.range) <= string.length else {
@@ -103,7 +101,6 @@ struct LineEditingTests {
     func selectionEndingAtLineStartExcludesThatLine() {
         #expect(move("o[ne\n]two\nthree", .down) == "two\no[ne\n]three")
         #expect(move("one\nt[wo\n]three", .up) == "t[wo\n]one\nthree")
-        // @note p0-894
         #expect(LineEditing.coveredLines(in: "one\ntwo\nthree", selection: NSRange(location: 1, length: 3)) == NSRange(location: 0, length: 4))
         #expect(LineEditing.coveredLines(in: "one\ntwo\nthree", selection: NSRange(location: 1, length: 4)) == NSRange(location: 0, length: 8))
     }
@@ -293,17 +290,14 @@ struct LineEditingTests {
 
     @Test("AC-17: 空の文章・カーソルが文末・改行で終わる文章でも、規則どおりに振る舞う")
     func edgeTexts() {
-        // @note p0-895
         #expect(move("|", .up) == nil)
         #expect(move("|", .down) == nil)
         #expect(expand("|") == nil)
         #expect(word("|") == nil)
-        // @note p0-896
         #expect(move("one\ntwo|", .down) == nil)
         #expect(move("one\ntwo|", .up) == "two|\none")
         #expect(duplicate("one\ntwo|", .down) == "one\ntwo\ntwo|")
         #expect(expand("one\ntwo|") == "one\n[two]")
-        // @note p0-897
         #expect(move("one\n|", .down) == nil)
         #expect(move("one\n|", .up) == "|\none")
         #expect(duplicate("one\n|", .down) == "one\n\n|")
@@ -386,7 +380,6 @@ struct LineEditingTests {
         }
     }
 
-    /// @note p0-898
     private func expectFits(_ edit: LineEdit, in text: String, _ label: String) {
         let string = text as NSString
         let rangeFits = edit.range.location >= 0 && edit.range.length >= 0 && NSMaxRange(edit.range) <= string.length

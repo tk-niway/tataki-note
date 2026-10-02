@@ -38,7 +38,6 @@ struct InsertionTargetTests {
         let current = NSRunningApplication.current
         let userInfo: [AnyHashable: Any] = [NSWorkspace.applicationUserInfoKey: current]
 
-        // @note p0-879
         let tracker = FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1)
         NSWorkspace.shared.notificationCenter.post(
             name: NSWorkspace.didActivateApplicationNotification,
@@ -50,7 +49,6 @@ struct InsertionTargetTests {
         }
         #expect(tracker.lastActivated == InsertionTarget(current))
 
-        // @note p0-880
         let selfTracker = FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: current.processIdentifier)
         let before = selfTracker.lastActivated
         NSWorkspace.shared.notificationCenter.post(
@@ -59,7 +57,6 @@ struct InsertionTargetTests {
             userInfo: userInfo
         )
         #expect(selfTracker.lastActivated == before)
-        // @note p0-881
         for _ in 0..<10 {
             await Task.yield()
         }
