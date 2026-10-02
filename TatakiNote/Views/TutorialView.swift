@@ -26,7 +26,7 @@ private struct TutorialContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("パネルで書いて、元の入力欄に入れるまでを、下の練習用の入力欄で1段階ずつ試してみましょう。")
+            Text(TutorialModel.introduction)
                 .fixedSize(horizontal: false, vertical: true)
             if model.isShowingOtherTargetWarning {
                 TutorialOtherTargetWarning()
@@ -95,7 +95,7 @@ private struct TutorialOtherTargetWarning: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .symbolRenderingMode(.multicolor)
                 .accessibilityHidden(true)
-            Text("パネルの挿入先が別のアプリになっています。確定せずにパネルを閉じ、練習用の入力欄をクリックしてから開き直してください。")
+            Text(TutorialModel.otherTargetWarning)
                 .font(.system(size: 12))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -141,7 +141,7 @@ private struct TutorialStepRow: View {
         switch step {
         case .openPanel: "パネルを開く"
         case .writeWithNewline: "Enter で改行しながら書く"
-        case .insert: "確定して入力欄に入れる"
+        case .send: "送る"
         case .nextSteps: "次の一歩"
         }
     }
@@ -150,7 +150,7 @@ private struct TutorialStepRow: View {
         switch step {
         case .openPanel: "tutorial.step.openPanel"
         case .writeWithNewline: "tutorial.step.writeWithNewline"
-        case .insert: "tutorial.step.insert"
+        case .send: "tutorial.step.send"
         case .nextSteps: "tutorial.step.nextSteps"
         }
     }
@@ -162,36 +162,28 @@ private struct TutorialStepRow: View {
             Text(model.openPanelInstruction)
                 .fixedSize(horizontal: false, vertical: true)
         case .writeWithNewline:
-            Text("パネルでは Enter が改行になります。途中で送信されることはありません。2行以上の文章を書いてみましょう。")
+            Text(model.writeInstruction)
                 .fixedSize(horizontal: false, vertical: true)
-        case .insert:
-            Text(model.insertInstruction)
+        case .send:
+            Text(model.sendInstruction)
                 .fixedSize(horizontal: false, vertical: true)
         case .nextSteps:
-            TutorialNextSteps(model: model)
+            TutorialNextSteps()
         }
     }
 }
 
 private struct TutorialNextSteps: View {
-    let model: TutorialModel
-
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("これで基本の流れは終わりです。慣れてきたら、次の使い方も試してみてください。")
                 .fixedSize(horizontal: false, vertical: true)
-            TutorialIntroduction(
-                heading: Text("自動表示"),
-                text: Text("設定の「一般」で、入力欄を選ぶだけでパネルを出せます。")
-            )
-            TutorialIntroduction(
-                heading: Text("確定+送信"),
-                text: Text(model.commitAndSendIntroduction)
-            )
-            TutorialIntroduction(
-                heading: Text("ホットキーの変更"),
-                text: Text("設定の「一般」の「パネルを開く・閉じる」で変えられます。")
-            )
+            ForEach(TutorialNextStepIntroduction.allCases, id: \.self) { introduction in
+                TutorialIntroduction(
+                    heading: Text(introduction.heading),
+                    text: Text(introduction.text)
+                )
+            }
         }
     }
 }
