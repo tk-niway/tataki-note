@@ -35,3 +35,7 @@ macOS 14 以降
 - [書いた文章を挿入する・送信する](docs/features/insert-and-send.md)
 - [入力欄を選んだらパネルを自動で出す](docs/features/auto-show.md)
 - [設定ウィンドウ](docs/features/settings.md)
+
+## 開発
+
+開発に参加する方法は [CONTRIBUTING.md](CONTRIBUTING.md)、リリースの手順は [RELEASING.md](RELEASING.md) にまとめています。
