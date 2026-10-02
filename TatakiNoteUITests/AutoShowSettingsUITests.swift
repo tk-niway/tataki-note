@@ -1,10 +1,8 @@
 import XCTest
 
-// @note p0-1140
 final class AutoShowSettingsUITests: XCTestCase {
     private let timeout: TimeInterval = 5
 
-    /// @note p0-1141
     private let settingsSuiteName = "TatakiNoteUITests.\(UUID().uuidString)"
 
     override func setUpWithError() throws {
@@ -16,22 +14,16 @@ final class AutoShowSettingsUITests: XCTestCase {
     }
 
     // AC-1
-    // @note p0-1142
     // AC-3
-    // @note p0-1143
     // AC-10
-    // @note p0-1144
     // AC-5
-    // @note p0-1145
     // AC-8
-    // @note p0-1146
     @MainActor
     func testAC1_AC3_AC5_AC8_AC10_autoShowSettingsScenario() throws {
         let app = XCUIApplication()
         launch(app)
 
         // AC-1
-        // @note p0-1148
         openSettingsFromMenu(in: app)
         let modePicker = element(in: app, identifier: "settings.autoShowModePicker")
         XCTAssertTrue(modePicker.waitForExistence(timeout: timeout))
@@ -45,7 +37,6 @@ final class AutoShowSettingsUITests: XCTestCase {
         XCTAssertFalse(isChecked(allApps))
         XCTAssertFalse(isChecked(selectedApps))
 
-        // @note p0-1149
         let list = element(in: app, identifier: "settings.autoShowAppList")
         let addButton = element(in: app, identifier: "settings.autoShowAppAdd")
         let removeButton = element(in: app, identifier: "settings.autoShowAppRemove")
@@ -56,7 +47,6 @@ final class AutoShowSettingsUITests: XCTestCase {
         XCTAssertFalse(addButton.isEnabled)
         XCTAssertFalse(removeButton.isEnabled)
 
-        // @note p0-1150
         selectedApps.click()
         XCTAssertTrue(isChecked(selectedApps))
         XCTAssertFalse(isChecked(off))
@@ -64,16 +54,13 @@ final class AutoShowSettingsUITests: XCTestCase {
         XCTAssertFalse(removeButton.isEnabled)
 
         // AC-3
-        // @note p0-1151
         try addFirstRunningApp(in: app, addButton: addButton)
         XCTAssertTrue(waitUntil { self.rowCount(in: list) == 1 })
 
         // AC-10
-        // @note p0-1152
         XCTAssertFalse(removeButton.isEnabled)
 
         // AC-5
-        // @note p0-1153
         firstRow(in: list).click()
         XCTAssertTrue(waitUntil { removeButton.isEnabled })
         removeButton.click()
@@ -81,7 +68,6 @@ final class AutoShowSettingsUITests: XCTestCase {
         XCTAssertFalse(removeButton.isEnabled)
 
         // AC-8
-        // @note p0-1154
         try addFirstRunningApp(in: app, addButton: addButton)
         XCTAssertTrue(waitUntil { self.rowCount(in: list) == 1 })
         allApps.click()
@@ -91,11 +77,9 @@ final class AutoShowSettingsUITests: XCTestCase {
         XCTAssertEqual(rowCount(in: list), 1)
         XCTAssertFalse(removeButton.isEnabled)
 
-        // @note p0-1155
         closeSettings(in: app, picker: modePicker)
     }
 
-    /// @note p0-1157
     @MainActor
     private func launch(_ app: XCUIApplication) {
         app.launchEnvironment["TATAKINOTE_SETTINGS_SUITE"] = settingsSuiteName
@@ -106,7 +90,6 @@ final class AutoShowSettingsUITests: XCTestCase {
 
     // MARK: - 対象のアプリの一覧
 
-    /// @note p0-1158
     @MainActor
     private func rowCount(in list: XCUIElement) -> Int {
         let cells = list.cells.count
@@ -119,7 +102,6 @@ final class AutoShowSettingsUITests: XCTestCase {
         return cell.exists ? cell : list.staticTexts.firstMatch
     }
 
-    /// @note p0-1159
     @MainActor
     private func addFirstRunningApp(in app: XCUIApplication, addButton: XCUIElement) throws {
         XCTAssertTrue(addButton.isEnabled)
@@ -131,7 +113,6 @@ final class AutoShowSettingsUITests: XCTestCase {
         clickShownMenuItem(candidate)
     }
 
-    /// @note p0-1160
     @MainActor
     private func firstCandidate(in app: XCUIApplication, addButton: XCUIElement) -> XCUIElement? {
         let otherTitle = "その他…"
@@ -150,7 +131,6 @@ final class AutoShowSettingsUITests: XCTestCase {
         return nil
     }
 
-    /// @note p0-1161
     @MainActor
     private func firstCandidate(among items: [XCUIElement], excluding otherTitle: String) -> XCUIElement? {
         items.first { !$0.title.isEmpty && $0.title != otherTitle }
@@ -171,7 +151,6 @@ final class AutoShowSettingsUITests: XCTestCase {
         return radioButton.isSelected
     }
 
-    /// @note p0-1162
     @MainActor
     private func waitUntil(_ condition: () -> Bool) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
@@ -201,7 +180,6 @@ final class AutoShowSettingsUITests: XCTestCase {
         statusItem.click()
     }
 
-    // @note p0-1163
     @MainActor
     private func openSettingsFromMenu(in app: XCUIApplication) {
         openMenu(in: app)
@@ -211,7 +189,6 @@ final class AutoShowSettingsUITests: XCTestCase {
         app.revealInSettings(element(in: app, identifier: "settings.autoShowAppRemove"))
     }
 
-    // @note p0-1164
     @MainActor
     private func clickShownMenuItem(_ item: XCUIElement) {
         let deadline = Date().addingTimeInterval(timeout)
@@ -222,7 +199,6 @@ final class AutoShowSettingsUITests: XCTestCase {
         item.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
     }
 
-    // @note p0-1165
     @MainActor
     private func menuItem(in app: XCUIApplication, identifier: String, title: String) -> XCUIElement {
         let byIdentifier = app.menuItems[identifier]

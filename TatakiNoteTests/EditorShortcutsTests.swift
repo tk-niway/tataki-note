@@ -12,7 +12,6 @@ struct EditorShortcutsTests {
         for keys in ["⌥↑", "⌥↓", "⇧⌥↑", "⇧⌥↓", "⌘C", "⌘X", "⌘V", "⌘L", "⌘D"] {
             #expect(shortcuts.contains { $0.keys.contains(keys) }, "\(keys)")
         }
-        // @note p0-835
         #expect(shortcuts.allSatisfy { !$0.keys.isEmpty && !$0.action.isEmpty })
 
         for keys in ["↩", "esc", "⌘↩", "⇧⌘↩"] {

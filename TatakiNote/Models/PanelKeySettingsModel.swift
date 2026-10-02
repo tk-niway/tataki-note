@@ -1,17 +1,14 @@
 import Observation
 
-/// @note p0-341
+/// 設定画面の「確定キー」「確定+送信キー」の記録ボックスの状態。
 @Observable final class PanelKeySettingsModel {
     @ObservationIgnored private let settings: AppSettings
-    /// @note p0-342
     @ObservationIgnored private let hotkey: () -> PanelShortcut?
     @ObservationIgnored private let pauseHotkey: () -> Void
     @ObservationIgnored private let resumeHotkey: () -> Void
 
-    /// @note p0-343
     private(set) var recordingRole: PanelShortcutRole?
 
-    /// @note p0-344
     private var rejectionMessages: [PanelShortcutRole: String] = [:]
 
     init(
@@ -33,7 +30,6 @@ import Observation
         }
     }
 
-    /// @note p0-345
     func displayText(for role: PanelShortcutRole) -> String? {
         shortcut(for: role)?.displayText
     }
@@ -42,7 +38,6 @@ import Observation
         rejectionMessages[role]
     }
 
-    /// @note p0-346
     func beginRecording(_ role: PanelShortcutRole) {
         rejectionMessages[role] = nil
         if recordingRole == nil {
@@ -51,7 +46,6 @@ import Observation
         recordingRole = role
     }
 
-    /// @note p0-347
     @discardableResult
     func record(_ candidate: PanelShortcutCandidate, for role: PanelShortcutRole) -> Bool {
         let rejection = PanelShortcutRules.rejection(
@@ -74,7 +68,6 @@ import Observation
         return true
     }
 
-    /// @note p0-348
     func clear(_ role: PanelShortcutRole) {
         rejectionMessages[role] = nil
         switch role {
@@ -84,7 +77,6 @@ import Observation
         endRecording(role)
     }
 
-    /// @note p0-349
     func endRecording(_ role: PanelShortcutRole) {
         guard recordingRole == role else { return }
         recordingRole = nil

@@ -4,10 +4,8 @@ import Testing
 
 @MainActor
 struct AppThemeTests {
-    /// @note p0-753
     private let alphaTolerance: CGFloat = 0.001
 
-    /// @note p0-754
     private func makeWindow() -> NSWindow {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 200, height: 100),
@@ -35,34 +33,28 @@ struct AppThemeTests {
         let contentView = try #require(window.contentView)
         #expect(window.appearance == nil)
 
-        // @note p0-755
         let applier = WindowStyleApplierView()
         applier.appearanceName = AppTheme.dark.appearanceName
         applier.windowAlphaValue = 0.6
         contentView.addSubview(applier)
         #expect(window.appearance?.name == .darkAqua)
         #expect(abs(window.alphaValue - 0.6) < alphaTolerance)
-        // @note p0-756
         #expect(applier.alphaValue == 1.0)
 
-        // @note p0-757
         applier.appearanceName = AppTheme.light.appearanceName
         applier.windowAlphaValue = 0.4
         applier.apply()
         #expect(window.appearance?.name == .aqua)
         #expect(abs(window.alphaValue - 0.4) < alphaTolerance)
 
-        // @note p0-758
         applier.windowAlphaValue = nil
         applier.apply()
         #expect(abs(window.alphaValue - 0.4) < alphaTolerance)
         #expect(applier.alphaValue == 1.0)
 
-        // @note p0-759
         applier.apply()
         #expect(window.appearance?.name == .aqua)
 
-        // @note p0-760
         applier.appearanceName = AppTheme.system.appearanceName
         applier.apply()
         #expect(window.appearance == nil)
@@ -77,7 +69,6 @@ struct AppThemeTests {
 
         let applier = WindowStyleApplierView()
         applier.appearanceName = AppTheme.dark.appearanceName
-        // @note p0-761
         applier.apply()
         #expect(window.appearance == nil)
 
@@ -86,7 +77,6 @@ struct AppThemeTests {
         #expect(abs(window.alphaValue - 0.8) < alphaTolerance)
         #expect(applier.alphaValue == 1.0)
 
-        // @note p0-762
         applier.removeFromSuperview()
         applier.appearanceName = AppTheme.light.appearanceName
         applier.windowAlphaValue = 0.5

@@ -3,10 +3,8 @@ import Foundation
 import Testing
 @testable import TatakiNote
 
-/// @note p0-836
 @MainActor
 final class FocusedElementProbeStub: FocusedElementProbing {
-    /// @note p0-837
     var result: FocusedElementProbe
     private(set) var targets: [InsertionTarget] = []
     private(set) var readsFrameValues: [Bool] = []
@@ -22,7 +20,6 @@ final class FocusedElementProbeStub: FocusedElementProbing {
     }
 }
 
-/// @note p0-838
 @MainActor
 final class WatcherEnvironment {
     var now = Date(timeIntervalSinceReferenceDate: 1_000)
@@ -31,14 +28,10 @@ final class WatcherEnvironment {
     var exposedTargets: [InsertionTarget] = []
 }
 
-/// @note p0-839
 @MainActor
 final class WatcherFixture {
-    /// @note p0-840
     static let primaryScreenFrame = CGRect(x: 0, y: 0, width: 1000, height: 800)
-    /// @note p0-841
     static let editor = InsertionTarget(processIdentifier: pid_t.max, bundleIdentifier: "com.example.Editor", localizedName: "Editor")
-    /// @note p0-842
     static let otherApp = InsertionTarget(processIdentifier: pid_t.max - 1, bundleIdentifier: "com.example.Other", localizedName: "Other")
     static let editorApp = AutoShowApp(bundleIdentifier: "com.example.Editor", name: "Editor")
     static let otherAutoShowApp = AutoShowApp(bundleIdentifier: "com.example.Other", name: "Other")
@@ -54,7 +47,6 @@ final class WatcherFixture {
     private let defaults: UserDefaults
     private let suiteName: String
 
-    /// @note p0-843
     init(isTrusted: Bool = true) throws {
         let suiteName = UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: suiteName))
@@ -94,24 +86,20 @@ final class WatcherFixture {
         environment.now += interval
     }
 
-    /// @note p0-844
     func activate(_ target: InsertionTarget?) {
         watcher.handleActivation(of: target)
         advance(by: FocusedElementWatcher.activationGrace + 0.01)
     }
 
-    /// @note p0-845
     func dismissAndWait() {
         watcher.handlePanelDismissed()
         advance(by: FocusedElementWatcher.dismissGrace + 0.01)
     }
 
-    /// @note p0-846
     func focusTextField(_ element: AXUIElement, frame: CGRect? = nil) {
         probe.result = FocusedElementProbe(element: element, lookup: Self.textFieldLookup, frame: frame)
     }
 
-    /// @note p0-847
     func focusButton(_ element: AXUIElement) {
         probe.result = FocusedElementProbe(element: element, lookup: Self.buttonLookup, frame: nil)
     }
@@ -119,14 +107,10 @@ final class WatcherFixture {
 
 @MainActor
 struct FocusedElementWatcherTests {
-    /// @note p0-848
     private let fieldE = AXUIElementCreateApplication(pid_t.max)
-    /// @note p0-849
     private let fieldF = AXUIElementCreateApplication(4_242)
-    /// @note p0-850
     private let otherElement = AXUIElementCreateSystemWide()
 
-    /// @note p0-851
     private let frameContainingClick = CGRect(x: 50, y: 80, width: 200, height: 40)
 
     @Test("AC-2: 「全アプリ」で、前面のアプリのフォーカスが入力欄に移るとパネルを出す")
@@ -140,7 +124,6 @@ struct FocusedElementWatcherTests {
 
         #expect(fixture.showCount == 1)
         #expect(fixture.probe.targets == [WatcherFixture.editor])
-        // @note p0-852
         #expect(fixture.probe.readsFrameValues == [false])
     }
 
@@ -208,7 +191,6 @@ struct FocusedElementWatcherTests {
         fixture.focusTextField(fieldE)
         fixture.watcher.handleFocusChanged()
         #expect(fixture.showCount == 1)
-        // @note p0-853
         fixture.panelModel.present(target: WatcherFixture.editor)
         let probeCount = fixture.probe.targets.count
 
@@ -216,13 +198,11 @@ struct FocusedElementWatcherTests {
         fixture.environment.mouseLocation = CGPoint(x: 100, y: 700)
         fixture.watcher.handleFocusChanged()
         fixture.watcher.handleClick()
-        // @note p0-854
         fixture.activate(WatcherFixture.otherApp)
         fixture.watcher.handleFocusChanged()
         fixture.watcher.handleClick()
 
         #expect(fixture.showCount == 1)
-        // @note p0-855
         #expect(fixture.probe.targets.count == probeCount)
         #expect(fixture.panelModel.isPresented)
         #expect(fixture.panelModel.target == WatcherFixture.editor)
@@ -233,19 +213,16 @@ struct FocusedElementWatcherTests {
         let fixture = try WatcherFixture()
         defer { fixture.removeSuite() }
 
-        // @note p0-856
         fixture.watcher.handleActivation(of: WatcherFixture.editor)
         fixture.focusTextField(fieldE)
         fixture.advance(by: FocusedElementWatcher.activationGrace / 2)
         fixture.watcher.handleFocusChanged()
         #expect(fixture.showCount == 0)
 
-        // @note p0-857
         fixture.advance(by: FocusedElementWatcher.activationGrace)
         fixture.watcher.handleFocusChanged()
         #expect(fixture.showCount == 1)
 
-        // @note p0-858
         fixture.dismissAndWait()
         fixture.activate(WatcherFixture.otherApp)
         fixture.watcher.handleActivation(of: WatcherFixture.editor)
@@ -266,17 +243,14 @@ struct FocusedElementWatcherTests {
         fixture.watcher.handleFocusChanged()
         #expect(fixture.showCount == 1)
 
-        // @note p0-859
         fixture.watcher.handlePanelDismissed()
         fixture.advance(by: FocusedElementWatcher.dismissGrace / 2)
         fixture.watcher.handleFocusChanged()
         #expect(fixture.showCount == 1)
-        // @note p0-860
         fixture.advance(by: FocusedElementWatcher.dismissGrace)
         fixture.watcher.handleFocusChanged()
         #expect(fixture.showCount == 1)
 
-        // @note p0-861
         fixture.watcher.handlePanelDismissed()
         fixture.focusTextField(fieldF)
         fixture.advance(by: FocusedElementWatcher.dismissGrace / 2)
@@ -299,7 +273,6 @@ struct FocusedElementWatcherTests {
         await waitUntil { fixture.watcher.panelDismissedAt == firstDismissal }
         #expect(fixture.watcher.panelDismissedAt == firstDismissal)
 
-        // @note p0-862
         fixture.advance(by: 10)
         fixture.panelModel.present(target: WatcherFixture.editor)
         for _ in 0..<10 {
@@ -307,14 +280,12 @@ struct FocusedElementWatcherTests {
         }
         #expect(fixture.watcher.panelDismissedAt == firstDismissal)
 
-        // @note p0-863
         fixture.advance(by: 10)
         let secondDismissal = fixture.environment.now
         fixture.panelModel.dismiss()
         await waitUntil { fixture.watcher.panelDismissedAt == secondDismissal }
         #expect(fixture.watcher.panelDismissedAt == secondDismissal)
 
-        // @note p0-864
         fixture.activate(WatcherFixture.editor)
         fixture.focusTextField(fieldE)
         fixture.panelModel.present(target: WatcherFixture.editor)
@@ -330,34 +301,27 @@ struct FocusedElementWatcherTests {
         let fixture = try WatcherFixture()
         defer { fixture.removeSuite() }
         fixture.activate(WatcherFixture.editor)
-        // @note p0-865
         fixture.environment.mouseLocation = CGPoint(x: 100, y: 700)
 
-        // @note p0-866
         fixture.focusTextField(fieldE, frame: nil)
         fixture.watcher.handleClick()
         #expect(fixture.showCount == 0)
-        // @note p0-867
         fixture.focusTextField(fieldE, frame: CGRect(x: 300, y: 300, width: 100, height: 40))
         fixture.watcher.handleClick()
         #expect(fixture.showCount == 0)
-        // @note p0-868
         fixture.focusTextField(fieldE, frame: CGRect(x: 50, y: 680, width: 200, height: 40))
         fixture.watcher.handleClick()
         #expect(fixture.showCount == 0)
 
-        // @note p0-869
         fixture.focusTextField(fieldE, frame: frameContainingClick)
         fixture.watcher.handleClick()
         #expect(fixture.showCount == 1)
 
-        // @note p0-870
         fixture.watcher.handlePanelDismissed()
         fixture.advance(by: FocusedElementWatcher.dismissGrace / 2)
         fixture.watcher.handleClick()
         #expect(fixture.showCount == 2)
 
-        // @note p0-871
         #expect(fixture.probe.readsFrameValues == [true, true, true, true, true])
         fixture.watcher.handleFocusChanged()
         #expect(fixture.probe.readsFrameValues.last == false)
@@ -395,12 +359,10 @@ struct FocusedElementWatcherTests {
         #expect(fixture.showCount == 1)
         fixture.dismissAndWait()
 
-        // @note p0-872
         fixture.focusButton(otherElement)
         fixture.watcher.handleFocusChanged()
         #expect(fixture.showCount == 1)
 
-        // @note p0-873
         fixture.focusTextField(fieldE)
         fixture.watcher.handleFocusChanged()
         #expect(fixture.showCount == 2)
@@ -417,13 +379,11 @@ struct FocusedElementWatcherTests {
         #expect(fixture.showCount == 1)
         fixture.dismissAndWait()
 
-        // @note p0-874
         fixture.activate(WatcherFixture.otherApp)
         fixture.focusButton(otherElement)
         fixture.watcher.handleFocusChanged()
         #expect(fixture.showCount == 1)
 
-        // @note p0-875
         fixture.activate(WatcherFixture.editor)
         fixture.focusTextField(fieldE)
         fixture.watcher.handleFocusChanged()
@@ -499,7 +459,6 @@ struct FocusedElementWatcherTests {
         #expect(fixture.showCount == 0)
     }
 
-    /// @note p0-876
     private func waitUntil(_ condition: () -> Bool) async {
         let deadline = ContinuousClock.now + .seconds(1)
         while !condition() && ContinuousClock.now < deadline {

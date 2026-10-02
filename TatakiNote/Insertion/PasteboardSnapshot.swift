@@ -1,6 +1,6 @@
 import AppKit
 
-/// @note p0-116
+/// クリップボードの内容を、全ての項目と全てのデータ型ごと写し取ったもの。
 struct PasteboardSnapshot: Equatable {
     struct Entry: Equatable {
         var type: NSPasteboard.PasteboardType
@@ -11,11 +11,9 @@ struct PasteboardSnapshot: Equatable {
 
     static func capture(from pasteboard: NSPasteboard) -> PasteboardSnapshot {
         let items = (pasteboard.pasteboardItems ?? []).compactMap { item -> [Entry]? in
-            // @note p0-117
             let entries = item.types.compactMap { type in
                 item.data(forType: type).map { Entry(type: type, data: $0) }
             }
-            // @note p0-118
             return entries.isEmpty ? nil : entries
         }
         return PasteboardSnapshot(items: items)

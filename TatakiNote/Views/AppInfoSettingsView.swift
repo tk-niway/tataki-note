@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// @note p0-590
+/// 設定画面の「アプリ情報」。
 struct AppInfoSettingsView: View {
     let model: AppInfoModel
 
@@ -25,7 +25,6 @@ struct AppInfoSettingsView: View {
                         VStack(alignment: .leading, spacing: 14) {
                             PermissionGuideStatus(isGranted: false, identifier: "settings.appInfo.permissionStatus")
                             PermissionGuideSteps(identifier: "settings.appInfo.permissionSteps")
-                            // @note p0-591
                             Button("システム設定を開く") {
                                 model.permissionStatus.openSystemSettings()
                             }
@@ -37,7 +36,6 @@ struct AppInfoSettingsView: View {
         }
         .formStyle(.columns)
         .settingsDetailPadding()
-        // @note p0-592
         .task {
             await model.watchPermission()
         }

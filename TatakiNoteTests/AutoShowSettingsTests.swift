@@ -8,7 +8,6 @@ struct AutoShowSettingsTests {
     private let slack = AutoShowApp(bundleIdentifier: "com.tinyspeck.slackmacgap", name: "Slack")
     private let vscode = AutoShowApp(bundleIdentifier: "com.microsoft.VSCode", name: "Visual Studio Code")
 
-    /// @note p0-790
     private func makeSuite() throws -> (UserDefaults, String) {
         let name = UUID().uuidString
         return (try #require(UserDefaults(suiteName: name)), name)
@@ -27,7 +26,6 @@ struct AutoShowSettingsTests {
         #expect(store.loadAutoShowMode() == .off)
         #expect(store.loadAutoShowApps().isEmpty)
 
-        // @note p0-791
         let settings = AppSettings(store: store)
         #expect(settings.autoShowMode == .off)
         #expect(settings.autoShowApps.isEmpty)
@@ -58,17 +56,14 @@ struct AutoShowSettingsTests {
         defer { removeSuite(defaults, name: name) }
         let store = SettingsStore(defaults: defaults)
 
-        // @note p0-792
         defaults.set("commandEnter", forKey: "commitKey")
         defaults.set("targetWindow", forKey: "panelScreen")
 
         let values: [Any] = [
             "unknown", "", "Off", "allapps", 1, 3.5, true,
             ["off"], ["off": "allApps"],
-            // @note p0-793
             [["bundleIdentifier": "com.google.Chrome", "name": "Google Chrome"]],
             Data([0x01]),
-            // @note p0-794
             Data("{".utf8),
             Data("[".utf8),
             Data("null".utf8),
@@ -91,7 +86,6 @@ struct AutoShowSettingsTests {
         #expect(defaults.string(forKey: "commitKey") == "commandEnter")
         #expect(defaults.string(forKey: "panelScreen") == "targetWindow")
 
-        // @note p0-795
         store.saveAutoShowMode(.allApps)
         defaults.set(Data("{".utf8), forKey: "autoShowApps")
         #expect(store.loadAutoShowMode() == .allApps)
@@ -128,7 +122,6 @@ struct AutoShowSettingsTests {
             ["bundleIdentifier": "com.tinyspeck.slackmacgap", "name": "Slack"],
         ])
 
-        // @note p0-796
         for (mode, raw) in modes {
             defaults.set(raw, forKey: "autoShowMode")
             #expect(store.loadAutoShowMode() == mode)
@@ -153,14 +146,12 @@ struct AutoShowSettingsTests {
         #expect(reloaded.autoShowMode == .selectedApps)
         #expect(reloaded.autoShowApps == [chrome, slack])
 
-        // @note p0-797
         reloaded.autoShowMode = .allApps
         reloaded.autoShowApps = [vscode]
         let reloadedAgain = AppSettings(store: SettingsStore(defaults: defaults))
         #expect(reloadedAgain.autoShowMode == .allApps)
         #expect(reloadedAgain.autoShowApps == [vscode])
 
-        // @note p0-798
         reloadedAgain.autoShowMode = .off
         let turnedOff = AppSettings(store: SettingsStore(defaults: defaults))
         #expect(turnedOff.autoShowMode == .off)
@@ -189,21 +180,17 @@ struct AutoShowSettingsTests {
 
         #expect(AutoShowApp.normalized(apps) == expected)
 
-        // @note p0-799
         store.saveAutoShowApps(apps)
         #expect(SettingsStore(defaults: defaults).loadAutoShowApps() == expected)
 
-        // @note p0-800
         defaults.set(try JSONEncoder().encode(apps), forKey: "autoShowApps")
         #expect(SettingsStore(defaults: defaults).loadAutoShowApps() == expected)
 
-        // @note p0-801
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.autoShowApps = apps
         #expect(settings.autoShowApps == expected)
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).autoShowApps == expected)
 
-        // @note p0-802
         settings.autoShowApps.append(AutoShowApp(bundleIdentifier: "com.tinyspeck.slackmacgap", name: "Slack(別名)"))
         #expect(settings.autoShowApps == expected)
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).autoShowApps == expected)

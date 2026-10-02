@@ -4,7 +4,6 @@ import Testing
 
 @MainActor
 struct PanelPlacementTests {
-    // @note p0-956
     private let screenA = ScreenGeometry(
         frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
         visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 875)
@@ -66,7 +65,6 @@ struct PanelPlacementTests {
         #expect(frame.origin.y == frame.origin.y.rounded())
         #expect(abs(frame.midY - 437.5) <= 0.5)
 
-        // @note p0-957
         let shifted = CGRect(x: 1440, y: 70, width: 1921, height: 985)
         let shiftedFrame = PanelPlacement.centeredFrame(size: size, in: shifted)
         #expect(shiftedFrame.size == size)
@@ -84,7 +82,6 @@ struct PanelPlacementTests {
         let frame = PanelPlacement.centeredFrame(size: CGSize(width: 520, height: 340), in: visible)
         #expect(frame == visible)
 
-        // @note p0-958
         let wide = PanelPlacement.centeredFrame(size: CGSize(width: 520, height: 200), in: visible)
         #expect(wide.width == 400)
         #expect(wide.height == 200)
@@ -99,13 +96,9 @@ struct PanelPlacementTests {
         let screens = [screenA, screenB, screenC]
         let mouseOnA = CGPoint(x: 700, y: 450)
         let cases: [(CGRect, ScreenGeometry, String)] = [
-            // @note p0-959
             (CGRect(x: 2000, y: 200, width: 800, height: 600), screenB, "B の中"),
-            // @note p0-960
             (CGRect(x: 1300, y: 200, width: 800, height: 600), screenB, "A と B にまたがり B が大きい"),
-            // @note p0-961
             (CGRect(x: 800, y: 200, width: 800, height: 600), screenA, "A と B にまたがり A が大きい"),
-            // @note p0-962
             (CGRect(x: 100, y: -700, width: 800, height: 800), screenC, "A と C にまたがり C が大きい"),
         ]
 
@@ -127,7 +120,6 @@ struct PanelPlacementTests {
         let windows: [(CGRect?, String)] = [
             (nil, "ウィンドウが分からない"),
             (CGRect(x: 5000, y: 5000, width: 400, height: 300), "どの画面とも重ならない"),
-            // @note p0-963
             (CGRect(x: 0, y: 900, width: 400, height: 300), "A の上の辺に接するだけ"),
         ]
 
@@ -159,7 +151,6 @@ struct PanelPlacementTests {
             #expect(byMouse == mouseScreen, "\(mouse)")
         }
 
-        // @note p0-964
         let reordered = PanelPlacement.screen(
             for: .main,
             screens: [screenB, screenA],
@@ -214,7 +205,6 @@ struct PanelPlacementTests {
             #expect(nearFocusedField == targetWindow, "\(label)")
         }
 
-        // @note p0-965
         let noScreen = PanelPlacement.screen(
             for: .nearFocusedField,
             screens: [],
@@ -227,7 +217,6 @@ struct PanelPlacementTests {
     @Test("AC-9: 挿入先の窓の枠を取るのは「挿入先のウィンドウがある画面」と「入力欄の近く」だけ")
     func usesTargetWindowFrameOnlyForWindowBasedModes() {
         for mode in PanelScreen.allCases {
-            // @note p0-966
             let expected: Bool
             switch mode {
             case .targetWindow, .nearFocusedField:
@@ -243,13 +232,9 @@ struct PanelPlacementTests {
     func convertsQuartzToCocoa() {
         let primaryHeight: CGFloat = 900
         let cases: [(CGRect, CGRect)] = [
-            // @note p0-967
             (CGRect(x: 0, y: 0, width: 400, height: 300), CGRect(x: 0, y: 600, width: 400, height: 300)),
-            // @note p0-968
             (CGRect(x: 100, y: 600, width: 400, height: 300), CGRect(x: 100, y: 0, width: 400, height: 300)),
-            // @note p0-969
             (CGRect(x: 100, y: 1000, width: 400, height: 300), CGRect(x: 100, y: -400, width: 400, height: 300)),
-            // @note p0-970
             (CGRect(x: -500, y: -800, width: 400, height: 300), CGRect(x: -500, y: 1400, width: 400, height: 300)),
         ]
 

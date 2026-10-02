@@ -2,7 +2,6 @@ import AppKit
 import Testing
 @testable import TatakiNote
 
-/// @note p0-999
 @MainActor
 struct PanelTextMeasurerTests {
     private let font = NSFont.systemFont(ofSize: 14)
@@ -24,7 +23,6 @@ struct PanelTextMeasurerTests {
 
         #expect(one < two)
         #expect(two < ten)
-        // @note p0-1000
         let lineHeight = two - one
         #expect(abs((ten - one) - 9 * lineHeight) <= 9)
     }

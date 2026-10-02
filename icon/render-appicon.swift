@@ -1,4 +1,3 @@
-// @note p0-1498
 import AppKit
 
 let iconDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
@@ -40,7 +39,6 @@ try JSONSerialization.data(withJSONObject: contents, options: [.prettyPrinted, .
     .write(to: outDir.appendingPathComponent("Contents.json"))
 print("書き出しました: \(outDir.path)")
 
-// @note p0-1499
 let iconset = FileManager.default.temporaryDirectory.appendingPathComponent("AppIcon.iconset")
 try? FileManager.default.removeItem(at: iconset)
 try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)

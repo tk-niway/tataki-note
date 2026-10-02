@@ -10,31 +10,29 @@ enum LineDirection: Equatable {
     case down
 }
 
-/// @note p0-286
+/// ⌥↑ などの矢印キーの操作。
 enum LineArrowCommand: Equatable {
     case moveLines(LineDirection)
     case duplicateLines(LineDirection)
 }
 
-/// @note p0-287
+/// 行の操作の結果。
 struct LineEdit: Equatable {
     var range: NSRange
     var replacement: String
     var selection: NSRange
 }
 
-/// @note p0-288
+/// 行ごと切り取りの結果。
 struct LineCut: Equatable {
     var copiedText: String
     var edit: LineEdit?
 }
 
-/// @note p0-289
+/// パネルの入力欄の、VSCode のような行・単語の操作の計算。
 enum LineEditing {
-    /// @note p0-290
     static let fullLinePasteboardType = NSPasteboard.PasteboardType("jp.co.woube.TatakiNote.full-line")
 
-    /// @note p0-291
     static func arrowCommand(for input: PanelKeyInput) -> LineArrowCommand? {
         guard !input.hasMarkedText else { return nil }
         let direction: LineDirection
@@ -43,7 +41,6 @@ enum LineEditing {
         case KeyCode.downArrow: direction = .down
         default: return nil
         }
-        // @note p0-292
         let modifiers = input.modifiers.intersection([.shift, .control, .option, .command])
         if modifiers == [.option] {
             return .moveLines(direction)
@@ -54,13 +51,11 @@ enum LineEditing {
         return nil
     }
 
-    /// @note p0-293
     static func clamped(_ range: NSRange, toLength length: Int) -> NSRange {
         let location = min(range.location, length)
         return NSRange(location: location, length: min(range.length, length - location))
     }
 
-    /// @note p0-294
     static func coveredLines(in text: String, selection: NSRange) -> NSRange {
         let string = text as NSString
         let selection = clamped(selection, toLength: string.length)
@@ -75,7 +70,6 @@ enum LineEditing {
         return NSRange(location: start, length: end - start)
     }
 
-    /// @note p0-295
     static func moveLines(in text: String, selection: NSRange, direction: LineDirection) -> LineEdit? {
         let string = text as NSString
         let selection = clamped(selection, toLength: string.length)
@@ -85,20 +79,16 @@ enum LineEditing {
             guard block.location > 0 else { return nil }
             let above = string.lineRange(for: NSRange(location: block.location - 1, length: 0))
             let edit = swapped(upper: above, lower: block, in: string)
-            // @note p0-296
             let moved = NSRange(location: selection.location - above.length, length: selection.length)
             return LineEdit(range: edit.range, replacement: edit.replacement, selection: moved)
         case .down:
             guard endsWithLineBreak(block, in: string) else { return nil }
-            // @note p0-297
             let below = string.lineRange(for: NSRange(location: NSMaxRange(block), length: 0))
             let edit = swapped(upper: block, lower: below, in: string)
             let belowEndsWithLineBreak = endsWithLineBreak(below, in: string)
-            // @note p0-298
             let shift = belowEndsWithLineBreak ? below.length : below.length + 1
             var moved = NSRange(location: selection.location + shift, length: selection.length)
             if !belowEndsWithLineBreak {
-                // @note p0-299
                 let replacedEnd = edit.range.location + (edit.replacement as NSString).length
                 moved = clamped(moved, toLength: replacedEnd)
             }
@@ -106,13 +96,11 @@ enum LineEditing {
         }
     }
 
-    /// @note p0-300
     static func duplicateLines(in text: String, selection: NSRange, direction: LineDirection) -> LineEdit {
         let string = text as NSString
         let selection = clamped(selection, toLength: string.length)
         let block = coveredLines(in: text, selection: selection)
         let lines = string.substring(with: block)
-        // @note p0-301
         let copy = endsWithLineBreak(block, in: string) ? lines : "\n" + lines
         let range = NSRange(location: NSMaxRange(block), length: 0)
         switch direction {
@@ -125,7 +113,6 @@ enum LineEditing {
         }
     }
 
-    /// @note p0-302
     static func expandedLineSelection(in text: String, selection: NSRange) -> NSRange? {
         let string = text as NSString
         let selection = clamped(selection, toLength: string.length)
@@ -138,7 +125,6 @@ enum LineEditing {
         return NSRange(location: covered.location, length: NSMaxRange(next) - covered.location)
     }
 
-    /// @note p0-303
     static func fullLineCopyText(in text: String, cursor: Int) -> String {
         let string = text as NSString
         let line = string.lineRange(for: NSRange(location: clampedCursor(cursor, length: string.length), length: 0))
@@ -146,7 +132,6 @@ enum LineEditing {
         return endsWithLineBreak(line, in: string) ? lineText : lineText + "\n"
     }
 
-    /// @note p0-304
     static func fullLineCut(in text: String, cursor: Int) -> LineCut {
         let string = text as NSString
         let cursor = clampedCursor(cursor, length: string.length)
@@ -166,7 +151,6 @@ enum LineEditing {
         return LineCut(copiedText: copiedText, edit: edit)
     }
 
-    /// @note p0-305
     static func fullLinePaste(_ pasted: String, in text: String, cursor: Int) -> LineEdit {
         let string = text as NSString
         let cursor = clampedCursor(cursor, length: string.length)
@@ -179,12 +163,10 @@ enum LineEditing {
         )
     }
 
-    /// @note p0-306
     static func isFullLinePaste(selection: NSRange, pasteboardTypes: [NSPasteboard.PasteboardType]) -> Bool {
         selection.length == 0 && pasteboardTypes.contains(fullLinePasteboardType)
     }
 
-    /// @note p0-307
     static func wordSelection(in text: String, selection: NSRange, wordRange: (Int) -> NSRange) -> NSRange? {
         let string = text as NSString
         let selection = clamped(selection, toLength: string.length)
@@ -216,27 +198,23 @@ enum LineEditing {
         index == 0 || string.lineRange(for: NSRange(location: index, length: 0)).location == index
     }
 
-    /// @note p0-308
     private static func contentsEnd(ofLineAt index: Int, in string: NSString) -> Int {
         var contentsEnd = 0
         string.getLineStart(nil, end: nil, contentsEnd: &contentsEnd, for: NSRange(location: index, length: 0))
         return contentsEnd
     }
 
-    /// @note p0-309
     private static func endsWithLineBreak(_ lines: NSRange, in string: NSString) -> Bool {
         guard lines.length > 0 else { return false }
         return contentsEnd(ofLineAt: NSMaxRange(lines) - 1, in: string) < NSMaxRange(lines)
     }
 
-    /// @note p0-310
     private static func contents(of lines: NSRange, in string: NSString) -> String {
         guard endsWithLineBreak(lines, in: string) else { return string.substring(with: lines) }
         let end = contentsEnd(ofLineAt: NSMaxRange(lines) - 1, in: string)
         return string.substring(with: NSRange(location: lines.location, length: end - lines.location))
     }
 
-    /// @note p0-311
     private static func swapped(upper: NSRange, lower: NSRange, in string: NSString) -> (range: NSRange, replacement: String) {
         let range = NSRange(location: upper.location, length: NSMaxRange(lower) - upper.location)
         let lowerText = string.substring(with: lower)

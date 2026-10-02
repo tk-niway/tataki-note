@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// @note p0-468
+/// パネルの開け閉め。
 final class PanelController: NSObject, NSWindowDelegate {
     let model: PanelModel
     private let panel: PromptPanel
@@ -11,21 +11,16 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let performer: CommitPerformer
     private let fieldProbe: FocusedElementProbing
 
-    /// @note p0-469
     private let sizing = PanelSizing()
-    /// @note p0-470
     private var liveResizeStartSize: CGSize?
 
-    /// @note p0-471
     var heldPanelSize: CGSize? { sizing.heldSize }
 
-    /// @note p0-472
     var onPermissionDenied: (() -> Void)? {
         get { performer.onPermissionDenied }
         set { performer.onPermissionDenied = newValue }
     }
 
-    /// @note p0-473
     init(
         model: PanelModel = PanelModel(),
         settings: AppSettings,
@@ -36,7 +31,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         fieldProbe: FocusedElementProbing = AXFocusedTextInputInspector()
     ) {
         self.model = model
-        // @note p0-474
         self.panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
         self.settings = settings
         self.targetTracker = targetTracker
@@ -53,7 +47,6 @@ final class PanelController: NSObject, NSWindowDelegate {
                 onClose: { [weak self] in self?.closeFromButton() }
             )
         )
-        // @note p0-475
         hostingView.sizingOptions = []
         panel.contentView = hostingView
         panel.setContentSize(PanelMetrics.defaultSize)
@@ -63,11 +56,8 @@ final class PanelController: NSObject, NSWindowDelegate {
     func open() {
         let target = targetTracker.currentTarget()
         let wasPresented = model.present(target: target)
-        // @note p0-476
         if !wasPresented {
-            // @note p0-477
             sizing.beginOpening(defaultSize: settings.panelDefaultSize)
-            // @note p0-478
             if let target, permission.isTrusted {
                 AXFocusedTextInputInspector.exposeWebContent(of: target)
             }
@@ -76,7 +66,6 @@ final class PanelController: NSObject, NSWindowDelegate {
             if mode.usesTargetWindowFrame, let target {
                 targetWindowFrame = TargetWindowLocator.frontWindowFrame(processIdentifier: target.processIdentifier)
             }
-            // @note p0-479
             let fieldFrame = NSScreen.screens.first.flatMap { primaryScreen in
                 PanelOpenPlacement.fieldFrame(
                     mode: mode,
@@ -105,7 +94,6 @@ final class PanelController: NSObject, NSWindowDelegate {
                 panel.center()
             }
         }
-        // @note p0-480
         panel.makeKeyAndOrderFront(nil)
     }
 
@@ -122,20 +110,16 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
     }
 
-    /// @note p0-481
     func closeFromButton() {
         Self.commitMarkedText(in: panel)
         close()
     }
 
-    /// @note p0-482
     static func commitMarkedText(in window: NSWindow) {
         (window.firstResponder as? PromptTextView)?.commitMarkedText()
     }
 
-    /// @note p0-483
     func handleKey(_ input: PanelKeyInput) -> Bool {
-        // @note p0-484
         switch PanelKeyResolver.action(
             for: input,
             commitKey: settings.commitKey,
@@ -155,19 +139,15 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
     }
 
-    /// @note p0-485
     func commit(shouldSendAfterInsert: Bool = false) {
         let plan = model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
-        // @note p0-486
         panel.orderOut(nil)
         Task { [weak self, performer] in
             let outcome = await performer.perform(plan, shouldSendAfterInsert: shouldSendAfterInsert)
-            // @note p0-487
             self?.sizing.handleCommitOutcome(outcome)
         }
     }
 
-    // @note p0-488
     func windowWillClose(_ notification: Notification) {
         model.dismiss()
     }
@@ -178,15 +158,12 @@ final class PanelController: NSObject, NSWindowDelegate {
         liveResizeStartSize = panel.frame.size
     }
 
-    /// @note p0-489
     func windowDidEndLiveResize(_ notification: Notification) {
         defer { liveResizeStartSize = nil }
-        // @note p0-490
         guard let startSize = liveResizeStartSize else { return }
         sizing.userDidResize(from: startSize, to: panel.frame.size)
     }
 
-    /// @note p0-491
     func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
         NSSize(
             width: max(frameSize.width, PanelSizing.minimumSize.width),
@@ -194,7 +171,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         )
     }
 
-    /// @note p0-492
     func windowShouldZoom(_ window: NSWindow, toFrame newFrame: NSRect) -> Bool {
         false
     }

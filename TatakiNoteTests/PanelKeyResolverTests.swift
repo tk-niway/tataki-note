@@ -13,7 +13,6 @@ struct PanelKeyResolverTests {
 
     @Test("AC-19: 未確定の文字があるときの Esc・Enter・登録したキーは入力メソッドに渡す(回帰)")
     func markedTextPassesEverythingThrough() {
-        // @note p0-917
         let commandK = PanelShortcut(keyCode: 40, modifiers: [.command])
         let inputs = [
             PanelKeyInput(keyCode: KeyCode.escape, modifiers: [], hasMarkedText: true),
@@ -34,7 +33,6 @@ struct PanelKeyResolverTests {
 
     @Test("AC-5: Enter(Return・テンキーの Enter)と普通の文字はパネルを閉じず、そのまま入力になる")
     func enterAndCharactersPassThrough() {
-        // @note p0-918
         let inputs = [
             PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [], hasMarkedText: false),
             PanelKeyInput(keyCode: KeyCode.keypadEnter, modifiers: [], hasMarkedText: false),
@@ -51,7 +49,6 @@ struct PanelKeyResolverTests {
 
     @Test("AC-4, AC-5: 確定キーに選んだキーを押したときだけ確定になり、それ以外の Enter と登録なしのときは入力欄に渡す(Return・テンキーの Enter)")
     func commitKeysDependOnSetting() {
-        // @note p0-919
         let pressedKeys: [(NSEvent.ModifierFlags, String)] = [
             ([.shift], "Shift+Enter"),
             ([.command], "⌘Enter"),
@@ -86,7 +83,6 @@ struct PanelKeyResolverTests {
         let commandReturn = PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.command], hasMarkedText: false)
         let commandShiftReturn = PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.command, .shift], hasMarkedText: false)
 
-        // @note p0-920
         #expect(PanelKeyResolver.action(for: commandReturn) == .commitAndSend)
         #expect(PanelKeyResolver.action(for: shiftReturn) == .passThrough)
         #expect(PanelKeyResolver.action(for: commandShiftReturn) == .passThrough)
@@ -142,7 +138,6 @@ struct PanelKeyResolverTests {
                 )
             }
         }
-        // @note p0-921
         let commitKeys: [PanelShortcut?] = [nil, .shiftReturn, .commandReturn, .commandShiftReturn]
         for commitKey in commitKeys {
             for modifiers: NSEvent.ModifierFlags in [[.option], [.control]] {
@@ -157,7 +152,6 @@ struct PanelKeyResolverTests {
 
     @Test("AC-18: 登録したキーは Return 以外でも確定・確定+送信になり、テンキーの Enter は Return と同じに扱う")
     func nonReturnKeysCommitToo() {
-        // @note p0-922
         let commandK = PanelShortcut(keyCode: 40, modifiers: [.command])
         let optionK = PanelShortcut(keyCode: 40, modifiers: [.option])
 
@@ -167,14 +161,12 @@ struct PanelKeyResolverTests {
         let optionKInput = PanelKeyInput(keyCode: 40, modifiers: [.option], hasMarkedText: false, characters: "k")
         #expect(PanelKeyResolver.action(for: optionKInput, commitKey: commandK, commitAndSendKey: optionK) == .commitAndSend)
 
-        // @note p0-923
         let keypadReturn = PanelKeyInput(keyCode: KeyCode.keypadEnter, modifiers: [.command], hasMarkedText: false)
         #expect(PanelKeyResolver.action(for: keypadReturn, commitKey: .commandReturn, commitAndSendKey: nil) == .commit)
     }
 
     // MARK: - 確定+送信キー
 
-    /// @note p0-924
     private let enterKeys: [(NSEvent.ModifierFlags, String)] = [
         ([.shift], "Shift+Enter"),
         ([.command], "⌘Enter"),
@@ -206,13 +198,11 @@ struct PanelKeyResolverTests {
             }
         }
 
-        // @note p0-925
         let capsLockCommandShift = PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.command, .shift, .capsLock], hasMarkedText: false)
         let optionCommandShift = PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.command, .shift, .option], hasMarkedText: false)
         #expect(PanelKeyResolver.action(for: capsLockCommandShift, commitKey: nil, commitAndSendKey: .commandShiftReturn) == .commitAndSend)
         #expect(PanelKeyResolver.action(for: optionCommandShift, commitKey: nil, commitAndSendKey: .commandShiftReturn) == .passThrough)
 
-        // @note p0-926
         let escape = PanelKeyInput(keyCode: KeyCode.escape, modifiers: [], hasMarkedText: false)
         #expect(PanelKeyResolver.action(for: escape, commitKey: nil, commitAndSendKey: .commandShiftReturn) == .cancel)
     }
@@ -237,7 +227,6 @@ struct PanelKeyResolverTests {
                     PanelKeyResolver.action(for: input, commitKey: nil, commitAndSendKey: nil) == .passThrough,
                     "\(keyName) + keyCode \(keyCode)"
                 )
-                // @note p0-927
                 let isCommandEnter = modifiers.contains(.command)
                 #expect(PanelKeyResolver.insertsNewlineExplicitly(for: input) == isCommandEnter, "\(keyName) + keyCode \(keyCode)")
             }
@@ -282,7 +271,6 @@ struct PanelKeyResolverTests {
 
     @Test("AC-30: 確定キーに ⇧Esc を渡しても ⇧Esc は cancel になる(Esc は確定より先に調べる。回帰)")
     func shiftEscapeStillCancelsEvenIfAssignedAsCommitKey() {
-        // @note p0-928
         let shiftEscapeShortcut = PanelShortcut(keyCode: KeyCode.escape, modifiers: [.shift])
         let input = PanelKeyInput(keyCode: KeyCode.escape, modifiers: [.shift], hasMarkedText: false)
 
@@ -320,14 +308,12 @@ struct PanelKeyResolverTests {
                 let input = PanelKeyInput(keyCode: keyCode, modifiers: modifiers, hasMarkedText: false)
                 #expect(PanelKeyResolver.insertsNewlineExplicitly(for: input) == false, "\(label) + keyCode \(keyCode)")
             }
-            // @note p0-929
             for modifiers: NSEvent.ModifierFlags in [[.command], [.command, .shift]] {
                 let input = PanelKeyInput(keyCode: keyCode, modifiers: modifiers, hasMarkedText: true)
                 #expect(PanelKeyResolver.insertsNewlineExplicitly(for: input) == false, "変換中 \(modifiers) + keyCode \(keyCode)")
             }
         }
 
-        // @note p0-930
         for keyCode in [KeyCode.escape, UInt16(0)] {
             for modifiers: NSEvent.ModifierFlags in [[.command], [.command, .shift]] {
                 let input = PanelKeyInput(keyCode: keyCode, modifiers: modifiers, hasMarkedText: false)

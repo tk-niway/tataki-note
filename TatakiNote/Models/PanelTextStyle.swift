@@ -1,21 +1,18 @@
 import AppKit
 
-/// @note p0-442
+/// パネルの入力欄の文字(フォント・文字サイズ)と、パネルの透明度の決まり。
 enum PanelTextStyle {
     static let defaultFontSize: Double = 14
     static let fontSizeRange: ClosedRange<Double> = 10...32
 
     static let defaultOpacity: Double = 1.0
-    /// @note p0-443
     static let opacityRange: ClosedRange<Double> = 0.4...1.0
 
-    /// @note p0-444
     static func clampedFontSize(_ size: Double) -> Double {
         guard size.isFinite else { return defaultFontSize }
         return min(max(size, fontSizeRange.lowerBound), fontSizeRange.upperBound)
     }
 
-    /// @note p0-445
     static func clampedOpacity(_ opacity: Double) -> Double {
         guard opacity.isFinite else { return defaultOpacity }
         return min(max(opacity, opacityRange.lowerBound), opacityRange.upperBound)

@@ -1,8 +1,7 @@
 import AppKit
 
-/// @note p0-504
+/// パネルの入力欄に文章を並べたときの高さを測る(パネルの高さの自動の伸び縮みに使う)。
 enum PanelTextMeasurer {
-    /// @note p0-505
     static func textHeight(of text: String, font: NSFont, panelWidth: CGFloat) -> CGFloat {
         let inset = PanelMetrics.textContainerInset
         let textStorage = NSTextStorage(string: text, attributes: [.font: font])
@@ -15,9 +14,7 @@ enum PanelTextMeasurer {
         layoutManager.ensureLayout(for: textContainer)
 
         let usedHeight = layoutManager.usedRect(for: textContainer).height
-        // @note p0-506
         let extraLineBottom = layoutManager.extraLineFragmentRect.maxY
-        // @note p0-507
         let singleLineHeight = layoutManager.defaultLineHeight(for: font)
         let contentHeight = max(usedHeight, extraLineBottom, singleLineHeight)
         return (contentHeight + 2 * inset.height).rounded(.up)

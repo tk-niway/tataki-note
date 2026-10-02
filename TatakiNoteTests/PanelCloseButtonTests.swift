@@ -5,7 +5,6 @@ import Testing
 
 @MainActor
 struct PanelCloseButtonTests {
-    /// @note p0-899
     private let noReplacement = NSRange(location: NSNotFound, length: 0)
 
     private func withSettings(_ body: (AppSettings) throws -> Void) throws {
@@ -26,7 +25,6 @@ struct PanelCloseButtonTests {
         )
     }
 
-    /// @note p0-900
     private static func firstSubview<T: NSView>(of type: T.Type, in view: NSView) -> T? {
         if let match = view as? T {
             return match
@@ -55,7 +53,6 @@ struct PanelCloseButtonTests {
         )
         #expect(textView.hasMarkedText())
 
-        // @note p0-901
         draft = ""
 
         textView.commitMarkedText()
@@ -111,7 +108,6 @@ struct PanelCloseButtonTests {
             #expect(!textView.hasMarkedText())
             #expect(model.text == "にほんご")
 
-            // @note p0-902
             panel.makeFirstResponder(nil)
             PanelController.commitMarkedText(in: panel)
         }

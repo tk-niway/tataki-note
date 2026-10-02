@@ -1,34 +1,32 @@
 import AppKit
 
-/// @note p0-119
+/// 挿入先に送信のキー(Enter)を送る。
 protocol SubmitKeySending {
     func sendSubmitKey(to target: InsertionTarget) async
 }
 
-/// @note p0-120
+/// Enter のキーのイベントを送り出す。
 protocol SubmitKeyPosting {
     func postSubmitKey()
 }
 
-/// @note p0-121
+/// いまキーボードで押されている修飾キーの読み取り。
 protocol ModifierKeyStateReading {
     var pressedModifiers: CGEventFlags { get }
 }
 
-/// @note p0-122
+/// いま前面にあるアプリの読み取り。
 protocol FrontmostApplicationReading {
     var frontmostProcessIdentifier: pid_t? { get }
 }
 
 struct CGEventSubmitKeyPoster: SubmitKeyPosting {
-    /// @note p0-123
     static func makeEvents() -> (keyDown: CGEvent, keyUp: CGEvent)? {
         let source = CGEventSource(stateID: .combinedSessionState)
         let returnKey = CGKeyCode(KeyCode.returnKey)
         guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: returnKey, keyDown: true),
               let keyUp = CGEvent(keyboardEventSource: source, virtualKey: returnKey, keyDown: false)
         else { return nil }
-        // @note p0-124
         keyDown.flags = []
         keyUp.flags = []
         return (keyDown, keyUp)
@@ -42,7 +40,6 @@ struct CGEventSubmitKeyPoster: SubmitKeyPosting {
 }
 
 struct SystemModifierKeyState: ModifierKeyStateReading {
-    /// @note p0-125
     var pressedModifiers: CGEventFlags {
         CGEventSource.flagsState(.hidSystemState).intersection([.maskShift, .maskCommand, .maskControl, .maskAlternate])
     }
@@ -54,12 +51,11 @@ struct WorkspaceFrontmostApplication: FrontmostApplicationReading {
     }
 }
 
-/// @note p0-126
+/// 修飾キーが離れるのを待ち、前面のアプリが挿入先のままなら Enter を1回送る。
 struct EnterKeySender: SubmitKeySending {
     private let poster: SubmitKeyPosting
     private let modifierState: ModifierKeyStateReading
     private let frontmostApp: FrontmostApplicationReading
-    /// @note p0-127
     private let pollInterval: Duration
     private let maxPolls: Int
 
@@ -78,14 +74,12 @@ struct EnterKeySender: SubmitKeySending {
     }
 
     func sendSubmitKey(to target: InsertionTarget) async {
-        // @note p0-128
         for _ in 0..<maxPolls {
             if modifierState.pressedModifiers.isEmpty {
                 break
             }
             try? await Task.sleep(for: pollInterval)
         }
-        // @note p0-129
         guard frontmostApp.frontmostProcessIdentifier == target.processIdentifier else { return }
         poster.postSubmitKey()
     }

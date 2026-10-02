@@ -18,7 +18,6 @@ struct AppSettingsTests {
         #expect(reloaded.commitKey == .commandReturn)
         #expect(reloaded.panelScreen == .targetWindow)
 
-        // @note p0-729
         reloaded.commitKey = .shiftReturn
         reloaded.panelScreen = .main
         let reloadedAgain = AppSettings(store: SettingsStore(defaults: defaults))
@@ -36,7 +35,6 @@ struct AppSettingsTests {
         settings.commitKey = .commandShiftReturn
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).commitKey == .commandShiftReturn)
 
-        // @note p0-730
         settings.commitKey = nil
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).commitKey == nil)
     }
@@ -71,7 +69,6 @@ struct AppSettingsTests {
         #expect(defaults.array(forKey: "commitAndSendShortcut") as? [Int] == PanelShortcut.commandShiftReturn.storedValue)
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).commitAndSendKey == .commandShiftReturn)
 
-        // @note p0-731
         settings.commitAndSendKey = nil
         #expect(defaults.array(forKey: "commitAndSendShortcut") as? [Int] == [])
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).commitAndSendKey == nil)
@@ -85,47 +82,38 @@ struct AppSettingsTests {
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         #expect(settings.commitAndSendKey == .commandReturn)
 
-        // @note p0-732
         #expect(settings.selectCommitKey(.commandReturn) == false)
         #expect(settings.commitKey == nil)
         #expect(defaults.object(forKey: "commitShortcut") == nil)
 
-        // @note p0-733
         #expect(settings.selectCommitKey(.commandShiftReturn) == true)
         #expect(settings.commitKey == .commandShiftReturn)
         #expect(defaults.array(forKey: "commitShortcut") as? [Int] == PanelShortcut.commandShiftReturn.storedValue)
 
-        // @note p0-734
         #expect(settings.selectCommitAndSendKey(.commandShiftReturn) == false)
         #expect(settings.commitAndSendKey == .commandReturn)
 
-        // @note p0-735
         #expect(settings.selectCommitAndSendKey(nil) == true)
         #expect(settings.commitAndSendKey == nil)
         #expect(defaults.array(forKey: "commitAndSendShortcut") as? [Int] == [])
 
-        // @note p0-736
         #expect(settings.selectCommitKey(nil) == true)
         #expect(settings.commitKey == nil)
         #expect(defaults.array(forKey: "commitShortcut") as? [Int] == [])
 
-        // @note p0-737
         #expect(settings.selectCommitKey(.shiftReturn) == true)
         #expect(settings.commitKey == .shiftReturn)
-        // @note p0-738
         #expect(settings.selectCommitAndSendKey(.shiftReturn) == false)
         #expect(settings.commitAndSendKey == nil)
     }
 
     // MARK: - 設定の見直しの土台
 
-    /// @note p0-739
     private let newKeys = [
         "appTheme", "panelFontName", "panelFontSize", "panelOpacity",
         "hiddenPanelStatusItems", "hidesMenuBarIcon", "panelDefaultWidth", "panelDefaultHeight",
     ]
 
-    /// @note p0-740
     private func storedNumber(_ defaults: UserDefaults, forKey key: String) -> Double? {
         (defaults.object(forKey: key) as? NSNumber)?.doubleValue
     }
@@ -183,7 +171,6 @@ struct AppSettingsTests {
         #expect(reloaded.panelDefaultHeight == 600.5)
         #expect(reloaded.panelDefaultSize == CGSize(width: 800, height: 600.5))
 
-        // @note p0-741
         reloaded.theme = .light
         reloaded.panelFontName = nil
         reloaded.panelFontSize = 14
@@ -373,7 +360,6 @@ struct AppSettingsTests {
             (.nan, 14), (.infinity, 14), (-.infinity, 14),
         ]
         for (size, expected) in fontSizes {
-            // @note p0-742
             settings.panelFontSize = 25
             settings.panelFontSize = size
             #expect(settings.panelFontSize == expected, "\(size)")
@@ -391,7 +377,6 @@ struct AppSettingsTests {
             #expect(storedNumber(defaults, forKey: "panelOpacity") == expected, "\(opacity)")
         }
 
-        // @note p0-743
         settings.panelFontSize = 100
         settings.panelOpacity = 0.1
         let reloaded = AppSettings(store: SettingsStore(defaults: defaults))
@@ -407,19 +392,16 @@ struct AppSettingsTests {
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
 
-        // @note p0-744
         #expect(settings.panelStatusItems == [.close, .lineBreak, .commitAndSend, .characterCount, .lineCount])
 
         settings.commitKey = .shiftReturn
         #expect(settings.panelStatusItems == PanelStatusItem.allCases)
 
-        // @note p0-745
         settings.setPanelStatusItem(.close, isVisible: false)
         #expect(settings.hiddenPanelStatusItems == [.close])
         #expect(settings.panelStatusItems == [.lineBreak, .commit, .commitAndSend, .characterCount, .lineCount])
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).hiddenPanelStatusItems == [.close])
 
-        // @note p0-746
         settings.setPanelStatusItem(.close, isVisible: false)
         #expect(settings.hiddenPanelStatusItems == [.close])
         settings.setPanelStatusItem(.close, isVisible: true)
@@ -427,12 +409,10 @@ struct AppSettingsTests {
         #expect(settings.panelStatusItems == PanelStatusItem.allCases)
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).hiddenPanelStatusItems.isEmpty)
 
-        // @note p0-747
         settings.commitAndSendKey = nil
         #expect(settings.hiddenPanelStatusItems.isEmpty)
         #expect(settings.panelStatusItems == [.close, .lineBreak, .commit, .characterCount, .lineCount])
 
-        // @note p0-748
         for item in PanelStatusItem.allCases {
             settings.setPanelStatusItem(item, isVisible: false)
         }
@@ -453,7 +433,6 @@ struct AppSettingsTests {
             (.nan, 520), (.infinity, 520), (-.infinity, 520),
         ]
         for (width, expected) in widths {
-            // @note p0-749
             settings.panelDefaultWidth = 1000
             settings.panelDefaultWidth = width
             #expect(settings.panelDefaultWidth == expected, "\(width)")
@@ -491,7 +470,6 @@ struct AppSettingsTests {
         #expect(settings.isMenuBarIconShown == true)
         #expect(settings.hidesMenuBarIcon == false)
 
-        // @note p0-750
         settings.isMenuBarIconShown = false
         #expect(settings.hidesMenuBarIcon == true)
         #expect(defaults.object(forKey: "hidesMenuBarIcon") != nil)
@@ -500,13 +478,11 @@ struct AppSettingsTests {
         #expect(reloaded.isMenuBarIconShown == false)
         #expect(reloaded.hidesMenuBarIcon == true)
 
-        // @note p0-751
         settings.isMenuBarIconShown = true
         #expect(settings.hidesMenuBarIcon == false)
         #expect(defaults.bool(forKey: "hidesMenuBarIcon") == false)
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).isMenuBarIconShown == true)
 
-        // @note p0-752
         settings.hidesMenuBarIcon = true
         #expect(settings.isMenuBarIconShown == false)
     }

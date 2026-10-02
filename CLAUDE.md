@@ -43,7 +43,7 @@ xcodebuild build -project TatakiNote.xcodeproj -scheme TatakiNote -destination '
 - UI テストの受け入れ条件の目印 `// AC-<番号>`(説明を付けない)
 
 それ以外の `//`・`/* */`、ファイルの先頭の見出しコメント、TODO・FIXME は書かない。コードを読めば分かることは
-`///` にも書かない。古いコメント `// @note p<N>-<k>` は消してよい(新しく書かない)。
+`///` にも書かない。
 
 Claude が書いたファイルは hook(`.claude/settings.json` → `scripts/claude-hook.sh`)が `scripts/check-public.sh` で
 確かめ、合わなければ差し戻す。手で確かめるときは `scripts/check-public.sh --changed`。

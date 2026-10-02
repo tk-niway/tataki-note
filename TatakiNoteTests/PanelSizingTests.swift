@@ -6,18 +6,15 @@ import Testing
 
 @MainActor
 struct PanelSizingTests {
-    /// @note p0-979
     private let visible = CGRect(x: 0, y: 0, width: 1440, height: 875)
     private let defaultSize = CGSize(width: 520, height: 340)
 
-    /// @note p0-980
     private func openedSizing(defaultSize: CGSize = CGSize(width: 520, height: 340)) -> PanelSizing {
         let sizing = PanelSizing()
         sizing.beginOpening(defaultSize: defaultSize)
         return sizing
     }
 
-    /// @note p0-981
     private func countHeldSizeChanges(of sizing: PanelSizing) -> OSAllocatedUnfairLock<Int> {
         let changes = OSAllocatedUnfairLock(initialState: 0)
         withObservationTracking {
@@ -34,7 +31,6 @@ struct PanelSizingTests {
     func chromeHeight() {
         #expect(PanelSizing.chromeHeight(titleBarHeight: 28, isStatusBarVisible: true) == 57)
         #expect(PanelSizing.chromeHeight(titleBarHeight: 28, isStatusBarVisible: false) == 28)
-        // @note p0-982
         #expect(PanelSizing.chromeHeight(titleBarHeight: 32, isStatusBarVisible: true) == 61)
         #expect(PanelSizing.chromeHeight(titleBarHeight: 32, isStatusBarVisible: false) == 32)
     }
@@ -46,11 +42,9 @@ struct PanelSizingTests {
         let sizing = openedSizing()
         #expect(sizing.openingSize(in: visible) == defaultSize)
 
-        // @note p0-983
         let huge = openedSizing(defaultSize: CGSize(width: 2000, height: 1000))
         #expect(huge.openingSize(in: visible) == CGSize(width: 1440, height: 875))
 
-        // @note p0-984
         let wide = openedSizing(defaultSize: CGSize(width: 2000, height: 400))
         #expect(wide.openingSize(in: visible) == CGSize(width: 1440, height: 400))
     }
@@ -71,17 +65,14 @@ struct PanelSizingTests {
     func userDidResizeKeepsOnlyChangedEdges() {
         let sizing = openedSizing()
 
-        // @note p0-985
         sizing.userDidResize(from: CGSize(width: 520, height: 500), to: CGSize(width: 700, height: 500))
         #expect(sizing.heldSize == CGSize(width: 700, height: 340))
         #expect(sizing.baseSize == CGSize(width: 700, height: 340))
 
-        // @note p0-986
         sizing.userDidResize(from: CGSize(width: 700, height: 500), to: CGSize(width: 700, height: 600))
         #expect(sizing.heldSize == CGSize(width: 700, height: 600))
         #expect(sizing.baseSize == CGSize(width: 700, height: 600))
 
-        // @note p0-987
         let changes = countHeldSizeChanges(of: sizing)
         sizing.userDidResize(from: CGSize(width: 700, height: 600), to: CGSize(width: 700, height: 600))
         #expect(sizing.heldSize == CGSize(width: 700, height: 600))
@@ -93,7 +84,6 @@ struct PanelSizingTests {
         let sizing = openedSizing()
         let changes = countHeldSizeChanges(of: sizing)
 
-        // @note p0-988
         sizing.userDidResize(from: CGSize(width: 520, height: 500), to: CGSize(width: 520, height: 500))
 
         #expect(sizing.heldSize == nil)
@@ -105,7 +95,6 @@ struct PanelSizingTests {
     func heightOnlyDragKeepsDefaultWidth() {
         let sizing = openedSizing()
 
-        // @note p0-989
         sizing.userDidResize(from: CGSize(width: 400, height: 340), to: CGSize(width: 400, height: 450))
 
         #expect(sizing.heldSize == CGSize(width: 520, height: 450))
@@ -115,7 +104,6 @@ struct PanelSizingTests {
     func userDidResizeClampsToMinimum() {
         let sizing = openedSizing()
 
-        // @note p0-990
         sizing.userDidResize(from: defaultSize, to: CGSize(width: 300, height: 100))
 
         #expect(PanelSizing.minimumSize == CGSize(width: 320, height: 160))
@@ -124,7 +112,6 @@ struct PanelSizingTests {
 
     @Test("AC-17, AC-18: ドラッグで変わらなかった辺は、開いたときの設定の既定の値")
     func unchangedEdgeUsesOpenedDefaultSize() {
-        // @note p0-991
         let sizing = openedSizing(defaultSize: CGSize(width: 600, height: 400))
 
         sizing.userDidResize(from: CGSize(width: 600, height: 400), to: CGSize(width: 700, height: 400))
@@ -199,7 +186,6 @@ struct PanelSizingTests {
         sizing.beginOpening(defaultSize: CGSize(width: 800, height: 500))
         #expect(sizing.baseSize == CGSize(width: 700, height: 450))
         #expect(sizing.heldSize == CGSize(width: 700, height: 450))
-        // @note p0-992
         #expect(changes.withLock { $0 } == 0)
 
         sizing.handleCommitOutcome(.inserted)
@@ -213,7 +199,6 @@ struct PanelSizingTests {
         let sizing = PanelSizing()
         sizing.beginOpening(defaultSize: CGSize(width: 600, height: 400))
 
-        // @note p0-993
         sizing.handleCommitOutcome(.notInserted)
         #expect(sizing.openedDefaultSize == CGSize(width: 600, height: 400))
         #expect(sizing.baseSize == CGSize(width: 600, height: 400))

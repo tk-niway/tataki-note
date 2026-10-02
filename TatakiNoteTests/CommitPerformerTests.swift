@@ -18,7 +18,6 @@ final class PermissionStub: AccessibilityPermissionChecking {
 @MainActor
 final class InserterStub: TextInserting {
     var result: InsertionResult
-    /// @note p0-817
     var onInsert: (() -> Void)?
     private(set) var calls: [(text: String, target: InsertionTarget, shouldSendAfterInsert: Bool)] = []
 
@@ -372,7 +371,6 @@ struct CommitPerformerTests {
 
     @Test("AC-5: 確定+送信でも、許可が無い・挿入先が分からないときは挿入(と送信)をせず、文章は下書きに残って今までどおり知らされる")
     func sendDoesNotInsertWithoutPermissionOrTarget() async {
-        // @note p0-818
         do {
             let model = PanelModel()
             model.present(target: textEdit)
@@ -391,7 +389,6 @@ struct CommitPerformerTests {
             #expect(notifier.notices.isEmpty)
             #expect(model.text == "draft")
         }
-        // @note p0-819
         do {
             let model = PanelModel()
             model.present(target: nil)

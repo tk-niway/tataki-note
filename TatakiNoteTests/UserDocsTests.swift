@@ -1,37 +1,27 @@
 import Foundation
 import Testing
 
-// @note p0-1116
 
-/// @note p0-1117
 private struct DocLink: Equatable {
-    /// @note p0-1118
     var target: String
-    /// @note p0-1119
     var line: Int
 }
 
-/// @note p0-1120
 private struct DocLine: Equatable {
-    /// @note p0-1121
     var line: Int
     var text: String
 }
 
-/// @note p0-1122
 private enum UserDocsRules {
     static let readmeName = "README.md"
-    /// @note p0-1123
     static let pagesDirectory = "features"
 
-    /// @note p0-1124
     static let developerContentPattern = "^## 実装の仕組み|^## 関連ファイル|\\.swift|UserDefaults|plan-[0-9]+"
 
     static func lines(of markdown: String) -> [Substring] {
         markdown.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
     }
 
-    /// @note p0-1125
     static func links(in markdown: String) -> [DocLink] {
         var result: [DocLink] = []
         for (index, line) in lines(of: markdown).enumerated() {
@@ -47,12 +37,10 @@ private enum UserDocsRules {
         return result
     }
 
-    /// @note p0-1126
     static func isExternal(_ target: String) -> Bool {
         ["http://", "https://", "mailto:"].contains { target.hasPrefix($0) }
     }
 
-    /// @note p0-1127
     static func splitTarget(_ target: String) -> (path: String, anchor: String?) {
         var path = target
         var anchor: String?
@@ -66,21 +54,18 @@ private enum UserDocsRules {
         return (path, anchor)
     }
 
-    /// @note p0-1128
     static func headingText(of line: Substring) -> String? {
         let hashes = line.prefix { $0 == "#" }
         guard (1...6).contains(hashes.count) else { return nil }
         let rest = line.dropFirst(hashes.count)
         guard let first = rest.first, first == " " || first == "\t" else { return nil }
         var text = rest.trimmingCharacters(in: .whitespaces)
-        // @note p0-1129
         if let closing = text.range(of: "\\s+#+$", options: .regularExpression) {
             text.removeSubrange(closing)
         }
         return text
     }
 
-    /// @note p0-1130
     static func headingIDs(in markdown: String) -> Set<String> {
         var ids: Set<String> = []
         var isInCodeBlock = false
@@ -96,7 +81,6 @@ private enum UserDocsRules {
         return ids
     }
 
-    /// @note p0-1131
     static func headingID(for heading: String) -> String {
         var id = ""
         for scalar in heading.lowercased().unicodeScalars {
@@ -120,7 +104,6 @@ private enum UserDocsRules {
         }
     }
 
-    /// @note p0-1132
     static func resolve(_ path: String, from page: String) -> String? {
         var components = page.split(separator: "/").dropLast().map(String.init)
         for part in path.split(separator: "/") {
@@ -137,7 +120,6 @@ private enum UserDocsRules {
         return components.joined(separator: "/")
     }
 
-    /// @note p0-1133
     static func misplacedPages(_ paths: [String]) -> [String] {
         let prefix = pagesDirectory + "/"
         return paths.filter { path in
@@ -147,13 +129,11 @@ private enum UserDocsRules {
         }.sorted()
     }
 
-    /// @note p0-1134
     static func unlinkedPages(pageNames: [String], readme: String) -> [String] {
         let linked = Set(links(in: readme).map { splitTarget($0.target).path })
         return pageNames.filter { $0 != readmeName && !linked.contains($0) }.sorted()
     }
 
-    /// @note p0-1135
     static func brokenLinks(in pages: [String: String], fileExists: (String) -> Bool) -> [String] {
         var problems: [String] = []
         for name in pages.keys.sorted() {
@@ -182,7 +162,6 @@ private enum UserDocsRules {
         return problems
     }
 
-    /// @note p0-1136
     static func datedPageNames(_ paths: [String]) -> [String] {
         paths.filter { path in
             let fileName = path.split(separator: "/").last.map(String.init) ?? path
@@ -190,7 +169,6 @@ private enum UserDocsRules {
         }.sorted()
     }
 
-    /// @note p0-1137
     static func developerContentLines(in markdown: String) -> [DocLine] {
         lines(of: markdown).enumerated().compactMap { index, line in
             guard line.range(of: developerContentPattern, options: .regularExpression) != nil else { return nil }
@@ -200,13 +178,11 @@ private enum UserDocsRules {
 }
 
 struct UserDocsTests {
-    /// @note p0-1138
     private static let docsDirectory = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .deletingLastPathComponent()
         .appendingPathComponent("docs")
 
-    /// @note p0-1139
     private func loadPages() throws -> [String: String] {
         let fileManager = FileManager.default
         let enumerator = try #require(

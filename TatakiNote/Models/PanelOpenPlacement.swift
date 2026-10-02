@@ -1,11 +1,9 @@
 import CoreGraphics
 
-/// @note p0-364
+/// 閉じた状態からパネルを開くときの枠の決め方(「入力欄の近く」を含む)。
 enum PanelOpenPlacement {
-    /// @note p0-365
     static let fieldGap: CGFloat = 8
 
-    /// @note p0-366
     static func fieldFrame(
         mode: PanelScreen,
         isTrusted: Bool,
@@ -19,7 +17,6 @@ enum PanelOpenPlacement {
         return PanelPlacement.cocoaFrame(fromQuartz: frame, primaryScreenHeight: primaryScreenHeight)
     }
 
-    /// @note p0-367
     static func screen(
         mode: PanelScreen,
         screens: [ScreenGeometry],
@@ -39,7 +36,6 @@ enum PanelOpenPlacement {
         )
     }
 
-    /// @note p0-368
     static func frame(size: CGSize, on screen: ScreenGeometry, mode: PanelScreen, fieldFrame: CGRect?) -> CGRect {
         let visibleFrame = screen.visibleFrame
         let fittedSize = CGSize(width: min(size.width, visibleFrame.width), height: min(size.height, visibleFrame.height))
@@ -50,7 +46,6 @@ enum PanelOpenPlacement {
         return PanelPlacement.centeredFrame(size: fittedSize, in: visibleFrame)
     }
 
-    /// @note p0-369
     static func nearField(size: CGSize, fieldFrame: CGRect, visibleFrame: CGRect) -> CGRect {
         let x = min(max(fieldFrame.minX, visibleFrame.minX), visibleFrame.maxX - size.width).rounded()
 
@@ -67,7 +62,6 @@ enum PanelOpenPlacement {
         return PanelPlacement.centeredFrame(size: size, in: visibleFrame)
     }
 
-    /// @note p0-370
     private static func fits(y: CGFloat, height: CGFloat, in visibleFrame: CGRect) -> Bool {
         y >= visibleFrame.minY && y + height <= visibleFrame.maxY
     }

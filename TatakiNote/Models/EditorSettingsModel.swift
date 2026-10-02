@@ -1,13 +1,12 @@
 import AppKit
 import Observation
 
-/// @note p0-250
+/// 帯の項目に添える注記。
 enum StatusItemNote: Equatable {
-    /// @note p0-251
     case keyNotAssigned
 }
 
-/// @note p0-252
+/// 設定画面の「エディタ設定」の状態(フォント・文字サイズ・透明度・帯の項目)。
 @Observable final class EditorSettingsModel {
     @ObservationIgnored private let settings: AppSettings
 
@@ -31,13 +30,11 @@ enum StatusItemNote: Equatable {
         settings.resetPanelFontToSystem()
     }
 
-    /// @note p0-258
     var fontSizeText: String {
         let points = Int(settings.panelFontSize.rounded())
         return String(localized: "\(points) pt")
     }
 
-    /// @note p0-259
     var opacityPercentText: String {
         let percent = Int((settings.panelOpacity * 100).rounded())
         return String(localized: "\(percent)%")
@@ -51,9 +48,7 @@ enum StatusItemNote: Equatable {
         settings.setPanelStatusItem(item, isVisible: isVisible)
     }
 
-    /// @note p0-260
     func statusItemNote(_ item: PanelStatusItem) -> StatusItemNote? {
-        // @note p0-261
         switch item {
         case .commit:
             settings.commitKey == nil ? .keyNotAssigned : nil

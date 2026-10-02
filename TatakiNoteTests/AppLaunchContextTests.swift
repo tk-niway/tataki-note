@@ -23,7 +23,6 @@ struct AppLaunchContextTests {
         let environments: [[String: String]] = [
             [:],
             ["HOME": "/Users/test", "PATH": "/usr/bin"],
-            // @note p0-722
             ["XCTestSessionIdentifier": "abc", "XCTestManagerVariant": "DDI"],
         ]
 
@@ -37,7 +36,6 @@ struct AppLaunchContextTests {
 
     @Test("AC-12: DEBUG で TATAKINOTE_SETTINGS_SUITE があればその名前、空・無しなら指定なし")
     func settingsSuiteName() {
-        // @note p0-723
         #expect(AppLaunchContext.settingsSuiteName(environment: ["TATAKINOTE_SETTINGS_SUITE": "TatakiNoteUITests.abc"]) == "TatakiNoteUITests.abc")
         #expect(
             AppLaunchContext.settingsSuiteName(environment: ["TATAKINOTE_SETTINGS_SUITE": "x", "HOME": "/Users/test"]) == "x"
@@ -70,7 +68,6 @@ struct AppLaunchContextTests {
         #expect(defaults === suite)
         #expect(defaults !== UserDefaults.standard)
 
-        // @note p0-724
         SettingsStore(defaults: defaults).saveCommitShortcut(.commandReturn)
         SettingsStore(defaults: defaults).savePanelScreen(.main)
         #expect(suite.array(forKey: "commitShortcut") as? [Int] == [36, 1_048_576])
@@ -87,7 +84,6 @@ struct AppLaunchContextTests {
 
         for environment in environments {
             var requestedNames: [String] = []
-            // @note p0-725
             let defaults = AppLaunchContext.settingsDefaults(environment: environment) { requested in
                 requestedNames.append(requested)
                 return nil
@@ -101,7 +97,6 @@ struct AppLaunchContextTests {
 
     @Test("AC-7: DEBUG で TATAKINOTE_ACCESSIBILITY_OVERRIDE が trusted / untrusted のときだけ上書きし、それ以外は本物の権限を使う")
     func accessibilityOverride() {
-        // @note p0-726
         #expect(AppLaunchContext.accessibilityOverride(environment: ["TATAKINOTE_ACCESSIBILITY_OVERRIDE": "trusted"]) == true)
         #expect(AppLaunchContext.accessibilityOverride(environment: ["TATAKINOTE_ACCESSIBILITY_OVERRIDE": "untrusted"]) == false)
 
@@ -130,7 +125,6 @@ struct AppLaunchContextTests {
     func overriddenPermission() {
         #expect(OverriddenAccessibilityPermission(isTrusted: false).isTrusted == false)
         #expect(OverriddenAccessibilityPermission(isTrusted: true).isTrusted == true)
-        // @note p0-727
         OverriddenAccessibilityPermission(isTrusted: false).requestSystemPrompt()
     }
 
@@ -161,7 +155,6 @@ struct AppLaunchContextTests {
 
     @Test("AC-7: DEBUG で TATAKINOTE_LOGIN_ITEM_OVERRIDE が memory のときだけ OS に何もしないログイン項目を使い、それ以外は本物を使う")
     func loginItemOverride() {
-        // @note p0-728
         let overridden = AppLaunchContext.loginItemService(environment: ["TATAKINOTE_LOGIN_ITEM_OVERRIDE": "memory"])
         #expect(overridden is InMemoryLoginItemService)
         #expect(overridden.status == .notRegistered)

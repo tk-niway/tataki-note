@@ -3,7 +3,6 @@ import Foundation
 import Testing
 @testable import TatakiNote
 
-/// @note p0-763
 @MainActor
 final class StubRunningApplications: RunningApplicationsProviding {
     var apps: [AutoShowApp]
@@ -25,7 +24,6 @@ struct AutoShowAppsEditorTests {
     private let notes = AutoShowApp(bundleIdentifier: "com.example.notes", name: "Notes")
     private let browser = AutoShowApp(bundleIdentifier: "com.example.browser", name: "Browser")
 
-    /// @note p0-764
     private func makeSuite() throws -> (UserDefaults, String) {
         let name = UUID().uuidString
         return (try #require(UserDefaults(suiteName: name)), name)
@@ -35,7 +33,6 @@ struct AutoShowAppsEditorTests {
         defaults.removePersistentDomain(forName: name)
     }
 
-    /// @note p0-765
     private func makeEditor(
         settings: AppSettings,
         running: StubRunningApplications,
@@ -50,7 +47,6 @@ struct AutoShowAppsEditorTests {
         )
     }
 
-    /// @note p0-766
     private func savedApps(in defaults: UserDefaults) -> [AutoShowApp] {
         AppSettings(store: SettingsStore(defaults: defaults)).autoShowApps
     }
@@ -77,7 +73,6 @@ struct AutoShowAppsEditorTests {
         #expect(savedApps(in: defaults) == [chatmate])
         #expect(editor.candidates == [notes])
 
-        // @note p0-767
         editor.add(notes)
         #expect(settings.autoShowApps == [chatmate, notes])
         #expect(savedApps(in: defaults) == [chatmate, notes])
@@ -119,7 +114,6 @@ struct AutoShowAppsEditorTests {
 
     @Test("AC-4: 候補は名前順(localizedStandardCompare)に並び、名前が同じなら bundle identifier の順")
     func candidatesAreSortedByName() {
-        // @note p0-768
         let running = [
             AutoShowApp(bundleIdentifier: "com.example.b", name: "b"),
             AutoShowApp(bundleIdentifier: "com.example.app10", name: "App 10"),
@@ -207,11 +201,9 @@ struct AutoShowAppsEditorTests {
         settings.autoShowApps = [chatmate, notes]
         let editor = makeEditor(settings: settings, running: StubRunningApplications(), notificationCenter: NotificationCenter())
 
-        // @note p0-769
         editor.removeSelected()
         #expect(settings.autoShowApps == [chatmate, notes])
 
-        // @note p0-770
         editor.selection = "com.example.notinlist"
         editor.removeSelected()
         #expect(settings.autoShowApps == [chatmate, notes])
@@ -231,7 +223,6 @@ struct AutoShowAppsEditorTests {
         editor.add(chatmate)
         editor.add(notes)
         editor.add(chatmate)
-        // @note p0-771
         editor.add(AutoShowApp(bundleIdentifier: "com.example.chatmate", name: "Chatmate 2"))
 
         #expect(settings.autoShowApps == [chatmate, notes])
@@ -292,29 +283,24 @@ struct AutoShowAppsEditorTests {
         #expect(settings.autoShowApps == expected)
         #expect(savedApps(in: defaults) == expected)
 
-        // @note p0-772
         #expect(editor.addApplication(at: calc))
         #expect(settings.autoShowApps == expected)
 
-        // @note p0-773
         let plain = try makeFakeApplication(named: "Plain Tool", in: directory, info: ["CFBundleIdentifier": "com.example.plain"])
         #expect(editor.addApplication(at: plain))
         #expect(settings.autoShowApps.last == AutoShowApp(bundleIdentifier: "com.example.plain", name: "Plain Tool"))
 
-        // @note p0-774
         let noIdentifier = try makeFakeApplication(named: "NoIdentifier", in: directory, info: ["CFBundleName": "NoIdentifier"])
         #expect(!editor.addApplication(at: noIdentifier))
         let emptyIdentifier = try makeFakeApplication(named: "EmptyIdentifier", in: directory, info: ["CFBundleIdentifier": ""])
         #expect(!editor.addApplication(at: emptyIdentifier))
 
-        // @note p0-775
         #expect(!editor.addApplication(at: directory.appendingPathComponent("Missing.app", isDirectory: true)))
 
         #expect(settings.autoShowApps.map(\.bundleIdentifier) == ["com.example.calc", "com.example.plain"])
         #expect(savedApps(in: defaults).map(\.bundleIdentifier) == ["com.example.calc", "com.example.plain"])
     }
 
-    /// @note p0-776
     private func makeFakeApplication(named name: String, in directory: URL, info: [String: String]) throws -> URL {
         let application = directory.appendingPathComponent("\(name).app", isDirectory: true)
         let contents = application.appendingPathComponent("Contents", isDirectory: true)
@@ -342,7 +328,6 @@ struct AutoShowAppsEditorTests {
         #expect(settings.autoShowApps == [chatmate, notes])
         #expect(!editor.isEditable)
         #expect(!editor.canRemove)
-        // @note p0-777
         editor.removeSelected()
         #expect(settings.autoShowApps == [chatmate, notes])
 
@@ -455,7 +440,6 @@ struct AutoShowAppsEditorTests {
         #expect(editor.candidates == [chatmate])
     }
 
-    /// @note p0-778
     private func waitUntil(_ condition: () -> Bool) async throws {
         var attempts = 0
         while !condition() && attempts < 20 {

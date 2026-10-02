@@ -3,10 +3,8 @@ import Foundation
 import Testing
 @testable import TatakiNote
 
-/// @note p0-903
 @MainActor
 struct PanelControllerTests {
-    /// @note p0-904
     private func makeController(settings: AppSettings) -> PanelController {
         PanelController(
             settings: settings,
@@ -85,11 +83,9 @@ struct PanelControllerTests {
         try withSettings { settings in
             let controller = makeController(settings: settings)
 
-            // @note p0-905
             controller.windowDidEndLiveResize(Notification(name: NSWindow.didEndLiveResizeNotification))
             #expect(controller.heldPanelSize == nil)
 
-            // @note p0-906
             controller.windowWillStartLiveResize(Notification(name: NSWindow.willStartLiveResizeNotification))
             controller.windowDidEndLiveResize(Notification(name: NSWindow.didEndLiveResizeNotification))
             #expect(controller.heldPanelSize == nil)

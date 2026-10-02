@@ -5,25 +5,19 @@ enum PanelShortcutRole: CaseIterable {
     case commitAndSend
 }
 
-/// @note p0-402
+/// 記録ボックスで押されたキー。
 struct PanelShortcutCandidate: Equatable {
     let shortcut: PanelShortcut
     let characters: String
 }
 
 enum PanelShortcutRejection: Equatable {
-    /// @note p0-403
     case missingModifier
-    /// @note p0-404
     case reservedForClosing
-    /// @note p0-405
     case reservedForEditing
-    /// @note p0-406
     case usedByHotkey
-    /// @note p0-407
     case usedByOtherRole(PanelShortcutRole)
 
-    /// @note p0-408
     func message(for shortcut: PanelShortcut) -> String {
         let key = shortcut.displayText
         switch self {
@@ -44,10 +38,8 @@ enum PanelShortcutRejection: Equatable {
 }
 
 enum PanelShortcutRules {
-    /// @note p0-409
     private static let editingCharacters: Set<String> = ["a", "c", "d", "h", "l", "v", "x", "z"]
 
-    /// @note p0-410
     static func rejection(
         for candidate: PanelShortcutCandidate,
         role: PanelShortcutRole,
@@ -82,7 +74,6 @@ enum PanelShortcutRules {
         return nil
     }
 
-    /// @note p0-411
     private static func isReservedForEditing(_ candidate: PanelShortcutCandidate) -> Bool {
         let shortcut = candidate.shortcut
         if shortcut.modifiers == [.command], editingCharacters.contains(candidate.characters) {

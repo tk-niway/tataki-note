@@ -4,7 +4,6 @@ import Testing
 
 @MainActor
 struct PanelOpenPlacementTests {
-    // @note p0-946
     private let screenA = ScreenGeometry(
         frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
         visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 875)
@@ -26,7 +25,6 @@ struct PanelOpenPlacementTests {
         )
 
         #expect(placed == CGRect(x: 100, y: 152, width: 520, height: 340))
-        // @note p0-947
         #expect(500 - placed.maxY == PanelOpenPlacement.fieldGap)
     }
 
@@ -45,9 +43,7 @@ struct PanelOpenPlacementTests {
     func centersWhenNeitherFits() {
         let cases: [(CGRect, CGRect, String)] = [
             (CGRect(x: 100, y: 0, width: 400, height: 875), screenA.visibleFrame, "可視の高さいっぱい"),
-            // @note p0-948
             (CGRect(x: 100, y: 884, width: 200, height: 16), screenA.visibleFrame, "メニューバーの帯"),
-            // @note p0-949
             (CGRect(x: 100, y: 20, width: 200, height: 30), CGRect(x: 0, y: 70, width: 1440, height: 805), "Dock の上"),
         ]
 
@@ -64,7 +60,6 @@ struct PanelOpenPlacementTests {
             fieldFrame: CGRect(x: 1200, y: 500, width: 200, height: 30),
             visibleFrame: screenA.visibleFrame
         )
-        // @note p0-950
         #expect(right.minX == 920)
         #expect(right.maxX == screenA.visibleFrame.maxX)
 
@@ -108,13 +103,11 @@ struct PanelOpenPlacementTests {
 
     @Test("AC-8: 開く大きさが可視領域に収まらなければ収まるよう縮めて開き、渡した大きさ・保っている大きさそのものは変えない")
     func frameShrinksToVisibleFrame() {
-        // @note p0-951
         let huge = CGSize(width: 4000, height: 4000)
         #expect(
             PanelOpenPlacement.frame(size: huge, on: screenA, mode: .mouse, fieldFrame: nil)
                 == CGRect(x: 0, y: 0, width: 1440, height: 875)
         )
-        // @note p0-952
         #expect(
             PanelOpenPlacement.frame(
                 size: CGSize(width: 1600, height: 1000),
@@ -124,7 +117,6 @@ struct PanelOpenPlacementTests {
             ) == CGRect(x: 0, y: 0, width: 1440, height: 875)
         )
 
-        // @note p0-953
         let sizing = PanelSizing()
         sizing.beginOpening(defaultSize: CGSize(width: 520, height: 340))
         sizing.userDidResize(from: CGSize(width: 520, height: 340), to: CGSize(width: 1100, height: 700))
@@ -182,7 +174,6 @@ struct PanelOpenPlacementTests {
             }
         }
 
-        // @note p0-954
         #expect(
             PanelOpenPlacement.screen(
                 mode: .nearFocusedField,
@@ -202,7 +193,6 @@ struct PanelOpenPlacementTests {
             ) == screenB
         )
 
-        // @note p0-955
         #expect(
             PanelOpenPlacement.screen(
                 mode: .mouse,

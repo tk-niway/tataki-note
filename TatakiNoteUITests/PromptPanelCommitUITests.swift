@@ -1,10 +1,8 @@
 import XCTest
 
-// @note p0-1327
 final class PromptPanelCommitUITests: XCTestCase {
     private let timeout: TimeInterval = 5
 
-    /// @note p0-1328
     private let settingsSuiteName = "TatakiNoteUITests.\(UUID().uuidString)"
 
     override func setUpWithError() throws {
@@ -16,12 +14,10 @@ final class PromptPanelCommitUITests: XCTestCase {
     }
 
     // AC-12
-    // @note p0-1329
     @MainActor
     func testAC12_emptyPanelKeysWithDefaultCommitKey() throws {
         let app = XCUIApplication()
         app.launchEnvironment["TATAKINOTE_SETTINGS_SUITE"] = settingsSuiteName
-        // @note p0-1330
         app.launchEnvironment[AccessibilityOverride.key] = AccessibilityOverride.untrusted
         app.launchEnvironment["TATAKINOTE_SETTINGS_SEED"] = try settingsSeedJSON(["commitKey": "commandEnter"])
         app.launch()
@@ -30,15 +26,12 @@ final class PromptPanelCommitUITests: XCTestCase {
         openPanelFromMenu(in: app)
         let textView = app.textViews["promptPanel.textView"]
         XCTAssertTrue(textView.waitForExistence(timeout: timeout))
-        // @note p0-1331
         XCTAssertEqual(textView.value as? String, "")
 
-        // @note p0-1332
         app.typeKey(.return, modifierFlags: [.command, .shift])
         XCTAssertTrue(textView.exists)
         XCTAssertEqual(textView.value as? String, "\n")
 
-        // @note p0-1333
         app.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(textView.exists)
         XCTAssertEqual(textView.value as? String, "\n\n")
@@ -46,7 +39,6 @@ final class PromptPanelCommitUITests: XCTestCase {
         XCTAssertTrue(textView.exists)
         XCTAssertEqual(textView.value as? String, "\n\n\n")
 
-        // @note p0-1334
         app.typeKey("a", modifierFlags: [.command])
         app.typeKey(.delete, modifierFlags: [])
         XCTAssertEqual(textView.value as? String, "")
@@ -54,7 +46,6 @@ final class PromptPanelCommitUITests: XCTestCase {
         XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
     }
 
-    /// @note p0-1335
     private func settingsSeedJSON(_ values: [String: Any]) throws -> String {
         let data = try JSONSerialization.data(withJSONObject: values, options: [.sortedKeys])
         return String(decoding: data, as: UTF8.self)
@@ -80,7 +71,6 @@ final class PromptPanelCommitUITests: XCTestCase {
         clickShownMenuItem(item)
     }
 
-    // @note p0-1336
     @MainActor
     private func clickShownMenuItem(_ item: XCUIElement) {
         let deadline = Date().addingTimeInterval(timeout)
@@ -91,7 +81,6 @@ final class PromptPanelCommitUITests: XCTestCase {
         item.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
     }
 
-    // @note p0-1337
     @MainActor
     private func openPanelMenuItem(in app: XCUIApplication) -> XCUIElement {
         let byIdentifier = app.menuItems["menu.openPanel"]

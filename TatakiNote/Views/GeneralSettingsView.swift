@@ -1,7 +1,7 @@
 import KeyboardShortcuts
 import SwiftUI
 
-/// @note p0-606
+/// 設定画面の「一般」。
 struct GeneralSettingsView: View {
     @Bindable var settings: AppSettings
     @Bindable var keySettings: PanelKeySettingsModel
@@ -11,7 +11,6 @@ struct GeneralSettingsView: View {
         Form {
             LabeledContent("パネルを開く・閉じる") {
                 VStack(alignment: .leading, spacing: 6) {
-                    // @note p0-607
                     KeyboardShortcuts.Recorder("パネルを開く・閉じる", name: .togglePanel)
                         .labelsHidden()
                         .accessibilityIdentifier("settings.hotkeyRecorder")
@@ -53,7 +52,6 @@ struct GeneralSettingsView: View {
 
             AutoShowSettingsSection(settings: settings)
 
-            // @note p0-609
             LabeledContent("テーマ") {
                 VStack(alignment: .leading, spacing: 6) {
                     Picker("テーマ", selection: $settings.theme) {
@@ -73,11 +71,9 @@ struct GeneralSettingsView: View {
 
             LabeledContent("起動") {
                 VStack(alignment: .leading, spacing: 6) {
-                    // @note p0-610
                     Toggle("ログイン時に起動", isOn: launchAtLoginBinding)
                         .toggleStyle(.checkbox)
                         .accessibilityIdentifier("settings.launchAtLoginToggle")
-                    // @note p0-611
                     if let error = launchAtLogin.lastError {
                         LaunchAtLoginErrorNote(error: error)
                     }
@@ -109,7 +105,6 @@ struct GeneralSettingsView: View {
         )
     }
 
-    /// @note p0-612
     private func shortcutRecorder(for role: PanelShortcutRole, recorderID: String, rejectionID: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             PanelShortcutRecorder(
@@ -130,7 +125,6 @@ struct GeneralSettingsView: View {
     }
 }
 
-/// @note p0-613
 private struct PanelShortcutRejectionNote: View {
     let message: String
     let identifier: String
@@ -148,7 +142,6 @@ private struct PanelShortcutRejectionNote: View {
     }
 }
 
-/// @note p0-614
 private struct LaunchAtLoginErrorNote: View {
     let error: LaunchAtLoginError
 
@@ -174,7 +167,6 @@ private struct LaunchAtLoginErrorNote: View {
     }
 }
 
-/// @note p0-615
 private struct LaunchAtLoginApprovalNote: View {
     let onOpenSystemSettings: () -> Void
 

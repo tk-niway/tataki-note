@@ -1,17 +1,13 @@
 import AppKit
 
-/// @note p0-179
+/// 設定画面・権限の案内・パネルの窓の外観(テーマ)。
 enum AppTheme: String, CaseIterable, Sendable {
-    /// @note p0-180
     case system
-    /// @note p0-181
     case light
-    /// @note p0-182
     case dark
 
     static let defaultValue: AppTheme = .system
 
-    /// @note p0-183
     var appearanceName: NSAppearance.Name? {
         switch self {
         case .system:

@@ -1,13 +1,12 @@
 import CoreGraphics
 
-/// @note p0-371
+/// 画面の枠と可視領域(メニューバーと Dock を除いた領域)。
 struct ScreenGeometry: Equatable {
     var frame: CGRect
     var visibleFrame: CGRect
 }
 
 enum PanelPlacement {
-    /// @note p0-372
     static func screenContainingMouse(_ location: CGPoint, in screens: [ScreenGeometry]) -> ScreenGeometry? {
         let containing = screens.first { screen in
             let frame = screen.frame
@@ -17,7 +16,6 @@ enum PanelPlacement {
         return containing ?? screens.first
     }
 
-    /// @note p0-373
     static func centeredFrame(size: CGSize, in visibleFrame: CGRect) -> CGRect {
         let width = min(size.width, visibleFrame.width)
         let height = min(size.height, visibleFrame.height)
@@ -26,7 +24,6 @@ enum PanelPlacement {
         return CGRect(x: x, y: y, width: width, height: height)
     }
 
-    /// @note p0-374
     static func screen(
         for mode: PanelScreen,
         screens: [ScreenGeometry],
@@ -46,7 +43,6 @@ enum PanelPlacement {
         }
     }
 
-    /// @note p0-375
     static func cocoaFrame(fromQuartz rect: CGRect, primaryScreenHeight: CGFloat) -> CGRect {
         CGRect(
             x: rect.minX,
@@ -56,7 +52,6 @@ enum PanelPlacement {
         )
     }
 
-    /// @note p0-376
     static func screenWithLargestOverlap(with rect: CGRect, in screens: [ScreenGeometry]) -> ScreenGeometry? {
         var best: (screen: ScreenGeometry, area: CGFloat)?
         for screen in screens {
