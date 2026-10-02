@@ -36,13 +36,13 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
 
         // @note p0-1170
         editor.click()
-        XCTAssertTrue(element(in: app, identifier: fontPickerID).waitForExistence(timeout: timeout))
+        XCTAssertTrue(element(in: app, identifier: fontNameID).waitForExistence(timeout: timeout))
         XCTAssertTrue(isSidebarItemSelected(sidebarEditorID, in: app))
 
         // @note p0-1171
         appInfo.click()
         XCTAssertTrue(element(in: app, identifier: appInfoVersionID).waitForExistence(timeout: timeout))
-        XCTAssertFalse(element(in: app, identifier: fontPickerID).exists)
+        XCTAssertFalse(element(in: app, identifier: fontNameID).exists)
 
         // @note p0-1172
         closeSettings(in: app)
@@ -66,17 +66,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         let app = XCUIApplication()
         launch(app, permission: AccessibilityOverride.untrusted)
         openEditorSettings(in: app)
-
-        // AC-2
-        // @note p0-1177
-        let fontPicker = fontPopUp(in: app)
-        app.revealInSettings(fontPicker)
-        XCTAssertEqual(fontPicker.value as? String, "システムフォント")
-
-        // @note p0-1178
-        fontPicker.click()
-        app.typeText("Menlo\n")
-        XCTAssertTrue(waitUntil { fontPicker.value as? String == "Menlo" }, "フォントに Menlo を選べない")
 
         // AC-4
         // @note p0-1179
@@ -115,6 +104,65 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertFalse(element(in: app, identifier: statusItemNoteID("characterCount")).exists)
 
         closeSettings(in: app)
+    }
+
+    // AC-1
+    @MainActor
+    func testAC1_fontControls() throws {
+        let app = XCUIApplication()
+        launch(app)
+        openEditorSettings(in: app)
+
+        let fontName = element(in: app, identifier: fontNameID)
+        app.revealInSettings(fontName)
+        XCTAssertEqual(text(of: fontName), "システムフォント")
+        let showFontPanel = element(in: app, identifier: showFontPanelID)
+        XCTAssertTrue(showFontPanel.exists)
+        let resetFont = element(in: app, identifier: resetFontToSystemID)
+        XCTAssertTrue(resetFont.exists)
+        XCTAssertFalse(element(in: app, identifier: "settings.fontPicker").exists)
+
+        app.revealInSettings(showFontPanel)
+        showFontPanel.click()
+        XCTAssertTrue(fontPanelWindow(in: app).waitForExistence(timeout: timeout), "フォントパネルが開かない")
+        closeSettings(in: app)
+    }
+
+    // AC-6
+    @MainActor
+    func testAC6_resetFontToSystem() throws {
+        let app = XCUIApplication()
+        launch(app, seed: ["panelFontName": "Menlo-Regular"])
+        openEditorSettings(in: app)
+
+        let fontName = element(in: app, identifier: fontNameID)
+        app.revealInSettings(fontName)
+        XCTAssertTrue(text(of: fontName).contains("Menlo"), text(of: fontName))
+        let resetFont = element(in: app, identifier: resetFontToSystemID)
+        app.revealInSettings(resetFont)
+        XCTAssertTrue(resetFont.isEnabled)
+
+        resetFont.click()
+        XCTAssertTrue(waitUntil { self.text(of: fontName) == "システムフォント" }, "名前の表示がシステムフォントにならない")
+        XCTAssertTrue(waitUntil { !resetFont.isEnabled }, "システムフォントに戻した後も押せる")
+        closeSettings(in: app)
+    }
+
+    // AC-11
+    @MainActor
+    func testAC11_closingSettingsClosesFontPanel() throws {
+        let app = XCUIApplication()
+        launch(app)
+        openEditorSettings(in: app)
+
+        let showFontPanel = element(in: app, identifier: showFontPanelID)
+        app.revealInSettings(showFontPanel)
+        showFontPanel.click()
+        let fontPanel = fontPanelWindow(in: app)
+        XCTAssertTrue(fontPanel.waitForExistence(timeout: timeout), "フォントパネルが開かない")
+
+        closeSettings(in: app)
+        XCTAssertTrue(fontPanel.waitForNonExistence(timeout: timeout), "設定ウィンドウを閉じてもフォントパネルが残る")
     }
 
     // AC-7
@@ -272,9 +320,13 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     private func launch(
         _ app: XCUIApplication,
         permission: String = AccessibilityOverride.trusted,
-        dismissingPermissionGuide: Bool = true
+        dismissingPermissionGuide: Bool = true,
+        seed: [String: Any]? = nil
     ) {
         app.launchEnvironment["TATAKINOTE_SETTINGS_SUITE"] = settingsSuiteName
+        if let seed, let data = try? JSONSerialization.data(withJSONObject: seed, options: [.sortedKeys]) {
+            app.launchEnvironment["TATAKINOTE_SETTINGS_SEED"] = String(decoding: data, as: UTF8.self)
+        }
         app.launchEnvironment[AccessibilityOverride.key] = permission
         app.launchEnvironment["TATAKINOTE_LOGIN_ITEM_OVERRIDE"] = "memory"
         app.launch()
@@ -288,7 +340,9 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     private let sidebarGeneralID = "settings.sidebar.general"
     private let sidebarEditorID = "settings.sidebar.editor"
     private let sidebarAppInfoID = "settings.sidebar.appInfo"
-    private let fontPickerID = "settings.fontPicker"
+    private let fontNameID = "settings.fontName"
+    private let showFontPanelID = "settings.showFontPanel"
+    private let resetFontToSystemID = "settings.resetFontToSystem"
     private let fontSizeStepperID = "settings.fontSizeStepper"
     private let fontSizeValueID = "settings.fontSizeValue"
     private let opacitySliderID = "settings.opacitySlider"
@@ -324,7 +378,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         let editor = element(in: app, identifier: sidebarEditorID)
         XCTAssertTrue(editor.waitForExistence(timeout: timeout))
         editor.click()
-        XCTAssertTrue(element(in: app, identifier: fontPickerID).waitForExistence(timeout: timeout))
+        XCTAssertTrue(element(in: app, identifier: fontNameID).waitForExistence(timeout: timeout))
     }
 
     /// @note p0-1214
@@ -337,16 +391,9 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, identifier: appInfoVersionID).waitForExistence(timeout: timeout))
     }
 
-    /// @note p0-1215
     @MainActor
-    private func fontPopUp(in app: XCUIApplication) -> XCUIElement {
-        let picker = element(in: app, identifier: fontPickerID)
-        XCTAssertTrue(picker.waitForExistence(timeout: timeout))
-        if picker.elementType == .popUpButton {
-            return picker
-        }
-        let inner = picker.popUpButtons.firstMatch
-        return inner.exists ? inner : picker
+    private func fontPanelWindow(in app: XCUIApplication) -> XCUIElement {
+        element(in: app, identifier: "fontPanel")
     }
 
     /// @note p0-1216
