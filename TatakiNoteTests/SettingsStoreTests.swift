@@ -180,7 +180,7 @@ struct SettingsStoreTests {
 
     /// @note p0-1059
     private let newKeys = [
-        "appTheme", "panelFontName", "panelFontSize", "panelOpacity",
+        "appTheme", "panelFontName", "panelFontFamilyName", "panelFontSize", "panelOpacity",
         "hiddenPanelStatusItems", "hidesMenuBarIcon", "panelDefaultWidth", "panelDefaultHeight",
     ]
 
@@ -301,6 +301,37 @@ struct SettingsStoreTests {
             #expect(store.loadPanelFontName() == expected, "\(value)")
             #expect(AppSettings(store: store).panelFontName == expected, "\(value)")
         }
+    }
+
+    @Test("AC-12: ファミリー名は panelFontFamilyName に文字列で保存し、nil・空文字でキーが消え、空文字・文字列でない値は名前なしとして読む")
+    func panelFontFamilyNameStorageFormatIsFixed() throws {
+        let (defaults, name) = try makeSuite()
+        defer { removeSuite(defaults, name: name) }
+        let store = SettingsStore(defaults: defaults)
+
+        #expect(SettingsStore.Key.panelFontFamilyName == "panelFontFamilyName")
+        #expect(store.loadPanelFontFamilyName() == nil)
+        #expect(defaults.object(forKey: "panelFontFamilyName") == nil)
+
+        store.savePanelFontFamilyName("Hiragino Sans")
+        #expect(defaults.string(forKey: "panelFontFamilyName") == "Hiragino Sans")
+        #expect(SettingsStore(defaults: defaults).loadPanelFontFamilyName() == "Hiragino Sans")
+        #expect(defaults.object(forKey: "panelFontName") == nil)
+
+        store.savePanelFontFamilyName(nil)
+        #expect(defaults.object(forKey: "panelFontFamilyName") == nil)
+        store.savePanelFontFamilyName("Menlo")
+        store.savePanelFontFamilyName("")
+        #expect(defaults.object(forKey: "panelFontFamilyName") == nil)
+
+        let broken: [Any] = ["", 1, 3.5, true, ["Menlo"], ["family": "Menlo"], Data([0x01])]
+        for value in broken {
+            defaults.set(value, forKey: "panelFontFamilyName")
+            #expect(store.loadPanelFontFamilyName() == nil, "\(value)")
+        }
+
+        defaults.set("TatakiNoteNoSuchFamily", forKey: "panelFontFamilyName")
+        #expect(store.loadPanelFontFamilyName() == "TatakiNoteNoSuchFamily")
     }
 
     @Test("AC-4: 帯の非表示の項目は配列でなければ空、配列の中の文字列でない要素と知らない名前だけを捨てて残りを読む")
@@ -465,6 +496,7 @@ struct SettingsStoreTests {
         #expect([
             SettingsStore.Key.appTheme,
             SettingsStore.Key.panelFontName,
+            SettingsStore.Key.panelFontFamilyName,
             SettingsStore.Key.panelFontSize,
             SettingsStore.Key.panelOpacity,
             SettingsStore.Key.hiddenPanelStatusItems,

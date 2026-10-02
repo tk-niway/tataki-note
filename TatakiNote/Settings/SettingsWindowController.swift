@@ -11,6 +11,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let panelDefaultSize: PanelDefaultSizeModel
     private var window: NSWindow?
 
+    private(set) lazy var fontPanel = FontPanelController(settings: settings)
+
     init(
         settings: AppSettings,
         launchAtLogin: LaunchAtLoginModel,
@@ -58,6 +60,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     // @note p0-541
     func windowWillClose(_ notification: Notification) {
         model.prepareForOpen()
+        fontPanel.close()
     }
 
     private func makeWindow() -> NSWindow {
@@ -79,6 +82,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 launchAtLogin: launchAtLogin,
                 appInfo: appInfo,
                 panelDefaultSize: panelDefaultSize,
+                onShowFontPanel: { [weak self] in self?.fontPanel.show() },
                 onQuit: { NSApp.terminate(nil) }
             )
         )

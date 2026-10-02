@@ -5,28 +5,27 @@ struct EditorSettingsView: View {
     @Bindable var settings: AppSettings
     @Bindable var model: EditorSettingsModel
     @Bindable var panelDefaultSize: PanelDefaultSizeModel
+    let onShowFontPanel: () -> Void
 
     var body: some View {
         Form {
             LabeledContent("フォント") {
                 VStack(alignment: .leading, spacing: 6) {
-                    // @note p0-601
-                    Picker("フォント", selection: $model.selectedFontChoiceID) {
-                        Text(verbatim: model.systemFontChoice.displayName)
-                            .tag(model.systemFontChoice.id)
-                        if !model.familyFontChoices.isEmpty {
-                            Divider()
+                    Text(verbatim: model.fontDisplayName)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("settings.fontName")
+                    VStack(alignment: .leading, spacing: 8) {
+                        Button("フォントパネルを開く") {
+                            onShowFontPanel()
                         }
-                        ForEach(model.familyFontChoices) { choice in
-                            Text(verbatim: choice.displayName)
-                                .tag(choice.id)
+                        .accessibilityIdentifier("settings.showFontPanel")
+                        Button("システムフォントに戻す") {
+                            model.resetFontToSystem()
                         }
+                        .disabled(model.isSystemFont)
+                        .accessibilityIdentifier("settings.resetFontToSystem")
                     }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
-                    .frame(width: 220)
-                    .accessibilityIdentifier("settings.fontPicker")
-                    SettingDescription(text: "パネルの入力欄の文字に使います。太さは、そのフォントの標準の太さになります。")
+                    SettingDescription(text: "パネルの入力欄の文字に使います。フォントパネルで選んだフォントと太さが、すぐに使われます。フォントパネルで変えた大きさは「文字サイズ」にも入ります。")
                 }
             }
             .padding(.bottom, 12)
