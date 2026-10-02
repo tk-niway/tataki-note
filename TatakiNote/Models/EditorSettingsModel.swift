@@ -105,6 +105,22 @@ enum StatusItemNote: Equatable {
         }
     }
 
+    /// 今のフォントの表示名。システムフォントのときは「システムフォント」。
+    var fontDisplayName: String {
+        guard let font = settings.resolvedPanelFont else { return String(localized: "システムフォント") }
+        return font.displayName ?? font.fontName
+    }
+
+    /// 書体を選んでいない(システムフォントを使っている)とき true。
+    var isSystemFont: Bool {
+        settings.resolvedPanelFont == nil
+    }
+
+    /// フォントをシステムフォントに戻す。
+    func resetFontToSystem() {
+        settings.resetPanelFontToSystem()
+    }
+
     /// @note p0-258
     var fontSizeText: String {
         let points = Int(settings.panelFontSize.rounded())
