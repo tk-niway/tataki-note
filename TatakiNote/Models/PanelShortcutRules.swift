@@ -5,6 +5,18 @@ enum PanelShortcutRole: CaseIterable {
     case commitAndSend
 }
 
+extension PanelShortcutRole {
+    /// 設定の「一般」で記録ボックスの下に出す説明文。
+    var settingDescription: String {
+        switch self {
+        case .commit:
+            return String(localized: "パネルでこのキーを押すと、書いた文章を元のアプリに挿入します(送信はしません)。修飾キー(⌘・⌥・⌃・⇧)と組み合わせたキーを登録できます。登録していない Enter は改行になります。初期設定は ⇧⌘↩ です。登録していないときは、確定+送信キーでだけ挿入します。")
+        case .commitAndSend:
+            return String(localized: "パネルでこのキーを押すと、書いた文章を挿入したあと、挿入先で Enter を送って送信します。初期設定は ⌘↩ です。送信は取り消せないので、送信せずに挿入したいときは確定キーを使ってください。")
+        }
+    }
+}
+
 /// 記録ボックスで押されたキー。
 struct PanelShortcutCandidate: Equatable {
     let shortcut: PanelShortcut

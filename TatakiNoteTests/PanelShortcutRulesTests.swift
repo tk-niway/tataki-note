@@ -165,6 +165,20 @@ struct PanelShortcutRulesTests {
         #expect(rejection == .usedByHotkey)
     }
 
+    @Test("AC-5: 確定キーの説明文は初期設定が ⇧⌘↩ と伝え、登録なしが初期設定とは言わない")
+    func commitDescriptionStatesNewDefault() {
+        let description = PanelShortcutRole.commit.settingDescription
+        #expect(description.contains("⇧⌘↩"))
+        #expect(!description.contains("初期設定では登録していません"))
+    }
+
+    @Test("AC-5: 確定+送信キーの説明文は初期設定が ⌘↩ と伝え、確定キーの登録を求めない")
+    func commitAndSendDescriptionDoesNotAskToRegisterCommitKey() {
+        let description = PanelShortcutRole.commitAndSend.settingDescription
+        #expect(description.contains("⌘↩"))
+        #expect(!description.contains("登録してください"))
+    }
+
     @Test("修飾キーを含み、どの理由にも当たらないキー(例 ⌘Q)は受け付ける")
     func unreservedShortcutIsAccepted() {
         let rejection = PanelShortcutRules.rejection(
