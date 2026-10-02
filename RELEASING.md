@@ -5,12 +5,14 @@ TatakiNote は、このリポジトリの GitHub Releases で配布する。CI(G
 
 ## 流れ
 
-1. `main` からブランチ(例: `release/v1.1.0`)を切り、次を用意する
-   - `VERSION` — 次の版(下の「版の決め方」)
-   - `release-notes/v<版>.md` — リリースノート(下の「リリースノートの書き方」)
-   - 利用者ガイド `docs/` — 前のリリースからの変更で、書き漏れや事実と違う箇所があれば直す
-     (書き方は [`update-docs` スキル](.claude/skills/update-docs/SKILL.md))
-2. `main` への PR を作ってマージする
+1. `main` を最新にして、`scripts/release-prep.sh` を実行する(手元の Claude Code を使う。メンテナーが行う)
+   - 前のリリース(いちばん新しいタグ `v*`)から今までの変更をもとに、利用者ガイド `docs/` の書き漏れ・
+     事実と違う箇所を直す(書き方は [`update-docs` スキル](.claude/skills/update-docs/SKILL.md))。
+     パイプラインを使わずに入った変更や、他の人の PR の分も、ここで追いつかせる
+   - 次の版を提案し、`VERSION` と `release-notes/v<版>.md` を書く(下の「版の決め方」「リリースノートの書き方」)
+   - コミットはしない。版を自分で決めるときは `--version x.y.z`、docs をもう直してあるときは `--skip-docs`
+   - Claude Code が使えないときは、同じものを手で用意する
+2. 読んで直し、ブランチ(例: `release/v1.1.0`)を切ってコミットし、`main` への PR を作ってマージする
 3. `.github/workflows/release.yml` が動く。`VERSION` の版が公開済みでなければ、単体テスト → Release ビルド →
    証明書で署名・検証 → zip → 下書きのリリース(本文 = リリースノート、添付 = `TatakiNote-<版>.zip` と `.sha256`)。
    `VERSION`・`release-notes/` を変えていないマージでは動かない
@@ -34,6 +36,74 @@ TatakiNote は、このリポジトリの GitHub Releases で配布する。CI(G
   (`## 注意` は、更新後にし直すことがあるとき・挙動が変わるときだけ)
 - 各項目は1〜2文の箇条書き。何ができるようになったか・何が直ったかを、利用者の言葉で
 - 最初の行に版やアプリ名の見出しは書かない(リリースのタイトルが別にある)
+
+## GitHub の設定(メンテナーが一度だけ行う)
+
+`main` は PR でしか変えられない。PR には、検査(単体テストと公開の決まり)が通ることと、メンテナーの承認が要る。
+自分の PR は自分で承認できないので、承認のルールだけはメンテナー(リポジトリの管理者)を例外にする。
+そのため、ルールセットを2つに分ける。
+
+1. **main: checks**(例外なし) — PR 必須、必須のチェック `Unit tests`(`.github/workflows/test.yml`)と
+   `Public check`(`.github/workflows/public-check.yml`)、削除と強制 push の禁止
+2. **main: approval**(管理者だけ例外) — CODEOWNERS(`.github/CODEOWNERS`)の承認が1件必須。承認の後に
+   push があれば承認し直す
+
+```bash
+# 今のルールセット(名前 main)の番号を調べて、1. に置き換える
+gh api repos/tk-niway/tataki-note/rulesets --jq '.[] | [.id, .name] | @tsv'
+gh api -X PUT repos/tk-niway/tataki-note/rulesets/<番号> --input - <<'EOF'
+{
+  "name": "main: checks",
+  "target": "branch",
+  "enforcement": "active",
+  "bypass_actors": [],
+  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    { "type": "pull_request", "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": false,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false } },
+    { "type": "required_status_checks", "parameters": {
+        "strict_required_status_checks_policy": false,
+        "required_status_checks": [
+          { "context": "Unit tests", "integration_id": 15368 },
+          { "context": "Public check", "integration_id": 15368 } ] } }
+  ]
+}
+EOF
+
+# 2. を足す(actor_id 5 はリポジトリの管理者の役割)
+gh api -X POST repos/tk-niway/tataki-note/rulesets --input - <<'EOF'
+{
+  "name": "main: approval",
+  "target": "branch",
+  "enforcement": "active",
+  "bypass_actors": [ { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" } ],
+  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
+  "rules": [
+    { "type": "pull_request", "parameters": {
+        "required_approving_review_count": 1,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": true,
+        "require_last_push_approval": true,
+        "required_review_thread_resolution": false } }
+  ]
+}
+EOF
+
+# マージはマージコミットだけ(squash・rebase はしない)。件名は PR のタイトル。マージしたブランチは消す
+gh api -X PATCH repos/tk-niway/tataki-note \
+  -F allow_merge_commit=true -F allow_squash_merge=false -F allow_rebase_merge=false \
+  -f merge_commit_title=PR_TITLE -f merge_commit_message=PR_BODY -F delete_branch_on_merge=true
+```
+
+`integration_id: 15368` は GitHub Actions。ジョブ名(`name: Unit tests`・`name: Public check`)を変えたら、ルールセットも直す。
+メンテナーが自分の PR をマージするときは、承認のルールだけを飛ばす(GitHub の画面の「Merge without waiting for
+requirements to be met」、`gh pr merge --admin`)。検査は飛ばせない。
 
 ## ローカルで配布物を作る
 
