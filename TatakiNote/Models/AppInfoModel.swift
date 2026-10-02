@@ -6,11 +6,22 @@ import Observation
     let version: String?
     let build: String?
     let permissionStatus: PermissionGuideModel
+    private let onOpenTutorial: () -> Void
 
-    init(infoDictionary: [String: Any], permissionStatus: PermissionGuideModel) {
+    init(
+        infoDictionary: [String: Any],
+        permissionStatus: PermissionGuideModel,
+        onOpenTutorial: @escaping () -> Void = {}
+    ) {
         self.version = Self.nonEmptyString(infoDictionary["CFBundleShortVersionString"])
         self.build = Self.nonEmptyString(infoDictionary["CFBundleVersion"])
         self.permissionStatus = permissionStatus
+        self.onOpenTutorial = onOpenTutorial
+    }
+
+    /// チュートリアルの窓を開く。
+    func openTutorial() {
+        onOpenTutorial()
     }
 
     var versionText: String {

@@ -121,7 +121,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ),
         appInfo: AppInfoModel(
             infoDictionary: Bundle.main.infoDictionary ?? [:],
-            permissionStatus: PermissionGuideModel(permission: permission)
+            permissionStatus: PermissionGuideModel(permission: permission),
+            onOpenTutorial: { [weak self] in self?.tutorial.show() }
         ),
         panelDefaultSize: PanelDefaultSizeModel(
             settings: settings,
