@@ -14,14 +14,34 @@ struct SettingsStoreTests {
         defaults.removePersistentDomain(forName: name)
     }
 
-    @Test("AC-6, AC-9: 何も保存されていなければ、確定キーは登録なし、パネルを出す画面は「入力欄の近く」")
+    @Test("AC-1: 何も保存されていなければ、確定キーは ⇧⌘↩・確定+送信キーは ⌘↩、パネルを出す画面は「入力欄の近く」で、読んだだけでは保存しない")
     func defaultsWhenNothingSaved() throws {
         let (defaults, name) = try makeSuite()
         defer { removeSuite(defaults, name: name) }
 
         let store = SettingsStore(defaults: defaults)
-        #expect(store.loadCommitShortcut() == nil)
+        #expect(store.loadCommitShortcut() == .commandShiftReturn)
+        #expect(store.loadCommitAndSendShortcut() == .commandReturn)
         #expect(store.loadPanelScreen() == .nearFocusedField)
+        let settings = AppSettings(store: store)
+        #expect(settings.commitKey == .commandShiftReturn)
+        #expect(settings.commitAndSendKey == .commandReturn)
+        #expect(defaults.object(forKey: "commitShortcut") == nil)
+        #expect(defaults.object(forKey: "commitAndSendShortcut") == nil)
+    }
+
+    @Test("AC-3: 確定キーを消して(登録なし)保存すると、作り直しても登録なしのままで ⇧⌘↩ に戻らない")
+    func clearedCommitKeyStaysUnassigned() throws {
+        let (defaults, name) = try makeSuite()
+        defer { removeSuite(defaults, name: name) }
+
+        let settings = AppSettings(store: SettingsStore(defaults: defaults))
+        settings.commitKey = nil
+        #expect(defaults.array(forKey: "commitShortcut") as? [Int] == [])
+
+        let reloaded = AppSettings(store: SettingsStore(defaults: defaults))
+        #expect(reloaded.commitKey == nil)
+        #expect(SettingsStore(defaults: defaults).loadCommitShortcut() == nil)
     }
 
     @Test("AC-2: 保存した確定キーとパネルを出す画面は、別の SettingsStore で読み込んでも同じ値")
@@ -460,7 +480,7 @@ struct SettingsStoreTests {
         #expect(SettingsStore(defaults: defaults).loadPanelScreen() == .nearFocusedField)
     }
 
-    @Test("AC-11: 既存の設定のキー・初期値・保存の形・読み込みは、新しい設定を変えても変わらず、新しいキーと重ならない")
+    @Test("既存の設定のキー・初期値・保存の形・読み込みは、新しい設定を変えても変わらず、新しいキーと重ならない")
     func existingSettingsAreUnchanged() throws {
         let (defaults, name) = try makeSuite()
         defer { removeSuite(defaults, name: name) }
@@ -499,7 +519,7 @@ struct SettingsStoreTests {
         for key in existingKeys {
             #expect(defaults.object(forKey: key) == nil, "\(key)")
         }
-        #expect(store.loadCommitShortcut() == nil)
+        #expect(store.loadCommitShortcut() == .commandShiftReturn)
         #expect(store.loadCommitAndSendShortcut() == .commandReturn)
         #expect(store.loadPanelScreen() == .nearFocusedField)
         #expect(store.loadAutoShowMode() == .off)
@@ -778,7 +798,7 @@ struct SettingsStoreTests {
         #expect(defaults.array(forKey: "commitShortcut") as? [Int] == [])
     }
 
-    @Test("AC-22: 新しい形式が壊れている(配列でない・要素が2つの整数でない・修飾キーが無い)と初期値。旧キーが無ければ確定は登録なし・確定+送信は⌘↩、旧キーがあれば確定は⌘↩・確定+送信は登録なし")
+    @Test("AC-1: 新しい形式が壊れている(配列でない・要素が2つの整数でない・修飾キーが無い)と初期値。旧キーが無ければ確定は⇧⌘↩・確定+送信は⌘↩、旧キーがあれば確定は⌘↩・確定+送信は登録なし")
     func brokenNewFormatFallsBackToDefaults() throws {
         let (defaults, name) = try makeSuite()
         defer { removeSuite(defaults, name: name) }
@@ -804,13 +824,13 @@ struct SettingsStoreTests {
         }
     }
 
-    @Test("AC-33: 以前の版で片方だけ保存している人は、保存していない方も以前の初期値(確定 ⌘↩・確定+送信 登録なし)で読まれ、新しい初期値に変わらない")
+    @Test("AC-3: 以前の版で片方だけ保存している人は、保存していない方も以前の初期値(確定 ⌘↩・確定+送信 登録なし)で読まれ、新しい初期値に変わらない")
     func legacyPartialSavesFallBackToLegacyDefaultForTheOtherKey() throws {
         do {
             let (defaults, name) = try makeSuite()
             defer { removeSuite(defaults, name: name) }
             let store = SettingsStore(defaults: defaults)
-            #expect(store.loadCommitShortcut() == nil)
+            #expect(store.loadCommitShortcut() == .commandShiftReturn)
             #expect(store.loadCommitAndSendShortcut() == .commandReturn)
         }
 

@@ -84,9 +84,24 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         let commit = element(in: app, identifier: statusItemID("commit"))
         app.revealInSettings(commit)
         XCTAssertTrue(isChecked(commit))
-        XCTAssertTrue(element(in: app, identifier: statusItemNoteID("commit")).exists)
+        XCTAssertFalse(element(in: app, identifier: statusItemNoteID("commit")).exists)
         XCTAssertFalse(element(in: app, identifier: statusItemNoteID("commitAndSend")).exists)
         XCTAssertFalse(element(in: app, identifier: statusItemNoteID("characterCount")).exists)
+
+        closeSettings(in: app)
+    }
+
+    @MainActor
+    func testCommitNoteShownWhenCommitKeyUnassigned() throws {
+        let app = XCUIApplication()
+        launch(app, permission: AccessibilityOverride.untrusted, seed: ["commitShortcut": [Int]()])
+        openEditorSettings(in: app)
+
+        let commit = element(in: app, identifier: statusItemID("commit"))
+        app.revealInSettings(commit)
+        XCTAssertTrue(isChecked(commit))
+        XCTAssertTrue(element(in: app, identifier: statusItemNoteID("commit")).exists)
+        XCTAssertFalse(element(in: app, identifier: statusItemNoteID("commitAndSend")).exists)
 
         closeSettings(in: app)
     }

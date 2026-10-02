@@ -75,17 +75,19 @@ struct PanelKeyResolverTests {
         }
     }
 
-    @Test("AC-9: 確定キーを指定しないときは初期値(登録なし)として判定し、確定+送信キーを指定しないときは初期値(⌘↩)として判定する")
+    @Test("AC-2: 確定キーを指定しないときは初期値(⇧⌘↩)として判定し、確定+送信キーを指定しないときは初期値(⌘↩)として判定する")
     func defaultCommitKeysAreTheNewDefaults() {
-        #expect(PanelShortcut.defaultCommitKey == nil)
+        #expect(PanelShortcut.defaultCommitKey == .commandShiftReturn)
         #expect(PanelShortcut.defaultCommitAndSendKey == .commandReturn)
+        let plainReturn = PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [], hasMarkedText: false)
         let shiftReturn = PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.shift], hasMarkedText: false)
         let commandReturn = PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.command], hasMarkedText: false)
         let commandShiftReturn = PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.command, .shift], hasMarkedText: false)
 
+        #expect(PanelKeyResolver.action(for: commandShiftReturn) == .commit)
         #expect(PanelKeyResolver.action(for: commandReturn) == .commitAndSend)
         #expect(PanelKeyResolver.action(for: shiftReturn) == .passThrough)
-        #expect(PanelKeyResolver.action(for: commandShiftReturn) == .passThrough)
+        #expect(PanelKeyResolver.action(for: plainReturn) == .passThrough)
     }
 
     @Test("AC-19: 未確定の文字があるときは、どの確定キーの設定でも確定にしない")

@@ -13,21 +13,33 @@ final class TutorialUITests: XCTestCase {
         UserDefaults(suiteName: settingsSuiteName)?.removePersistentDomain(forName: settingsSuiteName)
     }
 
-    // AC-21
+    // AC-23
     @MainActor
-    func testAC21_launchWithPermissionShowsTutorial() throws {
+    func testAC23_launchShowsPracticeChatAndSendingAddsBubbles() throws {
         let app = launchApp(permission: AccessibilityOverride.trusted, showsTutorial: true)
 
         XCTAssertTrue(tutorialWindow(in: app).waitForExistence(timeout: timeout), "チュートリアルの窓が開かない")
-        XCTAssertTrue(element(in: app, identifier: "tutorial.practiceField").waitForExistence(timeout: timeout))
+        let field = element(in: app, identifier: "tutorial.practiceField")
+        XCTAssertTrue(field.waitForExistence(timeout: timeout))
+        XCTAssertTrue(element(in: app, identifier: "tutorial.chat.message.example").exists)
         XCTAssertTrue(element(in: app, identifier: "tutorial.step.openPanel").exists)
         XCTAssertTrue(app.buttons["tutorial.skip"].exists)
         XCTAssertFalse(element(in: app, identifier: "permissionGuide.status").exists)
+        XCTAssertFalse(element(in: app, identifier: "tutorial.chat.message.sent").exists)
+        XCTAssertFalse(element(in: app, identifier: "tutorial.chat.message.reply").exists)
+
+        field.click()
+        field.typeText("hello")
+        field.typeKey(.return, modifierFlags: [])
+
+        XCTAssertTrue(element(in: app, identifier: "tutorial.chat.message.sent").waitForExistence(timeout: timeout), "送った吹き出しが出ない")
+        XCTAssertTrue(element(in: app, identifier: "tutorial.chat.message.reply").waitForExistence(timeout: timeout), "返事の吹き出しが出ない")
+        XCTAssertTrue(waitUntil { self.isPracticeFieldEmpty(field) }, "送った後に入力欄が空にならない")
     }
 
-    // AC-18
+    // AC-26
     @MainActor
-    func testAC18_skipShowsNoticeAndCloseClosesWindow() throws {
+    func testAC26_skipShowsNoticeAndCloseClosesWindow() throws {
         let app = launchApp(permission: AccessibilityOverride.trusted, showsTutorial: true)
         let window = tutorialWindow(in: app)
         XCTAssertTrue(window.waitForExistence(timeout: timeout), "チュートリアルの窓が開かない")
@@ -45,9 +57,9 @@ final class TutorialUITests: XCTestCase {
         XCTAssertTrue(window.waitForNonExistence(timeout: timeout), "「閉じる」で窓が閉じない")
     }
 
-    // AC-5
+    // AC-26
     @MainActor
-    func testAC5_untrustedGuideShowsNoteAndClosingDoesNotOpenTutorial() throws {
+    func testAC26_untrustedGuideShowsNoteAndClosingDoesNotOpenTutorial() throws {
         let app = launchApp(permission: AccessibilityOverride.untrusted, showsTutorial: true)
 
         XCTAssertTrue(
@@ -63,9 +75,9 @@ final class TutorialUITests: XCTestCase {
         XCTAssertFalse(tutorialWindow(in: app).waitForExistence(timeout: 2), "閉じただけでチュートリアルが開いた")
     }
 
-    // AC-20
+    // AC-26
     @MainActor
-    func testAC20_openTutorialFromAppInfoSettings() throws {
+    func testAC26_openTutorialFromAppInfoSettings() throws {
         let app = launchApp(permission: AccessibilityOverride.trusted, showsTutorial: false)
         XCTAssertFalse(tutorialWindow(in: app).waitForExistence(timeout: 1), "抑止した起動でチュートリアルが開いた")
 
@@ -80,6 +92,7 @@ final class TutorialUITests: XCTestCase {
 
         XCTAssertTrue(tutorialWindow(in: app).waitForExistence(timeout: timeout), "チュートリアルの窓が開かない")
         XCTAssertTrue(element(in: app, identifier: "tutorial.practiceField").waitForExistence(timeout: timeout))
+        XCTAssertTrue(element(in: app, identifier: "tutorial.chat.message.example").waitForExistence(timeout: timeout))
     }
 
     // MARK: - 起動
@@ -107,6 +120,22 @@ final class TutorialUITests: XCTestCase {
     @MainActor
     private func tutorialWindow(in app: XCUIApplication) -> XCUIElement {
         app.windows["tutorial"]
+    }
+
+    @MainActor
+    private func isPracticeFieldEmpty(_ field: XCUIElement) -> Bool {
+        let value = field.value as? String ?? ""
+        return value.isEmpty || value == "メッセージを入力"
+    }
+
+    @MainActor
+    private func waitUntil(timeout: TimeInterval = 5, _ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return condition()
     }
 
     // MARK: - メニューバー

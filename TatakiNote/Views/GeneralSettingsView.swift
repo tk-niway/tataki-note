@@ -22,7 +22,7 @@ struct GeneralSettingsView: View {
             LabeledContent("確定キー") {
                 VStack(alignment: .leading, spacing: 6) {
                     shortcutRecorder(for: .commit, recorderID: "settings.commitKeyRecorder", rejectionID: "settings.commitKeyRejection")
-                    SettingDescription(text: "パネルでこのキーを押すと、書いた文章を元のアプリに挿入します(送信はしません)。修飾キー(⌘・⌥・⌃・⇧)と組み合わせたキーを登録できます。登録していない Enter は改行になります。初期設定では登録していません。登録していないときは、確定+送信キーでだけ挿入します。")
+                    SettingDescription(PanelShortcutRole.commit.settingDescription)
                 }
             }
             .padding(.bottom, 12)
@@ -30,7 +30,7 @@ struct GeneralSettingsView: View {
             LabeledContent("確定+送信キー") {
                 VStack(alignment: .leading, spacing: 6) {
                     shortcutRecorder(for: .commitAndSend, recorderID: "settings.commitAndSendKeyRecorder", rejectionID: "settings.commitAndSendKeyRejection")
-                    SettingDescription(text: "パネルでこのキーを押すと、書いた文章を挿入したあと、挿入先で Enter を送って送信します。初期設定は ⌘↩ です。送信は取り消せないので、送信せずに挿入したいときは確定キーを登録してください。")
+                    SettingDescription(PanelShortcutRole.commitAndSend.settingDescription)
                 }
             }
             .padding(.bottom, 12)

@@ -31,9 +31,9 @@ struct TutorialWindowControllerTests {
         try body(controller, recorder)
     }
 
-    // MARK: - AC-11
+    // MARK: - 挿入先の上書き(AC-22)
 
-    @Test("AC-11: 窓がキーでアプリがアクティブなときだけ、自分自身が挿入先になる")
+    @Test("AC-22: 窓がキーでアプリがアクティブなときだけ、自分自身が挿入先になる")
     func practiceTargetRequiresKeyWindowAndActiveApp() {
         #expect(TutorialWindowController.practiceTarget(isWindowKey: true, isAppActive: true, own: own) == own)
         #expect(TutorialWindowController.practiceTarget(isWindowKey: true, isAppActive: false, own: own) == nil)
@@ -41,16 +41,16 @@ struct TutorialWindowControllerTests {
         #expect(TutorialWindowController.practiceTarget(isWindowKey: false, isAppActive: false, own: own) == nil)
     }
 
-    @Test("AC-11: 窓が無いときは挿入先を上書きしない")
+    @Test("AC-22: 窓が無いときは挿入先を上書きしない")
     func practiceTargetIsNilWithoutWindow() throws {
         try withController { controller, _ in
             #expect(controller.practiceTarget() == nil)
         }
     }
 
-    // MARK: - AC-25
+    // MARK: - 窓を開く(AC-20)
 
-    @Test("AC-25: 窓を開くと窓が見え、練習用の入力欄にフォーカスが要求される")
+    @Test("窓を開くと窓が見え、練習用のチャットの入力欄にフォーカスが要求される")
     func showMakesWindowVisibleAndRequestsFocus() throws {
         try withController { controller, _ in
             let before = controller.model.practiceFocusRequest
@@ -62,42 +62,76 @@ struct TutorialWindowControllerTests {
         }
     }
 
-    @Test("AC-25: 見えていない窓を開くと手順がリセットされ、見えている窓を開いても手順は保たれる")
+    @Test("AC-20: 見えていない窓を開くと手順とチャットが元に戻り、見えている窓を開いても手順とチャットは保たれる")
     func showResetsOnlyWhenWindowIsNotVisible() throws {
         try withController { controller, _ in
             controller.show()
             controller.model.panelDidChange(isPresented: true, target: own, text: "")
+            controller.model.sendPracticeMessage("hello")
             #expect(controller.model.currentStep == .writeWithNewline)
+            #expect(controller.model.chat.messages.count == 3)
 
             controller.show()
             #expect(controller.model.currentStep == .writeWithNewline)
+            #expect(controller.model.chat.messages.count == 3)
 
             controller.close()
             controller.show()
             #expect(controller.model.currentStep == .openPanel)
+            #expect(controller.model.chat == PracticeChat())
+            #expect(controller.model.practiceText.isEmpty)
         }
     }
 
-    @Test("AC-25: 窓が見えているとき、自分自身への挿入の要求で窓を前に出して入力欄にフォーカスを戻す")
+    // MARK: - 挿入の要求(AC-14, AC-22)
+
+    @Test("AC-22: 窓が見えているとき、自分自身への挿入の要求で窓を前に出して入力欄にフォーカスを戻す")
     func insertionRequestForOwnTargetFocusesWindow() throws {
         try withController { controller, recorder in
             controller.show()
             let window = try #require(controller.window)
             controller.model.panelDidChange(isPresented: true, target: own, text: "")
             controller.model.panelDidChange(isPresented: true, target: own, text: "a\nb")
-            #expect(controller.model.currentStep == .insert)
+            #expect(controller.model.currentStep == .send)
             let focusRequests = controller.model.practiceFocusRequest
 
-            controller.handleInsertionRequested(text: "a\nb", target: own)
+            controller.handleInsertionRequested(text: "a\nb", target: own, sendsAfterInsert: false)
 
             #expect(recorder.windows == [window])
             #expect(controller.model.practiceFocusRequest == focusRequests + 1)
-            controller.model.practiceText = "a\nb"
-            #expect(controller.model.currentStep == .nextSteps)
         }
     }
 
-    @Test("AC-25: 他のアプリへの挿入の要求では、何も変わらない")
+    @Test("AC-14: 窓に届いた「送信もするか」が、送ったときの経路の見分けに使われる")
+    func sendsAfterInsertDecidesRoute() throws {
+        try withController { controller, _ in
+            controller.show()
+            controller.model.panelDidChange(isPresented: true, target: own, text: "")
+            controller.model.panelDidChange(isPresented: true, target: own, text: "a\nb")
+            #expect(controller.model.currentStep == .send)
+
+            controller.handleInsertionRequested(text: "a\nb", target: own, sendsAfterInsert: true)
+            controller.model.sendPracticeMessage("a\nb")
+
+            #expect(controller.model.currentStep == .nextSteps)
+            #expect(controller.model.chat.messages.last?.kind == .reply(.commitAndSend))
+
+            controller.close()
+            controller.show()
+            controller.model.panelDidChange(isPresented: true, target: own, text: "")
+            controller.model.panelDidChange(isPresented: true, target: own, text: "a\nb")
+            #expect(controller.model.currentStep == .send)
+
+            controller.handleInsertionRequested(text: "a\nb", target: own, sendsAfterInsert: false)
+            #expect(controller.model.currentStep == .send)
+            controller.model.sendPracticeMessage("a\nb")
+
+            #expect(controller.model.currentStep == .nextSteps)
+            #expect(controller.model.chat.messages.last?.kind == .reply(.commitThenReturn))
+        }
+    }
+
+    @Test("AC-22: 他のアプリへの挿入の要求では、何も変わらず、その後の送信は直接の送信になる")
     func insertionRequestForOtherTargetDoesNothing() throws {
         try withController { controller, recorder in
             controller.show()
@@ -105,16 +139,17 @@ struct TutorialWindowControllerTests {
             controller.model.panelDidChange(isPresented: true, target: own, text: "a\nb")
             let focusRequests = controller.model.practiceFocusRequest
 
-            controller.handleInsertionRequested(text: "a\nb", target: other)
+            controller.handleInsertionRequested(text: "a\nb", target: other, sendsAfterInsert: true)
 
             #expect(recorder.windows.isEmpty)
             #expect(controller.model.practiceFocusRequest == focusRequests)
-            controller.model.practiceText = "a\nb"
-            #expect(controller.model.currentStep == .insert)
+            controller.model.sendPracticeMessage("a\nb")
+            #expect(controller.model.currentStep == .send)
+            #expect(controller.model.chat.messages.last?.kind == .reply(.direct))
         }
     }
 
-    @Test("AC-25: 窓を閉じた後の挿入の要求では、何も変わらない")
+    @Test("AC-22: 窓を閉じた後の挿入の要求では、何も変わらず、その後の送信は直接の送信になる")
     func insertionRequestAfterCloseDoesNothing() throws {
         try withController { controller, recorder in
             controller.show()
@@ -123,12 +158,13 @@ struct TutorialWindowControllerTests {
             controller.close()
             let focusRequests = controller.model.practiceFocusRequest
 
-            controller.handleInsertionRequested(text: "a\nb", target: own)
+            controller.handleInsertionRequested(text: "a\nb", target: own, sendsAfterInsert: true)
 
             #expect(recorder.windows.isEmpty)
             #expect(controller.model.practiceFocusRequest == focusRequests)
-            controller.model.practiceText = "a\nb"
-            #expect(controller.model.currentStep == .insert)
+            controller.model.sendPracticeMessage("a\nb")
+            #expect(controller.model.currentStep == .send)
+            #expect(controller.model.chat.messages.last?.kind == .reply(.direct))
         }
     }
 }

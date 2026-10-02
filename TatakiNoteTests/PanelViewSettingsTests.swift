@@ -251,11 +251,13 @@ struct PanelViewSettingsTests {
         #expect(harness.settle { abs((harness.editorHeight ?? 0) - heightWithBar) < 0.5 })
     }
 
-    @Test("AC-10: キーが登録なしの確定・確定+送信だけを残して非表示にしても、帯と区切り線ごと消える")
+    @Test("キーが登録なしの確定・確定+送信だけを残して非表示にしても、帯と区切り線ごと消える")
     func unassignedKeysOnlyRemovesStatusBar() throws {
         let harness = try PanelViewHarness()
         defer { harness.removeDefaults() }
         let heightWithBar = try #require(harness.editorHeight)
+
+        harness.settings.commitKey = nil
 
         harness.settings.hiddenPanelStatusItems = [.lineBreak, .close, .characterCount, .lineCount]
         #expect(harness.settle { abs((harness.editorHeight ?? 0) - heightWithBar) < 0.5 })

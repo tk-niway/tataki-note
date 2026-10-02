@@ -28,7 +28,7 @@ final class SettingsUITests: XCTestCase {
         XCTAssertTrue(hotkeyRecorder(in: app).exists)
 
         // AC-9
-        XCTAssertNil(recorderDisplayText(commitRecorder))
+        XCTAssertEqual(recorderDisplayText(commitRecorder), "⇧⌘↩")
         XCTAssertEqual(commitRecorder.placeholderValue, idlePlaceholder)
         XCTAssertEqual(recorderDisplayText(commitAndSendRecorder), "⌘↩")
 
@@ -78,6 +78,9 @@ final class SettingsUITests: XCTestCase {
         XCTAssertTrue(waitUntil { self.text(of: commitRejection).contains("確定+送信キー") })
         XCTAssertNil(recorderDisplayText(commitRecorder))
 
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(waitUntil { self.recorderDisplayText(commitRecorder) == "⇧⌘↩" })
+        commitRecorder.click()
         app.typeKey("k", modifierFlags: [.command])
         XCTAssertTrue(waitUntil { self.recorderDisplayText(commitRecorder) == "⌘K" })
         XCTAssertFalse(commitRejection.exists)
@@ -101,13 +104,13 @@ final class SettingsUITests: XCTestCase {
 
         app.typeKey("k", modifierFlags: [.command])
         XCTAssertEqual(commitRecorder.placeholderValue, idlePlaceholder)
-        XCTAssertNil(recorderDisplayText(commitRecorder))
+        XCTAssertEqual(recorderDisplayText(commitRecorder), "⇧⌘↩")
 
         closeSettings(in: app)
         openSettingsFromMenu(in: app)
         let commitRecorderAfterReopen = element(in: app, identifier: commitKeyRecorderID)
         XCTAssertTrue(commitRecorderAfterReopen.waitForExistence(timeout: timeout))
-        XCTAssertNil(recorderDisplayText(commitRecorderAfterReopen))
+        XCTAssertEqual(recorderDisplayText(commitRecorderAfterReopen), "⇧⌘↩")
         closeSettings(in: app)
     }
 
@@ -125,7 +128,7 @@ final class SettingsUITests: XCTestCase {
         XCTAssertEqual(commitRecorder.placeholderValue, recordingPlaceholder)
         app.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(waitUntil { commitRecorder.placeholderValue == self.idlePlaceholder })
-        XCTAssertNil(recorderDisplayText(commitRecorder))
+        XCTAssertTrue(waitUntil { self.recorderDisplayText(commitRecorder) == "⇧⌘↩" })
 
         commitRecorder.click()
         XCTAssertEqual(commitRecorder.placeholderValue, recordingPlaceholder)
@@ -135,7 +138,7 @@ final class SettingsUITests: XCTestCase {
         XCTAssertTrue(waitUntil { commitRecorder.placeholderValue == self.idlePlaceholder })
 
         app.typeKey("k", modifierFlags: [.command])
-        XCTAssertNil(recorderDisplayText(commitRecorder))
+        XCTAssertEqual(recorderDisplayText(commitRecorder), "⇧⌘↩")
 
         commitRecorder.click()
         XCTAssertEqual(commitRecorder.placeholderValue, recordingPlaceholder)
@@ -149,7 +152,7 @@ final class SettingsUITests: XCTestCase {
         mainScreen.click()
         XCTAssertTrue(waitUntil { commitRecorder.placeholderValue == self.idlePlaceholder })
         XCTAssertTrue(isChecked(mainScreen))
-        XCTAssertNil(recorderDisplayText(commitRecorder))
+        XCTAssertEqual(recorderDisplayText(commitRecorder), "⇧⌘↩")
 
         radio("入力欄の近く", inPicker: panelScreenPickerID, in: app).click()
         closeSettings(in: app)

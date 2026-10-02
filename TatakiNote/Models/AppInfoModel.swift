@@ -24,6 +24,11 @@ import Observation
         onOpenTutorial()
     }
 
+    /// 「チュートリアル」の行に出す説明文。
+    static var tutorialDescription: String {
+        String(localized: "練習用のチャットで、パネルで書いて送るまでを試します。")
+    }
+
     var versionText: String {
         let unknown = String(localized: "不明")
         guard version != nil || build != nil else { return unknown }
