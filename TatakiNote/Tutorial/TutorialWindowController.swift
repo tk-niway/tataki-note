@@ -72,11 +72,11 @@ final class TutorialWindowController: NSObject, NSWindowDelegate {
     }
 
     /// 練習用の入力欄への挿入が要求されたとき、窓を前に出して入力欄にフォーカスを戻す。
-    func handleInsertionRequested(text: String, target: InsertionTarget) {
+    func handleInsertionRequested(text: String, target: InsertionTarget, sendsAfterInsert: Bool) {
         guard target.processIdentifier == ownProcessIdentifier,
               let window, window.isVisible
         else { return }
-        model.insertionRequested(text: text, target: target)
+        model.insertionRequested(text: text, target: target, sendsAfterInsert: sendsAfterInsert)
         focusWindow(window)
         model.requestPracticeFocus()
     }

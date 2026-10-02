@@ -30,6 +30,7 @@ enum TutorialStep: Int, CaseIterable, Equatable {
     private struct PendingInsertion {
         var text: String
         var occurrencesBefore: Int
+        var sendsAfterInsert: Bool
     }
 
     init(
@@ -99,14 +100,15 @@ enum TutorialStep: Int, CaseIterable, Equatable {
     }
 
     /// 練習用の入力欄への挿入が要求されたことを覚える(手順3の間だけ)。
-    func insertionRequested(text: String, target: InsertionTarget) {
+    func insertionRequested(text: String, target: InsertionTarget, sendsAfterInsert: Bool) {
         guard currentStep == .insert,
               target.processIdentifier == ownProcessIdentifier,
               !text.isEmpty
         else { return }
         pendingInsertion = PendingInsertion(
             text: text,
-            occurrencesBefore: Self.occurrences(of: text, in: practiceText)
+            occurrencesBefore: Self.occurrences(of: text, in: practiceText),
+            sendsAfterInsert: sendsAfterInsert
         )
     }
 

@@ -88,7 +88,7 @@ struct TutorialWindowControllerTests {
             #expect(controller.model.currentStep == .insert)
             let focusRequests = controller.model.practiceFocusRequest
 
-            controller.handleInsertionRequested(text: "a\nb", target: own)
+            controller.handleInsertionRequested(text: "a\nb", target: own, sendsAfterInsert: false)
 
             #expect(recorder.windows == [window])
             #expect(controller.model.practiceFocusRequest == focusRequests + 1)
@@ -105,7 +105,7 @@ struct TutorialWindowControllerTests {
             controller.model.panelDidChange(isPresented: true, target: own, text: "a\nb")
             let focusRequests = controller.model.practiceFocusRequest
 
-            controller.handleInsertionRequested(text: "a\nb", target: other)
+            controller.handleInsertionRequested(text: "a\nb", target: other, sendsAfterInsert: false)
 
             #expect(recorder.windows.isEmpty)
             #expect(controller.model.practiceFocusRequest == focusRequests)
@@ -123,7 +123,7 @@ struct TutorialWindowControllerTests {
             controller.close()
             let focusRequests = controller.model.practiceFocusRequest
 
-            controller.handleInsertionRequested(text: "a\nb", target: own)
+            controller.handleInsertionRequested(text: "a\nb", target: own, sendsAfterInsert: false)
 
             #expect(recorder.windows.isEmpty)
             #expect(controller.model.practiceFocusRequest == focusRequests)

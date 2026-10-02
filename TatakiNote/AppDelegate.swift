@@ -138,8 +138,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.targetOverride = { [weak self] in
             self?.tutorial.practiceTarget()
         }
-        controller.onInsertionRequested = { [weak self] text, target in
-            self?.tutorial.handleInsertionRequested(text: text, target: target)
+        controller.onInsertionRequested = { [weak self] text, target, sendsAfterInsert in
+            self?.tutorial.handleInsertionRequested(text: text, target: target, sendsAfterInsert: sendsAfterInsert)
         }
         return controller
     }()

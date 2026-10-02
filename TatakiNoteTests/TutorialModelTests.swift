@@ -44,7 +44,7 @@ struct TutorialModelTests {
 
     private func moveToNextStepsStep(_ model: TutorialModel) {
         moveToInsertStep(model)
-        model.insertionRequested(text: "a\nb", target: own)
+        model.insertionRequested(text: "a\nb", target: own, sendsAfterInsert: false)
         model.practiceText = "a\nb"
     }
 
@@ -116,7 +116,7 @@ struct TutorialModelTests {
             #expect(model.isShowingOtherTargetWarning)
 
             model.panelDidChange(isPresented: true, target: own, text: "a\nb")
-            model.insertionRequested(text: "a\nb", target: own)
+            model.insertionRequested(text: "a\nb", target: own, sendsAfterInsert: false)
             model.practiceText = "a\nb"
             #expect(model.currentStep == .nextSteps)
             #expect(!model.isShowingOtherTargetWarning)
@@ -186,7 +186,7 @@ struct TutorialModelTests {
         try withModel { model, _, _ in
             moveToInsertStep(model)
 
-            model.insertionRequested(text: "abc\ndef", target: own)
+            model.insertionRequested(text: "abc\ndef", target: own, sendsAfterInsert: false)
             #expect(model.currentStep == .insert)
             model.practiceText = "abc\ndef"
 
@@ -201,7 +201,7 @@ struct TutorialModelTests {
             moveToInsertStep(model)
 
             model.practiceText = "abc\ndef"
-            model.insertionRequested(text: "xyz", target: own)
+            model.insertionRequested(text: "xyz", target: own, sendsAfterInsert: false)
             model.practiceText = "abc\ndefg"
 
             #expect(model.currentStep == .insert)
@@ -211,12 +211,12 @@ struct TutorialModelTests {
     @Test("AC-16: 手順1・2の間に挿入を要求した文章が入っても手順は進まない")
     func insertionBeforeStepThreeDoesNotAdvance() throws {
         try withModel { model, _, _ in
-            model.insertionRequested(text: "early", target: own)
+            model.insertionRequested(text: "early", target: own, sendsAfterInsert: false)
             model.practiceText = "early"
             #expect(model.currentStep == .openPanel)
 
             moveToWriteStep(model)
-            model.insertionRequested(text: "early two", target: own)
+            model.insertionRequested(text: "early two", target: own, sendsAfterInsert: false)
             model.practiceText = "early early two"
             #expect(model.currentStep == .writeWithNewline)
 
@@ -232,7 +232,7 @@ struct TutorialModelTests {
         try withModel { model, _, _ in
             moveToInsertStep(model)
 
-            model.insertionRequested(text: "abc", target: other)
+            model.insertionRequested(text: "abc", target: other, sendsAfterInsert: false)
             model.practiceText = "abc"
 
             #expect(model.currentStep == .insert)
@@ -245,7 +245,7 @@ struct TutorialModelTests {
             moveToInsertStep(model)
             model.practiceText = "abc"
 
-            model.insertionRequested(text: "abc", target: own)
+            model.insertionRequested(text: "abc", target: own, sendsAfterInsert: false)
             model.practiceText = "abc "
             #expect(model.currentStep == .insert)
 
@@ -259,7 +259,7 @@ struct TutorialModelTests {
         try withModel { model, _, _ in
             moveToInsertStep(model)
 
-            model.insertionRequested(text: "", target: own)
+            model.insertionRequested(text: "", target: own, sendsAfterInsert: false)
             model.practiceText = "abc"
 
             #expect(model.currentStep == .insert)
@@ -371,7 +371,7 @@ struct TutorialModelTests {
     func resetDiscardsRememberedState() throws {
         try withModel { model, _, _ in
             moveToInsertStep(model)
-            model.insertionRequested(text: "abc", target: own)
+            model.insertionRequested(text: "abc", target: own, sendsAfterInsert: false)
 
             model.reset()
             moveToInsertStep(model)
@@ -425,7 +425,7 @@ struct TutorialModelTests {
             #expect(model.currentStep == .insert)
             #expect(!model.showsFinishButton)
 
-            model.insertionRequested(text: "a\nb", target: own)
+            model.insertionRequested(text: "a\nb", target: own, sendsAfterInsert: false)
             model.practiceText = "a\nb"
 
             #expect(model.currentStep == .nextSteps)

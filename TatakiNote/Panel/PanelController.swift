@@ -25,8 +25,8 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// 返した挿入先を、前面のアプリの代わりに挿入先にする。`nil` を返すと前面のアプリを使う。
     var targetOverride: (() -> InsertionTarget?)?
 
-    /// 確定で挿入することになったとき、パネルを閉じた後・挿入の前に呼ばれる。
-    var onInsertionRequested: ((String, InsertionTarget) -> Void)?
+    /// 確定で挿入することになったとき、パネルを閉じた後・挿入の前に、文章・挿入先・送信もするかを知らせる。
+    var onInsertionRequested: ((String, InsertionTarget, Bool) -> Void)?
 
     init(
         model: PanelModel = PanelModel(),
@@ -162,7 +162,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         let plan = model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
         panel.orderOut(nil)
         if case .insert(let text, let target) = plan {
-            onInsertionRequested?(text, target)
+            onInsertionRequested?(text, target, shouldSendAfterInsert)
         }
         Task { [weak self, performer] in
             let outcome = await performer.perform(plan, shouldSendAfterInsert: shouldSendAfterInsert)
