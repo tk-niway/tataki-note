@@ -31,6 +31,7 @@ struct SettingsWindowThemeTests {
             ),
             // @note p0-1089
             panelDefaultSize: PanelDefaultSizeModel(settings: settings, currentPanelSize: { nil }),
+            onShowFontPanel: {},
             onQuit: {}
         )
     }

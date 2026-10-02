@@ -183,4 +183,31 @@ struct FontPanelControllerTests {
         #expect(!controller.isObserving)
         #expect(manager.selectedFont?.pointSize == 14)
     }
+
+    @Test("AC-11: フォントパネルを開いたまま設定ウィンドウを閉じると、NSFontManager の送り先が外れる")
+    func closingSettingsWindowDetachesFontManagerTarget() throws {
+        let suite = UUID().uuidString
+        defer { removeSuite(suite) }
+        let settings = try makeSettings(suite: suite)
+        let controller = SettingsWindowController(
+            settings: settings,
+            launchAtLogin: LaunchAtLoginModel(service: InMemoryLoginItemService()),
+            appInfo: AppInfoModel(
+                infoDictionary: [:],
+                permissionStatus: PermissionGuideModel(permission: OverriddenAccessibilityPermission(isTrusted: true))
+            ),
+            panelDefaultSize: PanelDefaultSizeModel(settings: settings, currentPanelSize: { nil })
+        )
+        let manager = NSFontManager.shared
+        defer { controller.fontPanel.close() }
+
+        controller.fontPanel.activate()
+        #expect(manager.target === controller.fontPanel)
+
+        controller.windowWillClose(Notification(name: NSWindow.willCloseNotification))
+
+        #expect(manager.target !== controller.fontPanel)
+        #expect(!controller.fontPanel.isActive)
+        #expect(controller.model.selectedSection == .general)
+    }
 }
