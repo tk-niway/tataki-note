@@ -16,7 +16,7 @@ struct PanelShortcut: Hashable {
     static let commandReturn = PanelShortcut(keyCode: KeyCode.returnKey, modifiers: [.command])
     static let commandShiftReturn = PanelShortcut(keyCode: KeyCode.returnKey, modifiers: [.command, .shift])
 
-    static let defaultCommitKey: PanelShortcut? = nil
+    static let defaultCommitKey: PanelShortcut? = .commandShiftReturn
     static let defaultCommitAndSendKey: PanelShortcut? = .commandReturn
     static let legacyDefaultCommitKey: PanelShortcut? = .commandReturn
     static let legacyDefaultCommitAndSendKey: PanelShortcut? = nil

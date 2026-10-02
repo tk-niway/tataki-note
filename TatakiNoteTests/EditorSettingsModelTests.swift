@@ -194,18 +194,22 @@ struct EditorSettingsModelTests {
         #expect(relaunched.isStatusItemVisible(.characterCount))
     }
 
-    @Test("AC-9: 確定キー・確定+送信キーが登録なし(nil)のときだけ、その項目に「帯に出ない」ことを添える")
+    @Test("AC-4: 確定キー・確定+送信キーが登録なし(nil)のときだけ、その項目に「帯に出ない」ことを添える。初期設定では付かない")
     func statusItemNoteForUnassignedKeys() throws {
         let suite = UUID().uuidString
         defer { removeSuite(suite) }
         let settings = try makeSettings(suite: suite)
         let model = EditorSettingsModel(settings: settings)
 
-        #expect(model.statusItemNote(.commit) == .keyNotAssigned)
+        #expect(model.statusItemNote(.commit) == nil)
         #expect(model.statusItemNote(.commitAndSend) == nil)
         for item in [PanelStatusItem.lineBreak, .close, .characterCount, .lineCount] {
             #expect(model.statusItemNote(item) == nil, "\(item)")
         }
+
+        settings.commitKey = nil
+        #expect(model.statusItemNote(.commit) == .keyNotAssigned)
+        #expect(model.statusItemNote(.commitAndSend) == nil)
 
         settings.commitKey = .commandShiftReturn
         #expect(model.statusItemNote(.commit) == nil)
