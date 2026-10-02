@@ -4,6 +4,7 @@ import SwiftUI
 struct PermissionGuideView: View {
     @Bindable var model: PermissionGuideModel
     let onClose: () -> Void
+    let onProceed: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -13,7 +14,16 @@ struct PermissionGuideView: View {
                     PermissionGuideIcon(isGranted: true)
                     PermissionGuideStatus(isGranted: true)
                 }
-                PermissionGuideButtons(showsOpenSystemSettings: false, onOpenSystemSettings: {}, onClose: onClose)
+            case .readyForTutorial:
+                HStack(alignment: .top, spacing: 16) {
+                    PermissionGuideIcon(isGranted: true)
+                    VStack(alignment: .leading, spacing: 14) {
+                        PermissionGuideStatus(isGranted: true)
+                        Text("続けて、TatakiNote の使い方を練習しましょう。")
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("permissionGuide.readyForTutorial")
+                    }
+                }
             case .notGranted(let reason):
                 HStack(alignment: .top, spacing: 16) {
                     PermissionGuideIcon(isGranted: false)
@@ -23,14 +33,18 @@ struct PermissionGuideView: View {
                         }
                         PermissionGuideStatus(isGranted: false)
                         PermissionGuideSteps()
+                        if model.showsTutorialNote {
+                            PermissionGuideTutorialNote()
+                        }
                     }
                 }
-                PermissionGuideButtons(
-                    showsOpenSystemSettings: true,
-                    onOpenSystemSettings: { model.openSystemSettings() },
-                    onClose: onClose
-                )
             }
+            PermissionGuideButtons(
+                buttons: model.buttons,
+                onOpenSystemSettings: { model.openSystemSettings() },
+                onClose: onClose,
+                onProceed: onProceed
+            )
         }
         .padding(.horizontal, 20)
         .padding(.top, 16)
@@ -152,21 +166,45 @@ private struct PermissionGuideStep: View {
     }
 }
 
+private struct PermissionGuideTutorialNote: View {
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: "info.circle")
+                .accessibilityHidden(true)
+            Text("チュートリアルは、設定の「アプリ情報」からいつでも開けます。")
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.system(size: 12))
+        .foregroundStyle(.secondary)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("permissionGuide.tutorialNote")
+    }
+}
+
 private struct PermissionGuideButtons: View {
-    let showsOpenSystemSettings: Bool
+    let buttons: [PermissionGuideButton]
     let onOpenSystemSettings: () -> Void
     let onClose: () -> Void
+    let onProceed: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
             Spacer()
-            Button("閉じる", action: onClose)
-                .keyboardShortcut(.cancelAction)
-                .accessibilityIdentifier("permissionGuide.close")
-            if showsOpenSystemSettings {
-                Button("システム設定を開く", action: onOpenSystemSettings)
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityIdentifier("permissionGuide.openSystemSettings")
+            ForEach(buttons, id: \.self) { button in
+                switch button {
+                case .close:
+                    Button("閉じる", action: onClose)
+                        .keyboardShortcut(.cancelAction)
+                        .accessibilityIdentifier("permissionGuide.close")
+                case .openSystemSettings:
+                    Button("システム設定を開く", action: onOpenSystemSettings)
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("permissionGuide.openSystemSettings")
+                case .next:
+                    Button("次へ", action: onProceed)
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("permissionGuide.next")
+                }
             }
         }
     }

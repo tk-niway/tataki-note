@@ -9,6 +9,8 @@ final class PermissionGuideWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     private var refreshTimer: Timer?
 
+    var onProceedToTutorial: (() -> Void)?
+
     init(model: PermissionGuideModel, settings: AppSettings) {
         self.model = model
         self.settings = settings
@@ -29,9 +31,32 @@ final class PermissionGuideWindowController: NSObject, NSWindowDelegate {
         window?.close()
     }
 
+    /// 「次へ」で案内を閉じて、チュートリアルを開く処理を呼ぶ。
+    func proceedToTutorial() {
+        close()
+        onProceedToTutorial?()
+    }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        model.allowsClosing
+    }
+
     func windowWillClose(_ notification: Notification) {
         stopRefreshing()
         model.dismiss()
+    }
+
+    /// 窓の閉じるボタンを、案内が閉じてよい状態かどうかに合わせる。
+    func updateClosability(of window: NSWindow) {
+        let styleMask = Self.styleMask(allowsClosing: model.allowsClosing)
+        if window.styleMask != styleMask {
+            window.styleMask = styleMask
+        }
+        window.standardWindowButton(.closeButton)?.isHidden = !model.allowsClosing
+    }
+
+    static func styleMask(allowsClosing: Bool) -> NSWindow.StyleMask {
+        allowsClosing ? [.titled, .closable] : [.titled]
     }
 
     private func bringWindowToFront() {
@@ -49,13 +74,14 @@ final class PermissionGuideWindowController: NSObject, NSWindowDelegate {
         NSApp.activate()
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
+        updateClosability(of: window)
         startRefreshing()
     }
 
     func makeWindow() -> NSWindow {
         let window = NSWindow(
             contentRect: .zero,
-            styleMask: [.titled, .closable],
+            styleMask: Self.styleMask(allowsClosing: model.allowsClosing),
             backing: .buffered,
             defer: false
         )
@@ -67,7 +93,8 @@ final class PermissionGuideWindowController: NSObject, NSWindowDelegate {
             rootView: PermissionGuideRootView(
                 settings: settings,
                 model: model,
-                onClose: { [weak self] in self?.close() }
+                onClose: { [weak self] in self?.close() },
+                onProceed: { [weak self] in self?.proceedToTutorial() }
             )
         )
         return window
@@ -77,7 +104,11 @@ final class PermissionGuideWindowController: NSObject, NSWindowDelegate {
         guard refreshTimer == nil else { return }
         let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.model.refresh()
+                guard let self else { return }
+                self.model.refresh()
+                if let window = self.window {
+                    self.updateClosability(of: window)
+                }
             }
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -94,9 +125,10 @@ private struct PermissionGuideRootView: View {
     let settings: AppSettings
     let model: PermissionGuideModel
     let onClose: () -> Void
+    let onProceed: () -> Void
 
     var body: some View {
-        PermissionGuideView(model: model, onClose: onClose)
+        PermissionGuideView(model: model, onClose: onClose, onProceed: onProceed)
             .windowStyle(theme: settings.theme)
     }
 }

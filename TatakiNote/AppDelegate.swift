@@ -62,6 +62,15 @@ enum AppLaunchContext {
         !isRunningUnitTests(environment: environment)
     }
 
+    static func isFirstLaunchTutorialSuppressed(environment: [String: String]) -> Bool {
+        #if DEBUG
+        guard settingsSuiteName(environment: environment) != nil else { return false }
+        return environment["TATAKINOTE_FIRST_LAUNCH_TUTORIAL"] != "enabled"
+        #else
+        return false
+        #endif
+    }
+
     static func shouldWatchFocusedElement(environment: [String: String]) -> Bool {
         !isRunningUnitTests(environment: environment)
     }
@@ -89,9 +98,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let permission = AppLaunchContext.accessibilityPermission(environment: ProcessInfo.processInfo.environment)
 
-    private(set) lazy var permissionGuide = PermissionGuideWindowController(
-        model: PermissionGuideModel(permission: permission),
-        settings: settings
+    private(set) lazy var permissionGuide: PermissionGuideWindowController = {
+        let controller = PermissionGuideWindowController(
+            model: PermissionGuideModel(permission: self.permission),
+            settings: self.settings
+        )
+        controller.onProceedToTutorial = { [weak self] in
+            self?.tutorial.show()
+        }
+        return controller
+    }()
+
+    private(set) lazy var tutorial = TutorialWindowController(
+        settings: settings,
+        panelModel: panelController.model
     )
 
     private(set) lazy var settingsWindow = SettingsWindowController(
@@ -101,7 +121,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ),
         appInfo: AppInfoModel(
             infoDictionary: Bundle.main.infoDictionary ?? [:],
-            permissionStatus: PermissionGuideModel(permission: permission)
+            permissionStatus: PermissionGuideModel(permission: permission),
+            onOpenTutorial: { [weak self] in self?.tutorial.show() }
         ),
         panelDefaultSize: PanelDefaultSizeModel(
             settings: settings,
@@ -113,6 +134,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let controller = PanelController(settings: self.settings, targetTracker: self.targetTracker, permission: self.permission)
         controller.onPermissionDenied = { [weak self] in
             self?.permissionGuide.show(reason: .commitDenied)
+        }
+        controller.targetOverride = { [weak self] in
+            self?.tutorial.practiceTarget()
+        }
+        controller.onInsertionRequested = { [weak self] text, target in
+            self?.tutorial.handleInsertionRequested(text: text, target: target)
         }
         return controller
     }()
@@ -137,7 +164,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             focusedElementWatcher = watcher
         }
         if AppLaunchContext.shouldPresentPermissionGuideOnLaunch(environment: environment) {
-            permissionGuide.showOnLaunchIfNeeded()
+            presentOnLaunch(environment: environment)
+        }
+    }
+
+    private func presentOnLaunch(environment: [String: String]) {
+        let presentation = FirstLaunchFlow.resolveOnLaunch(
+            settings: settings,
+            isTrusted: permission.isTrusted,
+            isSuppressed: AppLaunchContext.isFirstLaunchTutorialSuppressed(environment: environment)
+        )
+        switch presentation {
+        case .nothing:
+            break
+        case .tutorial:
+            tutorial.show()
+        case .permissionGuide(let reason):
+            permissionGuide.show(reason: reason)
         }
     }
 

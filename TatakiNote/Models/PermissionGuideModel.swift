@@ -4,12 +4,21 @@ import Observation
 enum PermissionGuideReason: Equatable, Sendable {
     case launch
     case commitDenied
+    case firstLaunch
 }
 
 /// 案内に何を表示するか。
 enum PermissionGuideState: Equatable {
     case granted
     case notGranted(PermissionGuideReason)
+    case readyForTutorial
+}
+
+/// 許可の案内に出すボタン。
+enum PermissionGuideButton: Equatable {
+    case close
+    case openSystemSettings
+    case next
 }
 
 /// アクセシビリティの許可の案内の状態。
@@ -31,7 +40,26 @@ enum PermissionGuideState: Equatable {
     }
 
     var state: PermissionGuideState {
-        isTrusted ? .granted : .notGranted(reason)
+        if isTrusted {
+            return reason == .firstLaunch ? .readyForTutorial : .granted
+        }
+        return .notGranted(reason)
+    }
+
+    var allowsClosing: Bool {
+        state != .readyForTutorial
+    }
+
+    var showsTutorialNote: Bool {
+        state == .notGranted(.firstLaunch)
+    }
+
+    var buttons: [PermissionGuideButton] {
+        switch state {
+        case .granted: [.close]
+        case .notGranted: [.close, .openSystemSettings]
+        case .readyForTutorial: [.next]
+        }
     }
 
     func refresh() {
