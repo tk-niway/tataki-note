@@ -223,6 +223,144 @@ struct AppSettingsTests {
         #expect(defaults.object(forKey: "panelFontName") == nil)
     }
 
+    @Test("AC-3: フォントパネルで書体を選ぶと、名前とファミリー名が保存され、作り直しても同じ書体で表示される")
+    func selectedPanelFontIsSavedAndSurvivesRecreation() throws {
+        let name = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let hiragino = try #require(NSFont(name: "HiraginoSans-W6", size: 20))
+
+        let settings = AppSettings(store: SettingsStore(defaults: defaults))
+        settings.selectPanelFont(hiragino)
+        #expect(settings.panelFontName == "HiraginoSans-W6")
+        #expect(settings.panelFontFamilyName == "Hiragino Sans")
+        #expect(settings.panelFontSize == 20)
+        #expect(settings.panelFont.fontName == "HiraginoSans-W6")
+        #expect(defaults.string(forKey: "panelFontName") == "HiraginoSans-W6")
+        #expect(defaults.string(forKey: "panelFontFamilyName") == "Hiragino Sans")
+
+        let reloaded = AppSettings(store: SettingsStore(defaults: defaults))
+        #expect(reloaded.panelFontName == "HiraginoSans-W6")
+        #expect(reloaded.panelFontFamilyName == "Hiragino Sans")
+        #expect(reloaded.panelFont.fontName == "HiraginoSans-W6")
+        #expect(reloaded.panelFont.pointSize == 20)
+        #expect(reloaded.resolvedPanelFont?.fontName == "HiraginoSans-W6")
+    }
+
+    @Test("AC-4: フォントパネルのサイズは四捨五入して文字サイズに入り、10 未満は 10、32 超は 32")
+    func selectedPanelFontSizeIsRoundedAndClamped() throws {
+        let name = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let settings = AppSettings(store: SettingsStore(defaults: defaults))
+
+        let cases: [(CGFloat, Double)] = [
+            (15.4, 15), (15.5, 16), (16, 16), (9, 10), (4, 10), (32.4, 32), (40, 32), (1000, 32),
+        ]
+        for (size, expected) in cases {
+            let font = try #require(NSFont(name: "Menlo-Regular", size: size))
+            settings.selectPanelFont(font)
+            #expect(settings.panelFontSize == expected, "\(size)")
+            #expect(defaults.object(forKey: "panelFontSize") as? Double == expected, "\(size)")
+            #expect(settings.panelFontName == "Menlo-Regular", "\(size)")
+        }
+    }
+
+    @Test("AC-5: システムフォントのままサイズだけ変えると、フォント名・ファミリー名は無いままで文字サイズだけが変わる")
+    func selectingSystemFontOnlyChangesSize() throws {
+        let name = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let settings = AppSettings(store: SettingsStore(defaults: defaults))
+
+        settings.selectPanelFont(NSFont.systemFont(ofSize: 15.6))
+        #expect(settings.panelFontName == nil)
+        #expect(settings.panelFontFamilyName == nil)
+        #expect(settings.panelFontSize == 16)
+        #expect(defaults.object(forKey: "panelFontName") == nil)
+        #expect(defaults.object(forKey: "panelFontFamilyName") == nil)
+        #expect(settings.resolvedPanelFont == nil)
+        #expect(settings.panelFont.fontName == NSFont.systemFont(ofSize: 16).fontName)
+
+        settings.selectPanelFont(NSFont.boldSystemFont(ofSize: 20))
+        #expect(settings.panelFontName == nil)
+        #expect(settings.panelFontFamilyName == nil)
+        #expect(settings.panelFontSize == 20)
+    }
+
+    @Test("AC-3, AC-5: 書体を選んだ後にシステムフォントに戻すと、名前とファミリー名のキーが消え、文字サイズは変わらない")
+    func resetPanelFontToSystemKeepsSize() throws {
+        let name = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let menlo = try #require(NSFont(name: "Menlo-Regular", size: 22))
+        let settings = AppSettings(store: SettingsStore(defaults: defaults))
+
+        settings.selectPanelFont(menlo)
+        #expect(defaults.string(forKey: "panelFontFamilyName") == "Menlo")
+        settings.resetPanelFontToSystem()
+        #expect(settings.panelFontName == nil)
+        #expect(settings.panelFontFamilyName == nil)
+        #expect(settings.panelFontSize == 22)
+        #expect(defaults.object(forKey: "panelFontName") == nil)
+        #expect(defaults.object(forKey: "panelFontFamilyName") == nil)
+        #expect(settings.panelFont.fontName == NSFont.systemFont(ofSize: 22).fontName)
+
+        let reloaded = AppSettings(store: SettingsStore(defaults: defaults))
+        #expect(reloaded.panelFontName == nil)
+        #expect(reloaded.panelFontFamilyName == nil)
+        #expect(reloaded.panelFontSize == 22)
+    }
+
+    @Test("AC-10: ファミリー名の保存が無い以前の版のフォント名は、同じ書体で表示され、起動時にファミリー名が補われて保存される")
+    func legacyFontNameGetsFamilyNameOnInit() throws {
+        let name = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+
+        defaults.set("Menlo-Regular", forKey: "panelFontName")
+        #expect(defaults.object(forKey: "panelFontFamilyName") == nil)
+
+        let settings = AppSettings(store: SettingsStore(defaults: defaults))
+        #expect(settings.panelFontName == "Menlo-Regular")
+        #expect(settings.panelFontFamilyName == "Menlo")
+        #expect(settings.panelFont.fontName == "Menlo-Regular")
+        #expect(defaults.string(forKey: "panelFontName") == "Menlo-Regular")
+        #expect(defaults.string(forKey: "panelFontFamilyName") == "Menlo")
+    }
+
+    @Test("AC-10: 保存済みのファミリー名は補い直して書き換えない")
+    func existingFamilyNameIsKeptOnInit() throws {
+        let name = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+
+        defaults.set("Menlo-Regular", forKey: "panelFontName")
+        defaults.set("Stored Family", forKey: "panelFontFamilyName")
+
+        let settings = AppSettings(store: SettingsStore(defaults: defaults))
+        #expect(settings.panelFontFamilyName == "Stored Family")
+        #expect(defaults.string(forKey: "panelFontFamilyName") == "Stored Family")
+    }
+
+    @Test("AC-10: フォント名が保存されていない・Mac に無い名前・システムフォントの名前なら、ファミリー名は保存しない")
+    func familyNameIsNotSavedWithoutUsableFontName() throws {
+        let names: [String?] = [nil, "TatakiNoteNoSuchFont-Regular", ".SFNS-Regular", ".AppleSystemUIFont"]
+        for fontName in names {
+            let name = UUID().uuidString
+            let defaults = try #require(UserDefaults(suiteName: name))
+            defer { defaults.removePersistentDomain(forName: name) }
+            if let fontName {
+                defaults.set(fontName, forKey: "panelFontName")
+            }
+
+            let settings = AppSettings(store: SettingsStore(defaults: defaults))
+            #expect(settings.panelFontFamilyName == nil, "\(fontName ?? "nil")")
+            #expect(defaults.object(forKey: "panelFontFamilyName") == nil, "\(fontName ?? "nil")")
+            #expect(settings.panelFontName == fontName, "\(fontName ?? "nil")")
+        }
+    }
+
     @Test("AC-5: 文字サイズ・透明度に範囲外の値を代入すると丸めて保存し、NaN・無限大は初期値(14・1.0)になる")
     func fontSizeAndOpacityAreClampedOnAssignment() throws {
         let name = UUID().uuidString

@@ -15,6 +15,7 @@ struct SettingsStore {
         static let autoShowApps = "autoShowApps"
         static let appTheme = "appTheme"
         static let panelFontName = "panelFontName"
+        static let panelFontFamilyName = "panelFontFamilyName"
         static let panelFontSize = "panelFontSize"
         static let panelOpacity = "panelOpacity"
         static let hiddenPanelStatusItems = "hiddenPanelStatusItems"
@@ -134,6 +135,21 @@ struct SettingsStore {
             defaults.set(name, forKey: Key.panelFontName)
         } else {
             defaults.removeObject(forKey: Key.panelFontName)
+        }
+    }
+
+    /// パネルの入力欄のフォントのファミリー名を読む。無い・空・文字列でない値は `nil`。
+    func loadPanelFontFamilyName() -> String? {
+        guard let name = defaults.object(forKey: Key.panelFontFamilyName) as? String, !name.isEmpty else { return nil }
+        return name
+    }
+
+    /// パネルの入力欄のフォントのファミリー名を保存する。`nil`・空文字ならキーを消す。
+    func savePanelFontFamilyName(_ name: String?) {
+        if let name, !name.isEmpty {
+            defaults.set(name, forKey: Key.panelFontFamilyName)
+        } else {
+            defaults.removeObject(forKey: Key.panelFontFamilyName)
         }
     }
 

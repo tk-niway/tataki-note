@@ -22,9 +22,6 @@ struct FontChoice: Identifiable, Equatable {
 
 /// @note p0-245
 enum FontChoices {
-    /// @note p0-246
-    private static let regularWeight = 5
-
     /// @note p0-247
     static func make(
         families: [String],
@@ -33,7 +30,7 @@ enum FontChoices {
     ) -> [FontChoice] {
         let familyChoices = families.compactMap { family -> FontChoice? in
             guard !family.hasPrefix("."),
-                  let postScriptName = representativePostScriptName(of: members(family) ?? [])
+                  let postScriptName = PanelTextStyle.regularPostScriptName(members: members(family) ?? [])
             else { return nil }
             return FontChoice(
                 id: "family:\(family)",
@@ -59,29 +56,6 @@ enum FontChoices {
         )
     }
 
-    /// @note p0-249
-    private static func representativePostScriptName(of members: [[Any]]) -> String? {
-        let candidates = members.compactMap { member -> FontMember? in
-            guard let name = member.first as? String, !name.isEmpty, !name.hasPrefix(".") else { return nil }
-            let weight = (member.count > 2 ? member[2] as? NSNumber : nil)?.intValue ?? regularWeight
-            let traits = (member.count > 3 ? member[3] as? NSNumber : nil)?.uintValue ?? 0
-            let isItalic = NSFontTraitMask(rawValue: traits).contains(.italicFontMask)
-            return FontMember(postScriptName: name, weight: weight, isItalic: isItalic)
-        }
-        let upright = candidates.filter { !$0.isItalic }
-        let best = upright.min { lhs, rhs in
-            let lhsDistance = abs(lhs.weight - regularWeight)
-            let rhsDistance = abs(rhs.weight - regularWeight)
-            return lhsDistance != rhsDistance ? lhsDistance < rhsDistance : lhs.weight < rhs.weight
-        }
-        return (best ?? candidates.first)?.postScriptName
-    }
-
-    private struct FontMember {
-        let postScriptName: String
-        let weight: Int
-        let isItalic: Bool
-    }
 }
 
 /// @note p0-250
@@ -117,7 +91,7 @@ enum StatusItemNote: Equatable {
     var selectedFontChoiceID: String {
         get {
             let name = settings.panelFontName
-            guard let name, !Self.isSystemFontName(name) else { return FontChoice.systemID }
+            guard let name, !PanelTextStyle.isSystemFontName(name) else { return FontChoice.systemID }
             guard let familyName = NSFont(name: name, size: CGFloat(PanelTextStyle.defaultFontSize))?.familyName,
                   let choice = fontChoices.first(where: { $0.familyName == familyName })
             else { return FontChoice.systemID }
@@ -162,11 +136,5 @@ enum StatusItemNote: Equatable {
         case .lineBreak, .close, .characterCount, .lineCount:
             nil
         }
-    }
-
-    /// @note p0-262
-    private static func isSystemFontName(_ name: String?) -> Bool {
-        guard let name else { return true }
-        return name.isEmpty || name.hasPrefix(".")
     }
 }
