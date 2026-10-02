@@ -4,7 +4,7 @@ import SwiftUI
 
 /// チュートリアルのウィンドウ。
 final class TutorialWindowController: NSObject, NSWindowDelegate {
-    static let contentSize = NSSize(width: 520, height: 560)
+    static let contentSize = NSSize(width: 560, height: 720)
 
     let model: TutorialModel
 

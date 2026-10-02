@@ -89,7 +89,8 @@ private enum LabelLayout {
     }
 }
 
-private struct KeyHint: View {
+/// キーの表記と名前を並べた小さな表示。
+struct KeyHint: View {
     let key: String
     let label: String
     let showsLabel: Bool

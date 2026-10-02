@@ -41,7 +41,7 @@ struct AppInfoSettingsView: View {
                         model.openTutorial()
                     }
                     .accessibilityIdentifier("settings.appInfo.openTutorial")
-                    SettingDescription(text: "練習用の入力欄で、パネルを開いて書いて挿入するまでをたどります。")
+                    SettingDescription(AppInfoModel.tutorialDescription)
                 }
             }
         }

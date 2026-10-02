@@ -16,7 +16,11 @@ struct TutorialView: View {
         .padding(.horizontal, 20)
         .padding(.top, 16)
         .padding(.bottom, 20)
-        .frame(width: 520, height: 560, alignment: .topLeading)
+        .frame(
+            width: TutorialWindowController.contentSize.width,
+            height: TutorialWindowController.contentSize.height,
+            alignment: .topLeading
+        )
     }
 }
 
@@ -36,14 +40,7 @@ private struct TutorialContent: View {
                     TutorialStepRow(step: step, model: model)
                 }
             }
-            VStack(alignment: .leading, spacing: 6) {
-                Text("練習用の入力欄")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                PracticeTextEditor(text: $model.practiceText, focusRequest: model.practiceFocusRequest)
-                    .frame(height: 96)
-            }
-            Spacer(minLength: 0)
+            PracticeChatView(model: model)
             HStack {
                 Spacer()
                 if model.showsFinishButton {
@@ -56,6 +53,130 @@ private struct TutorialContent: View {
                 }
             }
         }
+    }
+}
+
+private struct PracticeChatView: View {
+    @Bindable var model: TutorialModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("練習用のチャット")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                HStack(spacing: 10) {
+                    KeyHint(key: "↩", label: String(localized: "送信"), showsLabel: true)
+                    KeyHint(key: "⇧↩", label: String(localized: "改行"), showsLabel: true)
+                }
+            }
+            VStack(spacing: 0) {
+                PracticeChatMessageList(messages: model.chat.messages)
+                Divider()
+                PracticeTextEditor(
+                    text: $model.practiceText,
+                    focusRequest: model.practiceFocusRequest,
+                    placeholder: PracticeChat.inputPlaceholder,
+                    onSend: { model.sendPracticeMessage($0) }
+                )
+                .frame(height: 56)
+            }
+            .background(Color(nsColor: .textBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.separator))
+        }
+        .frame(maxHeight: .infinity)
+    }
+}
+
+private struct PracticeChatMessageList: View {
+    let messages: [PracticeChatMessage]
+
+    var body: some View {
+        GeometryReader { proxy in
+            ScrollViewReader { reader in
+                ScrollView {
+                    LazyVStack(spacing: 10) {
+                        ForEach(messages) { message in
+                            PracticeChatBubble(message: message, maxWidth: proxy.size.width * 0.75)
+                                .id(message.id)
+                        }
+                    }
+                    .padding(12)
+                }
+                .onChange(of: messages.count) {
+                    guard let last = messages.last else { return }
+                    withAnimation { reader.scrollTo(last.id, anchor: .bottom) }
+                }
+            }
+        }
+        .frame(minHeight: 160, maxHeight: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("tutorial.chat.messages")
+    }
+}
+
+private struct PracticeChatBubble: View {
+    let message: PracticeChatMessage
+    let maxWidth: CGFloat
+
+    var body: some View {
+        switch message.kind {
+        case .example:
+            ownBubble(identifier: "tutorial.chat.message.example", showsCaption: true)
+        case .sent:
+            ownBubble(identifier: "tutorial.chat.message.sent", showsCaption: false)
+        case .reply:
+            replyBubble
+        }
+    }
+
+    private func ownBubble(identifier: String, showsCaption: Bool) -> some View {
+        VStack(alignment: .trailing, spacing: 4) {
+            Text(verbatim: message.text)
+                .font(.system(size: 13))
+                .fixedSize(horizontal: false, vertical: true)
+                .foregroundStyle(.white)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 12))
+                .frame(maxWidth: maxWidth, alignment: .trailing)
+            if showsCaption {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .symbolRenderingMode(.multicolor)
+                        .accessibilityHidden(true)
+                    Text(verbatim: PracticeChat.exampleCaption)
+                        .multilineTextAlignment(.trailing)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: maxWidth, alignment: .trailing)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(identifier)
+    }
+
+    private var replyBubble: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label(PracticeChat.replyLabel, systemImage: "text.bubble")
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+            Text(verbatim: message.text)
+                .font(.system(size: 13))
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(Color(nsColor: .quaternaryLabelColor), in: RoundedRectangle(cornerRadius: 12))
+                .frame(maxWidth: maxWidth, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("tutorial.chat.message.reply")
     }
 }
 

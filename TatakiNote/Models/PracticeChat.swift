@@ -1,4 +1,32 @@
+import AppKit
 import Foundation
+
+/// 練習用のチャットの入力欄で、キーを押したときの動き。
+enum PracticeChatKeyAction: Equatable {
+    case send
+    case commitMarkedTextAndSend
+    case insertNewline
+    case passThrough
+}
+
+/// 練習用のチャットの入力欄のキーの判定。
+enum PracticeChatKeyResolver {
+    private static let returnKeyCode: UInt16 = 36
+    private static let keypadEnterKeyCode: UInt16 = 76
+
+    /// 押されたキーと修飾キー、変換中かどうかから、入力欄の動きを決める。
+    static func action(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, hasMarkedText: Bool) -> PracticeChatKeyAction {
+        guard keyCode == returnKeyCode || keyCode == keypadEnterKeyCode else { return .passThrough }
+        let relevant = modifiers.intersection(PanelShortcut.relevantModifiers)
+        if relevant.isEmpty {
+            return hasMarkedText ? .commitMarkedTextAndSend : .send
+        }
+        if relevant == [.shift] {
+            return hasMarkedText ? .passThrough : .insertNewline
+        }
+        return .passThrough
+    }
+}
 
 /// 練習用のチャットで、送った文章がどこから来たか。
 enum PracticeChatSendRoute: Equatable {
@@ -35,6 +63,11 @@ struct PracticeChat: Equatable {
     /// 返事の吹き出しに添える、AI の返事ではないことの印。
     static var replyLabel: String {
         String(localized: "練習用の自動の返事")
+    }
+
+    /// 入力欄が空のあいだに出す文。
+    static var inputPlaceholder: String {
+        String(localized: "メッセージを入力")
     }
 
     private(set) var messages: [PracticeChatMessage]

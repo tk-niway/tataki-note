@@ -62,7 +62,93 @@ struct PracticeTextEditorTests {
         ))
     }
 
-    @Test("AC-24: フォーカスがあると ⌘V でクリップボードの文字列が入り、練習の文章も変わる")
+    private func returnKeyEvent(
+        keyCode: UInt16 = 36,
+        modifiers: NSEvent.ModifierFlags = [],
+        in window: NSWindow
+    ) throws -> NSEvent {
+        try #require(NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: modifiers,
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            characters: "\r",
+            charactersIgnoringModifiers: "\r",
+            isARepeat: false,
+            keyCode: keyCode
+        ))
+    }
+
+    @Test("AC-9: 変換中でない ↩ は、入力欄の今の文字列で送信を呼び、改行を入れない")
+    func returnSendsCurrentTextWithoutNewline() throws {
+        try withFixture { fixture in
+            var sent: [String] = []
+            fixture.textView.onSend = { sent.append($0); return true }
+            fixture.textView.string = "hello"
+            fixture.textView.setSelectedRange(NSRange(location: 5, length: 0))
+
+            fixture.textView.keyDown(with: try returnKeyEvent(in: fixture.window))
+
+            #expect(sent == ["hello"])
+            #expect(fixture.textView.string == "hello")
+        }
+    }
+
+    @Test("AC-9: テンキーの Enter も送信する")
+    func keypadEnterSends() throws {
+        try withFixture { fixture in
+            var sent: [String] = []
+            fixture.textView.onSend = { sent.append($0); return true }
+            fixture.textView.string = "pad"
+
+            fixture.textView.keyDown(with: try returnKeyEvent(keyCode: 76, in: fixture.window))
+
+            #expect(sent == ["pad"])
+            #expect(fixture.textView.string == "pad")
+        }
+    }
+
+    @Test("AC-9: ⇧↩ は改行を入れ、送信は呼ばない")
+    func shiftReturnInsertsNewlineWithoutSending() throws {
+        try withFixture { fixture in
+            var sent: [String] = []
+            fixture.textView.onSend = { sent.append($0); return true }
+            fixture.textView.string = "ab"
+            fixture.textView.setSelectedRange(NSRange(location: 2, length: 0))
+
+            fixture.textView.keyDown(with: try returnKeyEvent(modifiers: [.shift], in: fixture.window))
+
+            #expect(sent.isEmpty)
+            #expect(fixture.textView.string == "ab\n")
+            #expect(fixture.box.value == "ab\n")
+        }
+    }
+
+    @Test("AC-9: ⌘↩ は送信を呼ばない")
+    func commandReturnDoesNotSend() throws {
+        try withFixture { fixture in
+            var sent: [String] = []
+            fixture.textView.onSend = { sent.append($0); return true }
+            fixture.textView.string = "keep"
+
+            fixture.textView.keyDown(with: try returnKeyEvent(modifiers: [.command], in: fixture.window))
+
+            #expect(sent.isEmpty)
+        }
+    }
+
+    @Test("入力欄のプレースホルダーを、アクセシビリティの値にも渡す")
+    func placeholderIsExposedToAccessibility() {
+        withFixture { fixture in
+            fixture.textView.placeholder = "メッセージを入力"
+
+            #expect(fixture.textView.accessibilityPlaceholderValue() == "メッセージを入力")
+        }
+    }
+
+    @Test("AC-27: フォーカスがあると ⌘V でクリップボードの文字列が入り、練習の文章も変わる")
     func pasteInsertsClipboardStringWhenFocused() throws {
         try withFixture { fixture in
             fixture.pasteboard.clearContents()
@@ -77,7 +163,7 @@ struct PracticeTextEditorTests {
         }
     }
 
-    @Test("AC-24: ⌘V は選択範囲を置き換え、カーソルの位置に入る")
+    @Test("AC-27: ⌘V は選択範囲を置き換え、カーソルの位置に入る")
     func pasteReplacesSelection() throws {
         try withFixture { fixture in
             fixture.textView.string = "Hello World"
@@ -94,7 +180,7 @@ struct PracticeTextEditorTests {
         }
     }
 
-    @Test("AC-24: フォーカスを持っていないと ⌘V では何も入らない")
+    @Test("AC-27: フォーカスを持っていないと ⌘V では何も入らない")
     func pasteDoesNothingWithoutFocus() throws {
         try withFixture(isFirstResponder: false) { fixture in
             fixture.pasteboard.clearContents()
@@ -109,7 +195,7 @@ struct PracticeTextEditorTests {
         }
     }
 
-    @Test("AC-24: クリップボードに文字列が無いと ⌘V は何も入れない")
+    @Test("AC-27: クリップボードに文字列が無いと ⌘V は何も入れない")
     func pasteWithoutStringInsertsNothing() throws {
         try withFixture { fixture in
             fixture.textView.string = "keep"
@@ -123,7 +209,7 @@ struct PracticeTextEditorTests {
         }
     }
 
-    @Test("AC-24: ⌘A は全選択、⌘C は選択をクリップボードへ、⌘X は切り取る")
+    @Test("AC-27: ⌘A は全選択、⌘C は選択をクリップボードへ、⌘X は切り取る")
     func selectAllCopyAndCut() throws {
         let generalChangeCount = NSPasteboard.general.changeCount
         try withFixture { fixture in
@@ -148,7 +234,7 @@ struct PracticeTextEditorTests {
         #expect(NSPasteboard.general.changeCount == generalChangeCount)
     }
 
-    @Test("AC-24: ⌘ 以外の組み合わせや対象外のキーは処理しない")
+    @Test("AC-27: ⌘ 以外の組み合わせや対象外のキーは処理しない")
     func ignoresOtherKeys() throws {
         try withFixture { fixture in
             fixture.pasteboard.clearContents()

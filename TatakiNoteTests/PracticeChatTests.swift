@@ -1,9 +1,89 @@
+import AppKit
 import Foundation
 import Testing
 @testable import TatakiNote
 
 @MainActor
 struct PracticeChatTests {
+    private static let returnKeyCode: UInt16 = 36
+    private static let keypadEnterKeyCode: UInt16 = 76
+    private static let aKeyCode: UInt16 = 0
+
+    // MARK: - 入力欄のキーの判定(AC-9)
+
+    @Test("AC-9: 修飾キーなしの ↩ は送信、テンキーの Enter も送信")
+    func plainReturnSends() {
+        #expect(PracticeChatKeyResolver.action(keyCode: Self.returnKeyCode, modifiers: [], hasMarkedText: false) == .send)
+        #expect(PracticeChatKeyResolver.action(keyCode: Self.keypadEnterKeyCode, modifiers: [], hasMarkedText: false) == .send)
+    }
+
+    @Test("AC-9: 変換中の ↩ は、変換を確定してから送信する")
+    func returnWithMarkedTextCommitsAndSends() {
+        #expect(
+            PracticeChatKeyResolver.action(keyCode: Self.returnKeyCode, modifiers: [], hasMarkedText: true)
+                == .commitMarkedTextAndSend
+        )
+        #expect(
+            PracticeChatKeyResolver.action(keyCode: Self.keypadEnterKeyCode, modifiers: [], hasMarkedText: true)
+                == .commitMarkedTextAndSend
+        )
+    }
+
+    @Test("AC-9: ⇧↩ は改行、変換中の ⇧↩ は送信せず入力メソッドに任せる")
+    func shiftReturnInsertsNewline() {
+        #expect(PracticeChatKeyResolver.action(keyCode: Self.returnKeyCode, modifiers: [.shift], hasMarkedText: false) == .insertNewline)
+        #expect(PracticeChatKeyResolver.action(keyCode: Self.keypadEnterKeyCode, modifiers: [.shift], hasMarkedText: false) == .insertNewline)
+        #expect(PracticeChatKeyResolver.action(keyCode: Self.returnKeyCode, modifiers: [.shift], hasMarkedText: true) == .passThrough)
+    }
+
+    @Test("AC-9: ⌘↩・⌥↩・⌃↩・⇧⌘↩ は送信も改行もしない")
+    func otherModifiersPassThrough() {
+        let combinations: [NSEvent.ModifierFlags] = [
+            [.command], [.option], [.control], [.command, .shift], [.option, .shift],
+        ]
+        for modifiers in combinations {
+            for hasMarkedText in [false, true] {
+                #expect(
+                    PracticeChatKeyResolver.action(keyCode: Self.returnKeyCode, modifiers: modifiers, hasMarkedText: hasMarkedText)
+                        == .passThrough
+                )
+            }
+        }
+    }
+
+    @Test("AC-9: Caps Lock と fn は修飾キーとして数えない")
+    func capsLockAndFunctionAreIgnored() {
+        #expect(
+            PracticeChatKeyResolver.action(keyCode: Self.returnKeyCode, modifiers: [.capsLock], hasMarkedText: false) == .send
+        )
+        #expect(
+            PracticeChatKeyResolver.action(keyCode: Self.returnKeyCode, modifiers: [.function], hasMarkedText: false) == .send
+        )
+        #expect(
+            PracticeChatKeyResolver.action(keyCode: Self.returnKeyCode, modifiers: [.shift, .capsLock], hasMarkedText: false)
+                == .insertNewline
+        )
+    }
+
+    @Test("AC-9: ↩ と Enter 以外のキーは、修飾キーや変換中でもふつうの入力に任せる")
+    func nonReturnKeysPassThrough() {
+        for modifiers: NSEvent.ModifierFlags in [[], [.shift], [.command]] {
+            for hasMarkedText in [false, true] {
+                #expect(
+                    PracticeChatKeyResolver.action(keyCode: Self.aKeyCode, modifiers: modifiers, hasMarkedText: hasMarkedText)
+                        == .passThrough
+                )
+            }
+        }
+    }
+
+    // MARK: - 入力欄のプレースホルダー
+
+    @Test("入力欄のプレースホルダーは空でない")
+    func inputPlaceholderIsNotEmpty() {
+        #expect(!PracticeChat.inputPlaceholder.isEmpty)
+    }
+
     // MARK: - 吹き出しの並び(AC-6, AC-7)
 
     @Test("AC-6: 作った直後の練習用のチャットには、例の吹き出しだけがある")
