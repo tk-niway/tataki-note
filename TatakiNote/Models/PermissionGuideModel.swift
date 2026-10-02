@@ -4,6 +4,7 @@ import Observation
 enum PermissionGuideReason: Equatable, Sendable {
     case launch
     case commitDenied
+    case firstLaunch
 }
 
 /// 案内に何を表示するか。

@@ -62,6 +62,15 @@ enum AppLaunchContext {
         !isRunningUnitTests(environment: environment)
     }
 
+    static func isFirstLaunchTutorialSuppressed(environment: [String: String]) -> Bool {
+        #if DEBUG
+        guard settingsSuiteName(environment: environment) != nil else { return false }
+        return environment["TATAKINOTE_FIRST_LAUNCH_TUTORIAL"] != "enabled"
+        #else
+        return false
+        #endif
+    }
+
     static func shouldWatchFocusedElement(environment: [String: String]) -> Bool {
         !isRunningUnitTests(environment: environment)
     }

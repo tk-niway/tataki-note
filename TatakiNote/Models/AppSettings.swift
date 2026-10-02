@@ -106,6 +106,11 @@ import Observation
         }
     }
 
+    /// 初回起動のチュートリアルを自動で出したか。
+    var hasShownFirstLaunchTutorial: Bool {
+        didSet { store.saveHasShownFirstLaunchTutorial(hasShownFirstLaunchTutorial) }
+    }
+
     @ObservationIgnored private let store: SettingsStore
 
     init(store: SettingsStore) {
@@ -131,6 +136,7 @@ import Observation
         self.hidesMenuBarIcon = store.loadHidesMenuBarIcon()
         self.panelDefaultWidth = store.loadPanelDefaultWidth()
         self.panelDefaultHeight = store.loadPanelDefaultHeight()
+        self.hasShownFirstLaunchTutorial = store.loadHasShownFirstLaunchTutorial()
     }
 
     var panelStatusItems: [PanelStatusItem] {
