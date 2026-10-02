@@ -1,2 +1,14 @@
+# 配布物(scripts/release.sh build)とビルドの成果物
 dist/
 .build/
+
+# macOS
+.DS_Store
+
+# Xcode(各自の状態。共有するスキームは xcshareddata/ に置く)
+xcuserdata/
+DerivedData/
+
+# コード署名の証明書と秘密鍵の書き出し(.p12 はリポジトリの外で保管する)
+*.p12
+*.cer
