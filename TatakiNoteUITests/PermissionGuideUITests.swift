@@ -1,10 +1,8 @@
 import XCTest
 
-// @note p0-1308
 final class PermissionGuideUITests: XCTestCase {
     private let timeout: TimeInterval = 5
 
-    /// @note p0-1309
     private let settingsSuiteName = "TatakiNoteUITests.\(UUID().uuidString)"
 
     override func setUpWithError() throws {
@@ -16,9 +14,7 @@ final class PermissionGuideUITests: XCTestCase {
     }
 
     // AC-1
-    // @note p0-1310
     // AC-8
-    // @note p0-1311
     @MainActor
     func testAC1_AC8_launchWithoutPermissionShowsGuide() throws {
         let app = try launchApp(override: AccessibilityOverride.untrusted)
@@ -41,12 +37,10 @@ final class PermissionGuideUITests: XCTestCase {
     }
 
     // AC-3
-    // @note p0-1312
     @MainActor
     func testAC3_commitWithoutPermissionShowsGuideAndKeepsDraft() throws {
         let app = try launchApp(override: AccessibilityOverride.untrusted, seed: ["commitKey": "commandEnter"])
 
-        // @note p0-1313
         XCTAssertTrue(
             guideElement(in: app, identifier: "permissionGuide.status").waitForExistence(timeout: timeout),
             "untrusted の上書きが効いていない。本物の挿入を避けるため、文章を打たずに止める"
@@ -61,14 +55,12 @@ final class PermissionGuideUITests: XCTestCase {
         app.typeText("abc")
         XCTAssertEqual(textView.value as? String, "abc")
 
-        // @note p0-1314
         app.typeKey(.return, modifierFlags: [.command])
         XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
         XCTAssertTrue(guideElement(in: app, identifier: "permissionGuide.draftKept").waitForExistence(timeout: timeout))
         XCTAssertTrue(guideElement(in: app, identifier: "permissionGuide.status").exists)
         XCTAssertTrue(guideElement(in: app, identifier: "permissionGuide.steps").exists)
 
-        // @note p0-1315
         let closeButton = app.buttons["permissionGuide.close"]
         XCTAssertTrue(closeButton.exists)
         closeButton.click()
@@ -79,22 +71,18 @@ final class PermissionGuideUITests: XCTestCase {
         XCTAssertEqual(textView.value as? String, "abc")
     }
 
-    // @note p0-1316
 
     // AC-13
-    // @note p0-1317
     @MainActor
     func testAC13_reopeningDoesNotAddWindows() throws {
         let app = try launchApp(override: AccessibilityOverride.untrusted, seed: ["commitKey": "commandEnter"])
         let status = guideElement(in: app, identifier: "permissionGuide.status")
-        // @note p0-1318
         XCTAssertTrue(
             status.waitForExistence(timeout: timeout),
             "untrusted の上書きが効いていない。本物の挿入を避けるため、文章を打たずに止める"
         )
         XCTAssertEqual(guideStatusCount(in: app), 1)
 
-        // @note p0-1319
         openPanelFromMenu(in: app)
         let textView = app.textViews["promptPanel.textView"]
         XCTAssertTrue(textView.waitForExistence(timeout: timeout))
@@ -103,7 +91,6 @@ final class PermissionGuideUITests: XCTestCase {
         app.typeText("abc")
         XCTAssertEqual(textView.value as? String, "abc")
 
-        // @note p0-1320
         app.typeKey(.return, modifierFlags: [.command])
         XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
         XCTAssertTrue(guideElement(in: app, identifier: "permissionGuide.draftKept").waitForExistence(timeout: timeout))
@@ -112,13 +99,11 @@ final class PermissionGuideUITests: XCTestCase {
     }
 
     // AC-2
-    // @note p0-1321
     @MainActor
     func testAC2_launchWithPermission() throws {
         let app = try launchApp(override: AccessibilityOverride.trusted)
 
         // AC-2
-        // @note p0-1322
         let status = guideElement(in: app, identifier: "permissionGuide.status")
         XCTAssertFalse(status.waitForExistence(timeout: 2))
         XCTAssertEqual(app.windows.count, 0)
@@ -126,7 +111,6 @@ final class PermissionGuideUITests: XCTestCase {
 
     // MARK: - 起動
 
-    /// @note p0-1323
     @MainActor
     private func launchApp(override: String, seed: [String: Any]? = nil) throws -> XCUIApplication {
         let app = XCUIApplication()
@@ -139,7 +123,6 @@ final class PermissionGuideUITests: XCTestCase {
         return app
     }
 
-    /// @note p0-1324
     private func settingsSeedJSON(_ values: [String: Any]) throws -> String {
         let data = try JSONSerialization.data(withJSONObject: values, options: [.sortedKeys])
         return String(decoding: data, as: UTF8.self)
@@ -177,7 +160,6 @@ final class PermissionGuideUITests: XCTestCase {
         clickShownMenuItem(item)
     }
 
-    // @note p0-1325
     @MainActor
     private func clickShownMenuItem(_ item: XCUIElement) {
         let deadline = Date().addingTimeInterval(timeout)
@@ -188,7 +170,6 @@ final class PermissionGuideUITests: XCTestCase {
         item.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
     }
 
-    // @note p0-1326
     @MainActor
     private func menuItem(in app: XCUIApplication, identifier: String, title: String) -> XCUIElement {
         let byIdentifier = app.menuItems[identifier]

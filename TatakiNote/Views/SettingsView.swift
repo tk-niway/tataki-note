@@ -1,32 +1,28 @@
 import SwiftUI
 
-/// @note p0-697
+/// 設定画面。
 struct SettingsView: View {
-    /// @note p0-698
     static let windowSize = CGSize(width: 660, height: 680)
-    /// @note p0-699
     static let sidebarWidth: CGFloat = 180
 
     @Bindable var settings: AppSettings
     @Bindable var model: SettingsWindowModel
     let launchAtLogin: LaunchAtLoginModel
     let appInfo: AppInfoModel
-    /// @note p0-700
     let panelDefaultSize: PanelDefaultSizeModel
+    let onShowFontPanel: () -> Void
     let onQuit: () -> Void
 
-    /// @note p0-701
     @State private var editorModel: EditorSettingsModel
-    /// @note p0-702
     @State private var keySettingsModel: PanelKeySettingsModel
 
-    // @note p0-703
     init(
         settings: AppSettings,
         model: SettingsWindowModel,
         launchAtLogin: LaunchAtLoginModel,
         appInfo: AppInfoModel,
         panelDefaultSize: PanelDefaultSizeModel,
+        onShowFontPanel: @escaping () -> Void,
         onQuit: @escaping () -> Void
     ) {
         self.settings = settings
@@ -34,6 +30,7 @@ struct SettingsView: View {
         self.launchAtLogin = launchAtLogin
         self.appInfo = appInfo
         self.panelDefaultSize = panelDefaultSize
+        self.onShowFontPanel = onShowFontPanel
         self.onQuit = onQuit
         _editorModel = State(initialValue: EditorSettingsModel(settings: settings))
         _keySettingsModel = State(initialValue: PanelKeySettingsModel(settings: settings))
@@ -44,14 +41,17 @@ struct SettingsView: View {
             sidebar
                 .frame(width: Self.sidebarWidth)
             Divider()
-            // @note p0-704
             ScrollView(.vertical) {
-                // @note p0-705
                 switch model.selectedSection {
                 case .general:
                     GeneralSettingsView(settings: settings, keySettings: keySettingsModel, launchAtLogin: launchAtLogin)
                 case .editor:
-                    EditorSettingsView(settings: settings, model: editorModel, panelDefaultSize: panelDefaultSize)
+                    EditorSettingsView(
+                        settings: settings,
+                        model: editorModel,
+                        panelDefaultSize: panelDefaultSize,
+                        onShowFontPanel: onShowFontPanel
+                    )
                 case .appInfo:
                     AppInfoSettingsView(model: appInfo)
                 }
@@ -70,7 +70,6 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings.sidebar.\(section.rawValue)")
         }
         .listStyle(.sidebar)
-        // @note p0-706
         .safeAreaInset(edge: .bottom) {
             Button(action: onQuit) {
                 Label("TatakiNote を終了", systemImage: "power")
@@ -83,7 +82,6 @@ struct SettingsView: View {
         }
     }
 
-    /// @note p0-707
     private var selectedSectionBinding: Binding<SettingsSection?> {
         Binding(
             get: { model.selectedSection },

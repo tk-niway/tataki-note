@@ -3,7 +3,6 @@ import XCTest
 final class PromptPanelUITests: XCTestCase {
     private let timeout: TimeInterval = 5
 
-    /// @note p0-1370
     private let settingsSuiteName = "TatakiNoteUITests.\(UUID().uuidString)"
 
     override func setUpWithError() throws {
@@ -18,13 +17,11 @@ final class PromptPanelUITests: XCTestCase {
     private func makeApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["TATAKINOTE_SETTINGS_SUITE"] = settingsSuiteName
-        // @note p0-1371
         app.launchEnvironment[AccessibilityOverride.key] = AccessibilityOverride.trusted
         return app
     }
 
     // AC-10
-    // @note p0-1372
     @MainActor
     func testAC10_launchOpensNoWindow() throws {
         let app = makeApp()
@@ -33,14 +30,12 @@ final class PromptPanelUITests: XCTestCase {
         XCTAssertEqual(app.windows.count, 0)
     }
 
-    // @note p0-1373
     @MainActor
     func testAC1_AC2_AC3_AC5_AC9_AC14_AC17_panelScenario() throws {
         let app = makeApp()
         app.launch()
 
         // AC-9
-        // @note p0-1374
         openMenu(in: app)
         let openItem = openPanelMenuItem(in: app)
         XCTAssertTrue(openItem.waitForExistence(timeout: timeout))
@@ -51,31 +46,26 @@ final class PromptPanelUITests: XCTestCase {
         XCTAssertTrue(textView.waitForExistence(timeout: timeout))
 
         // AC-2
-        // @note p0-1375
         XCTAssertEqual(textView.value as? String, "")
         app.typeText("hello")
         XCTAssertEqual(textView.value as? String, "hello")
 
         // AC-5
-        // @note p0-1376
         app.typeKey(.return, modifierFlags: [])
         app.typeText("world")
         XCTAssertEqual(textView.value as? String, "hello\nworld")
         XCTAssertTrue(textView.exists)
 
         // AC-3
-        // @note p0-1377
         app.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
 
         // AC-1
-        // @note p0-1378
         openPanelFromMenu(in: app)
         XCTAssertTrue(textView.waitForExistence(timeout: timeout))
         XCTAssertEqual(textView.value as? String, "hello\nworld")
 
         // AC-17
-        // @note p0-1379
         let panel = panelElement(in: app, fallback: textView)
         let frameBefore = panel.frame
         openPanelFromMenu(in: app)
@@ -86,7 +76,6 @@ final class PromptPanelUITests: XCTestCase {
         XCTAssertEqual(textView.value as? String, "hello\nworld!")
 
         // AC-14
-        // @note p0-1380
         app.typeKey("a", modifierFlags: [.command])
         app.typeText("x")
         XCTAssertEqual(textView.value as? String, "x")
@@ -96,7 +85,6 @@ final class PromptPanelUITests: XCTestCase {
         XCTAssertEqual(textView.value as? String, "x")
 
         // AC-9
-        // @note p0-1381
         openMenu(in: app)
         let quitItem = quitMenuItem(in: app)
         XCTAssertTrue(quitItem.waitForExistence(timeout: timeout))
@@ -124,7 +112,6 @@ final class PromptPanelUITests: XCTestCase {
         clickShownMenuItem(item)
     }
 
-    // @note p0-1382
     @MainActor
     private func clickShownMenuItem(_ item: XCUIElement) {
         let deadline = Date().addingTimeInterval(timeout)
@@ -135,7 +122,6 @@ final class PromptPanelUITests: XCTestCase {
         item.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
     }
 
-    // @note p0-1383
     @MainActor
     private func openPanelMenuItem(in app: XCUIApplication) -> XCUIElement {
         menuItem(in: app, identifier: "menu.openPanel", title: "パネルを開く")

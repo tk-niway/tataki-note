@@ -2,13 +2,11 @@ import ServiceManagement
 import Testing
 @testable import TatakiNote
 
-/// @note p0-882
 @MainActor
 private final class FakeLoginItemService: LoginItemService {
     struct Failure: Error {}
 
     var status: LoginItemStatus
-    /// @note p0-883
     var statusAfterRegister: LoginItemStatus = .enabled
     var failsToRegister = false
     var failsToUnregister = false
@@ -58,7 +56,6 @@ struct LaunchAtLoginModelTests {
             #expect(model.isEnabled == isEnabled, "\(status)")
             #expect(model.needsApproval == needsApproval, "\(status)")
             #expect(model.lastError == nil, "\(status)")
-            // @note p0-884
             #expect(service.registerCount == 0, "\(status)")
             #expect(service.unregisterCount == 0, "\(status)")
         }
@@ -100,7 +97,6 @@ struct LaunchAtLoginModelTests {
         model.openSystemSettings()
         #expect(service.openSystemSettingsCount == 1)
 
-        // @note p0-885
         model.setEnabled(false)
         #expect(service.unregisterCount == 1)
         #expect(model.isEnabled == false)
@@ -119,7 +115,6 @@ struct LaunchAtLoginModelTests {
         #expect(model.status == .notRegistered)
         #expect(model.isEnabled == false)
 
-        // @note p0-886
         model.refresh()
         #expect(model.lastError == .registerFailed)
 
@@ -142,7 +137,6 @@ struct LaunchAtLoginModelTests {
         #expect(model.status == .enabled)
         #expect(model.isEnabled == true)
 
-        // @note p0-887
         service.status = .notRegistered
         model.refresh()
         #expect(model.isEnabled == false)
@@ -155,14 +149,12 @@ struct LaunchAtLoginModelTests {
         let model = LaunchAtLoginModel(service: service)
         #expect(model.isEnabled == true)
 
-        // @note p0-888
         service.status = .notRegistered
         #expect(model.isEnabled == true)
         model.refresh()
         #expect(model.status == .notRegistered)
         #expect(model.isEnabled == false)
 
-        // @note p0-889
         service.status = .requiresApproval
         model.refresh()
         #expect(model.needsApproval == true)
@@ -172,7 +164,6 @@ struct LaunchAtLoginModelTests {
         #expect(model.status == .notFound)
         #expect(model.isEnabled == false)
         #expect(model.needsApproval == false)
-        // @note p0-890
         #expect(service.registerCount == 0)
         #expect(service.unregisterCount == 0)
     }
@@ -193,7 +184,6 @@ struct LaunchAtLoginModelTests {
         #expect(service.status == .enabled)
         try service.unregister()
         #expect(service.status == .notRegistered)
-        // @note p0-891
         service.openSystemSettingsLoginItems()
 
         let model = LaunchAtLoginModel(service: InMemoryLoginItemService())

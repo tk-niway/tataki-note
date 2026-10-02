@@ -2,17 +2,14 @@ import AppKit
 import Testing
 @testable import TatakiNote
 
-/// @note p0-1021
 @MainActor
 enum PasteboardFixture {
     static let customType = NSPasteboard.PasteboardType("jp.co.woube.TatakiNoteTests.custom")
 
-    /// @note p0-1022
     static func makePasteboard() -> NSPasteboard {
         NSPasteboard(name: NSPasteboard.Name("TatakiNoteTests.\(UUID().uuidString)"))
     }
 
-    /// @note p0-1023
     static func writeRichContents(to pasteboard: NSPasteboard) {
         let first = NSPasteboardItem()
         first.setString("original", forType: .string)
@@ -31,7 +28,6 @@ enum PasteboardFixture {
     }
 }
 
-/// @note p0-1024
 final class NonProvidingDataProvider: NSObject, NSPasteboardItemDataProvider {
     func pasteboard(
         _ pasteboard: NSPasteboard?,

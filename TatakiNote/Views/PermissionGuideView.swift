@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// @note p0-657
+/// アクセシビリティの許可の案内。
 struct PermissionGuideView: View {
     @Bindable var model: PermissionGuideModel
     let onClose: () -> Void
@@ -40,7 +40,7 @@ struct PermissionGuideView: View {
     }
 }
 
-/// @note p0-658
+/// 許可の案内の左のアイコン(装飾)。
 struct PermissionGuideIcon: View {
     let isGranted: Bool
 
@@ -60,10 +60,9 @@ struct PermissionGuideIcon: View {
     }
 }
 
-/// @note p0-659
+/// 許可の有無の表示。
 struct PermissionGuideStatus: View {
     let isGranted: Bool
-    /// @note p0-660
     var identifier: String = "permissionGuide.status"
 
     var body: some View {
@@ -85,7 +84,6 @@ struct PermissionGuideStatus: View {
     }
 }
 
-/// @note p0-661
 private struct PermissionGuideDraftKept: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -109,9 +107,8 @@ private struct PermissionGuideDraftKept: View {
     }
 }
 
-/// @note p0-662
+/// 許可の手順の表示。
 struct PermissionGuideSteps: View {
-    /// @note p0-663
     var identifier: String = "permissionGuide.steps"
 
     var body: some View {
@@ -155,7 +152,6 @@ private struct PermissionGuideStep: View {
     }
 }
 
-/// @note p0-664
 private struct PermissionGuideButtons: View {
     let showsOpenSystemSettings: Bool
     let onOpenSystemSettings: () -> Void
@@ -168,7 +164,6 @@ private struct PermissionGuideButtons: View {
                 .keyboardShortcut(.cancelAction)
                 .accessibilityIdentifier("permissionGuide.close")
             if showsOpenSystemSettings {
-                // @note p0-665
                 Button("システム設定を開く", action: onOpenSystemSettings)
                     .buttonStyle(.borderedProminent)
                     .accessibilityIdentifier("permissionGuide.openSystemSettings")

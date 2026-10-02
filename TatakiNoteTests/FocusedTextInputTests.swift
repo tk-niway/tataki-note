@@ -41,7 +41,6 @@ struct FocusedTextInputTests {
         for role in ["AXGroup", "AXUnknown", "AXWindow"] {
             #expect(FocusedTextInputState.classifyForInsertion(.element(role: role, subrole: nil, isSelectedTextRangeSettable: false), bundleIdentifier: finder) == .notTextInput, "\(role)")
         }
-        // @note p0-877
         #expect(FocusedTextInputState.classifyForInsertion(.element(role: "AXTextField", subrole: nil, isSelectedTextRangeSettable: false), bundleIdentifier: finder) == .textInput)
         #expect(FocusedTextInputState.classifyForInsertion(.element(role: "AXGroup", subrole: nil, isSelectedTextRangeSettable: true), bundleIdentifier: finder) == .textInput)
     }

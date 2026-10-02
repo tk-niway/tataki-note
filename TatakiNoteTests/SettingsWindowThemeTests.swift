@@ -3,10 +3,8 @@ import SwiftUI
 import Testing
 @testable import TatakiNote
 
-/// @note p0-1086
 @MainActor
 struct SettingsWindowThemeTests {
-    /// @note p0-1087
     private func waitUntil(_ window: NSWindow, _ condition: () -> Bool) async throws {
         var attempts = 0
         while attempts < 40 {
@@ -24,13 +22,12 @@ struct SettingsWindowThemeTests {
             settings: settings,
             model: SettingsWindowModel(),
             launchAtLogin: LaunchAtLoginModel(service: InMemoryLoginItemService()),
-            // @note p0-1088
             appInfo: AppInfoModel(
                 infoDictionary: [:],
                 permissionStatus: PermissionGuideModel(permission: OverriddenAccessibilityPermission(isTrusted: true))
             ),
-            // @note p0-1089
             panelDefaultSize: PanelDefaultSizeModel(settings: settings, currentPanelSize: { nil }),
+            onShowFontPanel: {},
             onQuit: {}
         )
     }
@@ -56,7 +53,6 @@ struct SettingsWindowThemeTests {
         try await waitUntil(window) { window.appearance?.name == .darkAqua }
         #expect(window.appearance?.name == .darkAqua)
 
-        // @note p0-1090
         settings.theme = .light
         try await waitUntil(window) { window.appearance?.name == .aqua }
         #expect(window.appearance?.name == .aqua)
@@ -78,7 +74,6 @@ struct SettingsWindowThemeTests {
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.theme = .light
 
-        // @note p0-1091
         let controller = PermissionGuideWindowController(
             model: PermissionGuideModel(permission: OverriddenAccessibilityPermission(isTrusted: false)),
             settings: settings

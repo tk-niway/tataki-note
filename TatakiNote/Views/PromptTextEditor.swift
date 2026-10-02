@@ -1,20 +1,16 @@
 import AppKit
 import SwiftUI
 
-/// @note p0-666
+/// パネルの入力欄。
 final class PromptTextView: NSTextView {
-    /// @note p0-667
     var onKeyInput: ((PanelKeyInput) -> Bool)?
 
-    /// @note p0-668
     var pasteboard: NSPasteboard = .general
 
-    /// @note p0-669
     private var pendingFont: NSFont?
 
     // MARK: - フォント
 
-    /// @note p0-670
     func applyFont(_ font: NSFont) {
         guard !hasMarkedText() else {
             pendingFont = font
@@ -26,7 +22,6 @@ final class PromptTextView: NSTextView {
         typingAttributes[.font] = font
     }
 
-    // @note p0-671
 
     override func unmarkText() {
         super.unmarkText()
@@ -45,7 +40,6 @@ final class PromptTextView: NSTextView {
 
     // MARK: - 確定
 
-    /// @note p0-672
     func commitMarkedText() {
         guard hasMarkedText() else { return }
         unmarkText()
@@ -65,7 +59,6 @@ final class PromptTextView: NSTextView {
         if onKeyInput?(input) == true {
             return
         }
-        // @note p0-673
         if let command = LineEditing.arrowCommand(for: input) {
             performLineArrowCommand(command)
             return
@@ -73,12 +66,10 @@ final class PromptTextView: NSTextView {
         super.keyDown(with: event)
     }
 
-    // @note p0-674
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard window?.firstResponder === self, !hasMarkedText() else {
             return super.performKeyEquivalent(with: event)
         }
-        // @note p0-675
         let input = PanelKeyInput(
             keyCode: event.keyCode,
             modifiers: event.modifierFlags.intersection(.deviceIndependentFlagsMask),
@@ -89,20 +80,17 @@ final class PromptTextView: NSTextView {
             return true
         }
         if event.keyCode == KeyCode.returnKey || event.keyCode == KeyCode.keypadEnter {
-            // @note p0-676
             if PanelKeyResolver.insertsNewlineExplicitly(for: input) {
                 insertNewline(nil)
                 return true
             }
             return super.performKeyEquivalent(with: event)
         }
-        // @note p0-677
         let modifiers = event.modifierFlags.intersection([.command, .shift, .option, .control])
         let key = input.characters
         let command: NSEvent.ModifierFlags = [.command]
         let shiftCommand: NSEvent.ModifierFlags = [.command, .shift]
         if modifiers == command {
-            // @note p0-678
             switch key {
             case "a": selectAll(nil)
             case "c": copyLineOrSelection()
@@ -146,7 +134,6 @@ final class PromptTextView: NSTextView {
     }
 
     func selectWordAtCursor() {
-        // @note p0-679
         let word = LineEditing.wordSelection(in: string, selection: selectedRange()) { position in
             selectionRange(forProposedRange: NSRange(location: position, length: 1), granularity: .selectByWord)
         }
@@ -186,7 +173,6 @@ final class PromptTextView: NSTextView {
         paste(nil)
     }
 
-    /// @note p0-680
     private func writeFullLine(_ line: String) {
         pasteboard.clearContents()
         pasteboard.declareTypes([.string, LineEditing.fullLinePasteboardType], owner: nil)
@@ -194,14 +180,11 @@ final class PromptTextView: NSTextView {
         pasteboard.setString("1", forType: LineEditing.fullLinePasteboardType)
     }
 
-    /// @note p0-681
     private func apply(_ edit: LineEdit) {
         breakUndoCoalescing()
         undoManager?.beginUndoGrouping()
-        // @note p0-682
         let changed = shouldChangeText(in: edit.range, replacementString: edit.replacement)
         if changed {
-            // @note p0-683
             textStorage?.replaceCharacters(
                 in: edit.range,
                 with: NSAttributedString(string: edit.replacement, attributes: typingAttributes)
@@ -210,12 +193,10 @@ final class PromptTextView: NSTextView {
         }
         undoManager?.endUndoGrouping()
         breakUndoCoalescing()
-        // @note p0-684
         guard changed else { return }
         selectAndReveal(edit.selection)
     }
 
-    /// @note p0-685
     private func selectAndReveal(_ range: NSRange) {
         let selection = LineEditing.clamped(range, toLength: (string as NSString).length)
         setSelectedRange(selection)
@@ -226,7 +207,6 @@ final class PromptTextView: NSTextView {
 struct PromptTextEditor: NSViewRepresentable {
     @Binding var text: String
     let focusRequest: Int
-    /// @note p0-686
     let font: NSFont
     let onKeyInput: (PanelKeyInput) -> Bool
 
@@ -247,7 +227,6 @@ struct PromptTextEditor: NSViewRepresentable {
         textView.onKeyInput = onKeyInput
         textView.isRichText = false
         textView.allowsUndo = true
-        // @note p0-687
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
@@ -255,7 +234,6 @@ struct PromptTextEditor: NSViewRepresentable {
         textView.textColor = .textColor
         textView.drawsBackground = false
         textView.textContainerInset = PanelMetrics.textContainerInset
-        // @note p0-688
         textView.minSize = NSSize(width: 0, height: 0)
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.isVerticallyResizable = true
@@ -274,17 +252,13 @@ struct PromptTextEditor: NSViewRepresentable {
         guard let textView = scrollView.documentView as? PromptTextView else { return }
         textView.onKeyInput = onKeyInput
         context.coordinator.text = $text
-        // @note p0-689
         textView.applyFont(font)
 
-        // @note p0-690
         if textView.string != text && !textView.hasMarkedText() {
             textView.string = text
-            // @note p0-691
             textView.undoManager?.removeAllActions()
         }
 
-        // @note p0-692
         if context.coordinator.lastFocusRequest != focusRequest {
             context.coordinator.lastFocusRequest = focusRequest
             DispatchQueue.main.async { [weak textView] in

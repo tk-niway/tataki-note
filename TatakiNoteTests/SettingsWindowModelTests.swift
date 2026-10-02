@@ -8,7 +8,6 @@ struct SettingsWindowModelTests {
         let model = SettingsWindowModel()
         #expect(model.selectedSection == .general)
 
-        // @note p0-1085
         for section in SettingsSection.allCases {
             model.selectedSection = section
             model.prepareForOpen()

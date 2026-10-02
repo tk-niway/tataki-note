@@ -2,11 +2,9 @@ import AppKit
 import Testing
 @testable import TatakiNote
 
-/// @note p0-803
 @MainActor
 final class ActivatorStub: ApplicationActivating {
     var result: Bool
-    /// @note p0-804
     var onActivate: (() -> Void)?
     private(set) var targets: [InsertionTarget] = []
 
@@ -21,7 +19,6 @@ final class ActivatorStub: ApplicationActivating {
     }
 }
 
-/// @note p0-805
 @MainActor
 final class PasteShortcutPosterStub: PasteShortcutPosting {
     struct Record {
@@ -31,7 +28,6 @@ final class PasteShortcutPosterStub: PasteShortcutPosting {
     }
 
     private let pasteboard: NSPasteboard
-    /// @note p0-806
     var onPost: (() -> Void)?
     private(set) var records: [Record] = []
 
@@ -40,7 +36,6 @@ final class PasteShortcutPosterStub: PasteShortcutPosting {
     }
 
     func postPasteShortcut() {
-        // @note p0-807
         let items = pasteboard.pasteboardItems ?? []
         records.append(
             Record(
@@ -53,7 +48,6 @@ final class PasteShortcutPosterStub: PasteShortcutPosting {
     }
 }
 
-/// @note p0-808
 @MainActor
 final class FocusInspectorStub: FocusedTextInputInspecting {
     var state: FocusedTextInputState
@@ -69,7 +63,6 @@ final class FocusInspectorStub: FocusedTextInputInspecting {
     }
 }
 
-/// @note p0-809
 @MainActor
 final class SubmitKeySenderStub: SubmitKeySending {
     struct Record {
@@ -78,7 +71,6 @@ final class SubmitKeySenderStub: SubmitKeySending {
     }
 
     private let pasteboard: NSPasteboard
-    /// @note p0-810
     var onSend: (() -> Void)?
     private(set) var records: [Record] = []
 
@@ -113,9 +105,7 @@ struct ClipboardTextInserterTests {
             pasteboard: pasteboard,
             activator: activator,
             poster: poster,
-            // @note p0-811
             focusInspector: focusInspector ?? FocusInspectorStub(state: .textInput),
-            // @note p0-812
             submitSender: submitSender ?? SubmitKeySenderStub(pasteboard: pasteboard),
             submitDelay: .zero,
             settleDelay: .zero,
@@ -236,7 +226,6 @@ struct ClipboardTextInserterTests {
             snapshotsAtActivation.append(PasteboardSnapshot.capture(from: pasteboard))
         }
         let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
-        // @note p0-813
         let inserter = makeInserter(
             pasteboard: pasteboard,
             activator: activator,
@@ -256,7 +245,6 @@ struct ClipboardTextInserterTests {
         #expect(secondResult == .inserted)
         #expect(activator.targets.count == 2)
         #expect(snapshotsAtActivation.count == 2)
-        // @note p0-814
         #expect(snapshotsAtActivation.last == original)
         #expect(poster.records.count == 2)
         #expect(poster.records.first?.string == "first")
@@ -286,10 +274,8 @@ struct ClipboardTextInserterTests {
         #expect(result == .inserted)
         #expect(poster.records.count == 1)
         #expect(submitSender.records.count == 1)
-        // @note p0-815
         #expect(pasteCountsWhenSent == [1])
         #expect(submitSender.records.first?.target == target)
-        // @note p0-816
         #expect(submitSender.records.first?.pasteboardString == "hello")
         #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
     }

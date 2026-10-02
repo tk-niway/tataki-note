@@ -7,7 +7,6 @@ struct AutoShowDecisionTests {
     private let chrome = AutoShowApp(bundleIdentifier: "com.google.Chrome", name: "Google Chrome")
     private let slack = AutoShowApp(bundleIdentifier: "com.tinyspeck.slackmacgap", name: "Slack")
 
-    /// @note p0-779
     private func input(_ change: (inout AutoShowInput) -> Void = { _ in }) -> AutoShowInput {
         var input = AutoShowInput(
             mode: .allApps,
@@ -28,7 +27,6 @@ struct AutoShowDecisionTests {
         return input
     }
 
-    /// @note p0-780
     private func clickInput(_ change: (inout AutoShowInput) -> Void = { _ in }) -> AutoShowInput {
         input {
             $0.trigger = .userClick
@@ -40,10 +38,8 @@ struct AutoShowDecisionTests {
     @Test("AC-2: 「全アプリ」で、前面のアプリのフォーカスが入力欄に移ったら出す")
     func showsWhenAllAppsAndTextInputFocused() {
         #expect(AutoShowDecision.shouldShow(input()))
-        // @note p0-781
         #expect(AutoShowDecision.shouldShow(input { $0.selectedApps = [] }))
         #expect(AutoShowDecision.shouldShow(input { $0.frontmostBundleIdentifier = nil }))
-        // @note p0-782
         #expect(AutoShowDecision.shouldShow(input { $0.focusedSubrole = "AXSearchField" }))
     }
 
@@ -109,7 +105,6 @@ struct AutoShowDecisionTests {
     @Test("AC-8: アプリが前面になった直後のフォーカスの通知や、最後に出したのと同じ要素への通知では出さない")
     func justActivatedDoesNotShow() {
         #expect(!AutoShowDecision.shouldShow(input { $0.isJustActivated = true }))
-        // @note p0-783
         #expect(!AutoShowDecision.shouldShow(input { $0.isSameElementAsLastShown = true }))
     }
 
@@ -133,7 +128,6 @@ struct AutoShowDecisionTests {
         }))
 
         #expect(!AutoShowDecision.shouldShow(clickInput { $0.isClickInsideFocusedElement = false }))
-        // @note p0-784
         #expect(AutoShowDecision.shouldShow(input { $0.isClickInsideFocusedElement = false }))
     }
 
@@ -141,7 +135,6 @@ struct AutoShowDecisionTests {
     func accessibilityPointFlipsY() {
         let screen = CGRect(x: 0, y: 0, width: 1000, height: 800)
 
-        // @note p0-785
         #expect(AutoShowDecision.accessibilityPoint(fromCocoa: CGPoint(x: 10, y: 800), primaryScreenFrame: screen) == CGPoint(x: 10, y: 0))
         #expect(AutoShowDecision.accessibilityPoint(fromCocoa: CGPoint(x: 990, y: 0), primaryScreenFrame: screen) == CGPoint(x: 990, y: 800))
         #expect(AutoShowDecision.accessibilityPoint(fromCocoa: CGPoint(x: 500, y: 400), primaryScreenFrame: screen) == CGPoint(x: 500, y: 400))
@@ -172,16 +165,13 @@ struct AutoShowDecisionTests {
             )
         }
 
-        // @note p0-786
         #expect(shouldWatch(mode: .allApps, selectedApps: [], bundleIdentifier: "com.google.Chrome"))
         #expect(shouldWatch(mode: .allApps, selectedApps: [slack], bundleIdentifier: nil))
         #expect(shouldWatch(mode: .selectedApps, selectedApps: [slack, chrome], bundleIdentifier: "com.google.Chrome"))
 
-        // @note p0-787
         #expect(!shouldWatch(mode: .selectedApps, selectedApps: [slack], bundleIdentifier: "com.google.Chrome"))
         #expect(!shouldWatch(mode: .selectedApps, selectedApps: [], bundleIdentifier: "com.google.Chrome"))
         #expect(!shouldWatch(mode: .selectedApps, selectedApps: [chrome], bundleIdentifier: nil))
-        // @note p0-788
         #expect(!shouldWatch(mode: .off, selectedApps: [chrome], bundleIdentifier: "com.google.Chrome"))
         #expect(!shouldWatch(mode: .allApps, selectedApps: [], isAccessibilityTrusted: false, bundleIdentifier: "com.google.Chrome"))
         #expect(!shouldWatch(mode: .selectedApps, selectedApps: [chrome], isAccessibilityTrusted: false, bundleIdentifier: "com.google.Chrome"))

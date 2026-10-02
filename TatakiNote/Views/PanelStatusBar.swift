@@ -1,21 +1,18 @@
 import SwiftUI
 
-/// @note p0-636
+/// パネルの下の帯。
 struct PanelStatusBar: View {
     let content: PanelStatusBarContent
 
     var body: some View {
-        // @note p0-637
         ViewThatFits(in: .horizontal) {
             row(.full)
             row(.withoutCloseLabel)
             row(.keysOnly)
         }
-        // @note p0-638
         .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         .frame(height: PanelMetrics.statusBarHeight)
         .clipped()
-        // @note p0-639
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("promptPanel.statusBar")
     }
@@ -50,7 +47,6 @@ struct PanelStatusBar: View {
                 .foregroundStyle(.secondary)
                 .fixedSize()
                 .lineLimit(1)
-                // @note p0-640
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(Text(verbatim: text))
                 .accessibilityIdentifier(Self.identifier(for: item))
@@ -76,13 +72,9 @@ struct PanelStatusBar: View {
     }
 }
 
-/// @note p0-641
 private enum LabelLayout {
-    /// @note p0-642
     case full
-    /// @note p0-643
     case withoutCloseLabel
-    /// @note p0-644
     case keysOnly
 
     func showsLabel(for item: PanelStatusItem) -> Bool {
@@ -97,7 +89,6 @@ private enum LabelLayout {
     }
 }
 
-/// @note p0-645
 private struct KeyHint: View {
     let key: String
     let label: String

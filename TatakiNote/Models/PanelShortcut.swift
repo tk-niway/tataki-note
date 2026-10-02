@@ -1,52 +1,40 @@
 import AppKit
 
-/// @note p0-383
+/// パネルの確定・確定+送信に割り当てるキー(修飾キー付きの任意のキー)。
 struct PanelShortcut: Hashable {
-    /// @note p0-384
     static let relevantModifiers: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
 
     let keyCode: UInt16
-    /// @note p0-385
     let modifiers: NSEvent.ModifierFlags
 
-    /// @note p0-386
     init(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) {
         self.keyCode = keyCode == KeyCode.keypadEnter ? KeyCode.returnKey : keyCode
         self.modifiers = modifiers.intersection(Self.relevantModifiers)
     }
 
-    /// @note p0-387
     static let shiftReturn = PanelShortcut(keyCode: KeyCode.returnKey, modifiers: [.shift])
-    /// @note p0-388
     static let commandReturn = PanelShortcut(keyCode: KeyCode.returnKey, modifiers: [.command])
-    /// @note p0-389
     static let commandShiftReturn = PanelShortcut(keyCode: KeyCode.returnKey, modifiers: [.command, .shift])
 
-    /// @note p0-390
     static let defaultCommitKey: PanelShortcut? = nil
     static let defaultCommitAndSendKey: PanelShortcut? = .commandReturn
-    /// @note p0-391
     static let legacyDefaultCommitKey: PanelShortcut? = .commandReturn
     static let legacyDefaultCommitAndSendKey: PanelShortcut? = nil
 
-    /// @note p0-392
     var hasModifier: Bool {
         !modifiers.isEmpty
     }
 
-    /// @note p0-393
     func matches(_ input: PanelKeyInput) -> Bool {
         let normalizedKeyCode = input.keyCode == KeyCode.keypadEnter ? KeyCode.returnKey : input.keyCode
         let normalizedModifiers = input.modifiers.intersection(Self.relevantModifiers)
         return normalizedKeyCode == keyCode && normalizedModifiers == modifiers
     }
 
-    /// @note p0-394
     var storedValue: [Int] {
         [Int(keyCode), Int(modifiers.rawValue)]
     }
 
-    /// @note p0-395
     init?(storedValue: [Any]) {
         guard storedValue.count == 2,
               let keyNumber = storedValue[0] as? NSNumber, CFGetTypeID(keyNumber) != CFBooleanGetTypeID(),

@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import TatakiNote
 
-/// @note p0-716
 @MainActor
 final class PermissionCallLog {
     private(set) var calls: [String] = []
@@ -12,7 +11,6 @@ final class PermissionCallLog {
     }
 }
 
-/// @note p0-717
 @MainActor
 final class LoggingPermissionStub: AccessibilityPermissionChecking {
     let isTrusted: Bool
@@ -28,7 +26,6 @@ final class LoggingPermissionStub: AccessibilityPermissionChecking {
     }
 }
 
-/// @note p0-718
 @MainActor
 final class LoggingSettingsOpenerStub: AccessibilitySettingsOpening {
     private let log: PermissionCallLog
@@ -51,7 +48,6 @@ struct AppInfoModelTests {
         )
     }
 
-    /// @note p0-719
     private func waitUntil(_ condition: () -> Bool) async throws -> Bool {
         for _ in 0..<200 {
             if condition() {
@@ -111,11 +107,9 @@ struct AppInfoModelTests {
         permission.isTrusted = false
         #expect(try await waitUntil { !model.permissionStatus.isTrusted })
 
-        // @note p0-720
         watching.cancel()
         await watching.value
 
-        // @note p0-721
         permission.isTrusted = true
         try await Task.sleep(for: .milliseconds(100))
         #expect(!model.permissionStatus.isTrusted)

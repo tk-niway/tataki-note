@@ -1,10 +1,8 @@
 import XCTest
 
-// @note p0-1166
 final class EditorAndAppInfoSettingsUITests: XCTestCase {
     private let timeout: TimeInterval = 5
 
-    /// @note p0-1167
     private let settingsSuiteName = "TatakiNoteUITests.\(UUID().uuidString)"
 
     override func setUpWithError() throws {
@@ -16,7 +14,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     }
 
     // AC-1
-    // @note p0-1168
     @MainActor
     func testAC1_sidebar() throws {
         let app = XCUIApplication()
@@ -29,22 +26,18 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertTrue(general.waitForExistence(timeout: timeout))
         XCTAssertTrue(editor.exists)
         XCTAssertTrue(appInfo.exists)
-        // @note p0-1169
         XCTAssertLessThan(general.frame.minY, editor.frame.minY)
         XCTAssertLessThan(editor.frame.minY, appInfo.frame.minY)
         XCTAssertTrue(isSidebarItemSelected(sidebarGeneralID, in: app))
 
-        // @note p0-1170
         editor.click()
-        XCTAssertTrue(element(in: app, identifier: fontPickerID).waitForExistence(timeout: timeout))
+        XCTAssertTrue(element(in: app, identifier: fontNameID).waitForExistence(timeout: timeout))
         XCTAssertTrue(isSidebarItemSelected(sidebarEditorID, in: app))
 
-        // @note p0-1171
         appInfo.click()
         XCTAssertTrue(element(in: app, identifier: appInfoVersionID).waitForExistence(timeout: timeout))
-        XCTAssertFalse(element(in: app, identifier: fontPickerID).exists)
+        XCTAssertFalse(element(in: app, identifier: fontNameID).exists)
 
-        // @note p0-1172
         closeSettings(in: app)
         openSettingsFromMenu(in: app)
         XCTAssertTrue(element(in: app, identifier: "settings.commitKeyRecorder").waitForExistence(timeout: timeout))
@@ -54,32 +47,16 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     }
 
     // AC-2
-    // @note p0-1173
     // AC-3
-    // @note p0-1174
     // AC-4
-    // @note p0-1175
     // AC-5
-    // @note p0-1176
     @MainActor
     func testAC2_AC3_AC4_AC5_AC6_editorScenario() throws {
         let app = XCUIApplication()
         launch(app, permission: AccessibilityOverride.untrusted)
         openEditorSettings(in: app)
 
-        // AC-2
-        // @note p0-1177
-        let fontPicker = fontPopUp(in: app)
-        app.revealInSettings(fontPicker)
-        XCTAssertEqual(fontPicker.value as? String, "システムフォント")
-
-        // @note p0-1178
-        fontPicker.click()
-        app.typeText("Menlo\n")
-        XCTAssertTrue(waitUntil { fontPicker.value as? String == "Menlo" }, "フォントに Menlo を選べない")
-
         // AC-4
-        // @note p0-1179
         let fontSizeValue = element(in: app, identifier: fontSizeValueID)
         XCTAssertTrue(text(of: fontSizeValue).contains("14"))
         let fontSizeUp = incrementArrow(ofStepper: fontSizeStepperID, in: app)
@@ -88,7 +65,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertTrue(waitUntil { self.text(of: fontSizeValue).contains("15") }, "文字サイズが 15 pt にならない")
 
         // AC-5
-        // @note p0-1180
         let opacityValue = element(in: app, identifier: opacityValueID)
         XCTAssertEqual(text(of: opacityValue), "100%")
         let opacitySlider = slider(identifier: opacitySliderID, in: app)
@@ -99,14 +75,12 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertTrue(adjustedOpacity.hasSuffix("%"), adjustedOpacity)
 
         // AC-6
-        // @note p0-1181
         let characterCount = element(in: app, identifier: statusItemID("characterCount"))
         app.revealInSettings(characterCount)
         XCTAssertTrue(isChecked(characterCount))
         characterCount.click()
         XCTAssertTrue(waitUntil { !self.isChecked(characterCount) })
 
-        // @note p0-1182
         let commit = element(in: app, identifier: statusItemID("commit"))
         app.revealInSettings(commit)
         XCTAssertTrue(isChecked(commit))
@@ -117,8 +91,66 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         closeSettings(in: app)
     }
 
+    // AC-1
+    @MainActor
+    func testAC1_fontControls() throws {
+        let app = XCUIApplication()
+        launch(app)
+        openEditorSettings(in: app)
+
+        let fontName = element(in: app, identifier: fontNameID)
+        app.revealInSettings(fontName)
+        XCTAssertEqual(text(of: fontName), "システムフォント")
+        let showFontPanel = element(in: app, identifier: showFontPanelID)
+        XCTAssertTrue(showFontPanel.exists)
+        let resetFont = element(in: app, identifier: resetFontToSystemID)
+        XCTAssertTrue(resetFont.exists)
+        XCTAssertFalse(element(in: app, identifier: "settings.fontPicker").exists)
+
+        app.revealInSettings(showFontPanel)
+        showFontPanel.click()
+        XCTAssertTrue(fontPanelWindow(in: app).waitForExistence(timeout: timeout), "フォントパネルが開かない")
+        closeSettings(in: app)
+    }
+
+    // AC-6
+    @MainActor
+    func testAC6_resetFontToSystem() throws {
+        let app = XCUIApplication()
+        launch(app, seed: ["panelFontName": "Menlo-Regular"])
+        openEditorSettings(in: app)
+
+        let fontName = element(in: app, identifier: fontNameID)
+        app.revealInSettings(fontName)
+        XCTAssertTrue(text(of: fontName).contains("Menlo"), text(of: fontName))
+        let resetFont = element(in: app, identifier: resetFontToSystemID)
+        app.revealInSettings(resetFont)
+        XCTAssertTrue(resetFont.isEnabled)
+
+        resetFont.click()
+        XCTAssertTrue(waitUntil { self.text(of: fontName) == "システムフォント" }, "名前の表示がシステムフォントにならない")
+        XCTAssertTrue(waitUntil { !resetFont.isEnabled }, "システムフォントに戻した後も押せる")
+        closeSettings(in: app)
+    }
+
+    // AC-11
+    @MainActor
+    func testAC11_closingSettingsClosesFontPanel() throws {
+        let app = XCUIApplication()
+        launch(app)
+        openEditorSettings(in: app)
+
+        let showFontPanel = element(in: app, identifier: showFontPanelID)
+        app.revealInSettings(showFontPanel)
+        showFontPanel.click()
+        let fontPanel = fontPanelWindow(in: app)
+        XCTAssertTrue(fontPanel.waitForExistence(timeout: timeout), "フォントパネルが開かない")
+
+        closeSettings(in: app)
+        XCTAssertTrue(fontPanel.waitForNonExistence(timeout: timeout), "設定ウィンドウを閉じてもフォントパネルが残る")
+    }
+
     // AC-7
-    // @note p0-1184
     @MainActor
     func testAC7_shortcutList() throws {
         let app = XCUIApplication()
@@ -127,7 +159,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
 
         let list = element(in: app, identifier: shortcutListID)
         XCTAssertTrue(list.waitForExistence(timeout: timeout))
-        // @note p0-1185
         let rows = list.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH %@", "settings.shortcut."))
             .allElementsBoundByIndex
@@ -136,16 +167,13 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         for keys in ["⌥↑", "⌘L", "⌘D"] {
             XCTAssertTrue(rowTexts.contains { $0.contains(keys) }, "\(keys) の行が無い: \(rowTexts)")
         }
-        // @note p0-1186
         XCTAssertTrue(rowTexts.contains { $0.contains("⌘D") && $0.contains("単語") }, "\(rowTexts)")
         XCTAssertFalse(rowTexts.contains { $0.contains("esc") }, "\(rowTexts)")
         closeSettings(in: app)
     }
 
     // AC-8
-    // @note p0-1187
     // AC-9
-    // @note p0-1188
     @MainActor
     func testAC8_AC9_appInfoUntrusted() throws {
         let app = XCUIApplication()
@@ -153,13 +181,11 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         openAppInfoSettings(in: app)
 
         // AC-8
-        // @note p0-1189
         let version = text(of: element(in: app, identifier: appInfoVersionID))
         XCTAssertTrue(version.contains { $0.isNumber }, version)
         XCTAssertFalse(version.contains("不明"), version)
 
         // AC-9
-        // @note p0-1190
         XCTAssertTrue(element(in: app, identifier: appInfoPermissionStatusID).exists)
         XCTAssertTrue(element(in: app, identifier: appInfoPermissionStepsID).exists)
         XCTAssertTrue(element(in: app, identifier: appInfoOpenSystemSettingsID).exists)
@@ -167,7 +193,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     }
 
     // AC-9
-    // @note p0-1191
     @MainActor
     func testAC9_appInfoTrusted() throws {
         let app = XCUIApplication()
@@ -181,27 +206,22 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     }
 
     // AC-12
-    // @note p0-1192
     @MainActor
     func testAC12_permissionGuideUnchanged() throws {
         let app = XCUIApplication()
         launch(app, permission: AccessibilityOverride.untrusted, dismissingPermissionGuide: false)
 
-        // @note p0-1193
         XCTAssertTrue(element(in: app, identifier: "permissionGuide.status").waitForExistence(timeout: timeout))
         XCTAssertEqual(guideStatusCount(in: app), 1)
 
-        // @note p0-1194
         openAppInfoSettings(in: app)
         XCTAssertTrue(element(in: app, identifier: appInfoPermissionStatusID).exists)
         XCTAssertTrue(element(in: app, identifier: appInfoPermissionStepsID).exists)
 
-        // @note p0-1195
         XCTAssertEqual(guideStatusCount(in: app), 1)
         XCTAssertTrue(element(in: app, identifier: "permissionGuide.steps").exists)
         XCTAssertTrue(app.buttons["permissionGuide.openSystemSettings"].exists)
 
-        // @note p0-1196
         closeSettings(in: app)
         let closeButton = app.buttons["permissionGuide.close"]
         XCTAssertTrue(closeButton.waitForExistence(timeout: timeout))
@@ -214,9 +234,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     }
 
     // AC-14
-    // @note p0-1203
     // AC-15
-    // @note p0-1204
     @MainActor
     func testAC14_AC15_useCurrentPanelSizeAndReset() throws {
         let app = XCUIApplication()
@@ -224,18 +242,15 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         openEditorSettings(in: app)
 
         // AC-14
-        // @note p0-1205
         let useCurrent = element(in: app, identifier: useCurrentPanelSizeID)
         app.revealInSettings(useCurrent)
         XCTAssertFalse(useCurrent.isEnabled)
 
         // AC-14
-        // @note p0-1206
         let panel = openPanel(in: app)
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         XCTAssertFalse(useCurrent.isEnabled, "パネルを開いただけで押せる")
 
-        // @note p0-1207
         let sizeBeforeDrag = panel.frame.size
         dragBottomRightCorner(of: panel, by: CGVector(dx: -100, dy: -60))
         let dragged = panel.frame.size
@@ -244,7 +259,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         closePanel(in: app)
 
         // AC-14
-        // @note p0-1208
         XCTAssertTrue(waitUntil { useCurrent.isEnabled }, "ドラッグした後も押せない")
         app.revealInSettings(useCurrent)
         useCurrent.click()
@@ -256,7 +270,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
                       "高さがドラッグした大きさにならない(\(String(describing: heightField.value)) / \(dragged.height))")
 
         // AC-15
-        // @note p0-1210
         let reset = element(in: app, identifier: resetPanelDefaultSizeID)
         app.revealInSettings(reset)
         reset.click()
@@ -267,14 +280,17 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
 
     // MARK: - 起動
 
-    /// @note p0-1212
     @MainActor
     private func launch(
         _ app: XCUIApplication,
         permission: String = AccessibilityOverride.trusted,
-        dismissingPermissionGuide: Bool = true
+        dismissingPermissionGuide: Bool = true,
+        seed: [String: Any]? = nil
     ) {
         app.launchEnvironment["TATAKINOTE_SETTINGS_SUITE"] = settingsSuiteName
+        if let seed, let data = try? JSONSerialization.data(withJSONObject: seed, options: [.sortedKeys]) {
+            app.launchEnvironment["TATAKINOTE_SETTINGS_SEED"] = String(decoding: data, as: UTF8.self)
+        }
         app.launchEnvironment[AccessibilityOverride.key] = permission
         app.launchEnvironment["TATAKINOTE_LOGIN_ITEM_OVERRIDE"] = "memory"
         app.launch()
@@ -288,7 +304,9 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     private let sidebarGeneralID = "settings.sidebar.general"
     private let sidebarEditorID = "settings.sidebar.editor"
     private let sidebarAppInfoID = "settings.sidebar.appInfo"
-    private let fontPickerID = "settings.fontPicker"
+    private let fontNameID = "settings.fontName"
+    private let showFontPanelID = "settings.showFontPanel"
+    private let resetFontToSystemID = "settings.resetFontToSystem"
     private let fontSizeStepperID = "settings.fontSizeStepper"
     private let fontSizeValueID = "settings.fontSizeValue"
     private let opacitySliderID = "settings.opacitySlider"
@@ -317,17 +335,15 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         app.descendants(matching: .any)[identifier].firstMatch
     }
 
-    /// @note p0-1213
     @MainActor
     private func openEditorSettings(in app: XCUIApplication) {
         openSettingsFromMenu(in: app)
         let editor = element(in: app, identifier: sidebarEditorID)
         XCTAssertTrue(editor.waitForExistence(timeout: timeout))
         editor.click()
-        XCTAssertTrue(element(in: app, identifier: fontPickerID).waitForExistence(timeout: timeout))
+        XCTAssertTrue(element(in: app, identifier: fontNameID).waitForExistence(timeout: timeout))
     }
 
-    /// @note p0-1214
     @MainActor
     private func openAppInfoSettings(in app: XCUIApplication) {
         openSettingsFromMenu(in: app)
@@ -337,19 +353,11 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, identifier: appInfoVersionID).waitForExistence(timeout: timeout))
     }
 
-    /// @note p0-1215
     @MainActor
-    private func fontPopUp(in app: XCUIApplication) -> XCUIElement {
-        let picker = element(in: app, identifier: fontPickerID)
-        XCTAssertTrue(picker.waitForExistence(timeout: timeout))
-        if picker.elementType == .popUpButton {
-            return picker
-        }
-        let inner = picker.popUpButtons.firstMatch
-        return inner.exists ? inner : picker
+    private func fontPanelWindow(in app: XCUIApplication) -> XCUIElement {
+        element(in: app, identifier: "fontPanel")
     }
 
-    /// @note p0-1216
     @MainActor
     private func incrementArrow(ofStepper identifier: String, in app: XCUIApplication) -> XCUIElement {
         let found = element(in: app, identifier: identifier)
@@ -360,7 +368,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         return arrow
     }
 
-    /// @note p0-1217
     @MainActor
     private func slider(identifier: String, in app: XCUIApplication) -> XCUIElement {
         let found = element(in: app, identifier: identifier)
@@ -368,7 +375,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         return found.elementType == .slider ? found : found.sliders.firstMatch
     }
 
-    /// @note p0-1219
     @MainActor
     private func text(of element: XCUIElement) -> String {
         if let value = element.value as? String, !value.isEmpty {
@@ -377,19 +383,16 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         return element.label
     }
 
-    /// @note p0-1220
     @MainActor
     private func combinedText(of element: XCUIElement) -> String {
         [element.label, element.value as? String ?? ""].joined(separator: " ")
     }
 
-    /// @note p0-1221
     @MainActor
     private func number(in field: XCUIElement) -> CGFloat? {
         (field.value as? String).flatMap { Double($0) }.map { CGFloat($0) }
     }
 
-    /// @note p0-1222
     @MainActor
     private func isChecked(_ element: XCUIElement) -> Bool {
         if let value = element.value as? NSNumber {
@@ -398,7 +401,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         return element.isSelected
     }
 
-    /// @note p0-1223
     @MainActor
     private func isSidebarItemSelected(_ identifier: String, in app: XCUIApplication) -> Bool {
         if element(in: app, identifier: identifier).isSelected {
@@ -412,19 +414,16 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         return containers.contains { $0.exists && $0.isSelected }
     }
 
-    /// @note p0-1224
     @MainActor
     private func guideStatusCount(in app: XCUIApplication) -> Int {
         app.descendants(matching: .any).matching(identifier: "permissionGuide.status").count
     }
 
-    /// @note p0-1225
     @MainActor
     private func settingsWindow(in app: XCUIApplication) -> XCUIElement {
         app.windows.containing(.any, identifier: sidebarGeneralID).firstMatch
     }
 
-    /// @note p0-1226
     @MainActor
     private func closeSettings(in app: XCUIApplication) {
         let window = settingsWindow(in: app)
@@ -435,7 +434,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, identifier: sidebarGeneralID).waitForNonExistence(timeout: timeout))
     }
 
-    /// @note p0-1227
     @MainActor
     private func waitUntil(_ condition: () -> Bool) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
@@ -447,25 +445,21 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
 
     // MARK: - パネル
 
-    /// @note p0-1228
     @MainActor
     private func openPanel(in app: XCUIApplication) -> XCUIElement {
         openPanelFromMenu(in: app)
         XCTAssertTrue(app.textViews["promptPanel.textView"].waitForExistence(timeout: timeout))
-        // @note p0-1229
         let panel = app.dialogs["promptPanel"]
         XCTAssertTrue(panel.waitForExistence(timeout: timeout), "パネルの窓が見つからない")
         return panel
     }
 
-    /// @note p0-1230
     @MainActor
     private func closePanel(in app: XCUIApplication) {
         app.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(app.textViews["promptPanel.textView"].waitForNonExistence(timeout: timeout))
     }
 
-    /// @note p0-1231
     @MainActor
     private func dragBottomRightCorner(of panel: XCUIElement, by offset: CGVector) {
         let corner = panel.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 1)).withOffset(CGVector(dx: -2, dy: -2))
@@ -500,7 +494,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         clickShownMenuItem(item)
     }
 
-    // @note p0-1232
     @MainActor
     private func clickShownMenuItem(_ item: XCUIElement) {
         let deadline = Date().addingTimeInterval(timeout)
@@ -511,7 +504,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         item.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
     }
 
-    // @note p0-1233
     @MainActor
     private func menuItem(in app: XCUIApplication, identifier: String, title: String) -> XCUIElement {
         let byIdentifier = app.menuItems[identifier]

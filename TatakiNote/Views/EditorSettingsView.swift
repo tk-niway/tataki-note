@@ -1,32 +1,31 @@
 import SwiftUI
 
-/// @note p0-600
+/// 設定画面の「エディタ設定」。
 struct EditorSettingsView: View {
     @Bindable var settings: AppSettings
     @Bindable var model: EditorSettingsModel
     @Bindable var panelDefaultSize: PanelDefaultSizeModel
+    let onShowFontPanel: () -> Void
 
     var body: some View {
         Form {
             LabeledContent("フォント") {
                 VStack(alignment: .leading, spacing: 6) {
-                    // @note p0-601
-                    Picker("フォント", selection: $model.selectedFontChoiceID) {
-                        Text(verbatim: model.systemFontChoice.displayName)
-                            .tag(model.systemFontChoice.id)
-                        if !model.familyFontChoices.isEmpty {
-                            Divider()
+                    Text(verbatim: model.fontDisplayName)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("settings.fontName")
+                    VStack(alignment: .leading, spacing: 8) {
+                        Button("フォントパネルを開く") {
+                            onShowFontPanel()
                         }
-                        ForEach(model.familyFontChoices) { choice in
-                            Text(verbatim: choice.displayName)
-                                .tag(choice.id)
+                        .accessibilityIdentifier("settings.showFontPanel")
+                        Button("システムフォントに戻す") {
+                            model.resetFontToSystem()
                         }
+                        .disabled(model.isSystemFont)
+                        .accessibilityIdentifier("settings.resetFontToSystem")
                     }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
-                    .frame(width: 220)
-                    .accessibilityIdentifier("settings.fontPicker")
-                    SettingDescription(text: "パネルの入力欄の文字に使います。太さは、そのフォントの標準の太さになります。")
+                    SettingDescription(text: "パネルの入力欄の文字に使います。フォントパネルで選んだフォントと太さが、すぐに使われます。フォントパネルで変えた大きさは「文字サイズ」にも入ります。")
                 }
             }
             .padding(.bottom, 12)
@@ -74,7 +73,6 @@ struct EditorSettingsView: View {
                         HStack(spacing: 16) {
                             HStack(spacing: 6) {
                                 Text("幅")
-                                // @note p0-602
                                 TextField("幅", value: $panelDefaultSize.width, format: .number.grouping(.never))
                                     .labelsHidden()
                                     .multilineTextAlignment(.trailing)
@@ -110,7 +108,6 @@ struct EditorSettingsView: View {
                                 .accessibilityIdentifier("settings.panelDefaultHeightStepper")
                             }
                         }
-                        // @note p0-603
                         Button("今のパネルの大きさを既定にする") {
                             panelDefaultSize.useCurrentPanelSize()
                         }
@@ -133,7 +130,6 @@ struct EditorSettingsView: View {
                         Toggle(item.displayName, isOn: statusItemBinding(item))
                             .toggleStyle(.checkbox)
                             .accessibilityIdentifier("settings.statusItem.\(item.rawValue)")
-                        // @note p0-604
                         if model.statusItemNote(item) == .keyNotAssigned {
                             SettingDescription(text: "キーを登録していないあいだは帯に出ません")
                                 .padding(.leading, 20)
@@ -147,7 +143,6 @@ struct EditorSettingsView: View {
 
             LabeledContent("ショートカットキー") {
                 VStack(alignment: .leading, spacing: 6) {
-                    // @note p0-605
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(EditorShortcuts.all) { shortcut in
                             if shortcut.id != EditorShortcuts.all.first?.id {

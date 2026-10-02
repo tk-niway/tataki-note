@@ -1,6 +1,5 @@
 import Foundation
 
-// @note p0-457
 
 extension PanelScreen {
     var displayName: String {
@@ -74,7 +73,6 @@ extension SettingsSection {
         }
     }
 
-    /// @note p0-458
     var systemImage: String {
         switch self {
         case .general:

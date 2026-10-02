@@ -2,14 +2,11 @@ import AppKit
 import ApplicationServices
 import Observation
 
-/// @note p0-39
+/// 他のアプリで入力欄が選ばれたことを見張り、条件が合えばパネルを出す。
 final class FocusedElementWatcher {
-    /// @note p0-40
     static let activationGrace: TimeInterval = 0.25
-    /// @note p0-41
     static let dismissGrace: TimeInterval = 0.5
 
-    /// @note p0-42
     private struct ShownElement {
         let processIdentifier: pid_t
         let element: AXUIElement?
@@ -32,14 +29,11 @@ final class FocusedElementWatcher {
     private var clickMonitor: Any?
     private var focusObservation: FocusObservation?
 
-    /// @note p0-43
     private var target: InsertionTarget?
     private var lastActivatedAt: Date?
-    /// @note p0-44
     private(set) var panelDismissedAt: Date?
     private var lastShown: ShownElement?
 
-    /// @note p0-45
     init(
         settings: AppSettings,
         panelModel: PanelModel,
@@ -58,7 +52,6 @@ final class FocusedElementWatcher {
         self.permission = permission
         self.probe = probe
         self.workspace = workspace
-        // @note p0-46
         self.notificationCenter = workspace.notificationCenter
         self.ownProcessIdentifier = ownProcessIdentifier
         self.primaryScreenFrame = primaryScreenFrame
@@ -67,12 +60,10 @@ final class FocusedElementWatcher {
         self.exposeWebContent = exposeWebContent
         self.onShow = onShow
 
-        // @note p0-47
         observePanelDismissal()
     }
 
     deinit {
-        // @note p0-48
         if let activationObserver {
             notificationCenter.removeObserver(activationObserver)
         }
@@ -94,14 +85,11 @@ final class FocusedElementWatcher {
                 self?.handleActivation(of: app.map { InsertionTarget($0) })
             }
         }
-        // @note p0-49
         clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseUp]) { [weak self] _ in
-            // @note p0-50
             MainActor.assumeIsolated {
                 self?.handleClick()
             }
         }
-        // @note p0-51
         handleActivation(of: workspace.frontmostApplication.map { InsertionTarget($0) })
     }
 
@@ -117,15 +105,12 @@ final class FocusedElementWatcher {
         stopWatchingFocus()
     }
 
-    /// @note p0-52
     func handleActivation(of target: InsertionTarget?) {
         lastActivatedAt = now()
         stopWatchingFocus()
-        // @note p0-53
         self.target = target
         guard let target, shouldWatch(target) else { return }
         watchFocus(of: target)
-        // @note p0-54
         exposeWebContent(target)
     }
 
@@ -137,7 +122,6 @@ final class FocusedElementWatcher {
         evaluate(trigger: .userClick)
     }
 
-    /// @note p0-55
     func handlePanelDismissed() {
         panelDismissedAt = now()
     }
@@ -155,12 +139,10 @@ final class FocusedElementWatcher {
     }
 
     private func evaluate(trigger: AutoShowTrigger) {
-        // @note p0-56
         guard !panelModel.isPresented, let target, shouldWatch(target) else { return }
 
         let focused = probe.probeFocusedElement(in: target, readsFrame: trigger == .userClick)
 
-        // @note p0-57
         if trigger == .focusChanged, let lastShown, lastShown.processIdentifier == target.processIdentifier,
            !Self.isSameElement(lastShown.element, focused.element) {
             self.lastShown = nil
@@ -169,7 +151,6 @@ final class FocusedElementWatcher {
             $0.processIdentifier == target.processIdentifier && Self.isSameElement($0.element, focused.element)
         } ?? false
 
-        // @note p0-58
         var isClickInsideFocusedElement = false
         if trigger == .userClick, let frame = focused.frame {
             let point = AutoShowDecision.accessibilityPoint(fromCocoa: mouseLocation(), primaryScreenFrame: primaryScreenFrame())
@@ -209,12 +190,10 @@ final class FocusedElementWatcher {
 
     // MARK: - パネルが閉じた時刻
 
-    /// @note p0-59
     private func observePanelDismissal() {
         withObservationTracking {
             _ = panelModel.isPresented
         } onChange: { [weak self] in
-            // @note p0-60
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if !self.panelModel.isPresented {
@@ -230,10 +209,8 @@ final class FocusedElementWatcher {
     private func watchFocus(of target: InsertionTarget) {
         let pid = target.processIdentifier
         let application = AXUIElementCreateApplication(pid)
-        // @note p0-61
         AXUIElementSetMessagingTimeout(application, AXFocusedTextInputInspector.messagingTimeout)
 
-        // @note p0-62
         var created: AXObserver?
         guard AXObserverCreate(pid, focusedElementChanged, &created) == .success, let observer = created else {
             return
@@ -257,19 +234,16 @@ final class FocusedElementWatcher {
     }
 }
 
-/// @note p0-63
 private nonisolated struct FocusObservation {
     let observer: AXObserver
     let application: AXUIElement
 
-    /// @note p0-64
     func remove() {
         AXObserverRemoveNotification(observer, application, kAXFocusedUIElementChangedNotification as CFString)
         CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
     }
 }
 
-/// @note p0-65
 private nonisolated func focusedElementChanged(
     _ observer: AXObserver,
     _ element: AXUIElement,

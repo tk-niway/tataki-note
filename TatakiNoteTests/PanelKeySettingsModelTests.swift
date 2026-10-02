@@ -2,7 +2,6 @@ import AppKit
 import Testing
 @testable import TatakiNote
 
-/// @note p0-931
 @MainActor
 private final class FakeHotkeyController {
     var hotkey: PanelShortcut?
@@ -116,7 +115,6 @@ struct PanelKeySettingsModelTests {
         defer { defaults.removePersistentDomain(forName: name) }
         let model = makeModel(settings: settings)
 
-        // @note p0-932
         let accepted = model.record(candidate(keyCode: 36, modifiers: [.command], characters: "\r"), for: .commit)
 
         #expect(!accepted)
@@ -153,7 +151,6 @@ struct PanelKeySettingsModelTests {
         let (settings, defaults, name) = try makeSettings()
         defer { defaults.removePersistentDomain(forName: name) }
 
-        // @note p0-933
         do {
             let model = makeModel(settings: settings)
             model.beginRecording(.commit)
@@ -163,7 +160,6 @@ struct PanelKeySettingsModelTests {
             #expect(model.rejectionMessage(for: .commit) == nil)
         }
 
-        // @note p0-934
         do {
             let model = makeModel(settings: settings)
             model.beginRecording(.commit)
@@ -173,7 +169,6 @@ struct PanelKeySettingsModelTests {
             #expect(model.rejectionMessage(for: .commit) == nil)
         }
 
-        // @note p0-935
         do {
             let model = makeModel(settings: settings)
             model.beginRecording(.commit)
@@ -210,7 +205,6 @@ struct PanelKeySettingsModelTests {
         let key = PanelShortcut(keyCode: 40, modifiers: [.command])
         #expect(model.record(PanelShortcutCandidate(shortcut: key, characters: "k"), for: .commit))
 
-        // @note p0-936
         controller.hotkey = key
         model.clear(.commit)
         let accepted = model.record(PanelShortcutCandidate(shortcut: key, characters: "k"), for: .commit)
@@ -240,7 +234,6 @@ struct PanelKeySettingsModelTests {
         let (settings, defaults, name) = try makeSettings()
         defer { defaults.removePersistentDomain(forName: name) }
 
-        // @note p0-937
         do {
             let controller = FakeHotkeyController()
             let model = makeModel(settings: settings, controller: controller)
@@ -251,7 +244,6 @@ struct PanelKeySettingsModelTests {
             model.clear(.commit)
         }
 
-        // @note p0-938
         do {
             let controller = FakeHotkeyController()
             let model = makeModel(settings: settings, controller: controller)
@@ -263,7 +255,6 @@ struct PanelKeySettingsModelTests {
             #expect(controller.resumeCount == 1)
         }
 
-        // @note p0-939
         do {
             let controller = FakeHotkeyController()
             let model = makeModel(settings: settings, controller: controller)
@@ -273,7 +264,6 @@ struct PanelKeySettingsModelTests {
             #expect(controller.resumeCount == 1)
         }
 
-        // @note p0-940
         do {
             let controller = FakeHotkeyController()
             let model = makeModel(settings: settings, controller: controller)
@@ -283,7 +273,6 @@ struct PanelKeySettingsModelTests {
             #expect(controller.resumeCount == 1)
         }
 
-        // @note p0-941
         do {
             let controller = FakeHotkeyController()
             let model = makeModel(settings: settings, controller: controller)
@@ -294,7 +283,6 @@ struct PanelKeySettingsModelTests {
             #expect(controller.resumeCount == 1)
         }
 
-        // @note p0-942
         do {
             let controller = FakeHotkeyController()
             let model = makeModel(settings: settings, controller: controller)

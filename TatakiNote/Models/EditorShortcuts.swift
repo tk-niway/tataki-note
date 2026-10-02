@@ -1,16 +1,13 @@
 import Foundation
 
-/// @note p0-263
+/// パネルの入力欄で使えるショートカットキーの1行(「エディタ設定」の一覧に出す)。
 struct EditorShortcut: Identifiable, Equatable {
-    /// @note p0-264
     let id: String
-    /// @note p0-265
     let keys: String
-    /// @note p0-266
     let action: String
 }
 
-/// @note p0-267
+/// ショートカットキーの一覧。
 enum EditorShortcuts {
     static let all: [EditorShortcut] = [
         EditorShortcut(

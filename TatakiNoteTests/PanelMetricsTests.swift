@@ -10,9 +10,7 @@ struct PanelMetricsTests {
         #expect(PanelMetrics.titleBarHeight == 28)
         #expect(PanelMetrics.statusBarHeight == 28)
         #expect(PanelMetrics.textContainerInset == NSSize(width: 11, height: 4))
-        // @note p0-943
         #expect(PanelMetrics.titleBarHeight + 284 + PanelMetrics.statusBarHeight == PanelMetrics.defaultSize.height)
-        // @note p0-944
         #expect(PanelSizing().baseSize == CGSize(width: 520, height: 340))
     }
 
@@ -22,7 +20,6 @@ struct PanelMetricsTests {
         #expect(PanelMetrics.maximumDefaultSize == CGSize(width: 4000, height: 4000))
         #expect(PanelMetrics.defaultWidthRange == 320...4000)
         #expect(PanelMetrics.defaultHeightRange == 160...4000)
-        // @note p0-945
         #expect(PanelMetrics.defaultWidthRange.contains(Double(PanelMetrics.defaultSize.width)))
         #expect(PanelMetrics.defaultHeightRange.contains(Double(PanelMetrics.defaultSize.height)))
     }

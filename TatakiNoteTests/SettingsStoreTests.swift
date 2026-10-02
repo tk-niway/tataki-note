@@ -5,7 +5,6 @@ import Testing
 
 @MainActor
 struct SettingsStoreTests {
-    /// @note p0-1051
     private func makeSuite() throws -> (UserDefaults, String) {
         let name = UUID().uuidString
         return (try #require(UserDefaults(suiteName: name)), name)
@@ -53,7 +52,6 @@ struct SettingsStoreTests {
         for value in values {
             defaults.set(value, forKey: "commitKey")
             defaults.set(value, forKey: "panelScreen")
-            // @note p0-1052
             #expect(store.loadCommitShortcut() == .commandReturn, "\(value)")
             #expect(store.loadPanelScreen() == .nearFocusedField, "\(value)")
         }
@@ -68,7 +66,6 @@ struct SettingsStoreTests {
         defaults.set("both", forKey: "commitKey")
         #expect(store.loadCommitShortcut() == .commandReturn)
         #expect(AppSettings(store: store).commitKey == .commandReturn)
-        // @note p0-1053
         #expect(defaults.string(forKey: "commitKey") == "both")
     }
 
@@ -78,7 +75,6 @@ struct SettingsStoreTests {
         defer { removeSuite(defaults, name: name) }
         let store = SettingsStore(defaults: defaults)
 
-        // @note p0-1054
         defaults.set("shiftEnter", forKey: "commitKey")
         #expect(store.loadCommitShortcut() == .shiftReturn)
         #expect(AppSettings(store: store).commitKey == .shiftReturn)
@@ -94,7 +90,6 @@ struct SettingsStoreTests {
         defer { removeSuite(defaults, name: name) }
         let store = SettingsStore(defaults: defaults)
 
-        // @note p0-1055
         #expect(PanelActionKey.allCases == [.shiftEnter, .commandEnter, .commandShiftEnter, PanelActionKey.none])
 
         let commitKeys: [(String, PanelShortcut?)] = [
@@ -119,7 +114,6 @@ struct SettingsStoreTests {
             #expect(defaults.string(forKey: "panelScreen") == expected)
         }
 
-        // @note p0-1056
         defaults.set("commandEnter", forKey: "commitKey")
         defaults.set("targetWindow", forKey: "panelScreen")
         #expect(store.loadCommitShortcut() == .commandReturn)
@@ -153,12 +147,10 @@ struct SettingsStoreTests {
             #expect(SettingsStore(defaults: defaults).loadCommitAndSendShortcut() == expected, "\(rawValue)")
         }
 
-        // @note p0-1057
         defaults.set("commandShiftEnter", forKey: "commitAndSendKey")
         #expect(SettingsStore(defaults: defaults).loadCommitAndSendShortcut() == .commandShiftReturn)
         #expect(defaults.object(forKey: "commitKey") == nil)
 
-        // @note p0-1058
         SettingsStore(defaults: defaults).saveCommitAndSendShortcut(.commandReturn)
         #expect(SettingsStore(defaults: defaults).loadCommitAndSendShortcut() == .commandReturn)
     }
@@ -178,16 +170,13 @@ struct SettingsStoreTests {
 
     // MARK: - 設定の見直しの土台
 
-    /// @note p0-1059
     private let newKeys = [
-        "appTheme", "panelFontName", "panelFontSize", "panelOpacity",
+        "appTheme", "panelFontName", "panelFontFamilyName", "panelFontSize", "panelOpacity",
         "hiddenPanelStatusItems", "hidesMenuBarIcon", "panelDefaultWidth", "panelDefaultHeight",
     ]
 
-    /// @note p0-1060
     private let existingKeys = ["commitKey", "commitAndSendKey", "panelScreen", "autoShowMode", "autoShowApps"]
 
-    /// @note p0-1061
     private func storedNumber(_ defaults: UserDefaults, forKey key: String) -> Double? {
         (defaults.object(forKey: key) as? NSNumber)?.doubleValue
     }
@@ -206,7 +195,6 @@ struct SettingsStoreTests {
         #expect(store.loadHidesMenuBarIcon() == false)
         #expect(store.loadPanelDefaultWidth() == 520)
         #expect(store.loadPanelDefaultHeight() == 340)
-        // @note p0-1062
         for key in newKeys {
             #expect(defaults.object(forKey: key) == nil, "\(key)")
         }
@@ -235,7 +223,6 @@ struct SettingsStoreTests {
             (.lineCount, "lineCount"),
         ]
         #expect(items.map { $0.0 } == PanelStatusItem.allCases)
-        // @note p0-1063
         store.saveHiddenPanelStatusItems([.lineCount, .close, .lineBreak])
         #expect(defaults.stringArray(forKey: "hiddenPanelStatusItems") == ["close", "lineBreak", "lineCount"])
         #expect(store.loadHiddenPanelStatusItems() == [.close, .lineBreak, .lineCount])
@@ -303,6 +290,37 @@ struct SettingsStoreTests {
         }
     }
 
+    @Test("AC-12: ファミリー名は panelFontFamilyName に文字列で保存し、nil・空文字でキーが消え、空文字・文字列でない値は名前なしとして読む")
+    func panelFontFamilyNameStorageFormatIsFixed() throws {
+        let (defaults, name) = try makeSuite()
+        defer { removeSuite(defaults, name: name) }
+        let store = SettingsStore(defaults: defaults)
+
+        #expect(SettingsStore.Key.panelFontFamilyName == "panelFontFamilyName")
+        #expect(store.loadPanelFontFamilyName() == nil)
+        #expect(defaults.object(forKey: "panelFontFamilyName") == nil)
+
+        store.savePanelFontFamilyName("Hiragino Sans")
+        #expect(defaults.string(forKey: "panelFontFamilyName") == "Hiragino Sans")
+        #expect(SettingsStore(defaults: defaults).loadPanelFontFamilyName() == "Hiragino Sans")
+        #expect(defaults.object(forKey: "panelFontName") == nil)
+
+        store.savePanelFontFamilyName(nil)
+        #expect(defaults.object(forKey: "panelFontFamilyName") == nil)
+        store.savePanelFontFamilyName("Menlo")
+        store.savePanelFontFamilyName("")
+        #expect(defaults.object(forKey: "panelFontFamilyName") == nil)
+
+        let broken: [Any] = ["", 1, 3.5, true, ["Menlo"], ["family": "Menlo"], Data([0x01])]
+        for value in broken {
+            defaults.set(value, forKey: "panelFontFamilyName")
+            #expect(store.loadPanelFontFamilyName() == nil, "\(value)")
+        }
+
+        defaults.set("TatakiNoteNoSuchFamily", forKey: "panelFontFamilyName")
+        #expect(store.loadPanelFontFamilyName() == "TatakiNoteNoSuchFamily")
+    }
+
     @Test("AC-4: 帯の非表示の項目は配列でなければ空、配列の中の文字列でない要素と知らない名前だけを捨てて残りを読む")
     func brokenHiddenPanelStatusItemsKeepKnownNames() throws {
         let (defaults, name) = try makeSuite()
@@ -360,7 +378,6 @@ struct SettingsStoreTests {
             #expect(settings.commitAndSendKey == .commandShiftReturn, "\(value)")
             #expect(settings.panelScreen == .targetWindow, "\(value)")
             #expect(settings.autoShowMode == .allApps, "\(value)")
-            // @note p0-1064
             #expect(settings.panelDefaultWidth == 520, "\(value)")
             #expect(settings.panelDefaultHeight == 340, "\(value)")
         }
@@ -368,7 +385,6 @@ struct SettingsStoreTests {
         #expect(defaults.string(forKey: "commitAndSendKey") == "commandShiftEnter")
         #expect(defaults.string(forKey: "panelScreen") == "targetWindow")
         #expect(defaults.string(forKey: "autoShowMode") == "allApps")
-        // @note p0-1065
         #expect(storedNumber(defaults, forKey: "panelDefaultWidth") == 100000)
         #expect(storedNumber(defaults, forKey: "panelDefaultHeight") == 100000)
     }
@@ -399,7 +415,6 @@ struct SettingsStoreTests {
             #expect(store.loadPanelOpacity() == expected, "\(opacity)")
         }
 
-        // @note p0-1066
         defaults.set(100, forKey: "panelFontSize")
         defaults.set(0.1, forKey: "panelOpacity")
         #expect(store.loadPanelFontSize() == 32)
@@ -415,11 +430,9 @@ struct SettingsStoreTests {
         defer { removeSuite(defaults, name: name) }
 
         // AC-32
-        // @note p0-1067
         #expect(PanelScreen.allCases == [.nearFocusedField, .targetWindow, .mouse, .main])
         #expect(PanelScreen.allCases.map(\.displayName) == ["入力欄の近く", "挿入先のウィンドウがある画面", "マウスのある画面", "メインの画面"])
         // AC-6
-        // @note p0-1068
         #expect(PanelScreen.defaultValue == .nearFocusedField)
         #expect(SettingsStore(defaults: defaults).loadPanelScreen() == .nearFocusedField)
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).panelScreen == .nearFocusedField)
@@ -431,7 +444,6 @@ struct SettingsStoreTests {
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).panelScreen == .mouse)
 
         // AC-7
-        // @note p0-1069
         let saved: [(String, PanelScreen)] = [
             ("mouse", .mouse),
             ("targetWindow", .targetWindow),
@@ -444,7 +456,6 @@ struct SettingsStoreTests {
             #expect(AppSettings(store: SettingsStore(defaults: defaults)).panelScreen == expected, "\(raw)")
         }
 
-        // @note p0-1070
         defaults.set("NearFocusedField", forKey: "panelScreen")
         #expect(SettingsStore(defaults: defaults).loadPanelScreen() == .nearFocusedField)
     }
@@ -465,6 +476,7 @@ struct SettingsStoreTests {
         #expect([
             SettingsStore.Key.appTheme,
             SettingsStore.Key.panelFontName,
+            SettingsStore.Key.panelFontFamilyName,
             SettingsStore.Key.panelFontSize,
             SettingsStore.Key.panelOpacity,
             SettingsStore.Key.hiddenPanelStatusItems,
@@ -475,7 +487,6 @@ struct SettingsStoreTests {
         let allKeys = existingKeys + newKeys + ["KeyboardShortcuts_togglePanel"]
         #expect(Set(allKeys).count == allKeys.count)
 
-        // @note p0-1071
         let settings = AppSettings(store: store)
         settings.theme = .dark
         settings.panelFontName = "Helvetica"
@@ -494,7 +505,6 @@ struct SettingsStoreTests {
         #expect(store.loadAutoShowMode() == .off)
         #expect(store.loadAutoShowApps().isEmpty)
 
-        // @note p0-1072
         let chrome = AutoShowApp(bundleIdentifier: "com.google.Chrome", name: "Google Chrome")
         settings.commitKey = .shiftReturn
         settings.commitAndSendKey = .commandShiftReturn
@@ -606,7 +616,6 @@ struct SettingsStoreTests {
             #expect(AppSettings(store: store).hidesMenuBarIcon == expected, "\(value)")
         }
 
-        // @note p0-1073
         store.saveHidesMenuBarIcon(true)
         #expect(store.loadHidesMenuBarIcon() == true)
         store.saveHidesMenuBarIcon(false)
@@ -748,9 +757,7 @@ struct SettingsStoreTests {
         for (legacy, expected) in legacyCases {
             defaults.set(legacy, forKey: "commitKey")
             #expect(store.loadCommitShortcut() == expected, "\(legacy)")
-            // @note p0-1074
             #expect(defaults.string(forKey: "commitKey") == legacy, "\(legacy)")
-            // @note p0-1075
             #expect(defaults.object(forKey: "commitShortcut") == nil, "\(legacy)")
         }
     }
@@ -764,7 +771,6 @@ struct SettingsStoreTests {
         defaults.set("shiftEnter", forKey: "commitKey")
         store.saveCommitShortcut(.commandReturn)
         #expect(store.loadCommitShortcut() == .commandReturn)
-        // @note p0-1076
         #expect(defaults.string(forKey: "commitKey") == "shiftEnter")
 
         store.saveCommitShortcut(nil)
@@ -789,7 +795,6 @@ struct SettingsStoreTests {
             #expect(store.loadCommitAndSendShortcut() == PanelShortcut.defaultCommitAndSendKey, "\(value)")
         }
 
-        // @note p0-1077
         defaults.set("shiftEnter", forKey: "commitKey")
         for value in brokenValues {
             defaults.set(value, forKey: "commitShortcut")
@@ -801,7 +806,6 @@ struct SettingsStoreTests {
 
     @Test("AC-33: 以前の版で片方だけ保存している人は、保存していない方も以前の初期値(確定 ⌘↩・確定+送信 登録なし)で読まれ、新しい初期値に変わらない")
     func legacyPartialSavesFallBackToLegacyDefaultForTheOtherKey() throws {
-        // @note p0-1078
         do {
             let (defaults, name) = try makeSuite()
             defer { removeSuite(defaults, name: name) }
@@ -810,7 +814,6 @@ struct SettingsStoreTests {
             #expect(store.loadCommitAndSendShortcut() == .commandReturn)
         }
 
-        // @note p0-1079
         do {
             let (defaults, name) = try makeSuite()
             defer { removeSuite(defaults, name: name) }
@@ -820,7 +823,6 @@ struct SettingsStoreTests {
             #expect(store.loadCommitAndSendShortcut() == nil)
         }
 
-        // @note p0-1080
         do {
             let (defaults, name) = try makeSuite()
             defer { removeSuite(defaults, name: name) }
@@ -830,7 +832,6 @@ struct SettingsStoreTests {
             #expect(store.loadCommitAndSendShortcut() == nil)
         }
 
-        // @note p0-1081
         do {
             let (defaults, name) = try makeSuite()
             defer { removeSuite(defaults, name: name) }
@@ -840,7 +841,6 @@ struct SettingsStoreTests {
             #expect(store.loadCommitAndSendShortcut() == .commandShiftReturn)
         }
 
-        // @note p0-1082
         do {
             let (defaults, name) = try makeSuite()
             defer { removeSuite(defaults, name: name) }
@@ -850,7 +850,6 @@ struct SettingsStoreTests {
             #expect(store.loadCommitAndSendShortcut() == nil)
         }
 
-        // @note p0-1083
         do {
             let (defaults, name) = try makeSuite()
             defer { removeSuite(defaults, name: name) }
@@ -860,7 +859,6 @@ struct SettingsStoreTests {
             #expect(store.loadCommitAndSendShortcut() == .commandReturn)
         }
 
-        // @note p0-1084
         do {
             let (defaults, name) = try makeSuite()
             defer { removeSuite(defaults, name: name) }

@@ -1,6 +1,6 @@
 import AppKit
 
-/// @note p0-111
+/// 文章を挿入するアプリ。
 struct InsertionTarget: Equatable, Sendable {
     var processIdentifier: pid_t
     var bundleIdentifier: String?
@@ -21,19 +21,17 @@ struct InsertionTarget: Equatable, Sendable {
     }
 }
 
-/// @note p0-112
+/// 最前面のアプリと、最後に前面になった自分以外のアプリを覚える。
 final class FrontmostAppTracker {
     private let workspace: NSWorkspace
     private let notificationCenter: NotificationCenter
     private let ownProcessIdentifier: pid_t
     private var observer: (any NSObjectProtocol)?
 
-    /// @note p0-113
     private(set) var lastActivated: InsertionTarget?
 
     init(workspace: NSWorkspace = .shared, ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier) {
         self.workspace = workspace
-        // @note p0-114
         self.notificationCenter = workspace.notificationCenter
         self.ownProcessIdentifier = ownProcessIdentifier
 
@@ -68,7 +66,6 @@ final class FrontmostAppTracker {
         )
     }
 
-    /// @note p0-115
     static func chooseTarget(
         frontmost: InsertionTarget?,
         lastActivated: InsertionTarget?,

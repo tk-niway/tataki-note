@@ -55,7 +55,7 @@ final class Store {
     let multi = """
     // 文字列の中
     """
-    func save() {} // @note p0-1
+    func save() {}
 
     /// 値を1増やす。
     @discardableResult
@@ -72,7 +72,6 @@ enum Kind {
 
 func test() {
     // AC-1
-    // @note p3-2
 }
 EOF
 expect_pass "決まりに合うコメント" --files "$REPO/App/Good.swift"
@@ -126,6 +125,12 @@ cat >"$REPO/App/Todo.swift" <<'EOF'
 func later() {}
 EOF
 expect_fail "TODO" "予定や一時的な対応" --files "$REPO/App/Todo.swift"
+
+cat >"$REPO/App/NoteId.swift" <<'EOF2'
+// @note p3-2
+struct N {}
+EOF2
+expect_fail "以前のコメントの ID" "このコメントは書けません" --files "$REPO/App/NoteId.swift"
 
 cat >"$REPO/App/Plan.swift" <<'EOF'
 // MARK: 今後の予定

@@ -1,18 +1,13 @@
 import Observation
 import ServiceManagement
 
-/// @note p0-268
+/// ログイン項目の登録の状態(`SMAppService.Status` から作る)。
 enum LoginItemStatus: Equatable, Sendable {
-    /// @note p0-269
     case notRegistered
-    /// @note p0-270
     case enabled
-    /// @note p0-271
     case requiresApproval
-    /// @note p0-272
     case notFound
 
-    /// @note p0-273
     init(_ status: SMAppService.Status) {
         switch status {
         case .notRegistered:
@@ -29,16 +24,15 @@ enum LoginItemStatus: Equatable, Sendable {
     }
 }
 
-/// @note p0-274
+/// ログイン項目の登録(OS の呼び出し)。
 protocol LoginItemService {
     var status: LoginItemStatus { get }
     func register() throws
     func unregister() throws
-    /// @note p0-275
     func openSystemSettingsLoginItems()
 }
 
-/// @note p0-276
+/// 本物のログイン項目(`SMAppService.mainApp`)。
 struct MainAppLoginItemService: LoginItemService {
     var status: LoginItemStatus {
         LoginItemStatus(SMAppService.mainApp.status)
@@ -57,7 +51,7 @@ struct MainAppLoginItemService: LoginItemService {
     }
 }
 
-/// @note p0-277
+/// OS に何もしないログイン項目(UI テストで使う)。
 final class InMemoryLoginItemService: LoginItemService {
     private(set) var status: LoginItemStatus
 
@@ -73,32 +67,28 @@ final class InMemoryLoginItemService: LoginItemService {
         status = .notRegistered
     }
 
-    /// @note p0-278
     func openSystemSettingsLoginItems() {}
 }
 
-/// @note p0-279
+/// ログイン項目の登録・解除の失敗。
 enum LaunchAtLoginError: Equatable, Sendable {
     case registerFailed
     case unregisterFailed
 }
 
-/// @note p0-280
+/// 設定画面の「ログイン時に起動」の状態。
 @Observable final class LaunchAtLoginModel {
     private let service: LoginItemService
 
     private(set) var status: LoginItemStatus
-    /// @note p0-281
     private(set) var lastError: LaunchAtLoginError?
 
-    /// @note p0-282
     init(service: LoginItemService) {
         self.service = service
         self.status = service.status
         self.lastError = nil
     }
 
-    /// @note p0-283
     var isEnabled: Bool {
         status == .enabled || status == .requiresApproval
     }
@@ -107,7 +97,6 @@ enum LaunchAtLoginError: Equatable, Sendable {
         status == .requiresApproval
     }
 
-    /// @note p0-284
     func refresh() {
         let current = service.status
         if current != status {
@@ -115,7 +104,6 @@ enum LaunchAtLoginError: Equatable, Sendable {
         }
     }
 
-    /// @note p0-285
     func setEnabled(_ enabled: Bool) {
         do {
             if enabled {

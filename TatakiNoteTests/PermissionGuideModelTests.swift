@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import TatakiNote
 
-/// @note p0-1025
 @MainActor
 final class GuidePermissionStub: AccessibilityPermissionChecking {
     var isTrusted: Bool
@@ -17,7 +16,6 @@ final class GuidePermissionStub: AccessibilityPermissionChecking {
     }
 }
 
-/// @note p0-1026
 @MainActor
 final class SettingsOpenerStub: AccessibilitySettingsOpening {
     private(set) var openCount = 0
@@ -133,7 +131,6 @@ struct PermissionGuideModelTests {
         #expect(model.state == .granted)
         #expect(model.isPresented == true)
 
-        // @note p0-1027
         permission.isTrusted = false
         model.refresh()
         #expect(model.state == .notGranted(.commitDenied))
@@ -160,7 +157,6 @@ struct PermissionGuideModelTests {
         #expect(model.state == .notGranted(.commitDenied))
         #expect(model.isPresented == true)
 
-        // @note p0-1028
         model.present(reason: .commitDenied)
         #expect(model.state == .notGranted(.commitDenied))
         #expect(model.isPresented == true)

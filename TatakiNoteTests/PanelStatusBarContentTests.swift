@@ -7,7 +7,6 @@ import Testing
 struct PanelStatusBarContentTests {
     private typealias Entry = PanelStatusBarContent.Entry
 
-    /// @note p0-994
     private func makeContent(text: String, settings: AppSettings) -> PanelStatusBarContent {
         PanelStatusBarContent(
             text: text,
@@ -70,7 +69,6 @@ struct PanelStatusBarContentTests {
 
     @Test("AC-17: キーが登録なし(nil)なら、項目の一覧に入っていても(表示の設定に関わらず)出さない")
     func unassignedKeysAreNotShown() {
-        // @note p0-995
         let withoutCommit = PanelStatusBarContent(
             text: "",
             items: PanelStatusItem.allCases,
@@ -88,7 +86,6 @@ struct PanelStatusBarContentTests {
         )
         #expect(withoutBoth.entries.map(\.item) == [.close, .lineBreak, .characterCount, .lineCount])
 
-        // @note p0-996
         let onlyUnassignedKeys = PanelStatusBarContent(
             text: "abc",
             items: [.commit, .commitAndSend],

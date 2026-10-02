@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// @note p0-533
+/// 設定画面のウィンドウ。
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     let model = SettingsWindowModel()
 
@@ -10,6 +10,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let appInfo: AppInfoModel
     private let panelDefaultSize: PanelDefaultSizeModel
     private var window: NSWindow?
+
+    private(set) lazy var fontPanel = FontPanelController(settings: settings)
 
     init(
         settings: AppSettings,
@@ -24,7 +26,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         super.init()
     }
 
-    /// @note p0-534
     func show() {
         if window?.isVisible != true {
             model.prepareForOpen()
@@ -35,29 +36,23 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         } else {
             window = makeWindow()
             self.window = window
-            // @note p0-535
             window.setContentSize(SettingsView.windowSize)
             window.center()
         }
-        // @note p0-536
         launchAtLogin.refresh()
-        // @note p0-537
         appInfo.permissionStatus.refresh()
-        // @note p0-538
         NSApp.activate()
         window.makeKeyAndOrderFront(nil)
-        // @note p0-539
         window.orderFrontRegardless()
     }
 
-    // @note p0-540
     func windowDidBecomeKey(_ notification: Notification) {
         launchAtLogin.refresh()
     }
 
-    // @note p0-541
     func windowWillClose(_ notification: Notification) {
         model.prepareForOpen()
+        fontPanel.close()
     }
 
     private func makeWindow() -> NSWindow {
@@ -68,7 +63,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             defer: false
         )
         window.title = String(localized: "TatakiNote の設定")
-        // @note p0-542
         window.isReleasedWhenClosed = false
         window.identifier = NSUserInterfaceItemIdentifier("settings")
         window.delegate = self
@@ -79,6 +73,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 launchAtLogin: launchAtLogin,
                 appInfo: appInfo,
                 panelDefaultSize: panelDefaultSize,
+                onShowFontPanel: { [weak self] in self?.fontPanel.show() },
                 onQuit: { NSApp.terminate(nil) }
             )
         )

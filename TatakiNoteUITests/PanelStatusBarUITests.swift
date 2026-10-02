@@ -1,10 +1,8 @@
 import XCTest
 
-// @note p0-1279
 final class PanelStatusBarUITests: XCTestCase {
     private let timeout: TimeInterval = 5
 
-    /// @note p0-1280
     private let settingsSuiteName = "TatakiNoteUITests.\(UUID().uuidString)"
 
     override func setUpWithError() throws {
@@ -15,14 +13,12 @@ final class PanelStatusBarUITests: XCTestCase {
         UserDefaults(suiteName: settingsSuiteName)?.removePersistentDomain(forName: settingsSuiteName)
     }
 
-    // @note p0-1281
     @MainActor
     func testAC6_AC8_AC12_defaultStatusBar() throws {
         let app = try launchApp(seed: nil)
         let textView = openPanel(in: app)
         XCTAssertEqual(textView.value as? String, "")
 
-        // @note p0-1282
         XCTAssertTrue(statusBar(in: app).waitForExistence(timeout: timeout), "帯が無い")
         assertLabel(statusItem("close", in: app), "esc 閉じる")
         assertLabel(statusItem("lineBreak", in: app), "↩ 改行")
@@ -31,13 +27,11 @@ final class PanelStatusBarUITests: XCTestCase {
         assertLabel(statusItem("lineCount", in: app), "0行")
         XCTAssertFalse(statusItem("commit", in: app).exists)
 
-        // @note p0-1283
         app.typeText("ab")
         assertLabel(statusItem("characterCount", in: app), "2文字")
         assertLabel(statusItem("lineCount", in: app), "1行")
 
         // AC-12
-        // @note p0-1285
         app.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
         openPanelFromMenu(in: app)
@@ -50,23 +44,18 @@ final class PanelStatusBarUITests: XCTestCase {
     }
 
     // AC-7
-    // @note p0-1287
     // AC-9
-    // @note p0-1288
     // AC-31
-    // @note p0-1289
     @MainActor
     func testAC7_AC9_AC31_keysFollowSettings() throws {
         let app = try launchApp(seed: ["commitKey": "shiftEnter", "commitAndSendKey": "commandShiftEnter"])
         _ = openPanel(in: app)
         XCTAssertTrue(statusBar(in: app).waitForExistence(timeout: timeout), "帯が無い")
         // AC-9
-        // @note p0-1290
         assertLabel(statusItem("commit", in: app), "⇧↩ 確定")
         assertLabel(statusItem("commitAndSend", in: app), "⇧⌘↩ 確定+送信")
 
         // AC-31
-        // @note p0-1291
         let closeX = statusItem("close", in: app).frame.minX
         let lineBreakX = statusItem("lineBreak", in: app).frame.minX
         let commitX = statusItem("commit", in: app).frame.minX
@@ -81,7 +70,6 @@ final class PanelStatusBarUITests: XCTestCase {
     }
 
     // AC-10
-    // @note p0-1293
     @MainActor
     func testAC10_hiddenItems() throws {
         let app = try launchApp(seed: ["hiddenPanelStatusItems": ["characterCount"]])
@@ -96,12 +84,10 @@ final class PanelStatusBarUITests: XCTestCase {
 
     // MARK: - 起動と要素の探し方
 
-    /// @note p0-1295
     @MainActor
     private func launchApp(seed: [String: Any]?) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["TATAKINOTE_SETTINGS_SUITE"] = settingsSuiteName
-        // @note p0-1296
         app.launchEnvironment[AccessibilityOverride.key] = AccessibilityOverride.trusted
         if let seed {
             app.launchEnvironment["TATAKINOTE_SETTINGS_SEED"] = try settingsSeedJSON(seed)
@@ -110,7 +96,6 @@ final class PanelStatusBarUITests: XCTestCase {
         return app
     }
 
-    /// @note p0-1297
     private func settingsSeedJSON(_ values: [String: Any]) throws -> String {
         let data = try JSONSerialization.data(withJSONObject: values, options: [.sortedKeys])
         return String(decoding: data, as: UTF8.self)
@@ -121,13 +106,11 @@ final class PanelStatusBarUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: "promptPanel.statusBar").firstMatch
     }
 
-    /// @note p0-1298
     @MainActor
     private func statusItem(_ rawValue: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: "promptPanel.status.\(rawValue)").firstMatch
     }
 
-    /// @note p0-1299
     @MainActor
     private func assertLabel(_ element: XCUIElement, _ expected: String, file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertTrue(element.waitForExistence(timeout: timeout), "\(expected) の項目が無い", file: file, line: line)
@@ -138,7 +121,6 @@ final class PanelStatusBarUITests: XCTestCase {
         XCTAssertEqual(element.label, expected, file: file, line: line)
     }
 
-    /// @note p0-1300
     @MainActor
     private func openPanel(in app: XCUIApplication) -> XCUIElement {
         openPanelFromMenu(in: app)
@@ -147,7 +129,6 @@ final class PanelStatusBarUITests: XCTestCase {
         return textView
     }
 
-    // @note p0-1301
 
     @MainActor
     private func openMenu(in app: XCUIApplication) {
@@ -167,7 +148,6 @@ final class PanelStatusBarUITests: XCTestCase {
         clickShownMenuItem(item)
     }
 
-    // @note p0-1302
     @MainActor
     private func clickShownMenuItem(_ item: XCUIElement) {
         let deadline = Date().addingTimeInterval(timeout)
@@ -178,7 +158,6 @@ final class PanelStatusBarUITests: XCTestCase {
         item.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
     }
 
-    // @note p0-1303
     @MainActor
     private func openPanelMenuItem(in app: XCUIApplication) -> XCUIElement {
         let byIdentifier = app.menuItems["menu.openPanel"]

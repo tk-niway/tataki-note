@@ -2,10 +2,8 @@ import AppKit
 import Testing
 @testable import TatakiNote
 
-/// @note p0-1092
 @MainActor
 final class SubmitKeyPosterStub: SubmitKeyPosting {
-    /// @note p0-1093
     var onPost: (() -> Void)?
     private(set) var postCount = 0
 
@@ -15,7 +13,6 @@ final class SubmitKeyPosterStub: SubmitKeyPosting {
     }
 }
 
-/// @note p0-1094
 @MainActor
 final class ModifierKeyStateStub: ModifierKeyStateReading {
     private let pressed: CGEventFlags
@@ -32,13 +29,11 @@ final class ModifierKeyStateStub: ModifierKeyStateReading {
         return readCount <= pressedReads ? pressed : []
     }
 
-    /// @note p0-1095
     var hasReturnedEmpty: Bool {
         readCount > pressedReads
     }
 }
 
-/// @note p0-1096
 @MainActor
 final class FrontmostApplicationStub: FrontmostApplicationReading {
     private let provide: () -> pid_t?
@@ -57,7 +52,6 @@ final class FrontmostApplicationStub: FrontmostApplicationReading {
 @MainActor
 struct SubmitKeySenderTests {
     private let target = InsertionTarget(processIdentifier: 101, bundleIdentifier: "com.apple.TextEdit", localizedName: "TextEdit")
-    /// @note p0-1097
     private let otherApp: pid_t = 202
 
     // MARK: - 送る Enter のイベント
@@ -97,9 +91,7 @@ struct SubmitKeySenderTests {
         await sender.sendSubmitKey(to: target)
 
         #expect(poster.postCount == 1)
-        // @note p0-1098
         #expect(releasedWhenPosted == [true])
-        // @note p0-1099
         #expect(modifierState.readCount == 4)
     }
 
@@ -146,7 +138,6 @@ struct SubmitKeySenderTests {
     func doesNotSendWhenFrontmostChangesWhileWaiting() async {
         let poster = SubmitKeyPosterStub()
         let modifierState = ModifierKeyStateStub(pressed: [.maskCommand], pressedReads: 3)
-        // @note p0-1100
         let frontmostApp = FrontmostApplicationStub {
             modifierState.hasReturnedEmpty ? otherApp : target.processIdentifier
         }

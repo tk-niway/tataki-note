@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// @note p0-593
+/// 設定画面の「自動表示」と「対象のアプリ」の2項目。
 struct AutoShowSettingsSection: View {
     @Bindable var settings: AppSettings
     @State private var editor: AutoShowAppsEditor
@@ -30,7 +30,6 @@ struct AutoShowSettingsSection: View {
 
         LabeledContent("対象のアプリ") {
             VStack(alignment: .leading, spacing: 6) {
-                // @note p0-594
                 List(selection: $editor.selection) {
                     ForEach(editor.rows()) { row in
                         HStack(spacing: 6) {
@@ -85,7 +84,6 @@ struct AutoShowSettingsSection: View {
         }
     }
 
-    /// @note p0-595
     @ViewBuilder
     private func icon(for row: AutoShowAppRow) -> some View {
         if let url = row.applicationURL {
@@ -99,7 +97,6 @@ struct AutoShowSettingsSection: View {
         }
     }
 
-    /// @note p0-596
     private func chooseOtherApplication() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.application]
@@ -108,14 +105,11 @@ struct AutoShowSettingsSection: View {
         panel.allowsMultipleSelection = false
         panel.treatsFilePackagesAsDirectories = false
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
-        // @note p0-597
         NSApp.activate()
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        // @note p0-598
         editor.addApplication(at: url)
     }
 
-    // @note p0-599
     private func description(_ text: LocalizedStringKey) -> some View {
         Text(text)
             .font(.system(size: 11))
