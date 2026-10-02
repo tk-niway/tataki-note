@@ -1,0 +1,47 @@
+# main への Pull Request で、公開の決まり(コメント・手元の作業場所のパス)を確かめる。
+# 見るのは、PR で変わったファイル・PR のすべてのコミットのメッセージ・PR のタイトル。
+# リポジトリのルールセットでこのジョブ(Public check)を必須にする。paths で絞らない。
+name: Public check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited]
+  workflow_dispatch:
+
+concurrency:
+  group: public-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  public-check:
+    name: Public check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Self test
+        run: ./scripts/test-check-public.sh
+
+      - name: Changed files and commit messages
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: ./scripts/check-public.sh --range "$BASE_SHA..$HEAD_SHA"
+
+      - name: Pull request title
+        if: github.event_name == 'pull_request'
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: ./scripts/check-public.sh --message "$TITLE"
+
+      - name: All files
+        if: github.event_name == 'workflow_dispatch'
+        run: ./scripts/check-public.sh --all
