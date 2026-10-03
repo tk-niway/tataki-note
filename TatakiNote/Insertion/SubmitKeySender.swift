@@ -22,20 +22,12 @@ protocol FrontmostApplicationReading {
 
 struct CGEventSubmitKeyPoster: SubmitKeyPosting {
     static func makeEvents() -> (keyDown: CGEvent, keyUp: CGEvent)? {
-        let source = CGEventSource(stateID: .combinedSessionState)
-        let returnKey = CGKeyCode(KeyCode.returnKey)
-        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: returnKey, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: returnKey, keyDown: false)
-        else { return nil }
-        keyDown.flags = []
-        keyUp.flags = []
-        return (keyDown, keyUp)
+        guard let pair = KeyEventPair(keyCode: CGKeyCode(KeyCode.returnKey), flags: []) else { return nil }
+        return (pair.keyDown, pair.keyUp)
     }
 
     func postSubmitKey() {
-        guard let events = Self.makeEvents() else { return }
-        events.keyDown.post(tap: .cghidEventTap)
-        events.keyUp.post(tap: .cghidEventTap)
+        KeyEventPair(keyCode: CGKeyCode(KeyCode.returnKey), flags: [])?.post()
     }
 }
 

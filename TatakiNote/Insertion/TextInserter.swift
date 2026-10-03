@@ -43,7 +43,7 @@ struct WorkspaceApplicationActivator: ApplicationActivating {
     }
 
     private func isFrontmost(_ target: InsertionTarget) -> Bool {
-        NSWorkspace.shared.frontmostApplication?.processIdentifier == target.processIdentifier
+        WorkspaceFrontmostApplication().frontmostProcessIdentifier == target.processIdentifier
     }
 }
 
@@ -51,14 +51,7 @@ struct CGEventPasteShortcutPoster: PasteShortcutPosting {
     private let vKeyCode: CGKeyCode = 9
 
     func postPasteShortcut() {
-        let source = CGEventSource(stateID: .combinedSessionState)
-        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: false)
-        else { return }
-        keyDown.flags = .maskCommand
-        keyUp.flags = .maskCommand
-        keyDown.post(tap: .cghidEventTap)
-        keyUp.post(tap: .cghidEventTap)
+        KeyEventPair(keyCode: vKeyCode, flags: .maskCommand)?.post()
     }
 }
 
@@ -121,7 +114,7 @@ final class ClipboardTextInserter: TextInserting {
         }
         try? await Task.sleep(for: settleDelay)
 
-        let isOwnTarget = target.processIdentifier == ownProcessIdentifier
+        let isOwnTarget = target.isOwnApp(ownProcessIdentifier)
         if !isOwnTarget, focusInspector.focusedTextInputState(in: target) == .notTextInput {
             return .noTextInput
         }

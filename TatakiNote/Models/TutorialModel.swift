@@ -102,7 +102,7 @@ enum TutorialNextStepIntroduction: CaseIterable {
     /// パネルの表示・挿入先・文章が変わったことを受けて、手順を進める。
     func panelDidChange(isPresented: Bool, target: InsertionTarget?, text: String) {
         guard isPresented, let target else { return }
-        let isOwnTarget = target.processIdentifier == ownProcessIdentifier
+        let isOwnTarget = target.isOwnApp(ownProcessIdentifier)
         if currentStep != .nextSteps {
             isShowingOtherTargetWarning = !isOwnTarget
         }
@@ -122,7 +122,7 @@ enum TutorialNextStepIntroduction: CaseIterable {
 
     /// 練習用のチャットへの挿入が要求されたことを覚える。
     func insertionRequested(text: String, target: InsertionTarget, sendsAfterInsert: Bool) {
-        guard target.processIdentifier == ownProcessIdentifier, !text.isEmpty else { return }
+        guard target.isOwnApp(ownProcessIdentifier), !text.isEmpty else { return }
         pendingInsertion = PendingInsertion(text: text, sendsAfterInsert: sendsAfterInsert)
     }
 
