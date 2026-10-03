@@ -23,7 +23,9 @@ final class FocusedElementWatcher {
     private let mouseLocation: () -> CGPoint
     private let now: () -> Date
     private let exposeWebContent: (InsertionTarget) -> Void
-    private let onShow: () -> Void
+    private let addClickMonitor: (@escaping () -> Void) -> Any?
+    private let removeClickMonitor: (Any) -> Void
+    private let onShow: (ObservedFocus) -> Void
 
     private var activationObserver: (any NSObjectProtocol)?
     private var clickMonitor: Any?
@@ -45,7 +47,15 @@ final class FocusedElementWatcher {
         mouseLocation: @escaping () -> CGPoint = { NSEvent.mouseLocation },
         now: @escaping () -> Date = Date.init,
         exposeWebContent: @escaping (InsertionTarget) -> Void = { AXFocusedTextInputInspector.exposeWebContent(of: $0) },
-        onShow: @escaping () -> Void
+        addClickMonitor: @escaping (@escaping () -> Void) -> Any? = { handler in
+            NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseUp]) { _ in
+                MainActor.assumeIsolated {
+                    handler()
+                }
+            }
+        },
+        removeClickMonitor: @escaping (Any) -> Void = { NSEvent.removeMonitor($0) },
+        onShow: @escaping (ObservedFocus) -> Void
     ) {
         self.settings = settings
         self.panelModel = panelModel
@@ -58,6 +68,8 @@ final class FocusedElementWatcher {
         self.mouseLocation = mouseLocation
         self.now = now
         self.exposeWebContent = exposeWebContent
+        self.addClickMonitor = addClickMonitor
+        self.removeClickMonitor = removeClickMonitor
         self.onShow = onShow
 
         observePanelDismissal()
@@ -68,7 +80,7 @@ final class FocusedElementWatcher {
             notificationCenter.removeObserver(activationObserver)
         }
         if let clickMonitor {
-            NSEvent.removeMonitor(clickMonitor)
+            removeClickMonitor(clickMonitor)
         }
         focusObservation?.remove()
     }
@@ -85,11 +97,6 @@ final class FocusedElementWatcher {
                 self?.handleActivation(of: app.map { InsertionTarget($0) })
             }
         }
-        clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseUp]) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.handleClick()
-            }
-        }
         handleActivation(of: workspace.frontmostApplication.map { InsertionTarget($0) })
     }
 
@@ -98,19 +105,16 @@ final class FocusedElementWatcher {
             notificationCenter.removeObserver(activationObserver)
             self.activationObserver = nil
         }
-        if let clickMonitor {
-            NSEvent.removeMonitor(clickMonitor)
-            self.clickMonitor = nil
-        }
-        stopWatchingFocus()
+        stopWatching()
     }
 
     func handleActivation(of target: InsertionTarget?) {
         lastActivatedAt = now()
-        stopWatchingFocus()
+        stopWatching()
         self.target = target
         guard let target, shouldWatch(target) else { return }
         watchFocus(of: target)
+        startClickMonitor()
         exposeWebContent(target)
     }
 
@@ -175,7 +179,7 @@ final class FocusedElementWatcher {
         )
         guard AutoShowDecision.shouldShow(input) else { return }
         lastShown = ShownElement(processIdentifier: target.processIdentifier, element: focused.element)
-        onShow()
+        onShow(ObservedFocus(processIdentifier: target.processIdentifier, probe: focused))
     }
 
     private static func isSameElement(_ lhs: AXUIElement?, _ rhs: AXUIElement?) -> Bool {
@@ -228,9 +232,19 @@ final class FocusedElementWatcher {
         focusObservation = FocusObservation(observer: observer, application: application)
     }
 
-    private func stopWatchingFocus() {
+    private func startClickMonitor() {
+        clickMonitor = addClickMonitor { [weak self] in
+            self?.handleClick()
+        }
+    }
+
+    private func stopWatching() {
         focusObservation?.remove()
         focusObservation = nil
+        if let clickMonitor {
+            removeClickMonitor(clickMonitor)
+            self.clickMonitor = nil
+        }
     }
 }
 

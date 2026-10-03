@@ -8,6 +8,8 @@ final class FocusedElementProbeStub: FocusedElementProbing {
     var result: FocusedElementProbe
     private(set) var targets: [InsertionTarget] = []
     private(set) var readsFrameValues: [Bool] = []
+    private(set) var frameRequests: [AXUIElement] = []
+    var elementFrame: CGRect?
 
     init() {
         result = FocusedElementProbe(element: nil, lookup: .noFocusedElement, frame: nil)
@@ -18,6 +20,11 @@ final class FocusedElementProbeStub: FocusedElementProbing {
         readsFrameValues.append(readsFrame)
         return result
     }
+
+    func frame(of element: AXUIElement) -> CGRect? {
+        frameRequests.append(element)
+        return elementFrame
+    }
 }
 
 @MainActor
@@ -26,6 +33,32 @@ final class WatcherEnvironment {
     var mouseLocation = CGPoint.zero
     var showCount = 0
     var exposedTargets: [InsertionTarget] = []
+    var shownFocuses: [ObservedFocus] = []
+    private(set) var clickMonitorsAdded = 0
+    private(set) var clickMonitorsRemoved = 0
+    private var activeClickMonitors: [Int: () -> Void] = [:]
+
+    var activeClickMonitorCount: Int { activeClickMonitors.count }
+
+    func addClickMonitor(_ handler: @escaping () -> Void) -> Any? {
+        clickMonitorsAdded += 1
+        let token = clickMonitorsAdded
+        activeClickMonitors[token] = handler
+        return token
+    }
+
+    func removeClickMonitor(_ token: Any) {
+        clickMonitorsRemoved += 1
+        if let token = token as? Int {
+            activeClickMonitors[token] = nil
+        }
+    }
+
+    func fireClick() {
+        for handler in activeClickMonitors.values {
+            handler()
+        }
+    }
 }
 
 @MainActor
@@ -47,7 +80,7 @@ final class WatcherFixture {
     private let defaults: UserDefaults
     private let suiteName: String
 
-    init(isTrusted: Bool = true) throws {
+    init(isTrusted: Bool = true, exposeWebContent: ((InsertionTarget) -> Void)? = nil) throws {
         let suiteName = UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: suiteName))
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
@@ -71,8 +104,16 @@ final class WatcherFixture {
             primaryScreenFrame: { screenFrame },
             mouseLocation: { environment.mouseLocation },
             now: { environment.now },
-            exposeWebContent: { environment.exposedTargets.append($0) },
-            onShow: { environment.showCount += 1 }
+            exposeWebContent: {
+                environment.exposedTargets.append($0)
+                exposeWebContent?($0)
+            },
+            addClickMonitor: { environment.addClickMonitor($0) },
+            removeClickMonitor: { environment.removeClickMonitor($0) },
+            onShow: {
+                environment.showCount += 1
+                environment.shownFocuses.append($0)
+            }
         )
     }
 

@@ -10,6 +10,8 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let permission: AccessibilityPermissionChecking
     private let performer: CommitPerformer
     private let fieldProbe: FocusedElementProbing
+    private let exposeWebContent: (InsertionTarget) -> Void
+    private let locateTargetWindowFrame: (pid_t) -> CGRect?
     private let ownProcessIdentifier: pid_t
 
     private let sizing = PanelSizing()
@@ -36,6 +38,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         permission: AccessibilityPermissionChecking = SystemAccessibilityPermission(),
         notifier: InsertionFailureNotifying = InsertionFailureNotifier(),
         fieldProbe: FocusedElementProbing = AXFocusedTextInputInspector(),
+        exposeWebContent: @escaping (InsertionTarget) -> Void = { AXFocusedTextInputInspector.exposeWebContent(of: $0) },
+        locateTargetWindowFrame: @escaping (pid_t) -> CGRect? = { TargetWindowLocator.frontWindowFrame(processIdentifier: $0) },
         ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier
     ) {
         self.model = model
@@ -45,6 +49,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.permission = permission
         self.performer = CommitPerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
         self.fieldProbe = fieldProbe
+        self.exposeWebContent = exposeWebContent
+        self.locateTargetWindowFrame = locateTargetWindowFrame
         self.ownProcessIdentifier = ownProcessIdentifier
         super.init()
 
@@ -68,7 +74,20 @@ final class PanelController: NSObject, NSWindowDelegate {
         return target.processIdentifier != ownProcessIdentifier
     }
 
-    func open() {
+    /// パネルを開くときに、挿入先へ Web の中身を出すよう頼むか。
+    static func shouldExposeWebContent(target: InsertionTarget?, ownProcessIdentifier: pid_t, isTrusted: Bool) -> Bool {
+        shouldQueryAccessibility(of: target, ownProcessIdentifier: ownProcessIdentifier) && isTrusted
+    }
+
+    /// 挿入先のウィンドウの枠を求めるクロージャ。挿入先が無ければ一覧を取らずに `nil` を返す。
+    static func windowFrameLocator(
+        for target: InsertionTarget?,
+        locate: @escaping (pid_t) -> CGRect?
+    ) -> () -> CGRect? {
+        { target.flatMap { locate($0.processIdentifier) } }
+    }
+
+    func open(observedFocus: ObservedFocus? = nil) {
         let target = targetOverride?() ?? targetTracker.currentTarget()
         let wasPresented = model.present(target: target)
         if !wasPresented {
@@ -77,20 +96,23 @@ final class PanelController: NSObject, NSWindowDelegate {
                 of: target,
                 ownProcessIdentifier: ownProcessIdentifier
             )
-            if let target, queriesAccessibility, permission.isTrusted {
-                AXFocusedTextInputInspector.exposeWebContent(of: target)
+            let isTrusted = permission.isTrusted
+            if let target,
+               Self.shouldExposeWebContent(
+                   target: target,
+                   ownProcessIdentifier: ownProcessIdentifier,
+                   isTrusted: isTrusted
+               ) {
+                exposeWebContent(target)
             }
             let mode = settings.panelScreen
-            var targetWindowFrame: CGRect?
-            if mode.usesTargetWindowFrame, let target {
-                targetWindowFrame = TargetWindowLocator.frontWindowFrame(processIdentifier: target.processIdentifier)
-            }
             let fieldFrame = NSScreen.screens.first.flatMap { primaryScreen in
                 PanelOpenPlacement.fieldFrame(
                     mode: mode,
-                    isTrusted: permission.isTrusted,
+                    isTrusted: isTrusted,
                     target: queriesAccessibility ? target : nil,
                     probe: fieldProbe,
+                    observedFocus: observedFocus,
                     primaryScreenHeight: primaryScreen.frame.height
                 )
             }
@@ -99,8 +121,8 @@ final class PanelController: NSObject, NSWindowDelegate {
                 mode: mode,
                 screens: screens,
                 mouseLocation: NSEvent.mouseLocation,
-                targetWindowFrame: targetWindowFrame,
-                fieldFrame: fieldFrame
+                fieldFrame: fieldFrame,
+                locateTargetWindowFrame: Self.windowFrameLocator(for: target, locate: locateTargetWindowFrame)
             ) {
                 let placed = PanelOpenPlacement.frame(
                     size: sizing.openingSize(in: screen.visibleFrame),
