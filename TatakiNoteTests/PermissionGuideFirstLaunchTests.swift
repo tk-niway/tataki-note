@@ -5,8 +5,8 @@ import Testing
 
 @MainActor
 struct PermissionGuideFirstLaunchTests {
-    private func makeModel(isTrusted: Bool) -> (PermissionGuideModel, GuidePermissionStub) {
-        let permission = GuidePermissionStub(isTrusted: isTrusted)
+    private func makeModel(isTrusted: Bool) -> (PermissionGuideModel, PermissionStub) {
+        let permission = PermissionStub(isTrusted: isTrusted)
         return (PermissionGuideModel(permission: permission, opener: SettingsOpenerStub()), permission)
     }
 

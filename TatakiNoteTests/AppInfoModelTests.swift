@@ -3,43 +3,6 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-final class PermissionCallLog {
-    private(set) var calls: [String] = []
-
-    func record(_ call: String) {
-        calls.append(call)
-    }
-}
-
-@MainActor
-final class LoggingPermissionStub: AccessibilityPermissionChecking {
-    let isTrusted: Bool
-    private let log: PermissionCallLog
-
-    init(isTrusted: Bool, log: PermissionCallLog) {
-        self.isTrusted = isTrusted
-        self.log = log
-    }
-
-    func requestSystemPrompt() {
-        log.record("prompt")
-    }
-}
-
-@MainActor
-final class LoggingSettingsOpenerStub: AccessibilitySettingsOpening {
-    private let log: PermissionCallLog
-
-    init(log: PermissionCallLog) {
-        self.log = log
-    }
-
-    func openAccessibilitySettings() {
-        log.record("open")
-    }
-}
-
-@MainActor
 struct AppInfoModelTests {
     private func makeModel(_ infoDictionary: [String: Any]) -> AppInfoModel {
         AppInfoModel(
@@ -93,7 +56,7 @@ struct AppInfoModelTests {
 
     @Test("AC-10: 表示している間に許可が変わると、開き直さなくても確かめ直しで変わり、取り消すと確かめ直しをやめる")
     func watchPermissionFollowsChangesUntilCancelled() async throws {
-        let permission = GuidePermissionStub(isTrusted: false)
+        let permission = PermissionStub(isTrusted: false)
         let model = AppInfoModel(
             infoDictionary: [:],
             permissionStatus: PermissionGuideModel(permission: permission, opener: SettingsOpenerStub())
@@ -121,8 +84,8 @@ struct AppInfoModelTests {
         let model = AppInfoModel(
             infoDictionary: [:],
             permissionStatus: PermissionGuideModel(
-                permission: LoggingPermissionStub(isTrusted: false, log: log),
-                opener: LoggingSettingsOpenerStub(log: log)
+                permission: PermissionStub(isTrusted: false, log: log),
+                opener: SettingsOpenerStub(log: log)
             )
         )
 
@@ -137,8 +100,8 @@ struct AppInfoModelTests {
         let model = AppInfoModel(
             infoDictionary: [:],
             permissionStatus: PermissionGuideModel(
-                permission: LoggingPermissionStub(isTrusted: true, log: log),
-                opener: LoggingSettingsOpenerStub(log: log)
+                permission: PermissionStub(isTrusted: true, log: log),
+                opener: SettingsOpenerStub(log: log)
             )
         )
 
