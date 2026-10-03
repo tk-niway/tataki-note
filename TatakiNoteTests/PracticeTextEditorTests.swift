@@ -136,10 +136,10 @@ struct PracticeTextEditorTests {
         withFixture { fixture in
             fixture.textView.placeholder = "メッセージを入力"
 
-            #expect(fixture.textView.drawsEmptyPlaceholder)
+            #expect(fixture.textView.drawsPlaceholder)
             #expect(fixture.textView.accessibilityPlaceholderValue() == "メッセージを入力")
         }
-        #expect(!PromptTextView().drawsEmptyPlaceholder)
+        #expect(!PromptTextView().drawsPlaceholder)
     }
 
     @Test("AC-9: 変換中でない ↩ は、入力欄の今の文字列で送信を呼び、改行を入れない")

@@ -240,13 +240,17 @@ struct EditorTextViewTests {
             let original = NSFont.systemFont(ofSize: 13)
             let changed = NSFont.monospacedSystemFont(ofSize: 20, weight: .regular)
             textView.applyFont(original)
+            textView.string = "abc"
+            textView.setSelectedRange(NSRange(location: 3, length: 0))
             startComposing("にほんご", in: textView)
 
             textView.applyFont(changed)
-            #expect(textView.font == original, "\(fixture.name)")
+            #expect(textView.textStorage?.attribute(.font, at: 0, effectiveRange: nil) as? NSFont == original, "\(fixture.name)")
 
             textView.commitMarkedText()
-            #expect(textView.font == changed, "\(fixture.name)")
+            #expect(!textView.hasMarkedText(), "\(fixture.name)")
+            #expect(textView.textStorage?.attribute(.font, at: 0, effectiveRange: nil) as? NSFont == changed, "\(fixture.name)")
+            #expect(textView.typingAttributes[.font] as? NSFont == changed, "\(fixture.name)")
         }
     }
 

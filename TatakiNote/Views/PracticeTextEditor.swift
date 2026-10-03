@@ -5,7 +5,7 @@ import SwiftUI
 final class PracticeTextView: EditorTextView {
     var onSend: ((String) -> Bool)?
 
-    override var drawsEmptyPlaceholder: Bool { true }
+    override var drawsPlaceholder: Bool { true }
 
     // MARK: - キー操作
 

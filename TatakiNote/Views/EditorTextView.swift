@@ -23,13 +23,13 @@ class EditorTextView: NSTextView {
     }
 
     /// true のときだけ、空の入力欄にプレースホルダーを薄い文字で描く。
-    var drawsEmptyPlaceholder: Bool { false }
+    var drawsPlaceholder: Bool { false }
 
     // MARK: - 描画
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        guard drawsEmptyPlaceholder, string.isEmpty, !placeholder.isEmpty else { return }
+        guard drawsPlaceholder, string.isEmpty, !placeholder.isEmpty else { return }
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font ?? NSFont.systemFont(ofSize: NSFont.systemFontSize),
             .foregroundColor: NSColor.placeholderTextColor,
@@ -44,7 +44,14 @@ class EditorTextView: NSTextView {
     override func didChangeText() {
         super.didChangeText()
         applyPendingFontIfNeeded()
-        if drawsEmptyPlaceholder {
+        if drawsPlaceholder {
+            needsDisplay = true
+        }
+    }
+
+    override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+        super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+        if drawsPlaceholder {
             needsDisplay = true
         }
     }
@@ -52,7 +59,7 @@ class EditorTextView: NSTextView {
     override func unmarkText() {
         super.unmarkText()
         applyPendingFontIfNeeded()
-        if drawsEmptyPlaceholder {
+        if drawsPlaceholder {
             needsDisplay = true
         }
     }
@@ -107,16 +114,25 @@ class EditorTextView: NSTextView {
             case "c": copyCommand()
             case "x": cutCommand()
             case "v": pasteCommand()
-            case "z": undoManager?.undo()
+            case "z": performUndoRedo { $0.undo() }
             default: return super.performKeyEquivalent(with: event)
             }
             return true
         }
         if modifiers == [.command, .shift] && key == "z" {
-            undoManager?.redo()
+            performUndoRedo { $0.redo() }
             return true
         }
         return super.performKeyEquivalent(with: event)
+    }
+
+    private func performUndoRedo(_ action: (UndoManager) -> Void) {
+        guard let undoManager else { return }
+        let before = string
+        action(undoManager)
+        if string != before {
+            didChangeText()
+        }
     }
 
     /// 派生クラスが、共通の ⌘ のキーより先に処理するための口。
