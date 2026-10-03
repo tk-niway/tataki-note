@@ -11,16 +11,6 @@ struct AppInfoModelTests {
         )
     }
 
-    private func waitUntil(_ condition: () -> Bool) async throws -> Bool {
-        for _ in 0..<200 {
-            if condition() {
-                return true
-            }
-            try await Task.sleep(for: .milliseconds(10))
-        }
-        return condition()
-    }
-
     // MARK: - バージョン
 
     @Test("AC-8: バージョン番号とビルド番号を Info.plist の値から読み、無い・空・文字列でないなら読めない(nil)")
@@ -66,9 +56,9 @@ struct AppInfoModelTests {
         let watching = Task { await model.watchPermission(interval: .milliseconds(10)) }
 
         permission.isTrusted = true
-        #expect(try await waitUntil { model.permissionStatus.isTrusted })
+        #expect(try await waitUntil(attempts: 200, interval: .milliseconds(10)) { model.permissionStatus.isTrusted })
         permission.isTrusted = false
-        #expect(try await waitUntil { !model.permissionStatus.isTrusted })
+        #expect(try await waitUntil(attempts: 200, interval: .milliseconds(10)) { !model.permissionStatus.isTrusted })
 
         watching.cancel()
         await watching.value

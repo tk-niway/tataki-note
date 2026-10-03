@@ -266,7 +266,7 @@ struct AutoShowClickSuppressionTests {
         fixture.panelModel.present(target: WatcherFixture.editor)
         await settle()
         fixture.panelModel.dismiss()
-        await waitUntil { fixture.watcher.panelDismissedAt == firstDismissal }
+        await yieldUntil { fixture.watcher.panelDismissedAt == firstDismissal }
         #expect(fixture.watcher.isSuppressingClicks)
         fixture.watcher.handleClick()
         #expect(fixture.showCount == 0)
@@ -277,7 +277,7 @@ struct AutoShowClickSuppressionTests {
         await settle()
         fixture.panelModel.text = "x"
         _ = fixture.panelModel.prepareCommit(isAccessibilityTrusted: true)
-        await waitUntil { fixture.watcher.panelDismissedAt == secondDismissal }
+        await yieldUntil { fixture.watcher.panelDismissedAt == secondDismissal }
         #expect(!fixture.watcher.isSuppressingClicks)
         fixture.watcher.handleClick()
         #expect(fixture.showCount == 1)
@@ -285,13 +285,6 @@ struct AutoShowClickSuppressionTests {
 
     private func settle() async {
         for _ in 0..<10 {
-            await Task.yield()
-        }
-    }
-
-    private func waitUntil(_ condition: () -> Bool) async {
-        let deadline = ContinuousClock.now + .seconds(1)
-        while !condition() && ContinuousClock.now < deadline {
             await Task.yield()
         }
     }

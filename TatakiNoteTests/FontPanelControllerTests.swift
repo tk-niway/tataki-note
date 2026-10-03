@@ -14,17 +14,6 @@ struct FontPanelControllerTests {
         UserDefaults(suiteName: name)?.removePersistentDomain(forName: name)
     }
 
-    private func waitUntil(_ condition: () -> Bool) async throws {
-        var attempts = 0
-        while attempts < 40 {
-            if condition() {
-                return
-            }
-            try await Task.sleep(for: .milliseconds(50))
-            attempts += 1
-        }
-    }
-
     @Test("AC-3: フォントパネルで選んだ書体の名前・ファミリー名が設定に入り、起動し直しても同じ書体になる")
     func applyingFontSavesFaceAndFamily() throws {
         let suite = UUID().uuidString
@@ -109,11 +98,11 @@ struct FontPanelControllerTests {
         #expect(manager.selectedFont?.pointSize == 14)
 
         settings.panelFontSize = 24
-        try await waitUntil { manager.selectedFont?.pointSize == 24 }
+        try await waitUntil(attempts: 40, interval: .milliseconds(50)) { manager.selectedFont?.pointSize == 24 }
         #expect(manager.selectedFont?.pointSize == 24)
 
         settings.panelFontSize = 11
-        try await waitUntil { manager.selectedFont?.pointSize == 11 }
+        try await waitUntil(attempts: 40, interval: .milliseconds(50)) { manager.selectedFont?.pointSize == 11 }
         #expect(manager.selectedFont?.pointSize == 11)
     }
 
@@ -134,7 +123,7 @@ struct FontPanelControllerTests {
 
         settings.resetPanelFontToSystem()
         let systemName = NSFont.systemFont(ofSize: 18).fontName
-        try await waitUntil { manager.selectedFont?.fontName == systemName }
+        try await waitUntil(attempts: 40, interval: .milliseconds(50)) { manager.selectedFont?.fontName == systemName }
         #expect(manager.selectedFont?.fontName == systemName)
         #expect(manager.selectedFont?.pointSize == 18)
     }
@@ -153,11 +142,11 @@ struct FontPanelControllerTests {
         #expect(controller.isObserving)
 
         settings.panelFontSize = 20
-        try await waitUntil { manager.selectedFont?.pointSize == 20 }
+        try await waitUntil(attempts: 40, interval: .milliseconds(50)) { manager.selectedFont?.pointSize == 20 }
         #expect(manager.selectedFont?.pointSize == 20)
 
         settings.panelFontSize = 21
-        try await waitUntil { manager.selectedFont?.pointSize == 21 }
+        try await waitUntil(attempts: 40, interval: .milliseconds(50)) { manager.selectedFont?.pointSize == 21 }
         #expect(manager.selectedFont?.pointSize == 21)
     }
 
@@ -179,7 +168,7 @@ struct FontPanelControllerTests {
         #expect(!controller.isActive)
 
         settings.panelFontSize = 27
-        try await waitUntil { !controller.isObserving }
+        try await waitUntil(attempts: 40, interval: .milliseconds(50)) { !controller.isObserving }
         #expect(!controller.isObserving)
         #expect(manager.selectedFont?.pointSize == 14)
     }

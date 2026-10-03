@@ -429,22 +429,14 @@ struct AutoShowAppsEditorTests {
 
         running.apps = [notes, chatmate]
         notificationCenter.post(name: NSWorkspace.didLaunchApplicationNotification, object: nil)
-        try await waitUntil { editor.runningApps == [notes, chatmate] }
+        try await waitUntil(attempts: 20, interval: .milliseconds(50)) { editor.runningApps == [notes, chatmate] }
         #expect(editor.runningApps == [notes, chatmate])
         #expect(editor.candidates == [chatmate, notes])
 
         running.apps = [chatmate]
         notificationCenter.post(name: NSWorkspace.didTerminateApplicationNotification, object: nil)
-        try await waitUntil { editor.runningApps == [chatmate] }
+        try await waitUntil(attempts: 20, interval: .milliseconds(50)) { editor.runningApps == [chatmate] }
         #expect(editor.runningApps == [chatmate])
         #expect(editor.candidates == [chatmate])
-    }
-
-    private func waitUntil(_ condition: () -> Bool) async throws {
-        var attempts = 0
-        while !condition() && attempts < 20 {
-            try await Task.sleep(for: .milliseconds(50))
-            attempts += 1
-        }
     }
 }
