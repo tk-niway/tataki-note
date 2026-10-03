@@ -38,7 +38,7 @@ enum PanelOpenPlacement {
 
     static func frame(size: CGSize, on screen: ScreenGeometry, mode: PanelScreen, fieldFrame: CGRect?) -> CGRect {
         let visibleFrame = screen.visibleFrame
-        let fittedSize = CGSize(width: min(size.width, visibleFrame.width), height: min(size.height, visibleFrame.height))
+        let fittedSize = PanelPlacement.fittedSize(size, in: visibleFrame)
         if mode == .nearFocusedField, let fieldFrame,
            PanelPlacement.screenWithLargestOverlap(with: fieldFrame, in: [screen]) != nil {
             return nearField(size: fittedSize, fieldFrame: fieldFrame, visibleFrame: visibleFrame)

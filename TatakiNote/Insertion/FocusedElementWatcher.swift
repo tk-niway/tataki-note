@@ -52,7 +52,7 @@ final class FocusedElementWatcher {
         probe: FocusedElementProbing = AXFocusedTextInputInspector(),
         workspace: NSWorkspace = .shared,
         ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier,
-        primaryScreenFrame: @escaping () -> CGRect = { NSScreen.screens.first?.frame ?? .zero },
+        primaryScreenFrame: @escaping () -> CGRect = { ScreenCoordinates.primaryScreenFrame ?? .zero },
         mouseLocation: @escaping () -> CGPoint = { NSEvent.mouseLocation },
         now: @escaping () -> Date = Date.init,
         exposeWebContent: @escaping (InsertionTarget) -> Void = { AXFocusedTextInputInspector.exposeWebContent(of: $0) },

@@ -27,8 +27,8 @@ enum TargetWindowLocator {
             kCGNullWindowID
         ) as? [[String: Any]] else { return nil }
         guard let bounds = frontWindowBounds(in: windowList, processIdentifier: processIdentifier),
-              let primaryScreen = NSScreen.screens.first
+              let primaryScreenFrame = ScreenCoordinates.primaryScreenFrame
         else { return nil }
-        return PanelPlacement.cocoaFrame(fromQuartz: bounds, primaryScreenHeight: primaryScreen.frame.height)
+        return PanelPlacement.cocoaFrame(fromQuartz: bounds, primaryScreenHeight: primaryScreenFrame.height)
     }
 }
