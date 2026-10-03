@@ -13,35 +13,49 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         UserDefaults(suiteName: settingsSuiteName)?.removePersistentDomain(forName: settingsSuiteName)
     }
 
-    // AC-1
+    // AC-3
     @MainActor
-    func testAC1_sidebar() throws {
+    func testAC3_sidebarOrderAndReopen() throws {
         let app = XCUIApplication()
         launch(app)
 
         openSettingsFromMenu(in: app)
         let general = element(in: app, identifier: sidebarGeneralID)
-        let editor = element(in: app, identifier: sidebarEditorID)
+        let keys = element(in: app, identifier: sidebarKeysID)
+        let panel = element(in: app, identifier: sidebarPanelID)
         let appInfo = element(in: app, identifier: sidebarAppInfoID)
+        let quit = element(in: app, identifier: quitID)
         XCTAssertTrue(general.waitForExistence(timeout: timeout))
-        XCTAssertTrue(editor.exists)
+        XCTAssertTrue(keys.exists)
+        XCTAssertTrue(panel.exists)
         XCTAssertTrue(appInfo.exists)
-        XCTAssertLessThan(general.frame.minY, editor.frame.minY)
-        XCTAssertLessThan(editor.frame.minY, appInfo.frame.minY)
+        XCTAssertLessThan(general.frame.minY, keys.frame.minY)
+        XCTAssertLessThan(keys.frame.minY, panel.frame.minY)
+        XCTAssertLessThan(panel.frame.minY, appInfo.frame.minY)
         XCTAssertTrue(isSidebarItemSelected(sidebarGeneralID, in: app))
+        XCTAssertTrue(quit.isHittable)
 
-        editor.click()
+        panel.click()
         XCTAssertTrue(element(in: app, identifier: fontNameID).waitForExistence(timeout: timeout))
-        XCTAssertTrue(isSidebarItemSelected(sidebarEditorID, in: app))
+        XCTAssertTrue(isSidebarItemSelected(sidebarPanelID, in: app))
+        XCTAssertTrue(quit.isHittable)
 
         appInfo.click()
         XCTAssertTrue(element(in: app, identifier: appInfoVersionID).waitForExistence(timeout: timeout))
+        XCTAssertTrue(element(in: app, identifier: appInfoPermissionStatusID).exists)
+        XCTAssertTrue(element(in: app, identifier: appInfoOpenTutorialID).exists)
         XCTAssertFalse(element(in: app, identifier: fontNameID).exists)
+        XCTAssertTrue(quit.isHittable)
+
+        keys.click()
+        XCTAssertTrue(element(in: app, identifier: commitKeyRecorderID).waitForExistence(timeout: timeout))
+        XCTAssertTrue(quit.isHittable)
 
         closeSettings(in: app)
         openSettingsFromMenu(in: app)
-        XCTAssertTrue(element(in: app, identifier: "settings.commitKeyRecorder").waitForExistence(timeout: timeout))
+        XCTAssertTrue(element(in: app, identifier: themePickerID).waitForExistence(timeout: timeout))
         XCTAssertTrue(isSidebarItemSelected(sidebarGeneralID, in: app))
+        XCTAssertFalse(element(in: app, identifier: commitKeyRecorderID).exists)
         XCTAssertFalse(element(in: app, identifier: appInfoVersionID).exists)
         closeSettings(in: app)
     }
@@ -54,7 +68,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     func testAC2_AC3_AC4_AC5_AC6_editorScenario() throws {
         let app = XCUIApplication()
         launch(app, permission: AccessibilityOverride.untrusted)
-        openEditorSettings(in: app)
+        openPanelSettings(in: app)
 
         // AC-4
         let fontSizeValue = element(in: app, identifier: fontSizeValueID)
@@ -95,7 +109,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     func testCommitNoteShownWhenCommitKeyUnassigned() throws {
         let app = XCUIApplication()
         launch(app, permission: AccessibilityOverride.untrusted, seed: ["commitShortcut": [Int]()])
-        openEditorSettings(in: app)
+        openPanelSettings(in: app)
 
         let commit = element(in: app, identifier: statusItemID("commit"))
         app.revealInSettings(commit)
@@ -111,7 +125,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     func testAC1_fontControls() throws {
         let app = XCUIApplication()
         launch(app)
-        openEditorSettings(in: app)
+        openPanelSettings(in: app)
 
         let fontName = element(in: app, identifier: fontNameID)
         app.revealInSettings(fontName)
@@ -133,7 +147,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     func testAC6_resetFontToSystem() throws {
         let app = XCUIApplication()
         launch(app, seed: ["panelFontName": "Menlo-Regular"])
-        openEditorSettings(in: app)
+        openPanelSettings(in: app)
 
         let fontName = element(in: app, identifier: fontNameID)
         app.revealInSettings(fontName)
@@ -153,7 +167,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     func testAC11_closingSettingsClosesFontPanel() throws {
         let app = XCUIApplication()
         launch(app)
-        openEditorSettings(in: app)
+        openPanelSettings(in: app)
 
         let showFontPanel = element(in: app, identifier: showFontPanelID)
         app.revealInSettings(showFontPanel)
@@ -170,7 +184,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     func testAC7_shortcutList() throws {
         let app = XCUIApplication()
         launch(app)
-        openEditorSettings(in: app)
+        openKeySettings(in: app)
 
         let list = element(in: app, identifier: shortcutListID)
         XCTAssertTrue(list.waitForExistence(timeout: timeout))
@@ -254,7 +268,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     func testAC14_AC15_useCurrentPanelSizeAndReset() throws {
         let app = XCUIApplication()
         launch(app)
-        openEditorSettings(in: app)
+        openPanelSettings(in: app)
 
         // AC-14
         let useCurrent = element(in: app, identifier: useCurrentPanelSizeID)
@@ -317,8 +331,13 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     // MARK: - 設定画面の部品
 
     private let sidebarGeneralID = "settings.sidebar.general"
-    private let sidebarEditorID = "settings.sidebar.editor"
+    private let sidebarKeysID = "settings.sidebar.keys"
+    private let sidebarPanelID = "settings.sidebar.panel"
     private let sidebarAppInfoID = "settings.sidebar.appInfo"
+    private let quitID = "settings.quit"
+    private let themePickerID = "settings.themePicker"
+    private let commitKeyRecorderID = "settings.commitKeyRecorder"
+    private let appInfoOpenTutorialID = "settings.appInfo.openTutorial"
     private let fontNameID = "settings.fontName"
     private let showFontPanelID = "settings.showFontPanel"
     private let resetFontToSystemID = "settings.resetFontToSystem"
@@ -351,12 +370,21 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     }
 
     @MainActor
-    private func openEditorSettings(in app: XCUIApplication) {
+    private func openPanelSettings(in app: XCUIApplication) {
         openSettingsFromMenu(in: app)
-        let editor = element(in: app, identifier: sidebarEditorID)
-        XCTAssertTrue(editor.waitForExistence(timeout: timeout))
-        editor.click()
+        let panel = element(in: app, identifier: sidebarPanelID)
+        XCTAssertTrue(panel.waitForExistence(timeout: timeout))
+        panel.click()
         XCTAssertTrue(element(in: app, identifier: fontNameID).waitForExistence(timeout: timeout))
+    }
+
+    @MainActor
+    private func openKeySettings(in app: XCUIApplication) {
+        openSettingsFromMenu(in: app)
+        let keys = element(in: app, identifier: sidebarKeysID)
+        XCTAssertTrue(keys.waitForExistence(timeout: timeout))
+        keys.click()
+        XCTAssertTrue(element(in: app, identifier: shortcutListID).waitForExistence(timeout: timeout))
     }
 
     @MainActor

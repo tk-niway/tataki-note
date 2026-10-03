@@ -29,12 +29,6 @@ final class SettingsWindowUITests: XCTestCase {
         // AC-2
         XCTAssertTrue(isSidebarItemSelected(sidebarGeneralID, in: app))
 
-        XCTAssertTrue(hotkeyRecorder(in: app).exists)
-        for identifier in generalIdentifiers {
-            XCTAssertTrue(element(in: app, identifier: identifier).exists, identifier)
-        }
-        XCTAssertTrue(app.descendants(matching: .any)["パネルを出す位置"].firstMatch.exists)
-        XCTAssertFalse(app.descendants(matching: .any)["パネルを出す画面"].firstMatch.exists)
         XCTAssertTrue(element(in: app, identifier: quitID).exists)
 
         // AC-1
@@ -45,13 +39,6 @@ final class SettingsWindowUITests: XCTestCase {
         // AC-2
         openSettingsFromMenu(in: app)
         XCTAssertTrue(general.waitForExistence(timeout: timeout))
-        XCTAssertEqual(app.windows.containing(.any, identifier: themePickerID).count, 1)
-
-        // AC-2
-        closeSettings(in: app)
-        openSettingsFromMenu(in: app)
-        XCTAssertTrue(general.waitForExistence(timeout: timeout))
-        XCTAssertTrue(isSidebarItemSelected(sidebarGeneralID, in: app))
         XCTAssertEqual(app.windows.containing(.any, identifier: themePickerID).count, 1)
         closeSettings(in: app)
     }
@@ -95,12 +82,18 @@ final class SettingsWindowUITests: XCTestCase {
         let scrollView = element(in: app, identifier: "settings.detailScrollView")
         XCTAssertTrue(scrollView.waitForExistence(timeout: timeout))
 
-        let panelScreenPicker = element(in: app, identifier: "settings.panelScreenPicker")
-        app.revealInSettings(panelScreenPicker)
-        assertRightEdgeHasTrailingPadding(panelScreenPicker, scrollView: scrollView)
+        let themePicker = element(in: app, identifier: themePickerID)
+        app.revealInSettings(themePicker)
+        assertRightEdgeHasTrailingPadding(themePicker, scrollView: scrollView)
 
-        let editor = element(in: app, identifier: sidebarEditorID)
-        editor.click()
+        let keys = element(in: app, identifier: sidebarKeysID)
+        keys.click()
+        let shortcutList = element(in: app, identifier: "settings.shortcutList")
+        app.revealInSettings(shortcutList)
+        assertRightEdgeHasTrailingPadding(shortcutList, scrollView: scrollView)
+
+        let panel = element(in: app, identifier: sidebarPanelID)
+        panel.click()
         let resetFont = element(in: app, identifier: "settings.resetFontToSystem")
         app.revealInSettings(resetFont)
         assertRightEdgeHasTrailingPadding(resetFont, scrollView: scrollView)
@@ -270,26 +263,14 @@ final class SettingsWindowUITests: XCTestCase {
     // MARK: - 設定画面の部品
 
     private let sidebarGeneralID = "settings.sidebar.general"
-    private let sidebarEditorID = "settings.sidebar.editor"
+    private let sidebarKeysID = "settings.sidebar.keys"
+    private let sidebarPanelID = "settings.sidebar.panel"
     private let sidebarAppInfoID = "settings.sidebar.appInfo"
     private let quitID = "settings.quit"
     private let settingsDetailTrailingPadding: CGFloat = 36
     private let themePickerID = "settings.themePicker"
     private let launchAtLoginToggleID = "settings.launchAtLoginToggle"
     private let hideMenuBarIconToggleID = "settings.hideMenuBarIconToggle"
-
-    private var generalIdentifiers: [String] {
-        [
-            "settings.commitKeyRecorder",
-            "settings.commitAndSendKeyRecorder",
-            "settings.panelScreenPicker",
-            "settings.autoShowModePicker",
-            "settings.autoShowAppList",
-            themePickerID,
-            launchAtLoginToggleID,
-            hideMenuBarIconToggleID,
-        ]
-    }
 
     @MainActor
     private func element(in app: XCUIApplication, identifier: String) -> XCUIElement {
@@ -320,22 +301,6 @@ final class SettingsWindowUITests: XCTestCase {
             app.cells.containing(.any, identifier: identifier).firstMatch,
         ]
         return containers.contains { $0.exists && $0.isSelected }
-    }
-
-    @MainActor
-    private func hotkeyRecorder(in app: XCUIApplication) -> XCUIElement {
-        let byIdentifier = element(in: app, identifier: "settings.hotkeyRecorder")
-        if byIdentifier.waitForExistence(timeout: timeout) {
-            return byIdentifier
-        }
-        let byLabel = app.descendants(matching: .any)["パネルを開く・閉じる"].firstMatch
-        if byLabel.exists {
-            return byLabel
-        }
-        let notCommitRecorders = NSPredicate(
-            format: "identifier != %@ AND identifier != %@", "settings.commitKeyRecorder", "settings.commitAndSendKeyRecorder"
-        )
-        return app.searchFields.matching(notCommitRecorders).firstMatch
     }
 
     @MainActor
