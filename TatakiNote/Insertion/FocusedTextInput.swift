@@ -91,10 +91,12 @@ struct AXFocusedTextInputInspector: FocusedTextInputInspecting, FocusedElementPr
         )
     }
 
-    static func exposeWebContent(of target: InsertionTarget) {
+    /// Web の中身をアクセシビリティの仕組みに出すよう、挿入先のアプリに頼み、その結果を返す。
+    @discardableResult
+    static func exposeWebContent(of target: InsertionTarget) -> AXError {
         let app = AXUIElementCreateApplication(target.processIdentifier)
         AXUIElementSetMessagingTimeout(app, messagingTimeout)
-        _ = AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+        return AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
     }
 
     func probeFocusedElement(in target: InsertionTarget, readsFrame: Bool) -> FocusedElementProbe {

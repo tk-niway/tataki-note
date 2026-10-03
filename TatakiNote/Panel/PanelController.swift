@@ -10,6 +10,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let permission: AccessibilityPermissionChecking
     private let performer: CommitPerformer
     private let fieldProbe: FocusedElementProbing
+    private let exposeWebContent: (InsertionTarget) -> Void
     private let ownProcessIdentifier: pid_t
 
     private let sizing = PanelSizing()
@@ -36,6 +37,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         permission: AccessibilityPermissionChecking = SystemAccessibilityPermission(),
         notifier: InsertionFailureNotifying = InsertionFailureNotifier(),
         fieldProbe: FocusedElementProbing = AXFocusedTextInputInspector(),
+        exposeWebContent: @escaping (InsertionTarget) -> Void = { AXFocusedTextInputInspector.exposeWebContent(of: $0) },
         ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier
     ) {
         self.model = model
@@ -45,6 +47,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.permission = permission
         self.performer = CommitPerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
         self.fieldProbe = fieldProbe
+        self.exposeWebContent = exposeWebContent
         self.ownProcessIdentifier = ownProcessIdentifier
         super.init()
 
@@ -68,6 +71,11 @@ final class PanelController: NSObject, NSWindowDelegate {
         return target.processIdentifier != ownProcessIdentifier
     }
 
+    /// パネルを開くときに、挿入先へ Web の中身を出すよう頼むか。
+    static func shouldExposeWebContent(target: InsertionTarget?, ownProcessIdentifier: pid_t, isTrusted: Bool) -> Bool {
+        shouldQueryAccessibility(of: target, ownProcessIdentifier: ownProcessIdentifier) && isTrusted
+    }
+
     func open() {
         let target = targetOverride?() ?? targetTracker.currentTarget()
         let wasPresented = model.present(target: target)
@@ -77,8 +85,13 @@ final class PanelController: NSObject, NSWindowDelegate {
                 of: target,
                 ownProcessIdentifier: ownProcessIdentifier
             )
-            if let target, queriesAccessibility, permission.isTrusted {
-                AXFocusedTextInputInspector.exposeWebContent(of: target)
+            if let target,
+               Self.shouldExposeWebContent(
+                   target: target,
+                   ownProcessIdentifier: ownProcessIdentifier,
+                   isTrusted: permission.isTrusted
+               ) {
+                exposeWebContent(target)
             }
             let mode = settings.panelScreen
             var targetWindowFrame: CGRect?

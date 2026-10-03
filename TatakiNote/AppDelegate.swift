@@ -130,8 +130,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     )
 
+    let webContentExposer = WebContentExposer()
+
     private(set) lazy var panelController: PanelController = {
-        let controller = PanelController(settings: self.settings, targetTracker: self.targetTracker, permission: self.permission)
+        let controller = PanelController(
+            settings: self.settings,
+            targetTracker: self.targetTracker,
+            permission: self.permission,
+            exposeWebContent: { [webContentExposer] in webContentExposer.expose($0) }
+        )
         controller.onPermissionDenied = { [weak self] in
             self?.permissionGuide.show(reason: .commitDenied)
         }
@@ -158,6 +165,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 settings: settings,
                 panelModel: panelController.model,
                 permission: permission,
+                exposeWebContent: { [webContentExposer] in webContentExposer.expose($0) },
                 onShow: { [weak self] in self?.panelController.open() }
             )
             watcher.start()

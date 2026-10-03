@@ -47,7 +47,7 @@ final class WatcherFixture {
     private let defaults: UserDefaults
     private let suiteName: String
 
-    init(isTrusted: Bool = true) throws {
+    init(isTrusted: Bool = true, exposeWebContent: ((InsertionTarget) -> Void)? = nil) throws {
         let suiteName = UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: suiteName))
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
@@ -71,7 +71,10 @@ final class WatcherFixture {
             primaryScreenFrame: { screenFrame },
             mouseLocation: { environment.mouseLocation },
             now: { environment.now },
-            exposeWebContent: { environment.exposedTargets.append($0) },
+            exposeWebContent: {
+                environment.exposedTargets.append($0)
+                exposeWebContent?($0)
+            },
             onShow: { environment.showCount += 1 }
         )
     }
