@@ -123,21 +123,23 @@ final class TutorialWindowController: NSObject, NSWindowDelegate {
     }
 
     private func observePanel(generation: Int) {
-        withObservationTracking {
-            _ = panelModel.isPresented
-            _ = panelModel.target
-            _ = panelModel.text
-        } onChange: { [weak self] in
-            Task { @MainActor [weak self] in
-                guard let self, self.isObservingPanel, self.observationGeneration == generation else { return }
+        observeRepeatedly(
+            tracking: { [weak self] in
+                guard let panelModel = self?.panelModel else { return }
+                _ = panelModel.isPresented
+                _ = panelModel.target
+                _ = panelModel.text
+            },
+            onChange: { [weak self] in
+                guard let self, self.isObservingPanel, self.observationGeneration == generation else { return false }
                 self.model.panelDidChange(
                     isPresented: self.panelModel.isPresented,
                     target: self.panelModel.target,
                     text: self.panelModel.text
                 )
-                self.observePanel(generation: generation)
+                return true
             }
-        }
+        )
     }
 }
 

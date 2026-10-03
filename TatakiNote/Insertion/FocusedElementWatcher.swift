@@ -211,17 +211,18 @@ final class FocusedElementWatcher {
     // MARK: - パネルが閉じた時刻
 
     private func observePanelDismissal() {
-        withObservationTracking {
-            _ = panelModel.isPresented
-        } onChange: { [weak self] in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
+        observeRepeatedly(
+            tracking: { [weak self] in
+                _ = self?.panelModel.isPresented
+            },
+            onChange: { [weak self] in
+                guard let self else { return false }
                 if !self.panelModel.isPresented {
                     self.handlePanelDismissed(self.panelModel.lastDismissal ?? .committed, panelTarget: self.panelModel.target)
                 }
-                self.observePanelDismissal()
+                return true
             }
-        }
+        )
     }
 
     // MARK: - AX の監視
