@@ -76,6 +76,8 @@ final class ClipboardTextInserter: TextInserting {
     private let settleDelay: Duration
     private let restoreDelay: Duration
     private let ownProcessIdentifier: pid_t
+    private let snapshotter: PasteboardSnapshotting
+    private let maxRecaptures = 3
 
     private var tail: Task<InsertionResult, Never>?
 
@@ -88,7 +90,8 @@ final class ClipboardTextInserter: TextInserting {
         submitDelay: Duration = .milliseconds(80),
         settleDelay: Duration = .milliseconds(50),
         restoreDelay: Duration = .milliseconds(500),
-        ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier
+        ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier,
+        snapshotter: PasteboardSnapshotting? = nil
     ) {
         self.pasteboard = pasteboard
         self.activator = activator
@@ -99,6 +102,7 @@ final class ClipboardTextInserter: TextInserting {
         self.settleDelay = settleDelay
         self.restoreDelay = restoreDelay
         self.ownProcessIdentifier = ownProcessIdentifier
+        self.snapshotter = snapshotter ?? BackgroundPasteboardSnapshotter(pasteboard: pasteboard)
     }
 
     func insert(_ text: String, into target: InsertionTarget, shouldSendAfterInsert: Bool) async -> InsertionResult {
@@ -119,14 +123,23 @@ final class ClipboardTextInserter: TextInserting {
         guard await activator.activate(target) else {
             return .targetNotActivated
         }
+        let snapshotter = snapshotter
+        let capturing = Task { await snapshotter.capture() }
         try? await Task.sleep(for: settleDelay)
 
         let isOwnTarget = target.processIdentifier == ownProcessIdentifier
         if !isOwnTarget, focusInspector.focusedTextInputState(in: target) == .notTextInput {
+            _ = await capturing.value
             return .noTextInput
         }
 
-        let snapshot = PasteboardSnapshot.capture(from: pasteboard)
+        var captured = await capturing.value
+        var recaptureCount = 0
+        while pasteboard.changeCount != captured.changeCount, recaptureCount < maxRecaptures {
+            captured = await snapshotter.capture()
+            recaptureCount += 1
+        }
+
         let item = NSPasteboardItem()
         item.setString(text, forType: .string)
         item.setData(Data(), forType: Self.transientType)
@@ -144,9 +157,7 @@ final class ClipboardTextInserter: TextInserting {
 
         try? await Task.sleep(for: restoreDelay)
 
-        if pasteboard.changeCount == changeCountAfterWrite {
-            snapshot.restore(to: pasteboard)
-        }
+        _ = await snapshotter.restore(captured.snapshot, ifChangeCountIs: changeCountAfterWrite)
         return .inserted
     }
 }
