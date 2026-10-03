@@ -8,11 +8,20 @@ enum CommitPlan: Equatable {
     case insert(text: String, target: InsertionTarget)
 }
 
+/// パネルの閉じ方。
+enum PanelDismissal: Equatable {
+    case cancelled
+    case committed
+}
+
 /// 入力パネルの状態。
 @Observable final class PanelModel {
     var text: String = ""
 
     private(set) var isPresented = false
+
+    /// 最後にパネルを閉じたときの閉じ方。一度も閉じていなければ `nil`。
+    private(set) var lastDismissal: PanelDismissal?
 
     private(set) var focusRequest = 0
 
@@ -26,7 +35,7 @@ enum CommitPlan: Equatable {
     }
 
     func prepareCommit(isAccessibilityTrusted: Bool) -> CommitPlan {
-        dismiss()
+        dismiss(as: .committed)
         if text.isEmpty {
             return .dismissOnly
         }
@@ -55,6 +64,13 @@ enum CommitPlan: Equatable {
     }
 
     func dismiss() {
+        dismiss(as: .cancelled)
+    }
+
+    private func dismiss(as dismissal: PanelDismissal) {
+        if isPresented {
+            lastDismissal = dismissal
+        }
         isPresented = false
     }
 }

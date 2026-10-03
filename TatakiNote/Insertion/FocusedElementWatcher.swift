@@ -6,10 +6,17 @@ import Observation
 final class FocusedElementWatcher {
     static let activationGrace: TimeInterval = 0.25
     static let dismissGrace: TimeInterval = 0.5
+    static let clickSuppressionDuration: TimeInterval = 30
 
     private struct ShownElement {
         let processIdentifier: pid_t
         let element: AXUIElement?
+    }
+
+    private struct ClickSuppression {
+        let processIdentifier: pid_t
+        let element: AXUIElement
+        let since: Date
     }
 
     private let settings: AppSettings
@@ -33,6 +40,10 @@ final class FocusedElementWatcher {
     private var lastActivatedAt: Date?
     private(set) var panelDismissedAt: Date?
     private var lastShown: ShownElement?
+    private var clickSuppression: ClickSuppression?
+
+    /// 挿入せずに閉じたあとの入力欄のクリックを、いま抑えているか。
+    var isSuppressingClicks: Bool { clickSuppression != nil }
 
     init(
         settings: AppSettings,
@@ -103,10 +114,14 @@ final class FocusedElementWatcher {
             self.clickMonitor = nil
         }
         stopWatchingFocus()
+        clickSuppression = nil
     }
 
     func handleActivation(of target: InsertionTarget?) {
         lastActivatedAt = now()
+        if let clickSuppression, clickSuppression.processIdentifier != target?.processIdentifier {
+            self.clickSuppression = nil
+        }
         stopWatchingFocus()
         self.target = target
         guard let target, shouldWatch(target) else { return }
@@ -122,8 +137,16 @@ final class FocusedElementWatcher {
         evaluate(trigger: .userClick)
     }
 
-    func handlePanelDismissed() {
-        panelDismissedAt = now()
+    func handlePanelDismissed(_ dismissal: PanelDismissal, panelTarget: InsertionTarget?) {
+        let dismissedAt = now()
+        panelDismissedAt = dismissedAt
+        clickSuppression = nil
+
+        guard dismissal == .cancelled,
+              let target, shouldWatch(target),
+              panelTarget?.processIdentifier == target.processIdentifier else { return }
+        guard let element = probe.probeFocusedElement(in: target, readsFrame: false).element else { return }
+        clickSuppression = ClickSuppression(processIdentifier: target.processIdentifier, element: element, since: dismissedAt)
     }
 
     // MARK: - 判定
@@ -147,6 +170,18 @@ final class FocusedElementWatcher {
            !Self.isSameElement(lastShown.element, focused.element) {
             self.lastShown = nil
         }
+        let currentTime = now()
+        if trigger == .focusChanged, let clickSuppression, clickSuppression.processIdentifier == target.processIdentifier,
+           !Self.isSameElement(clickSuppression.element, focused.element) {
+            self.clickSuppression = nil
+        }
+        if trigger == .userClick, let clickSuppression,
+           currentTime.timeIntervalSince(clickSuppression.since) >= Self.clickSuppressionDuration {
+            self.clickSuppression = nil
+        }
+        let isClickSuppressed = trigger == .userClick && (clickSuppression.map {
+            $0.processIdentifier == target.processIdentifier && Self.isSameElement($0.element, focused.element)
+        } ?? false)
         let isSameElementAsLastShown = lastShown.map {
             $0.processIdentifier == target.processIdentifier && Self.isSameElement($0.element, focused.element)
         } ?? false
@@ -157,7 +192,6 @@ final class FocusedElementWatcher {
             isClickInsideFocusedElement = frame.contains(point)
         }
 
-        let currentTime = now()
         let input = AutoShowInput(
             mode: settings.autoShowMode,
             selectedApps: settings.autoShowApps,
@@ -171,7 +205,8 @@ final class FocusedElementWatcher {
             isSameElementAsLastShown: isSameElementAsLastShown,
             isJustActivated: Self.isWithin(Self.activationGrace, since: lastActivatedAt, now: currentTime),
             isJustDismissed: Self.isWithin(Self.dismissGrace, since: panelDismissedAt, now: currentTime),
-            isClickInsideFocusedElement: isClickInsideFocusedElement
+            isClickInsideFocusedElement: isClickInsideFocusedElement,
+            isClickSuppressed: isClickSuppressed
         )
         guard AutoShowDecision.shouldShow(input) else { return }
         lastShown = ShownElement(processIdentifier: target.processIdentifier, element: focused.element)
@@ -197,7 +232,7 @@ final class FocusedElementWatcher {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if !self.panelModel.isPresented {
-                    self.handlePanelDismissed()
+                    self.handlePanelDismissed(self.panelModel.lastDismissal ?? .committed, panelTarget: self.panelModel.target)
                 }
                 self.observePanelDismissal()
             }

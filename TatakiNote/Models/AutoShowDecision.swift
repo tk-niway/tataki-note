@@ -21,6 +21,7 @@ struct AutoShowInput: Equatable {
     var isJustActivated: Bool
     var isJustDismissed: Bool
     var isClickInsideFocusedElement: Bool
+    var isClickSuppressed: Bool
 }
 
 /// 入力欄が選ばれたときにパネルを自動で出すかの判定。
@@ -50,7 +51,7 @@ enum AutoShowDecision {
         }
         switch input.trigger {
         case .userClick:
-            return input.isClickInsideFocusedElement
+            return input.isClickInsideFocusedElement && !input.isClickSuppressed
         case .focusChanged:
             if input.isSameElementAsLastShown {
                 return false
