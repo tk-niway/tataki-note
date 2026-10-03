@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// 確定キー・確定+送信キーの記録ボックス。
+/// 確定+挿入キー・確定+送信キーの記録ボックス。
 struct PanelShortcutRecorder: NSViewRepresentable {
     let displayText: String?
     let isRecording: Bool

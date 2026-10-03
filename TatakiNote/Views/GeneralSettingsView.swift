@@ -19,7 +19,7 @@ struct GeneralSettingsView: View {
             }
             .padding(.bottom, 12)
 
-            LabeledContent("確定キー") {
+            LabeledContent("確定+挿入キー") {
                 VStack(alignment: .leading, spacing: 6) {
                     shortcutRecorder(for: .commit, recorderID: "settings.commitKeyRecorder", rejectionID: "settings.commitKeyRejection")
                     SettingDescription(PanelShortcutRole.commit.settingDescription)

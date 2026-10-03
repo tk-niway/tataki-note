@@ -25,7 +25,7 @@ struct SettingsStore {
 
     let defaults: UserDefaults
 
-    // MARK: - 確定キー・確定+送信キー(新しい保存形式)
+    // MARK: - 確定+挿入キー・確定+送信キー(新しい保存形式)
 
     func loadCommitShortcut() -> PanelShortcut? {
         if let stored = defaults.object(forKey: Key.commitShortcut) {

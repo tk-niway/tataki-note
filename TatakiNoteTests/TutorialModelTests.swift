@@ -512,7 +512,7 @@ struct TutorialModelTests {
         }
     }
 
-    @Test("AC-17: どちらも無いときだけ、設定の「一般」で登録するよう示す")
+    @Test("AC-5, AC-17: どちらも無いときだけ、設定の「一般」で登録するよう示す")
     func sendInstructionWithoutKeys() throws {
         try withModel { model, settings, _ in
             settings.commitKey = nil
@@ -522,8 +522,7 @@ struct TutorialModelTests {
 
             #expect(model.commitKeyText == nil)
             #expect(model.commitAndSendKeyText == nil)
-            #expect(text.contains("設定の「一般」"))
-            #expect(text.contains("登録"))
+            #expect(text == "確定+挿入キーも確定+送信キーも登録されていません。設定の「一般」で登録してください。")
         }
     }
 

@@ -1,6 +1,6 @@
 import AppKit
 
-/// パネルの確定・確定+送信に割り当てるキー(修飾キー付きの任意のキー)。
+/// パネルの確定+挿入・確定+送信に割り当てるキー(修飾キー付きの任意のキー)。
 struct PanelShortcut: Hashable {
     static let relevantModifiers: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
 

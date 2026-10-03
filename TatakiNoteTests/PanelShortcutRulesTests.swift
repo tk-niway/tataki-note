@@ -165,18 +165,41 @@ struct PanelShortcutRulesTests {
         #expect(rejection == .usedByHotkey)
     }
 
-    @Test("AC-5: 確定キーの説明文は初期設定が ⇧⌘↩ と伝え、登録なしが初期設定とは言わない")
+    @Test("AC-3, AC-5: 確定+挿入キーの説明文は、初期値が ⇧⌘↩ と伝える全文になる")
     func commitDescriptionStatesNewDefault() {
-        let description = PanelShortcutRole.commit.settingDescription
-        #expect(description.contains("⇧⌘↩"))
-        #expect(!description.contains("初期設定では登録していません"))
+        #expect(PanelShortcutRole.commit.settingDescription == "パネルでこのキーを押すと、書いた文章を元のアプリに挿入します(送信はしません)。修飾キー(⌘・⌥・⌃・⇧)と組み合わせたキーを登録できます。登録していない Enter は改行になります。初期値は ⇧⌘↩ です。登録していないときは、確定+送信キーでだけ挿入します。")
     }
 
-    @Test("AC-5: 確定+送信キーの説明文は初期設定が ⌘↩ と伝え、確定キーの登録を求めない")
+    @Test("AC-3, AC-5: 確定+送信キーの説明文は、初期値が ⌘↩ と伝え、確定+挿入キーを使うよう勧める全文になる")
     func commitAndSendDescriptionDoesNotAskToRegisterCommitKey() {
-        let description = PanelShortcutRole.commitAndSend.settingDescription
-        #expect(description.contains("⌘↩"))
-        #expect(!description.contains("登録してください"))
+        #expect(PanelShortcutRole.commitAndSend.settingDescription == "パネルでこのキーを押すと、書いた文章を挿入したあと、挿入先で Enter を送って送信します。初期値は ⌘↩ です。送信は取り消せないので、送信せずに挿入したいときは確定+挿入キーを使ってください。")
+    }
+
+    @Test("AC-3: 説明文の初期値は役割の初期値の定数から出し、渡したキーに従って変わる(登録なしは「登録なし」)")
+    func descriptionFollowsInitialKey() {
+        #expect(PanelShortcutRole.commit.initialKey == PanelShortcut.defaultCommitKey)
+        #expect(PanelShortcutRole.commitAndSend.initialKey == PanelShortcut.defaultCommitAndSendKey)
+
+        let commandK = PanelShortcut(keyCode: 40, modifiers: [.command])
+        for role in PanelShortcutRole.allCases {
+            let withKey = role.settingDescription(initialKey: commandK)
+            #expect(withKey.contains("初期値は ⌘K です。"))
+            let withoutKey = role.settingDescription(initialKey: nil)
+            #expect(withoutKey.contains("初期値は 登録なし です。"))
+        }
+    }
+
+    @Test("AC-4: もう一方のキーとぶつかったときの理由は、ぶつかった役割を「確定+挿入キー」「確定+送信キー」と呼ぶ")
+    func otherRoleMessageNamesTheRole() {
+        let key = PanelShortcut(keyCode: 40, modifiers: [.command])
+        #expect(
+            PanelShortcutRejection.usedByOtherRole(.commit).message(for: key)
+                == "⌘K は「確定+挿入キー」で使っているため、登録できません。"
+        )
+        #expect(
+            PanelShortcutRejection.usedByOtherRole(.commitAndSend).message(for: key)
+                == "⌘K は「確定+送信キー」で使っているため、登録できません。"
+        )
     }
 
     @Test("修飾キーを含み、どの理由にも当たらないキー(例 ⌘Q)は受け付ける")
