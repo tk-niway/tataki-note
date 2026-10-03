@@ -18,32 +18,156 @@ protocol PasteShortcutPosting {
     func postPasteShortcut()
 }
 
-struct WorkspaceApplicationActivator: ApplicationActivating {
-    private let pollInterval: Duration = .milliseconds(50)
-    private let maxPolls = 20
+/// 挿入先のアプリの状態の確認と、前面にする依頼。
+protocol ApplicationActivationRequesting {
+    func isRunning(_ processIdentifier: pid_t) -> Bool
+    func requestActivation(of processIdentifier: pid_t)
+}
 
-    func activate(_ target: InsertionTarget) async -> Bool {
-        guard let app = NSRunningApplication(processIdentifier: target.processIdentifier), !app.isTerminated else {
-            return false
-        }
-        if isFrontmost(target) {
-            return true
-        }
-        app.activate()
-        for _ in 0..<maxPolls {
-            try? await Task.sleep(for: pollInterval)
-            if isFrontmost(target) {
-                return true
-            }
-            if app.isTerminated || Task.isCancelled {
-                return false
-            }
-        }
-        return false
+struct RunningApplicationActivationRequester: ApplicationActivationRequesting {
+    func isRunning(_ processIdentifier: pid_t) -> Bool {
+        guard let app = NSRunningApplication(processIdentifier: processIdentifier) else { return false }
+        return !app.isTerminated
     }
 
-    private func isFrontmost(_ target: InsertionTarget) -> Bool {
-        NSWorkspace.shared.frontmostApplication?.processIdentifier == target.processIdentifier
+    func requestActivation(of processIdentifier: pid_t) {
+        NSRunningApplication(processIdentifier: processIdentifier)?.activate()
+    }
+}
+
+/// 挿入先を前面にし、前面になった通知が届くまで(上限まで)待つ。
+struct WorkspaceApplicationActivator: ApplicationActivating {
+    let timeout: Duration
+    private let requester: ApplicationActivationRequesting
+    private let frontmostApp: FrontmostApplicationReading
+    private let notificationCenter: NotificationCenter
+
+    init(
+        requester: ApplicationActivationRequesting = RunningApplicationActivationRequester(),
+        frontmostApp: FrontmostApplicationReading = WorkspaceFrontmostApplication(),
+        notificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
+        timeout: Duration = .seconds(1)
+    ) {
+        self.requester = requester
+        self.frontmostApp = frontmostApp
+        self.notificationCenter = notificationCenter
+        self.timeout = timeout
+    }
+
+    func activate(_ target: InsertionTarget) async -> Bool {
+        let pid = target.processIdentifier
+        guard requester.isRunning(pid) else {
+            return false
+        }
+        if frontmostApp.frontmostProcessIdentifier == pid {
+            return true
+        }
+
+        let waiter = ActivationWaiter(
+            pid: pid,
+            notificationCenter: notificationCenter,
+            frontmostApp: frontmostApp,
+            timeout: timeout
+        )
+        waiter.startObserving()
+        requester.requestActivation(of: pid)
+        if frontmostApp.frontmostProcessIdentifier == pid {
+            waiter.finish(true)
+        }
+
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                waiter.wait(continuation)
+            }
+        } onCancel: {
+            Task { @MainActor in
+                waiter.finish(false)
+            }
+        }
+    }
+}
+
+private final class ActivationWaiter {
+    private let pid: pid_t
+    private let notificationCenter: NotificationCenter
+    private let frontmostApp: FrontmostApplicationReading
+    private let timeout: Duration
+    private var continuation: CheckedContinuation<Bool, Never>?
+    private var result: Bool?
+    private var isFinished = false
+    private var observers: [any NSObjectProtocol] = []
+    private var timeoutTask: Task<Void, Never>?
+
+    init(
+        pid: pid_t,
+        notificationCenter: NotificationCenter,
+        frontmostApp: FrontmostApplicationReading,
+        timeout: Duration
+    ) {
+        self.pid = pid
+        self.notificationCenter = notificationCenter
+        self.frontmostApp = frontmostApp
+        self.timeout = timeout
+    }
+
+    func startObserving() {
+        let activated = notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            let notified = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?
+                .processIdentifier
+            MainActor.assumeIsolated {
+                guard let self, notified == self.pid else { return }
+                self.finish(true)
+            }
+        }
+        let terminated = notificationCenter.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            let notified = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?
+                .processIdentifier
+            MainActor.assumeIsolated {
+                guard let self, notified == self.pid else { return }
+                self.finish(false)
+            }
+        }
+        observers = [activated, terminated]
+
+        let timeout = timeout
+        timeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: timeout)
+            guard !Task.isCancelled, let self else { return }
+            self.finish(self.frontmostApp.frontmostProcessIdentifier == self.pid)
+        }
+    }
+
+    func wait(_ continuation: CheckedContinuation<Bool, Never>) {
+        if let result {
+            continuation.resume(returning: result)
+        } else {
+            self.continuation = continuation
+        }
+    }
+
+    func finish(_ value: Bool) {
+        guard !isFinished else { return }
+        isFinished = true
+        for observer in observers {
+            notificationCenter.removeObserver(observer)
+        }
+        observers = []
+        timeoutTask?.cancel()
+        timeoutTask = nil
+        if let continuation {
+            self.continuation = nil
+            continuation.resume(returning: value)
+        } else {
+            result = value
+        }
     }
 }
 
