@@ -1,7 +1,7 @@
 # リリース(アプリの配布)
 
 TatakiNote は、このリポジトリの GitHub Releases で配布する。CI(GitHub Actions)では AI を使わない。
-リリースノートと版はマージの前に用意し、人が2回見る(PR の差分と、GitHub の下書きのリリース)。
+リリースノートと版はマージの前に用意し、人が見る(ローカルでの作成時と、PR の差分)。マージすると自動で公開される。
 
 ## 流れ
 
@@ -14,12 +14,12 @@ TatakiNote は、このリポジトリの GitHub Releases で配布する。CI(G
    - Claude Code が使えないときは、同じものを手で用意する
 2. 読んで直し、ブランチ(例: `release/v1.1.0`)を切ってコミットし、`main` への PR を作ってマージする
 3. `.github/workflows/release.yml` が動く。`VERSION` の版が公開済みでなければ、単体テスト → Release ビルド →
-   証明書で署名・検証 → zip → 下書きのリリース(本文 = リリースノート、添付 = `TatakiNote-<版>.zip` と `.sha256`)。
+   証明書で署名・検証 → zip → 公開するリリース(本文 = リリースノート、添付 = `TatakiNote-<版>.zip` と `.sha256`)。
    `VERSION`・`release-notes/` を変えていないマージでは動かない
-4. GitHub の Releases で下書きを確認・修正して Publish。タグ `v<版>` はこのときに付く
+4. 公開される。タグ `v<版>` はこのときに付く。本文や添付を直すときは、GitHub の Releases で編集する
 
 失敗したら、直して `main` に入れ直すか、Actions の画面から `Release` を手動で再実行する(workflow_dispatch)。
-同じ版の下書きがあれば本文と添付を差し替え、公開済みなら何もしない。
+同じ版の下書きがあれば本文と添付を差し替えて公開し、公開済みなら何もしない。
 
 ## 版の決め方(semver)
 
