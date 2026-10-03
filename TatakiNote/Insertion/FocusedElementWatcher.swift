@@ -171,7 +171,8 @@ final class FocusedElementWatcher {
             isSameElementAsLastShown: isSameElementAsLastShown,
             isJustActivated: Self.isWithin(Self.activationGrace, since: lastActivatedAt, now: currentTime),
             isJustDismissed: Self.isWithin(Self.dismissGrace, since: panelDismissedAt, now: currentTime),
-            isClickInsideFocusedElement: isClickInsideFocusedElement
+            isClickInsideFocusedElement: isClickInsideFocusedElement,
+            isClickSuppressed: false
         )
         guard AutoShowDecision.shouldShow(input) else { return }
         lastShown = ShownElement(processIdentifier: target.processIdentifier, element: focused.element)
