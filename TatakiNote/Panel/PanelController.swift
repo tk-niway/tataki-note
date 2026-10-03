@@ -70,6 +70,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     func open() {
         let target = targetOverride?() ?? targetTracker.currentTarget()
+        settings.refreshKeyDisplayTexts()
         let wasPresented = model.present(target: target)
         if !wasPresented {
             sizing.beginOpening(defaultSize: settings.panelDefaultSize)

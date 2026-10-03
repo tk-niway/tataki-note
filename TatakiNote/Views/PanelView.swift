@@ -87,8 +87,8 @@ struct PanelView: View {
         PanelStatusBarContent(
             text: model.text,
             items: settings.panelStatusItems,
-            commitKey: settings.commitKey,
-            commitAndSendKey: settings.commitAndSendKey
+            commitKeyText: settings.commitKeyDisplayText,
+            commitAndSendKeyText: settings.commitAndSendKeyDisplayText
         )
     }
 }
