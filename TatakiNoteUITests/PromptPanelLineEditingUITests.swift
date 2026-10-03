@@ -23,7 +23,7 @@ final class PromptPanelLineEditingUITests: XCTestCase {
         let app = makeApp()
         app.launch()
         let textView = openPanel(in: app)
-        XCTAssertEqual(textView.value as? String, "")
+        XCTAssertEqual(textView.promptPanelText, "")
 
         typeLines(["one", "two", "three"], in: app)
         XCTAssertEqual(textView.value as? String, "one\ntwo\nthree")

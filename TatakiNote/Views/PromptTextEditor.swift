@@ -2,50 +2,8 @@ import AppKit
 import SwiftUI
 
 /// パネルの入力欄。
-final class PromptTextView: NSTextView {
+final class PromptTextView: EditorTextView {
     var onKeyInput: ((PanelKeyInput) -> Bool)?
-
-    var pasteboard: NSPasteboard = .general
-
-    private var pendingFont: NSFont?
-
-    // MARK: - フォント
-
-    func applyFont(_ font: NSFont) {
-        guard !hasMarkedText() else {
-            pendingFont = font
-            return
-        }
-        pendingFont = nil
-        guard self.font != font || typingAttributes[.font] as? NSFont != font else { return }
-        self.font = font
-        typingAttributes[.font] = font
-    }
-
-
-    override func unmarkText() {
-        super.unmarkText()
-        applyPendingFontIfNeeded()
-    }
-
-    override func didChangeText() {
-        super.didChangeText()
-        applyPendingFontIfNeeded()
-    }
-
-    private func applyPendingFontIfNeeded() {
-        guard let pendingFont, !hasMarkedText() else { return }
-        applyFont(pendingFont)
-    }
-
-    // MARK: - 確定
-
-    func commitMarkedText() {
-        guard hasMarkedText() else { return }
-        unmarkText()
-        inputContext?.discardMarkedText()
-        didChangeText()
-    }
 
     // MARK: - キー操作
 
@@ -66,10 +24,7 @@ final class PromptTextView: NSTextView {
         super.keyDown(with: event)
     }
 
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard window?.firstResponder === self, !hasMarkedText() else {
-            return super.performKeyEquivalent(with: event)
-        }
+    override func handleKeyEquivalent(_ event: NSEvent) -> EditorKeyEquivalentResult {
         let input = PanelKeyInput(
             keyCode: event.keyCode,
             modifiers: event.modifierFlags.intersection(.deviceIndependentFlagsMask),
@@ -77,37 +32,38 @@ final class PromptTextView: NSTextView {
             characters: event.charactersIgnoringModifiers?.lowercased() ?? ""
         )
         if onKeyInput?(input) == true {
-            return true
+            return .handled
         }
         if event.keyCode == KeyCode.returnKey || event.keyCode == KeyCode.keypadEnter {
             if PanelKeyResolver.insertsNewlineExplicitly(for: input) {
                 insertNewline(nil)
-                return true
+                return .handled
             }
-            return super.performKeyEquivalent(with: event)
+            return .passToSystem
         }
-        let modifiers = event.modifierFlags.intersection([.command, .shift, .option, .control])
-        let key = input.characters
-        let command: NSEvent.ModifierFlags = [.command]
-        let shiftCommand: NSEvent.ModifierFlags = [.command, .shift]
-        if modifiers == command {
-            switch key {
-            case "a": selectAll(nil)
-            case "c": copyLineOrSelection()
-            case "d": selectWordAtCursor()
-            case "l": expandLineSelection()
-            case "v": pasteLineOrClipboard()
-            case "x": cutLineOrSelection()
-            case "z": undoManager?.undo()
-            default: return super.performKeyEquivalent(with: event)
-            }
-            return true
+        let modifiers = event.modifierFlags.intersection(PanelShortcut.relevantModifiers)
+        switch EditorKeyCommand.command(modifiers: modifiers, character: input.characters) {
+        case .selectWord:
+            selectWordAtCursor()
+            return .handled
+        case .selectLine:
+            expandLineSelection()
+            return .handled
+        default:
+            return .notHandled
         }
-        if modifiers == shiftCommand && key == "z" {
-            undoManager?.redo()
-            return true
-        }
-        return super.performKeyEquivalent(with: event)
+    }
+
+    override func copyCommand() {
+        copyLineOrSelection()
+    }
+
+    override func cutCommand() {
+        cutLineOrSelection()
+    }
+
+    override func pasteCommand() {
+        pasteLineOrClipboard()
     }
 
     // MARK: - 行・単語の操作
@@ -208,44 +164,27 @@ struct PromptTextEditor: NSViewRepresentable {
     @Binding var text: String
     let focusRequest: Int
     let font: NSFont
+    var placeholder: String = ""
     let onKeyInput: (PanelKeyInput) -> Bool
 
+    typealias Coordinator = EditorTextCoordinator
+
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text)
+        EditorTextCoordinator(text: $text)
     }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
-        scrollView.drawsBackground = false
-        scrollView.hasVerticalScroller = true
-        scrollView.autohidesScrollers = true
-        scrollView.hasHorizontalScroller = false
-        scrollView.borderType = .noBorder
-
         let textView = PromptTextView()
         textView.delegate = context.coordinator
         textView.onKeyInput = onKeyInput
-        textView.isRichText = false
-        textView.allowsUndo = true
-        textView.isAutomaticQuoteSubstitutionEnabled = false
-        textView.isAutomaticDashSubstitutionEnabled = false
-        textView.isAutomaticTextReplacementEnabled = false
+        textView.configurePlainTextEditing(
+            textContainerInset: PanelMetrics.textContainerInset,
+            accessibilityIdentifier: "promptPanel.textView"
+        )
         textView.applyFont(font)
-        textView.textColor = .textColor
-        textView.drawsBackground = false
-        textView.textContainerInset = PanelMetrics.textContainerInset
-        textView.minSize = NSSize(width: 0, height: 0)
-        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        textView.isVerticallyResizable = true
-        textView.isHorizontallyResizable = false
-        textView.autoresizingMask = [.width]
-        textView.textContainer?.widthTracksTextView = true
-        textView.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+        textView.placeholder = placeholder
         textView.string = text
-        textView.setAccessibilityIdentifier("promptPanel.textView")
-
-        scrollView.documentView = textView
-        return scrollView
+        return EditorTextView.scrollView(containing: textView, backgroundColor: nil)
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
@@ -253,35 +192,10 @@ struct PromptTextEditor: NSViewRepresentable {
         textView.onKeyInput = onKeyInput
         context.coordinator.text = $text
         textView.applyFont(font)
-
-        if textView.string != text && !textView.hasMarkedText() {
-            textView.string = text
-            textView.undoManager?.removeAllActions()
+        if textView.placeholder != placeholder {
+            textView.placeholder = placeholder
         }
-
-        if context.coordinator.lastFocusRequest != focusRequest {
-            context.coordinator.lastFocusRequest = focusRequest
-            DispatchQueue.main.async { [weak textView] in
-                guard let textView else { return }
-                textView.window?.makeFirstResponder(textView)
-                let end = (textView.string as NSString).length
-                textView.setSelectedRange(NSRange(location: end, length: 0))
-                textView.scrollRangeToVisible(NSRange(location: end, length: 0))
-            }
-        }
-    }
-
-    final class Coordinator: NSObject, NSTextViewDelegate {
-        var text: Binding<String>
-        var lastFocusRequest: Int?
-
-        init(text: Binding<String>) {
-            self.text = text
-        }
-
-        func textDidChange(_ notification: Notification) {
-            guard let textView = notification.object as? NSTextView else { return }
-            text.wrappedValue = textView.string
-        }
+        context.coordinator.syncText(text, to: textView)
+        context.coordinator.focusIfRequested(focusRequest, textView: textView)
     }
 }

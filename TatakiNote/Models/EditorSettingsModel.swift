@@ -6,7 +6,7 @@ enum StatusItemNote: Equatable {
     case keyNotAssigned
 }
 
-/// 設定画面の「エディタ設定」の状態(フォント・文字サイズ・透明度・帯の項目)。
+/// 設定画面の「パネル」の状態(フォント・文字サイズ・透明度・帯の項目)。
 @Observable final class EditorSettingsModel {
     @ObservationIgnored private let settings: AppSettings
 

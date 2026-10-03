@@ -17,7 +17,7 @@ final class PanelStatusBarUITests: XCTestCase {
     func testAC6_AC8_AC12_defaultStatusBar() throws {
         let app = try launchApp(seed: nil)
         let textView = openPanel(in: app)
-        XCTAssertEqual(textView.value as? String, "")
+        XCTAssertEqual(textView.promptPanelText, "")
 
         XCTAssertTrue(statusBar(in: app).waitForExistence(timeout: timeout), "帯が無い")
         assertLabel(statusItem("close", in: app), "esc 閉じる")

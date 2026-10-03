@@ -175,14 +175,7 @@ struct CGEventPasteShortcutPoster: PasteShortcutPosting {
     private let vKeyCode: CGKeyCode = 9
 
     func postPasteShortcut() {
-        let source = CGEventSource(stateID: .combinedSessionState)
-        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: false)
-        else { return }
-        keyDown.flags = .maskCommand
-        keyUp.flags = .maskCommand
-        keyDown.post(tap: .cghidEventTap)
-        keyUp.post(tap: .cghidEventTap)
+        KeyEventPair(keyCode: vKeyCode, flags: .maskCommand)?.post()
     }
 }
 
@@ -251,7 +244,7 @@ final class ClipboardTextInserter: TextInserting {
         let capturing = Task { await snapshotter.capture() }
         try? await Task.sleep(for: settleDelay)
 
-        let isOwnTarget = target.processIdentifier == ownProcessIdentifier
+        let isOwnTarget = target.isOwnApp(ownProcessIdentifier)
         if !isOwnTarget, focusInspector.focusedTextInputState(in: target) == .notTextInput {
             _ = await capturing.value
             return .noTextInput

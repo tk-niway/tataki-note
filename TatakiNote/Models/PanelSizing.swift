@@ -37,6 +37,6 @@ import Observation
     // MARK: - 計算
 
     func openingSize(in visibleFrame: CGRect) -> CGSize {
-        CGSize(width: min(baseSize.width, visibleFrame.width), height: min(baseSize.height, visibleFrame.height))
+        PanelPlacement.fittedSize(baseSize, in: visibleFrame)
     }
 }

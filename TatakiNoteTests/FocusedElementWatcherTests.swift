@@ -132,8 +132,8 @@ final class WatcherFixture {
         advance(by: FocusedElementWatcher.activationGrace + 0.01)
     }
 
-    func dismissAndWait() {
-        watcher.handlePanelDismissed()
+    func dismissAndWait(_ dismissal: PanelDismissal = .cancelled) {
+        watcher.handlePanelDismissed(dismissal, panelTarget: Self.editor)
         advance(by: FocusedElementWatcher.dismissGrace + 0.01)
     }
 
@@ -284,7 +284,7 @@ struct FocusedElementWatcherTests {
         fixture.watcher.handleFocusChanged()
         #expect(fixture.showCount == 1)
 
-        fixture.watcher.handlePanelDismissed()
+        fixture.watcher.handlePanelDismissed(.cancelled, panelTarget: WatcherFixture.editor)
         fixture.advance(by: FocusedElementWatcher.dismissGrace / 2)
         fixture.watcher.handleFocusChanged()
         #expect(fixture.showCount == 1)
@@ -292,7 +292,7 @@ struct FocusedElementWatcherTests {
         fixture.watcher.handleFocusChanged()
         #expect(fixture.showCount == 1)
 
-        fixture.watcher.handlePanelDismissed()
+        fixture.watcher.handlePanelDismissed(.cancelled, panelTarget: WatcherFixture.editor)
         fixture.focusTextField(fieldF)
         fixture.advance(by: FocusedElementWatcher.dismissGrace / 2)
         fixture.watcher.handleFocusChanged()
@@ -311,7 +311,7 @@ struct FocusedElementWatcherTests {
         let firstDismissal = fixture.environment.now
         fixture.panelModel.present(target: WatcherFixture.editor)
         fixture.panelModel.dismiss()
-        await waitUntil { fixture.watcher.panelDismissedAt == firstDismissal }
+        await yieldUntil { fixture.watcher.panelDismissedAt == firstDismissal }
         #expect(fixture.watcher.panelDismissedAt == firstDismissal)
 
         fixture.advance(by: 10)
@@ -324,7 +324,7 @@ struct FocusedElementWatcherTests {
         fixture.advance(by: 10)
         let secondDismissal = fixture.environment.now
         fixture.panelModel.dismiss()
-        await waitUntil { fixture.watcher.panelDismissedAt == secondDismissal }
+        await yieldUntil { fixture.watcher.panelDismissedAt == secondDismissal }
         #expect(fixture.watcher.panelDismissedAt == secondDismissal)
 
         fixture.activate(WatcherFixture.editor)
@@ -332,12 +332,12 @@ struct FocusedElementWatcherTests {
         fixture.panelModel.present(target: WatcherFixture.editor)
         fixture.panelModel.dismiss()
         let thirdDismissal = fixture.environment.now
-        await waitUntil { fixture.watcher.panelDismissedAt == thirdDismissal }
+        await yieldUntil { fixture.watcher.panelDismissedAt == thirdDismissal }
         fixture.watcher.handleFocusChanged()
         #expect(fixture.showCount == 0)
     }
 
-    @Test("AC-10: 閉じたあと同じ入力欄の枠の中をクリックすると出し、枠の外や枠が分からないときは出さない")
+    @Test("AC-10: 確定で閉じた直後でも同じ入力欄の枠の中をクリックすると出し、枠の外や枠が分からないときは出さない")
     func clickInsideFocusedElementShows() throws {
         let fixture = try WatcherFixture()
         defer { fixture.removeSuite() }
@@ -358,7 +358,7 @@ struct FocusedElementWatcherTests {
         fixture.watcher.handleClick()
         #expect(fixture.showCount == 1)
 
-        fixture.watcher.handlePanelDismissed()
+        fixture.watcher.handlePanelDismissed(.committed, panelTarget: WatcherFixture.editor)
         fixture.advance(by: FocusedElementWatcher.dismissGrace / 2)
         fixture.watcher.handleClick()
         #expect(fixture.showCount == 2)
@@ -498,12 +498,5 @@ struct FocusedElementWatcherTests {
 
         #expect(fixture.probe.targets.isEmpty)
         #expect(fixture.showCount == 0)
-    }
-
-    private func waitUntil(_ condition: () -> Bool) async {
-        let deadline = ContinuousClock.now + .seconds(1)
-        while !condition() && ContinuousClock.now < deadline {
-            await Task.yield()
-        }
     }
 }

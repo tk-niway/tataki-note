@@ -5,12 +5,11 @@ import Testing
 @MainActor
 struct EditorSettingsModelTests {
     private func makeSettings(suite name: String) throws -> AppSettings {
-        let defaults = try #require(UserDefaults(suiteName: name))
-        return AppSettings(store: SettingsStore(defaults: defaults))
+        try TemporaryDefaults(name: name).makeSettings()
     }
 
     private func removeSuite(_ name: String) {
-        UserDefaults(suiteName: name)?.removePersistentDomain(forName: name)
+        TemporaryDefaults.remove(named: name)
     }
 
     // MARK: - フォントの名前の表示

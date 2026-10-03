@@ -3,33 +3,10 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-final class GuidePermissionStub: AccessibilityPermissionChecking {
-    var isTrusted: Bool
-    private(set) var promptCount = 0
-
-    init(isTrusted: Bool) {
-        self.isTrusted = isTrusted
-    }
-
-    func requestSystemPrompt() {
-        promptCount += 1
-    }
-}
-
-@MainActor
-final class SettingsOpenerStub: AccessibilitySettingsOpening {
-    private(set) var openCount = 0
-
-    func openAccessibilitySettings() {
-        openCount += 1
-    }
-}
-
-@MainActor
 struct PermissionGuideModelTests {
     @Test("AC-1: 許可が無いと、起動時の案内が開き、許可が無いこと(手順を出す状態)になる")
     func launchWithoutPermissionPresents() {
-        let model = PermissionGuideModel(permission: GuidePermissionStub(isTrusted: false), opener: SettingsOpenerStub())
+        let model = PermissionGuideModel(permission: PermissionStub(isTrusted: false), opener: SettingsOpenerStub())
 
         #expect(model.presentOnLaunchIfNeeded() == true)
         #expect(model.isPresented == true)
@@ -38,7 +15,7 @@ struct PermissionGuideModelTests {
 
     @Test("AC-2: 許可があると、起動時の案内は開かない")
     func launchWithPermissionDoesNotPresent() {
-        let model = PermissionGuideModel(permission: GuidePermissionStub(isTrusted: true), opener: SettingsOpenerStub())
+        let model = PermissionGuideModel(permission: PermissionStub(isTrusted: true), opener: SettingsOpenerStub())
 
         #expect(model.presentOnLaunchIfNeeded() == false)
         #expect(model.isPresented == false)
@@ -47,7 +24,7 @@ struct PermissionGuideModelTests {
 
     @Test("AC-1, AC-2: 起動時の判定は、作った後に変わった許可の状態で行う")
     func launchUsesCurrentPermission() {
-        let permission = GuidePermissionStub(isTrusted: true)
+        let permission = PermissionStub(isTrusted: true)
         let model = PermissionGuideModel(permission: permission, opener: SettingsOpenerStub())
         permission.isTrusted = false
 
@@ -57,7 +34,7 @@ struct PermissionGuideModelTests {
 
     @Test("AC-3: 確定で開くと、下書きに残っていることを出す理由になる")
     func commitDeniedPresents() {
-        let model = PermissionGuideModel(permission: GuidePermissionStub(isTrusted: false), opener: SettingsOpenerStub())
+        let model = PermissionGuideModel(permission: PermissionStub(isTrusted: false), opener: SettingsOpenerStub())
 
         model.present(reason: .commitDenied)
 
@@ -67,12 +44,12 @@ struct PermissionGuideModelTests {
 
     @Test("AC-4: 開くと、許可があれば許可があること、無ければ手順を出す状態になる")
     func presentShowsCurrentState() {
-        let granted = PermissionGuideModel(permission: GuidePermissionStub(isTrusted: true), opener: SettingsOpenerStub())
+        let granted = PermissionGuideModel(permission: PermissionStub(isTrusted: true), opener: SettingsOpenerStub())
         granted.present(reason: .launch)
         #expect(granted.isPresented == true)
         #expect(granted.state == .granted)
 
-        let notGranted = PermissionGuideModel(permission: GuidePermissionStub(isTrusted: false), opener: SettingsOpenerStub())
+        let notGranted = PermissionGuideModel(permission: PermissionStub(isTrusted: false), opener: SettingsOpenerStub())
         notGranted.present(reason: .launch)
         #expect(notGranted.isPresented == true)
         #expect(notGranted.state == .notGranted(.launch))
@@ -81,7 +58,7 @@ struct PermissionGuideModelTests {
     @Test("AC-5: 「システム設定を開く」でシステム設定のアクセシビリティを開く操作が1回呼ばれ、開く URL は決めたもの")
     func openSystemSettingsCallsOpener() throws {
         let opener = SettingsOpenerStub()
-        let model = PermissionGuideModel(permission: GuidePermissionStub(isTrusted: false), opener: opener)
+        let model = PermissionGuideModel(permission: PermissionStub(isTrusted: false), opener: opener)
         model.present(reason: .launch)
 
         model.openSystemSettings()
@@ -97,31 +74,31 @@ struct PermissionGuideModelTests {
 
     @Test("「システム設定を開く」は、許可が無ければシステムの許可のダイアログを求めてから開く(一覧に載るように)")
     func openSystemSettingsRequestsPromptWhenNotTrusted() {
-        let permission = GuidePermissionStub(isTrusted: false)
+        let permission = PermissionStub(isTrusted: false)
         let opener = SettingsOpenerStub()
         let model = PermissionGuideModel(permission: permission, opener: opener)
 
         model.openSystemSettings()
 
-        #expect(permission.promptCount == 1)
+        #expect(permission.promptRequestCount == 1)
         #expect(opener.openCount == 1)
     }
 
     @Test("「システム設定を開く」は、許可があればシステムの許可のダイアログを求めない")
     func openSystemSettingsSkipsPromptWhenTrusted() {
-        let permission = GuidePermissionStub(isTrusted: true)
+        let permission = PermissionStub(isTrusted: true)
         let opener = SettingsOpenerStub()
         let model = PermissionGuideModel(permission: permission, opener: opener)
 
         model.openSystemSettings()
 
-        #expect(permission.promptCount == 0)
+        #expect(permission.promptRequestCount == 0)
         #expect(opener.openCount == 1)
     }
 
     @Test("AC-6: 開いている間に許可が変わると、確かめ直すだけで表示の状態が変わる")
     func refreshFollowsPermissionChanges() {
-        let permission = GuidePermissionStub(isTrusted: false)
+        let permission = PermissionStub(isTrusted: false)
         let model = PermissionGuideModel(permission: permission, opener: SettingsOpenerStub())
         model.present(reason: .commitDenied)
         #expect(model.state == .notGranted(.commitDenied))
@@ -138,7 +115,7 @@ struct PermissionGuideModelTests {
 
     @Test("閉じると開いていない状態になる")
     func dismissClears() {
-        let model = PermissionGuideModel(permission: GuidePermissionStub(isTrusted: false), opener: SettingsOpenerStub())
+        let model = PermissionGuideModel(permission: PermissionStub(isTrusted: false), opener: SettingsOpenerStub())
         model.present(reason: .launch)
 
         model.dismiss()
@@ -148,7 +125,7 @@ struct PermissionGuideModelTests {
 
     @Test("AC-13: 起動時の案内を開いたまま確定で開き直すと、理由が確定に変わり、下書きの表示の状態になる")
     func representReplacesReason() {
-        let model = PermissionGuideModel(permission: GuidePermissionStub(isTrusted: false), opener: SettingsOpenerStub())
+        let model = PermissionGuideModel(permission: PermissionStub(isTrusted: false), opener: SettingsOpenerStub())
         model.present(reason: .launch)
 
         model.present(reason: .commitDenied)

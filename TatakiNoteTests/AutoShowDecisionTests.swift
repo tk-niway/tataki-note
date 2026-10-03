@@ -21,7 +21,8 @@ struct AutoShowDecisionTests {
             isSameElementAsLastShown: false,
             isJustActivated: false,
             isJustDismissed: false,
-            isClickInsideFocusedElement: false
+            isClickInsideFocusedElement: false,
+            isClickSuppressed: false
         )
         change(&input)
         return input
@@ -129,6 +130,33 @@ struct AutoShowDecisionTests {
 
         #expect(!AutoShowDecision.shouldShow(clickInput { $0.isClickInsideFocusedElement = false }))
         #expect(AutoShowDecision.shouldShow(input { $0.isClickInsideFocusedElement = false }))
+    }
+
+    @Test("AC-2: クリックを抑えていれば枠の中のクリックでも出さず、抑えていなければ出す。フォーカスの移動の結果は抑えているかに左右されない")
+    func suppressedClickDoesNotShow() {
+        #expect(AutoShowDecision.shouldShow(clickInput()))
+        #expect(!AutoShowDecision.shouldShow(clickInput { $0.isClickSuppressed = true }))
+        #expect(!AutoShowDecision.shouldShow(clickInput {
+            $0.isClickSuppressed = true
+            $0.isSameElementAsLastShown = true
+            $0.isJustDismissed = true
+            $0.isJustActivated = true
+        }))
+        #expect(!AutoShowDecision.shouldShow(clickInput {
+            $0.isClickSuppressed = true
+            $0.isClickInsideFocusedElement = false
+        }))
+
+        #expect(AutoShowDecision.shouldShow(input()))
+        #expect(AutoShowDecision.shouldShow(input { $0.isClickSuppressed = true }))
+        #expect(!AutoShowDecision.shouldShow(input {
+            $0.isClickSuppressed = true
+            $0.isJustDismissed = true
+        }))
+        #expect(!AutoShowDecision.shouldShow(input {
+            $0.isClickSuppressed = true
+            $0.isSameElementAsLastShown = true
+        }))
     }
 
     @Test("AC-10: Cocoa の座標(左下が原点)を、アクセシビリティの座標(左上が原点)に直す")

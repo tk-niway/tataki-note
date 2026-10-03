@@ -123,6 +123,63 @@ struct PanelModelTests {
         #expect(model.text == "draft")
     }
 
+    @Test("AC-1: dismiss で閉じると「挿入せずに閉じた」、一度も閉じていなければ記録は無い")
+    func dismissRecordsCancelled() {
+        let model = PanelModel()
+        #expect(model.lastDismissal == nil)
+
+        model.present(target: textEdit)
+        #expect(model.lastDismissal == nil)
+
+        model.dismiss()
+        #expect(model.lastDismissal == .cancelled)
+    }
+
+    @Test("AC-1: prepareCommit で閉じると、空・許可なし・挿入先なし・挿入のどれでも「確定した」")
+    func commitRecordsCommittedForEveryPlan() {
+        let empty = PanelModel()
+        empty.present(target: textEdit)
+        #expect(empty.prepareCommit(isAccessibilityTrusted: true) == .dismissOnly)
+        #expect(empty.lastDismissal == .committed)
+
+        let denied = PanelModel()
+        denied.present(target: textEdit)
+        denied.text = "draft"
+        #expect(denied.prepareCommit(isAccessibilityTrusted: false) == .permissionDenied)
+        #expect(denied.lastDismissal == .committed)
+
+        let noTarget = PanelModel()
+        noTarget.present(target: nil)
+        noTarget.text = "draft"
+        #expect(noTarget.prepareCommit(isAccessibilityTrusted: true) == .noTarget)
+        #expect(noTarget.lastDismissal == .committed)
+
+        let inserted = PanelModel()
+        inserted.present(target: textEdit)
+        inserted.text = "hello"
+        #expect(inserted.prepareCommit(isAccessibilityTrusted: true) == .insert(text: "hello", target: textEdit))
+        #expect(inserted.lastDismissal == .committed)
+    }
+
+    @Test("AC-1: 閉じた状態での dismiss は記録を変えず、開き直して閉じれば新しい閉じ方になる")
+    func dismissWhileClosedKeepsLastDismissal() {
+        let model = PanelModel()
+        model.present(target: textEdit)
+        model.text = "hello"
+        _ = model.prepareCommit(isAccessibilityTrusted: true)
+
+        model.dismiss()
+        #expect(model.lastDismissal == .committed)
+
+        model.present(target: textEdit)
+        model.dismiss()
+        #expect(model.lastDismissal == .cancelled)
+
+        model.present(target: textEdit)
+        _ = model.prepareCommit(isAccessibilityTrusted: true)
+        #expect(model.lastDismissal == .committed)
+    }
+
     @Test("AC-9: 下書きへの戻しは、空なら戻し、書きかけがあれば上書きしない")
     func restoreDraftOnlyWhenEmpty() {
         let model = PanelModel()

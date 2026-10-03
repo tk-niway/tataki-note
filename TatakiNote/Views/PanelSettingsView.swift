@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// 設定画面の「エディタ設定」。
-struct EditorSettingsView: View {
+/// 設定画面の「パネル」。
+struct PanelSettingsView: View {
     @Bindable var settings: AppSettings
     @Bindable var model: EditorSettingsModel
     @Bindable var panelDefaultSize: PanelDefaultSizeModel
@@ -9,6 +9,21 @@ struct EditorSettingsView: View {
 
     var body: some View {
         Form {
+            LabeledContent("パネルを出す位置") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Picker("パネルを出す位置", selection: $settings.panelScreen) {
+                        ForEach(PanelScreen.allCases, id: \.self) { panelScreen in
+                            Text(panelScreen.displayName).tag(panelScreen)
+                        }
+                    }
+                    .pickerStyle(.radioGroup)
+                    .labelsHidden()
+                    .accessibilityIdentifier("settings.panelScreenPicker")
+                    SettingDescription(text: "パネルを新しく開くときに出す位置です。「入力欄の近く」は、挿入先のアプリで選ばれている入力欄の近くに出します。入力欄の位置が分からないときは、挿入先のウィンドウがある画面の中央に出します。ほかの3つは、その画面の中央に出します(挿入先のウィンドウが分からないときは、マウスのある画面)。「メインの画面」は、システム設定の「ディスプレイ」でメインディスプレイにしている画面です。")
+                }
+            }
+            .padding(.bottom, 12)
+
             LabeledContent("フォント") {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(verbatim: model.fontDisplayName)
@@ -71,42 +86,20 @@ struct EditorSettingsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 16) {
-                            HStack(spacing: 6) {
-                                Text("幅")
-                                TextField("幅", value: $panelDefaultSize.width, format: .number.grouping(.never))
-                                    .labelsHidden()
-                                    .multilineTextAlignment(.trailing)
-                                    .monospacedDigit()
-                                    .frame(width: 56)
-                                    .accessibilityIdentifier("settings.panelDefaultWidthField")
-                                Stepper(
-                                    value: $panelDefaultSize.width,
-                                    in: PanelDefaultSizeModel.widthRange,
-                                    step: PanelDefaultSizeModel.step
-                                ) {
-                                    Text("幅")
-                                }
-                                .labelsHidden()
-                                .accessibilityIdentifier("settings.panelDefaultWidthStepper")
-                            }
-                            HStack(spacing: 6) {
-                                Text("高さ")
-                                TextField("高さ", value: $panelDefaultSize.height, format: .number.grouping(.never))
-                                    .labelsHidden()
-                                    .multilineTextAlignment(.trailing)
-                                    .monospacedDigit()
-                                    .frame(width: 56)
-                                    .accessibilityIdentifier("settings.panelDefaultHeightField")
-                                Stepper(
-                                    value: $panelDefaultSize.height,
-                                    in: PanelDefaultSizeModel.heightRange,
-                                    step: PanelDefaultSizeModel.step
-                                ) {
-                                    Text("高さ")
-                                }
-                                .labelsHidden()
-                                .accessibilityIdentifier("settings.panelDefaultHeightStepper")
-                            }
+                            PanelDefaultLengthField(
+                                label: "幅",
+                                value: $panelDefaultSize.width,
+                                range: PanelDefaultSizeModel.widthRange,
+                                fieldIdentifier: "settings.panelDefaultWidthField",
+                                stepperIdentifier: "settings.panelDefaultWidthStepper"
+                            )
+                            PanelDefaultLengthField(
+                                label: "高さ",
+                                value: $panelDefaultSize.height,
+                                range: PanelDefaultSizeModel.heightRange,
+                                fieldIdentifier: "settings.panelDefaultHeightField",
+                                stepperIdentifier: "settings.panelDefaultHeightStepper"
+                            )
                         }
                         Button("今のパネルの大きさを既定にする") {
                             panelDefaultSize.useCurrentPanelSize()
@@ -139,36 +132,6 @@ struct EditorSettingsView: View {
                     SettingDescription(text: "パネルの下の帯に出す項目です。すべて外すと帯ごと消え、そのぶん入力欄が広がります。")
                 }
             }
-            .padding(.bottom, 12)
-
-            LabeledContent("ショートカットキー") {
-                VStack(alignment: .leading, spacing: 6) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(EditorShortcuts.all) { shortcut in
-                            if shortcut.id != EditorShortcuts.all.first?.id {
-                                Divider()
-                            }
-                            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                                Text(verbatim: shortcut.keys)
-                                    .frame(width: 96, alignment: .leading)
-                                Text(verbatim: shortcut.action)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.vertical, 5)
-                            .accessibilityElement(children: .combine)
-                            .accessibilityIdentifier("settings.shortcut.\(shortcut.id)")
-                        }
-                    }
-                    .padding(.horizontal, 10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
-                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: .separatorColor)))
-                    .accessibilityElement(children: .contain)
-                    .accessibilityIdentifier("settings.shortcutList")
-                    SettingDescription(text: "パネルの入力欄で使えるキーです(割り当ては変えられません)。改行・閉じる・確定のキーは、パネルの下の帯と「一般」で確かめられます。")
-                }
-            }
         }
         .formStyle(.columns)
         .settingsDetailPadding()
@@ -179,5 +142,30 @@ struct EditorSettingsView: View {
             get: { model.isStatusItemVisible(item) },
             set: { model.setStatusItem(item, isVisible: $0) }
         )
+    }
+}
+
+private struct PanelDefaultLengthField: View {
+    let label: LocalizedStringKey
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    let fieldIdentifier: String
+    let stepperIdentifier: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(label)
+            TextField(label, value: $value, format: .number.grouping(.never))
+                .labelsHidden()
+                .multilineTextAlignment(.trailing)
+                .monospacedDigit()
+                .frame(width: 56)
+                .accessibilityIdentifier(fieldIdentifier)
+            Stepper(value: $value, in: range, step: PanelDefaultSizeModel.step) {
+                Text(label)
+            }
+            .labelsHidden()
+            .accessibilityIdentifier(stepperIdentifier)
+        }
     }
 }

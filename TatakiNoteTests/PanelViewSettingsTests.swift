@@ -91,6 +91,18 @@ struct PanelViewSettingsTests {
         #expect(textView.typingAttributes[.font] as? NSFont == NSFont.systemFont(ofSize: 14))
     }
 
+    @Test("AC-1: パネルの入力欄のアクセシビリティのプレースホルダーが「ここにプロンプトを書く…」になり、入力欄自身は薄い文字を描かない")
+    func placeholderIsExposedToAccessibility() throws {
+        let harness = try PanelViewHarness()
+        defer { harness.removeDefaults() }
+        let textView = try #require(harness.textView)
+
+        #expect(PanelView.placeholderText == "ここにプロンプトを書く…")
+        #expect(textView.accessibilityPlaceholderValue() == "ここにプロンプトを書く…")
+        #expect(textView.placeholder == "ここにプロンプトを書く…")
+        #expect(textView.drawsPlaceholder == false)
+    }
+
     @Test("AC-1: 設定のフォント・文字サイズが、入力欄の文字に当たる")
     func configuredFontIsApplied() throws {
         let menlo = try #require(NSFont(name: "Menlo-Regular", size: 20))

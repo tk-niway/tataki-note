@@ -17,15 +17,24 @@ struct PanelView: View {
 
     private static let titleText = "TatakiNote"
 
+    /// 入力欄が空のときに出す薄い文字。
+    static let placeholderText = String(localized: "ここにプロンプトを書く…")
+
     var body: some View {
         let font = settings.panelFont
         let content = statusBarContent
         VStack(spacing: 0) {
-            PromptTextEditor(text: $model.text, focusRequest: model.focusRequest, font: font, onKeyInput: onKeyInput)
+            PromptTextEditor(
+                text: $model.text,
+                focusRequest: model.focusRequest,
+                font: font,
+                placeholder: Self.placeholderText,
+                onKeyInput: onKeyInput
+            )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .topLeading) {
                     if model.text.isEmpty {
-                        Text("ここにプロンプトを書く…")
+                        Text(verbatim: Self.placeholderText)
                             .font(Font(font as CTFont))
                             .foregroundStyle(.tertiary)
                             .padding(.leading, Self.placeholderInset.width)
@@ -87,8 +96,8 @@ struct PanelView: View {
         PanelStatusBarContent(
             text: model.text,
             items: settings.panelStatusItems,
-            commitKey: settings.commitKey,
-            commitAndSendKey: settings.commitAndSendKey
+            commitKeyText: settings.commitKeyDisplayText,
+            commitAndSendKeyText: settings.commitAndSendKeyDisplayText
         )
     }
 }

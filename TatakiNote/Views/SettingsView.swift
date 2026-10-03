@@ -44,9 +44,11 @@ struct SettingsView: View {
             ScrollView(.vertical) {
                 switch model.selectedSection {
                 case .general:
-                    GeneralSettingsView(settings: settings, keySettings: keySettingsModel, launchAtLogin: launchAtLogin)
-                case .editor:
-                    EditorSettingsView(
+                    GeneralSettingsView(settings: settings, launchAtLogin: launchAtLogin)
+                case .keys:
+                    KeySettingsView(keySettings: keySettingsModel)
+                case .panel:
+                    PanelSettingsView(
                         settings: settings,
                         model: editorModel,
                         panelDefaultSize: panelDefaultSize,

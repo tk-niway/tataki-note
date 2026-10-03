@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 設定ウィンドウの右側(「一般」「エディタ設定」「アプリ情報」)の余白。
+/// 設定ウィンドウの右側(「一般」「キー」「パネル」「アプリ情報」)の余白。
 enum SettingsDetailLayout {
     static let leading: CGFloat = 20
     static let trailing: CGFloat = 36

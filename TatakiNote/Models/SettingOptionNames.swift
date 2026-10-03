@@ -66,8 +66,10 @@ extension SettingsSection {
         switch self {
         case .general:
             String(localized: "一般")
-        case .editor:
-            String(localized: "エディタ設定")
+        case .keys:
+            String(localized: "キー")
+        case .panel:
+            String(localized: "パネル")
         case .appInfo:
             String(localized: "アプリ情報")
         }
@@ -77,8 +79,10 @@ extension SettingsSection {
         switch self {
         case .general:
             "gearshape"
-        case .editor:
-            "textformat"
+        case .keys:
+            "keyboard"
+        case .panel:
+            "macwindow"
         case .appInfo:
             "info.circle"
         }

@@ -16,9 +16,15 @@ enum PanelPlacement {
         return containing ?? screens.first
     }
 
+    /// 幅と高さを、可視領域を超えないように詰めた大きさ。
+    static func fittedSize(_ size: CGSize, in visibleFrame: CGRect) -> CGSize {
+        CGSize(width: min(size.width, visibleFrame.width), height: min(size.height, visibleFrame.height))
+    }
+
     static func centeredFrame(size: CGSize, in visibleFrame: CGRect) -> CGRect {
-        let width = min(size.width, visibleFrame.width)
-        let height = min(size.height, visibleFrame.height)
+        let fitted = fittedSize(size, in: visibleFrame)
+        let width = fitted.width
+        let height = fitted.height
         let x = (visibleFrame.minX + (visibleFrame.width - width) / 2).rounded()
         let y = (visibleFrame.minY + (visibleFrame.height - height) / 2).rounded()
         return CGRect(x: x, y: y, width: width, height: height)
@@ -44,12 +50,7 @@ enum PanelPlacement {
     }
 
     static func cocoaFrame(fromQuartz rect: CGRect, primaryScreenHeight: CGFloat) -> CGRect {
-        CGRect(
-            x: rect.minX,
-            y: primaryScreenHeight - (rect.minY + rect.height),
-            width: rect.width,
-            height: rect.height
-        )
+        ScreenCoordinates.cocoaRect(fromTopLeft: rect, primaryScreenHeight: primaryScreenHeight)
     }
 
     static func screenWithLargestOverlap(with rect: CGRect, in screens: [ScreenGeometry]) -> ScreenGeometry? {

@@ -5,9 +5,8 @@ import Testing
 @MainActor
 struct FirstLaunchFlowTests {
     private func makeDefaults() throws -> (defaults: UserDefaults, cleanup: () -> Void) {
-        let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
-        return (defaults, { defaults.removePersistentDomain(forName: name) })
+        let temp = try TemporaryDefaults()
+        return (temp.defaults, { temp.remove() })
     }
 
     // MARK: - 保存
