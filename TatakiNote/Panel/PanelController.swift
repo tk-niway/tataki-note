@@ -87,7 +87,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         { target.flatMap { locate($0.processIdentifier) } }
     }
 
-    func open() {
+    func open(observedFocus: ObservedFocus? = nil) {
         let target = targetOverride?() ?? targetTracker.currentTarget()
         let wasPresented = model.present(target: target)
         if !wasPresented {
@@ -112,6 +112,7 @@ final class PanelController: NSObject, NSWindowDelegate {
                     isTrusted: isTrusted,
                     target: queriesAccessibility ? target : nil,
                     probe: fieldProbe,
+                    observedFocus: observedFocus,
                     primaryScreenHeight: primaryScreen.frame.height
                 )
             }

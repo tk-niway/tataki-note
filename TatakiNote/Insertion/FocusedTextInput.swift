@@ -76,8 +76,16 @@ struct FocusedElementProbe {
     }
 }
 
+/// 自動表示の見張りが調べた、あるアプリのフォーカスのある要素。
+struct ObservedFocus {
+    let processIdentifier: pid_t
+    let probe: FocusedElementProbe
+}
+
 protocol FocusedElementProbing {
     func probeFocusedElement(in target: InsertionTarget, readsFrame: Bool) -> FocusedElementProbe
+    /// 要素の位置と大きさ(アクセシビリティの座標)。
+    func frame(of element: AXUIElement) -> CGRect?
 }
 
 /// アクセシビリティ API で、挿入先のアプリのフォーカスのある要素を調べる。
@@ -123,7 +131,16 @@ struct AXFocusedTextInputInspector: FocusedTextInputInspecting, FocusedElementPr
             subrole: stringAttribute(kAXSubroleAttribute, of: element),
             isSelectedTextRangeSettable: isSelectedTextRangeSettable
         )
-        return FocusedElementProbe(element: element, lookup: lookup, frame: readsFrame ? frame(of: element) : nil)
+        return FocusedElementProbe(
+            element: element,
+            lookup: lookup,
+            frame: Self.shouldReadFrame(requested: readsFrame, lookup: lookup) ? frame(of: element) : nil
+        )
+    }
+
+    /// フォーカスのある要素の位置と大きさを読むか。
+    static func shouldReadFrame(requested: Bool, lookup: FocusedElementLookup) -> Bool {
+        requested && FocusedTextInputState.classify(lookup) == .textInput
     }
 
     private func stringAttribute(_ attribute: String, of element: AXUIElement) -> String? {
@@ -134,7 +151,8 @@ struct AXFocusedTextInputInspector: FocusedTextInputInspecting, FocusedElementPr
         return value as? String
     }
 
-    private func frame(of element: AXUIElement) -> CGRect? {
+    func frame(of element: AXUIElement) -> CGRect? {
+        AXUIElementSetMessagingTimeout(element, Self.messagingTimeout)
         var origin = CGPoint.zero
         var size = CGSize.zero
         guard let positionValue = axValueAttribute(kAXPositionAttribute, of: element),

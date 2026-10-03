@@ -8,6 +8,8 @@ final class FocusedElementProbeStub: FocusedElementProbing {
     var result: FocusedElementProbe
     private(set) var targets: [InsertionTarget] = []
     private(set) var readsFrameValues: [Bool] = []
+    private(set) var frameRequests: [AXUIElement] = []
+    var elementFrame: CGRect?
 
     init() {
         result = FocusedElementProbe(element: nil, lookup: .noFocusedElement, frame: nil)
@@ -17,6 +19,11 @@ final class FocusedElementProbeStub: FocusedElementProbing {
         targets.append(target)
         readsFrameValues.append(readsFrame)
         return result
+    }
+
+    func frame(of element: AXUIElement) -> CGRect? {
+        frameRequests.append(element)
+        return elementFrame
     }
 }
 

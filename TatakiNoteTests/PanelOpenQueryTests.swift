@@ -338,4 +338,229 @@ struct PanelOpenQueryTests {
 
         #expect(combinations == PanelScreen.allCases.count * fieldFrames.count * windowFrames.count * mouseLocations.count)
     }
+
+    // MARK: - AC-9
+
+    @Test("AC-9: 位置と大きさは、頼まれていて、入力欄のときだけ問い合わせる")
+    func readsFrameOnlyForTextInputWhenRequested() {
+        let unknown = FocusedElementLookup.element(role: "AXGroup", subrole: nil, isSelectedTextRangeSettable: false)
+        let cases: [(name: String, requested: Bool, lookup: FocusedElementLookup, expected: Bool)] = [
+            ("入力欄", true, WatcherFixture.textFieldLookup, true),
+            ("入力欄(頼まれていない)", false, WatcherFixture.textFieldLookup, false),
+            ("入力欄でない", true, WatcherFixture.buttonLookup, false),
+            ("入力欄か分からない", true, unknown, false),
+            ("フォーカスが無い", true, .noFocusedElement, false),
+            ("アプリが答えない", true, .unavailable, false),
+            ("入力欄でない(頼まれていない)", false, WatcherFixture.buttonLookup, false),
+        ]
+        for (name, requested, lookup, expected) in cases {
+            #expect(AXFocusedTextInputInspector.shouldReadFrame(requested: requested, lookup: lookup) == expected, "\(name)")
+        }
+    }
+
+    // MARK: - AC-10, AC-11
+
+    private func quartzToCocoa(_ frame: CGRect) -> CGRect {
+        PanelPlacement.cocoaFrame(fromQuartz: frame, primaryScreenHeight: 800)
+    }
+
+    private func nearFieldFrame(
+        target: InsertionTarget? = nil,
+        probe: FocusedElementProbeStub,
+        observedFocus: ObservedFocus?
+    ) -> CGRect? {
+        PanelOpenPlacement.fieldFrame(
+            mode: .nearFocusedField,
+            isTrusted: true,
+            target: target ?? editor,
+            probe: probe,
+            observedFocus: observedFocus,
+            primaryScreenHeight: 800
+        )
+    }
+
+    @Test("AC-10: 見張りの結果が挿入先と同じアプリのもので枠があれば、それを使い、問い合わせない")
+    func observedFocusWithFrameIsUsedWithoutQuery() {
+        let probe = FocusedElementProbeStub()
+        probe.elementFrame = rectOnB
+        let observed = ObservedFocus(
+            processIdentifier: editor.processIdentifier,
+            probe: FocusedElementProbe(element: element, lookup: WatcherFixture.textFieldLookup, frame: rectOnA)
+        )
+
+        let frame = nearFieldFrame(probe: probe, observedFocus: observed)
+
+        #expect(frame == quartzToCocoa(rectOnA))
+        #expect(probe.targets.isEmpty)
+        #expect(probe.frameRequests.isEmpty)
+    }
+
+    @Test("AC-10: 見張りの結果に枠が無ければ、その要素の枠だけを1回読み、フォーカスのある要素は問い合わせない")
+    func observedFocusWithoutFrameReadsOnlyElementFrame() {
+        let probe = FocusedElementProbeStub()
+        probe.elementFrame = rectOnB
+        let observed = ObservedFocus(
+            processIdentifier: editor.processIdentifier,
+            probe: FocusedElementProbe(element: element, lookup: WatcherFixture.textFieldLookup, frame: nil)
+        )
+
+        let frame = nearFieldFrame(probe: probe, observedFocus: observed)
+
+        #expect(frame == quartzToCocoa(rectOnB))
+        #expect(probe.targets.isEmpty)
+        #expect(probe.frameRequests.count == 1)
+        #expect(probe.frameRequests.first.map { CFEqual($0, element) } == true)
+    }
+
+    @Test("AC-10: 見張りの結果が入力欄でない・入力欄か分からないときは、入力欄の近くには出さず、何も問い合わせない")
+    func observedFocusNotTextInputIsNotQueried() {
+        let unknown = FocusedElementLookup.element(role: "AXGroup", subrole: nil, isSelectedTextRangeSettable: false)
+        for lookup in [WatcherFixture.buttonLookup, unknown, .noFocusedElement, .unavailable] {
+            let probe = FocusedElementProbeStub()
+            probe.elementFrame = rectOnA
+            let observed = ObservedFocus(
+                processIdentifier: editor.processIdentifier,
+                probe: FocusedElementProbe(element: element, lookup: lookup, frame: nil)
+            )
+
+            let frame = nearFieldFrame(probe: probe, observedFocus: observed)
+
+            #expect(frame == nil, "\(lookup)")
+            #expect(probe.targets.isEmpty, "\(lookup)")
+            #expect(probe.frameRequests.isEmpty, "\(lookup)")
+        }
+    }
+
+    @Test("AC-10: 見張りの結果が入力欄でも、枠も要素も無ければ nil を返し、問い合わせない")
+    func observedFocusWithoutFrameAndElementReturnsNil() {
+        let probe = FocusedElementProbeStub()
+        probe.elementFrame = rectOnA
+        let observed = ObservedFocus(
+            processIdentifier: editor.processIdentifier,
+            probe: FocusedElementProbe(element: nil, lookup: WatcherFixture.textFieldLookup, frame: nil)
+        )
+
+        #expect(nearFieldFrame(probe: probe, observedFocus: observed) == nil)
+        #expect(probe.targets.isEmpty)
+        #expect(probe.frameRequests.isEmpty)
+    }
+
+    @Test("AC-10: パネルを開くとき、見張りの結果が挿入先と同じアプリのものなら、フォーカスのある要素を問い合わせ直さない")
+    func openWithObservedFocusDoesNotQueryAgain() throws {
+        let cases: [(name: String, frame: CGRect?, frameRequests: Int)] = [
+            ("枠あり", rectOnA, 0),
+            ("枠なし", nil, 1),
+        ]
+        for (name, frame, frameRequests) in cases {
+            let probe = FocusedElementProbeStub()
+            probe.elementFrame = rectOnA
+            let observed = ObservedFocus(
+                processIdentifier: editor.processIdentifier,
+                probe: FocusedElementProbe(element: element, lookup: WatcherFixture.textFieldLookup, frame: frame)
+            )
+            try withController(
+                mode: .nearFocusedField,
+                target: editor,
+                probe: probe,
+                recorder: WindowFrameLocateRecorder()
+            ) { controller in
+                controller.open(observedFocus: observed)
+            }
+            #expect(probe.targets.isEmpty, "\(name)")
+            #expect(probe.frameRequests.count == frameRequests, "\(name)")
+        }
+    }
+
+    @Test("AC-10: パネルを開くとき、見張りの結果が入力欄でなければ、何も問い合わせない")
+    func openWithObservedNonTextInputDoesNotQuery() throws {
+        let probe = FocusedElementProbeStub()
+        probe.elementFrame = rectOnA
+        let observed = ObservedFocus(
+            processIdentifier: editor.processIdentifier,
+            probe: FocusedElementProbe(element: element, lookup: WatcherFixture.buttonLookup, frame: nil)
+        )
+        try withController(
+            mode: .nearFocusedField,
+            target: editor,
+            probe: probe,
+            recorder: WindowFrameLocateRecorder()
+        ) { controller in
+            controller.open(observedFocus: observed)
+        }
+        #expect(probe.targets.isEmpty)
+        #expect(probe.frameRequests.isEmpty)
+    }
+
+    @Test("AC-11: 見張りの結果が挿入先と別のアプリのものなら使わず、フォーカスのある要素を1回問い合わせる")
+    func observedFocusOfAnotherAppIsIgnored() {
+        let probe = FocusedElementProbeStub()
+        probe.result = FocusedElementProbe(element: element, lookup: WatcherFixture.textFieldLookup, frame: rectOnB)
+        let observed = ObservedFocus(
+            processIdentifier: WatcherFixture.otherApp.processIdentifier,
+            probe: FocusedElementProbe(element: element, lookup: WatcherFixture.textFieldLookup, frame: rectOnA)
+        )
+
+        let frame = nearFieldFrame(probe: probe, observedFocus: observed)
+
+        #expect(frame == quartzToCocoa(rectOnB))
+        #expect(probe.targets == [editor])
+        #expect(probe.readsFrameValues == [true])
+        #expect(probe.frameRequests.isEmpty)
+    }
+
+    @Test("AC-11: 見張りの結果が無いときは、今までどおりフォーカスのある要素を1回問い合わせる")
+    func withoutObservedFocusQueriesOnce() {
+        let probe = FocusedElementProbeStub()
+        probe.result = FocusedElementProbe(element: element, lookup: WatcherFixture.textFieldLookup, frame: rectOnA)
+
+        let frame = nearFieldFrame(probe: probe, observedFocus: nil)
+
+        #expect(frame == quartzToCocoa(rectOnA))
+        #expect(probe.targets == [editor])
+        #expect(probe.readsFrameValues == [true])
+        #expect(probe.frameRequests.isEmpty)
+    }
+
+    @Test("AC-11: パネルを開くとき、見張りの結果が無い・別のアプリのものなら、フォーカスのある要素を1回問い合わせる")
+    func openWithoutUsableObservedFocusQueriesOnce() throws {
+        let anotherApp = ObservedFocus(
+            processIdentifier: WatcherFixture.otherApp.processIdentifier,
+            probe: FocusedElementProbe(element: element, lookup: WatcherFixture.textFieldLookup, frame: rectOnA)
+        )
+        let cases: [(name: String, observed: ObservedFocus?)] = [
+            ("見張りの結果が無い", nil),
+            ("別のアプリの結果", anotherApp),
+        ]
+        for (name, observed) in cases {
+            let probe = FocusedElementProbeStub()
+            probe.result = FocusedElementProbe(element: element, lookup: WatcherFixture.textFieldLookup, frame: rectOnA)
+            try withController(
+                mode: .nearFocusedField,
+                target: editor,
+                probe: probe,
+                recorder: WindowFrameLocateRecorder()
+            ) { controller in
+                controller.open(observedFocus: observed)
+            }
+            #expect(probe.targets == [editor], "\(name)")
+            #expect(probe.readsFrameValues == [true], "\(name)")
+            #expect(probe.frameRequests.isEmpty, "\(name)")
+        }
+    }
+
+    @Test("AC-11: ホットキー・メニューの引数なしの open() でも、フォーカスのある要素を1回問い合わせる")
+    func openWithoutArgumentQueriesOnce() throws {
+        let probe = FocusedElementProbeStub()
+        probe.result = FocusedElementProbe(element: element, lookup: WatcherFixture.textFieldLookup, frame: rectOnA)
+        try withController(
+            mode: .nearFocusedField,
+            target: editor,
+            probe: probe,
+            recorder: WindowFrameLocateRecorder()
+        ) { controller in
+            controller.open()
+        }
+        #expect(probe.targets == [editor])
+        #expect(probe.readsFrameValues == [true])
+    }
 }
