@@ -65,7 +65,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// 挿入先のアプリへアクセシビリティの問い合わせをしてよいか。自分自身が挿入先のときは問い合わせない。
     static func shouldQueryAccessibility(of target: InsertionTarget?, ownProcessIdentifier: pid_t) -> Bool {
         guard let target else { return false }
-        return target.processIdentifier != ownProcessIdentifier
+        return !target.isOwnApp(ownProcessIdentifier)
     }
 
     func open() {
@@ -86,13 +86,13 @@ final class PanelController: NSObject, NSWindowDelegate {
             if mode.usesTargetWindowFrame, let target {
                 targetWindowFrame = TargetWindowLocator.frontWindowFrame(processIdentifier: target.processIdentifier)
             }
-            let fieldFrame = NSScreen.screens.first.flatMap { primaryScreen in
+            let fieldFrame = ScreenCoordinates.primaryScreenFrame.flatMap { primaryScreenFrame in
                 PanelOpenPlacement.fieldFrame(
                     mode: mode,
                     isTrusted: permission.isTrusted,
                     target: queriesAccessibility ? target : nil,
                     probe: fieldProbe,
-                    primaryScreenHeight: primaryScreen.frame.height
+                    primaryScreenHeight: primaryScreenFrame.height
                 )
             }
             let screens = NSScreen.screens.map { ScreenGeometry(frame: $0.frame, visibleFrame: $0.visibleFrame) }

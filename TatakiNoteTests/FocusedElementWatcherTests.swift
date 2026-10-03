@@ -270,7 +270,7 @@ struct FocusedElementWatcherTests {
         let firstDismissal = fixture.environment.now
         fixture.panelModel.present(target: WatcherFixture.editor)
         fixture.panelModel.dismiss()
-        await waitUntil { fixture.watcher.panelDismissedAt == firstDismissal }
+        await yieldUntil { fixture.watcher.panelDismissedAt == firstDismissal }
         #expect(fixture.watcher.panelDismissedAt == firstDismissal)
 
         fixture.advance(by: 10)
@@ -283,7 +283,7 @@ struct FocusedElementWatcherTests {
         fixture.advance(by: 10)
         let secondDismissal = fixture.environment.now
         fixture.panelModel.dismiss()
-        await waitUntil { fixture.watcher.panelDismissedAt == secondDismissal }
+        await yieldUntil { fixture.watcher.panelDismissedAt == secondDismissal }
         #expect(fixture.watcher.panelDismissedAt == secondDismissal)
 
         fixture.activate(WatcherFixture.editor)
@@ -291,7 +291,7 @@ struct FocusedElementWatcherTests {
         fixture.panelModel.present(target: WatcherFixture.editor)
         fixture.panelModel.dismiss()
         let thirdDismissal = fixture.environment.now
-        await waitUntil { fixture.watcher.panelDismissedAt == thirdDismissal }
+        await yieldUntil { fixture.watcher.panelDismissedAt == thirdDismissal }
         fixture.watcher.handleFocusChanged()
         #expect(fixture.showCount == 0)
     }
@@ -457,12 +457,5 @@ struct FocusedElementWatcherTests {
 
         #expect(fixture.probe.targets.isEmpty)
         #expect(fixture.showCount == 0)
-    }
-
-    private func waitUntil(_ condition: () -> Bool) async {
-        let deadline = ContinuousClock.now + .seconds(1)
-        while !condition() && ContinuousClock.now < deadline {
-            await Task.yield()
-        }
     }
 }

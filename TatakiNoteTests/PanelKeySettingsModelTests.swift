@@ -20,9 +20,8 @@ private final class FakeHotkeyController {
 @MainActor
 struct PanelKeySettingsModelTests {
     private func makeSettings() throws -> (settings: AppSettings, defaults: UserDefaults, name: String) {
-        let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
-        return (AppSettings(store: SettingsStore(defaults: defaults)), defaults, name)
+        let temp = try TemporaryDefaults()
+        return (temp.makeSettings(), temp.defaults, temp.name)
     }
 
     private func makeModel(

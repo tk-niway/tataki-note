@@ -13,8 +13,7 @@ import Testing
 @MainActor
 struct PanelDefaultSizeModelTests {
     private func makeSettings(suite name: String) throws -> AppSettings {
-        let defaults = try #require(UserDefaults(suiteName: name))
-        return AppSettings(store: SettingsStore(defaults: defaults))
+        try TemporaryDefaults(name: name).makeSettings()
     }
 
     private func makeModel(suite name: String, source: HeldPanelSizeSource? = nil) throws -> PanelDefaultSizeModel {
@@ -23,7 +22,7 @@ struct PanelDefaultSizeModelTests {
     }
 
     private func removeSuite(_ name: String) {
-        UserDefaults(suiteName: name)?.removePersistentDomain(forName: name)
+        TemporaryDefaults.remove(named: name)
     }
 
     private func countCanUseChanges(of model: PanelDefaultSizeModel) -> OSAllocatedUnfairLock<Int> {

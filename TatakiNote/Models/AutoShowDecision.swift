@@ -80,6 +80,6 @@ enum AutoShowDecision {
     }
 
     static func accessibilityPoint(fromCocoa point: CGPoint, primaryScreenFrame: CGRect) -> CGPoint {
-        CGPoint(x: point.x, y: primaryScreenFrame.maxY - point.y)
+        ScreenCoordinates.topLeftPoint(fromCocoa: point, primaryScreenHeight: primaryScreenFrame.maxY)
     }
 }

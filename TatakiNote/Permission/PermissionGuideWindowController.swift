@@ -7,7 +7,7 @@ final class PermissionGuideWindowController: NSObject, NSWindowDelegate {
 
     private let settings: AppSettings
     private var window: NSWindow?
-    private var refreshTimer: Timer?
+    private var refreshTask: Task<Void, Never>?
 
     var onProceedToTutorial: (() -> Void)?
 
@@ -60,75 +60,46 @@ final class PermissionGuideWindowController: NSObject, NSWindowDelegate {
     }
 
     private func bringWindowToFront() {
-        let window: NSWindow
-        if let existing = self.window {
-            window = existing
-        } else {
-            window = makeWindow()
-            self.window = window
-            if let contentView = window.contentView {
-                window.setContentSize(contentView.fittingSize)
-            }
-            window.center()
-        }
-        NSApp.activate()
-        window.makeKeyAndOrderFront(nil)
-        window.orderFrontRegardless()
+        let window = AppWindow.prepare(
+            existing: self.window,
+            make: makeWindow,
+            initialContentSize: { $0.contentView?.fittingSize }
+        )
+        self.window = window
+        AppWindow.bringToFront(window)
         updateClosability(of: window)
         startRefreshing()
     }
 
     func makeWindow() -> NSWindow {
-        let window = NSWindow(
-            contentRect: .zero,
+        let model = model
+        return AppWindow.make(
+            title: String(localized: "アクセシビリティの許可"),
+            identifier: "permissionGuide",
             styleMask: Self.styleMask(allowsClosing: model.allowsClosing),
-            backing: .buffered,
-            defer: false
+            delegate: self,
+            rootView: ThemedWindowContent(settings: settings) {
+                PermissionGuideView(
+                    model: model,
+                    onClose: { [weak self] in self?.close() },
+                    onProceed: { [weak self] in self?.proceedToTutorial() }
+                )
+            }
         )
-        window.title = String(localized: "アクセシビリティの許可")
-        window.isReleasedWhenClosed = false
-        window.delegate = self
-        window.identifier = NSUserInterfaceItemIdentifier("permissionGuide")
-        window.contentView = NSHostingView(
-            rootView: PermissionGuideRootView(
-                settings: settings,
-                model: model,
-                onClose: { [weak self] in self?.close() },
-                onProceed: { [weak self] in self?.proceedToTutorial() }
-            )
-        )
-        return window
     }
 
     private func startRefreshing() {
-        guard refreshTimer == nil else { return }
-        let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.model.refresh()
-                if let window = self.window {
-                    self.updateClosability(of: window)
-                }
+        guard refreshTask == nil else { return }
+        refreshTask = Task { [weak self, model] in
+            await model.watch {
+                guard let self, let window = self.window else { return }
+                self.updateClosability(of: window)
             }
         }
-        RunLoop.main.add(timer, forMode: .common)
-        refreshTimer = timer
     }
 
     private func stopRefreshing() {
-        refreshTimer?.invalidate()
-        refreshTimer = nil
-    }
-}
-
-private struct PermissionGuideRootView: View {
-    let settings: AppSettings
-    let model: PermissionGuideModel
-    let onClose: () -> Void
-    let onProceed: () -> Void
-
-    var body: some View {
-        PermissionGuideView(model: model, onClose: onClose, onProceed: onProceed)
-            .windowStyle(theme: settings.theme)
+        refreshTask?.cancel()
+        refreshTask = nil
     }
 }

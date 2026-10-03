@@ -69,21 +69,22 @@ final class FontPanelController: NSObject, NSFontChanging {
 
     private func observeSettings() {
         isObserving = true
-        withObservationTracking {
-            _ = settings.panelFont
-        } onChange: { [weak self] in
-            Task { @MainActor in
-                self?.settingsDidChange()
+        observeRepeatedly(
+            tracking: { [weak self] in
+                _ = self?.settings.panelFont
+            },
+            onChange: { [weak self] in
+                self?.settingsDidChange() ?? false
             }
-        }
+        )
     }
 
-    private func settingsDidChange() {
+    private func settingsDidChange() -> Bool {
         guard isActive else {
             isObserving = false
-            return
+            return false
         }
         syncSelectedFont()
-        observeSettings()
+        return true
     }
 }

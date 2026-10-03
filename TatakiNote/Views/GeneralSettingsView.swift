@@ -67,15 +67,7 @@ private struct LaunchAtLoginErrorNote: View {
     let error: LaunchAtLoginError
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 5) {
-            Image(systemName: "exclamationmark.circle.fill")
-                .foregroundStyle(.red)
-            Text(message)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .font(.system(size: 11))
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("settings.launchAtLoginError")
+        SettingErrorNote(text: message, identifier: "settings.launchAtLoginError")
     }
 
     private var message: LocalizedStringKey {

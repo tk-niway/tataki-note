@@ -5,16 +5,13 @@ import Testing
 
 @MainActor
 struct SettingsWindowThemeTests {
-    private func waitUntil(_ window: NSWindow, _ condition: () -> Bool) async throws {
-        var attempts = 0
-        while attempts < 40 {
-            window.contentView?.layoutSubtreeIfNeeded()
-            if condition() {
-                return
-            }
-            try await Task.sleep(for: .milliseconds(50))
-            attempts += 1
-        }
+    private func waitUntilSettled(_ window: NSWindow, _ condition: () -> Bool) async throws {
+        try await waitUntil(
+            attempts: 40,
+            interval: .milliseconds(50),
+            beforeEachCheck: { window.contentView?.layoutSubtreeIfNeeded() },
+            condition
+        )
     }
 
     private func settingsView(settings: AppSettings) -> SettingsView {
@@ -50,19 +47,19 @@ struct SettingsWindowThemeTests {
         #expect(window.appearance == nil)
         window.contentView = NSHostingView(rootView: settingsView(settings: settings))
 
-        try await waitUntil(window) { window.appearance?.name == .darkAqua }
+        try await waitUntilSettled(window) { window.appearance?.name == .darkAqua }
         #expect(window.appearance?.name == .darkAqua)
 
         settings.theme = .light
-        try await waitUntil(window) { window.appearance?.name == .aqua }
+        try await waitUntilSettled(window) { window.appearance?.name == .aqua }
         #expect(window.appearance?.name == .aqua)
 
         settings.theme = .system
-        try await waitUntil(window) { window.appearance == nil }
+        try await waitUntilSettled(window) { window.appearance == nil }
         #expect(window.appearance == nil)
 
         settings.theme = .dark
-        try await waitUntil(window) { window.appearance?.name == .darkAqua }
+        try await waitUntilSettled(window) { window.appearance?.name == .darkAqua }
         #expect(window.appearance?.name == .darkAqua)
     }
 
@@ -81,15 +78,15 @@ struct SettingsWindowThemeTests {
         let window = controller.makeWindow()
         #expect(window.isVisible == false)
 
-        try await waitUntil(window) { window.appearance?.name == .aqua }
+        try await waitUntilSettled(window) { window.appearance?.name == .aqua }
         #expect(window.appearance?.name == .aqua)
 
         settings.theme = .dark
-        try await waitUntil(window) { window.appearance?.name == .darkAqua }
+        try await waitUntilSettled(window) { window.appearance?.name == .darkAqua }
         #expect(window.appearance?.name == .darkAqua)
 
         settings.theme = .system
-        try await waitUntil(window) { window.appearance == nil }
+        try await waitUntilSettled(window) { window.appearance == nil }
         #expect(window.appearance == nil)
         #expect(controller.model.isPresented == false)
     }

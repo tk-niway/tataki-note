@@ -24,7 +24,6 @@ final class FocusedElementWatcher {
     private let permission: AccessibilityPermissionChecking
     private let probe: FocusedElementProbing
     private let workspace: NSWorkspace
-    private let notificationCenter: NotificationCenter
     private let ownProcessIdentifier: pid_t
     private let primaryScreenFrame: () -> CGRect
     private let mouseLocation: () -> CGPoint
@@ -32,7 +31,7 @@ final class FocusedElementWatcher {
     private let exposeWebContent: (InsertionTarget) -> Void
     private let onShow: () -> Void
 
-    private var activationObserver: (any NSObjectProtocol)?
+    private var activationObserver: FrontmostAppObserver?
     private var clickMonitor: Any?
     private var focusObservation: FocusObservation?
 
@@ -52,7 +51,7 @@ final class FocusedElementWatcher {
         probe: FocusedElementProbing = AXFocusedTextInputInspector(),
         workspace: NSWorkspace = .shared,
         ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier,
-        primaryScreenFrame: @escaping () -> CGRect = { NSScreen.screens.first?.frame ?? .zero },
+        primaryScreenFrame: @escaping () -> CGRect = { ScreenCoordinates.primaryScreenFrame ?? .zero },
         mouseLocation: @escaping () -> CGPoint = { NSEvent.mouseLocation },
         now: @escaping () -> Date = Date.init,
         exposeWebContent: @escaping (InsertionTarget) -> Void = { AXFocusedTextInputInspector.exposeWebContent(of: $0) },
@@ -63,7 +62,6 @@ final class FocusedElementWatcher {
         self.permission = permission
         self.probe = probe
         self.workspace = workspace
-        self.notificationCenter = workspace.notificationCenter
         self.ownProcessIdentifier = ownProcessIdentifier
         self.primaryScreenFrame = primaryScreenFrame
         self.mouseLocation = mouseLocation
@@ -75,9 +73,6 @@ final class FocusedElementWatcher {
     }
 
     deinit {
-        if let activationObserver {
-            notificationCenter.removeObserver(activationObserver)
-        }
         if let clickMonitor {
             NSEvent.removeMonitor(clickMonitor)
         }
@@ -86,15 +81,8 @@ final class FocusedElementWatcher {
 
     func start() {
         guard activationObserver == nil else { return }
-        activationObserver = notificationCenter.addObserver(
-            forName: NSWorkspace.didActivateApplicationNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-            MainActor.assumeIsolated {
-                self?.handleActivation(of: app.map { InsertionTarget($0) })
-            }
+        activationObserver = FrontmostAppObserver(notificationCenter: workspace.notificationCenter) { [weak self] app in
+            self?.handleActivation(of: app.map { InsertionTarget($0) })
         }
         clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseUp]) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -105,10 +93,7 @@ final class FocusedElementWatcher {
     }
 
     func stop() {
-        if let activationObserver {
-            notificationCenter.removeObserver(activationObserver)
-            self.activationObserver = nil
-        }
+        activationObserver = nil
         if let clickMonitor {
             NSEvent.removeMonitor(clickMonitor)
             self.clickMonitor = nil
@@ -156,7 +141,7 @@ final class FocusedElementWatcher {
             mode: settings.autoShowMode,
             selectedApps: settings.autoShowApps,
             isAccessibilityTrusted: permission.isTrusted,
-            isOwnApp: target.processIdentifier == ownProcessIdentifier,
+            isOwnApp: target.isOwnApp(ownProcessIdentifier),
             bundleIdentifier: target.bundleIdentifier
         )
     }
@@ -197,7 +182,7 @@ final class FocusedElementWatcher {
             selectedApps: settings.autoShowApps,
             isAccessibilityTrusted: permission.isTrusted,
             isPanelPresented: panelModel.isPresented,
-            isFrontmostOwnApp: target.processIdentifier == ownProcessIdentifier,
+            isFrontmostOwnApp: target.isOwnApp(ownProcessIdentifier),
             frontmostBundleIdentifier: target.bundleIdentifier,
             focusState: FocusedTextInputState.classify(focused.lookup),
             focusedSubrole: focused.subrole,
@@ -226,17 +211,18 @@ final class FocusedElementWatcher {
     // MARK: - パネルが閉じた時刻
 
     private func observePanelDismissal() {
-        withObservationTracking {
-            _ = panelModel.isPresented
-        } onChange: { [weak self] in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
+        observeRepeatedly(
+            tracking: { [weak self] in
+                _ = self?.panelModel.isPresented
+            },
+            onChange: { [weak self] in
+                guard let self else { return false }
                 if !self.panelModel.isPresented {
                     self.handlePanelDismissed(self.panelModel.lastDismissal ?? .committed, panelTarget: self.panelModel.target)
                 }
-                self.observePanelDismissal()
+                return true
             }
-        }
+        )
     }
 
     // MARK: - AX の監視

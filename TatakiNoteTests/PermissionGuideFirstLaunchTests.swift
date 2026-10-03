@@ -5,17 +5,15 @@ import Testing
 
 @MainActor
 struct PermissionGuideFirstLaunchTests {
-    private func makeModel(isTrusted: Bool) -> (PermissionGuideModel, GuidePermissionStub) {
-        let permission = GuidePermissionStub(isTrusted: isTrusted)
+    private func makeModel(isTrusted: Bool) -> (PermissionGuideModel, PermissionStub) {
+        let permission = PermissionStub(isTrusted: isTrusted)
         return (PermissionGuideModel(permission: permission, opener: SettingsOpenerStub()), permission)
     }
 
     private func makeController(model: PermissionGuideModel) throws -> (PermissionGuideWindowController, () -> Void) {
-        let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
-        let settings = AppSettings(store: SettingsStore(defaults: defaults))
-        let controller = PermissionGuideWindowController(model: model, settings: settings)
-        return (controller, { defaults.removePersistentDomain(forName: name) })
+        let temp = try TemporaryDefaults()
+        let controller = PermissionGuideWindowController(model: model, settings: temp.makeSettings())
+        return (controller, { temp.remove() })
     }
 
     private func isCloseButtonVisible(in window: NSWindow) -> Bool {
