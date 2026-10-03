@@ -26,7 +26,7 @@ final class PromptPanelCommitUITests: XCTestCase {
         openPanelFromMenu(in: app)
         let textView = app.textViews["promptPanel.textView"]
         XCTAssertTrue(textView.waitForExistence(timeout: timeout))
-        XCTAssertEqual(textView.value as? String, "")
+        XCTAssertEqual(textView.promptPanelText, "")
 
         app.typeKey(.return, modifierFlags: [.command, .shift])
         XCTAssertTrue(textView.exists)
@@ -41,7 +41,7 @@ final class PromptPanelCommitUITests: XCTestCase {
 
         app.typeKey("a", modifierFlags: [.command])
         app.typeKey(.delete, modifierFlags: [])
-        XCTAssertEqual(textView.value as? String, "")
+        XCTAssertEqual(textView.promptPanelText, "")
         app.typeKey(.return, modifierFlags: [.command])
         XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
     }

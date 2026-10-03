@@ -44,7 +44,7 @@ final class SettingsUITests: XCTestCase {
         openPanelFromMenu(in: app)
         let textView = app.textViews["promptPanel.textView"]
         XCTAssertTrue(textView.waitForExistence(timeout: timeout))
-        XCTAssertEqual(textView.value as? String, "")
+        XCTAssertEqual(textView.promptPanelText, "")
         app.typeKey("k", modifierFlags: [.command])
         XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
     }
