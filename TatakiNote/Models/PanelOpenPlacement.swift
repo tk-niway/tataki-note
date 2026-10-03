@@ -24,6 +24,23 @@ enum PanelOpenPlacement {
         targetWindowFrame: CGRect?,
         fieldFrame: CGRect?
     ) -> ScreenGeometry? {
+        screen(
+            mode: mode,
+            screens: screens,
+            mouseLocation: mouseLocation,
+            fieldFrame: fieldFrame,
+            locateTargetWindowFrame: { targetWindowFrame }
+        )
+    }
+
+    /// 出す画面を選ぶ。挿入先のウィンドウの枠は、画面の決定に要るときだけ求める。
+    static func screen(
+        mode: PanelScreen,
+        screens: [ScreenGeometry],
+        mouseLocation: CGPoint,
+        fieldFrame: CGRect?,
+        locateTargetWindowFrame: () -> CGRect?
+    ) -> ScreenGeometry? {
         if mode == .nearFocusedField, let fieldFrame,
            let screen = PanelPlacement.screenWithLargestOverlap(with: fieldFrame, in: screens) {
             return screen
@@ -32,7 +49,7 @@ enum PanelOpenPlacement {
             for: mode,
             screens: screens,
             mouseLocation: mouseLocation,
-            targetWindowFrame: targetWindowFrame
+            targetWindowFrame: mode.usesTargetWindowFrame ? locateTargetWindowFrame() : nil
         )
     }
 
