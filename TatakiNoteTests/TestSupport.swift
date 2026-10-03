@@ -1,5 +1,30 @@
 import Foundation
+import Testing
 @testable import TatakiNote
+
+/// テストごとの一時的な UserDefaults(suite)。`remove()` で消す。
+@MainActor
+struct TemporaryDefaults {
+    let name: String
+    let defaults: UserDefaults
+
+    init(name: String = UUID().uuidString) throws {
+        self.name = name
+        self.defaults = try #require(UserDefaults(suiteName: name))
+    }
+
+    func makeSettings() -> AppSettings {
+        AppSettings(store: SettingsStore(defaults: defaults))
+    }
+
+    func remove() {
+        defaults.removePersistentDomain(forName: name)
+    }
+
+    static func remove(named name: String) {
+        UserDefaults(suiteName: name)?.removePersistentDomain(forName: name)
+    }
+}
 
 /// 許可の確認とシステム設定を開く呼び出しの順を記録する。
 @MainActor

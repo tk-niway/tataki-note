@@ -25,12 +25,12 @@ struct AutoShowAppsEditorTests {
     private let browser = AutoShowApp(bundleIdentifier: "com.example.browser", name: "Browser")
 
     private func makeSuite() throws -> (UserDefaults, String) {
-        let name = UUID().uuidString
-        return (try #require(UserDefaults(suiteName: name)), name)
+        let temp = try TemporaryDefaults()
+        return (temp.defaults, temp.name)
     }
 
     private func removeSuite(_ defaults: UserDefaults, name: String) {
-        defaults.removePersistentDomain(forName: name)
+        TemporaryDefaults.remove(named: name)
     }
 
     private func makeEditor(

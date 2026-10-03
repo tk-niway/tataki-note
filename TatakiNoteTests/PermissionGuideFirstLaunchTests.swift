@@ -11,11 +11,9 @@ struct PermissionGuideFirstLaunchTests {
     }
 
     private func makeController(model: PermissionGuideModel) throws -> (PermissionGuideWindowController, () -> Void) {
-        let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
-        let settings = AppSettings(store: SettingsStore(defaults: defaults))
-        let controller = PermissionGuideWindowController(model: model, settings: settings)
-        return (controller, { defaults.removePersistentDomain(forName: name) })
+        let temp = try TemporaryDefaults()
+        let controller = PermissionGuideWindowController(model: model, settings: temp.makeSettings())
+        return (controller, { temp.remove() })
     }
 
     private func isCloseButtonVisible(in window: NSWindow) -> Bool {

@@ -6,12 +6,11 @@ import Testing
 @Suite(.serialized)
 struct FontPanelControllerTests {
     private func makeSettings(suite name: String) throws -> AppSettings {
-        let defaults = try #require(UserDefaults(suiteName: name))
-        return AppSettings(store: SettingsStore(defaults: defaults))
+        try TemporaryDefaults(name: name).makeSettings()
     }
 
     private func removeSuite(_ name: String) {
-        UserDefaults(suiteName: name)?.removePersistentDomain(forName: name)
+        TemporaryDefaults.remove(named: name)
     }
 
     @Test("AC-3: フォントパネルで選んだ書体の名前・ファミリー名が設定に入り、起動し直しても同じ書体になる")
