@@ -6,7 +6,7 @@ enum PanelShortcutRole: CaseIterable {
 }
 
 extension PanelShortcutRole {
-    /// 設定の「一般」で記録ボックスの下に出す説明文。
+    /// 設定の「キー」で記録ボックスの下に出す説明文。
     var settingDescription: String {
         switch self {
         case .commit:
