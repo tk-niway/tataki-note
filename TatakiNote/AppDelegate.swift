@@ -166,7 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 panelModel: panelController.model,
                 permission: permission,
                 exposeWebContent: { [webContentExposer] in webContentExposer.expose($0) },
-                onShow: { [weak self] in self?.panelController.open() }
+                onShow: { [weak self] focus in self?.panelController.open(observedFocus: focus) }
             )
             watcher.start()
             focusedElementWatcher = watcher

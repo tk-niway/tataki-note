@@ -33,6 +33,32 @@ final class WatcherEnvironment {
     var mouseLocation = CGPoint.zero
     var showCount = 0
     var exposedTargets: [InsertionTarget] = []
+    var shownFocuses: [ObservedFocus] = []
+    private(set) var clickMonitorsAdded = 0
+    private(set) var clickMonitorsRemoved = 0
+    private var activeClickMonitors: [Int: () -> Void] = [:]
+
+    var activeClickMonitorCount: Int { activeClickMonitors.count }
+
+    func addClickMonitor(_ handler: @escaping () -> Void) -> Any? {
+        clickMonitorsAdded += 1
+        let token = clickMonitorsAdded
+        activeClickMonitors[token] = handler
+        return token
+    }
+
+    func removeClickMonitor(_ token: Any) {
+        clickMonitorsRemoved += 1
+        if let token = token as? Int {
+            activeClickMonitors[token] = nil
+        }
+    }
+
+    func fireClick() {
+        for handler in activeClickMonitors.values {
+            handler()
+        }
+    }
 }
 
 @MainActor
@@ -82,7 +108,12 @@ final class WatcherFixture {
                 environment.exposedTargets.append($0)
                 exposeWebContent?($0)
             },
-            onShow: { environment.showCount += 1 }
+            addClickMonitor: { environment.addClickMonitor($0) },
+            removeClickMonitor: { environment.removeClickMonitor($0) },
+            onShow: {
+                environment.showCount += 1
+                environment.shownFocuses.append($0)
+            }
         )
     }
 
