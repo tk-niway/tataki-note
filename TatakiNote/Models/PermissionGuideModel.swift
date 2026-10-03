@@ -69,6 +69,15 @@ enum PermissionGuideButton: Equatable {
         }
     }
 
+    /// 取り消されるまで、`interval` ごとに許可の状態を読み直し、そのたびに `onRefresh` を呼ぶ。
+    func watch(interval: Duration = .seconds(1), onRefresh: () -> Void = {}) async {
+        while !Task.isCancelled {
+            refresh()
+            onRefresh()
+            try? await Task.sleep(for: interval)
+        }
+    }
+
     func present(reason: PermissionGuideReason) {
         self.reason = reason
         refresh()
