@@ -76,9 +76,9 @@ struct PanelStatusBarContent: Equatable {
     ) -> Entry? {
         switch item {
         case .lineBreak:
-            return .keyHint(item: item, key: "↩", label: String(localized: "改行"))
+            return .keyHint(item: item, key: "↩", label: item.displayName)
         case .close:
-            return .keyHint(item: item, key: "esc", label: String(localized: "閉じる"))
+            return .keyHint(item: item, key: "esc", label: item.displayName)
         case .commit:
             guard let key = commitKeyText else { return nil }
             return .keyHint(item: item, key: key, label: String(localized: "確定"))

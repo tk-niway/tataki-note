@@ -86,42 +86,20 @@ struct PanelSettingsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 16) {
-                            HStack(spacing: 6) {
-                                Text("幅")
-                                TextField("幅", value: $panelDefaultSize.width, format: .number.grouping(.never))
-                                    .labelsHidden()
-                                    .multilineTextAlignment(.trailing)
-                                    .monospacedDigit()
-                                    .frame(width: 56)
-                                    .accessibilityIdentifier("settings.panelDefaultWidthField")
-                                Stepper(
-                                    value: $panelDefaultSize.width,
-                                    in: PanelDefaultSizeModel.widthRange,
-                                    step: PanelDefaultSizeModel.step
-                                ) {
-                                    Text("幅")
-                                }
-                                .labelsHidden()
-                                .accessibilityIdentifier("settings.panelDefaultWidthStepper")
-                            }
-                            HStack(spacing: 6) {
-                                Text("高さ")
-                                TextField("高さ", value: $panelDefaultSize.height, format: .number.grouping(.never))
-                                    .labelsHidden()
-                                    .multilineTextAlignment(.trailing)
-                                    .monospacedDigit()
-                                    .frame(width: 56)
-                                    .accessibilityIdentifier("settings.panelDefaultHeightField")
-                                Stepper(
-                                    value: $panelDefaultSize.height,
-                                    in: PanelDefaultSizeModel.heightRange,
-                                    step: PanelDefaultSizeModel.step
-                                ) {
-                                    Text("高さ")
-                                }
-                                .labelsHidden()
-                                .accessibilityIdentifier("settings.panelDefaultHeightStepper")
-                            }
+                            PanelDefaultLengthField(
+                                label: "幅",
+                                value: $panelDefaultSize.width,
+                                range: PanelDefaultSizeModel.widthRange,
+                                fieldIdentifier: "settings.panelDefaultWidthField",
+                                stepperIdentifier: "settings.panelDefaultWidthStepper"
+                            )
+                            PanelDefaultLengthField(
+                                label: "高さ",
+                                value: $panelDefaultSize.height,
+                                range: PanelDefaultSizeModel.heightRange,
+                                fieldIdentifier: "settings.panelDefaultHeightField",
+                                stepperIdentifier: "settings.panelDefaultHeightStepper"
+                            )
                         }
                         Button("今のパネルの大きさを既定にする") {
                             panelDefaultSize.useCurrentPanelSize()
@@ -164,5 +142,30 @@ struct PanelSettingsView: View {
             get: { model.isStatusItemVisible(item) },
             set: { model.setStatusItem(item, isVisible: $0) }
         )
+    }
+}
+
+private struct PanelDefaultLengthField: View {
+    let label: LocalizedStringKey
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    let fieldIdentifier: String
+    let stepperIdentifier: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(label)
+            TextField(label, value: $value, format: .number.grouping(.never))
+                .labelsHidden()
+                .multilineTextAlignment(.trailing)
+                .monospacedDigit()
+                .frame(width: 56)
+                .accessibilityIdentifier(fieldIdentifier)
+            Stepper(value: $value, in: range, step: PanelDefaultSizeModel.step) {
+                Text(label)
+            }
+            .labelsHidden()
+            .accessibilityIdentifier(stepperIdentifier)
+        }
     }
 }

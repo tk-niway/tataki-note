@@ -80,25 +80,8 @@ struct KeySettingsView: View {
             )
             .frame(width: 160, height: 22)
             if let message = keySettings.rejectionMessage(for: role) {
-                PanelShortcutRejectionNote(message: message, identifier: rejectionID)
+                SettingErrorNote(message, identifier: rejectionID)
             }
         }
-    }
-}
-
-private struct PanelShortcutRejectionNote: View {
-    let message: String
-    let identifier: String
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 5) {
-            Image(systemName: "exclamationmark.circle.fill")
-                .foregroundStyle(.red)
-            Text(message)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .font(.system(size: 11))
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier(identifier)
     }
 }
