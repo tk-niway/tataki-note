@@ -25,16 +25,6 @@ struct PanelSizingTests {
         return changes
     }
 
-    // MARK: - 入力欄以外の高さ・文章に合わせた高さ
-
-    @Test("AC-5: 入力欄以外の高さは、タイトルバー 28 で帯ありが 57・帯なしが 28(帯の有無で区切り線と帯の 29 変わる)")
-    func chromeHeight() {
-        #expect(PanelSizing.chromeHeight(titleBarHeight: 28, isStatusBarVisible: true) == 57)
-        #expect(PanelSizing.chromeHeight(titleBarHeight: 28, isStatusBarVisible: false) == 28)
-        #expect(PanelSizing.chromeHeight(titleBarHeight: 32, isStatusBarVisible: true) == 61)
-        #expect(PanelSizing.chromeHeight(titleBarHeight: 32, isStatusBarVisible: false) == 32)
-    }
-
     // MARK: - 開くときの大きさ
 
     @Test("AC-2: 開くときの大きさは既定の大きさのままで、可視領域より大きければ収まるまで縮む")

@@ -4,7 +4,6 @@ import Observation
 /// パネルの大きさの状態(ドラッグで決めた大きさ・開いたときの既定の大きさ)と、大きさの計算。
 @Observable final class PanelSizing {
     static let minimumSize = PanelMetrics.minimumSize
-    static let dividerThickness: CGFloat = 1
 
     private(set) var heldSize: CGSize?
 
@@ -36,10 +35,6 @@ import Observation
     }
 
     // MARK: - 計算
-
-    static func chromeHeight(titleBarHeight: CGFloat, isStatusBarVisible: Bool) -> CGFloat {
-        titleBarHeight + (isStatusBarVisible ? dividerThickness + PanelMetrics.statusBarHeight : 0)
-    }
 
     func openingSize(in visibleFrame: CGRect) -> CGSize {
         CGSize(width: min(baseSize.width, visibleFrame.width), height: min(baseSize.height, visibleFrame.height))

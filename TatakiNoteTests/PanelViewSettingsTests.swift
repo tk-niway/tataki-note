@@ -270,19 +270,18 @@ struct PanelViewSettingsTests {
         #expect(harness.settle { abs((harness.editorHeight ?? 0) - heightWithBar) < 0.5 })
     }
 
-    @Test("AC-7: 閉じるボタンを付けても、入力欄の高さはパネルの高さから入力欄以外の高さ(タイトルバー・区切り線・帯)を引いた高さのまま")
+    @Test("AC-1, AC-7: 入力欄の高さは、パネルの高さからタイトルバーと、帯があるときは区切り線と帯を引いた高さ。閉じるボタンを付けても変わらない")
     func closeButtonDoesNotChangeEditorHeight() throws {
         let harness = try PanelViewHarness()
         defer { harness.removeDefaults() }
         let titleBarHeight = harness.panel.frame.height - harness.panel.contentLayoutRect.height
 
         let expectedWithBar = harness.panel.frame.height
-            - PanelSizing.chromeHeight(titleBarHeight: titleBarHeight, isStatusBarVisible: true)
+            - (titleBarHeight + 1 + PanelMetrics.statusBarHeight)
         #expect(abs((harness.editorHeight ?? 0) - expectedWithBar) < 0.5)
 
         harness.settings.hiddenPanelStatusItems = Set(PanelStatusItem.allCases)
-        let expectedWithoutBar = harness.panel.frame.height
-            - PanelSizing.chromeHeight(titleBarHeight: titleBarHeight, isStatusBarVisible: false)
+        let expectedWithoutBar = harness.panel.frame.height - titleBarHeight
         #expect(harness.settle { abs((harness.editorHeight ?? 0) - expectedWithoutBar) < 0.5 })
     }
 }
