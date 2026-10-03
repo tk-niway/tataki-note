@@ -42,10 +42,37 @@ struct PanelShortcutRulesTests {
         #expect(withoutModifier == .missingModifier)
     }
 
-    @Test("AC-15: 入力欄の編集ショートカット(⌘A・⌘C・⌘D・⌘H・⌘L・⌘V・⌘X・⌘Z・⇧⌘Z・⌥↑・⌥↓・⇧⌥↑・⇧⌥↓)は reservedForEditing")
+    @Test("AC-6: ⌘H は reservedForHiding で、理由は「パネルを閉じるキーのため」。⇧⌘H は受け付ける")
+    func commandHIsReservedForHiding() {
+        let rejection = PanelShortcutRules.rejection(
+            for: candidate(keyCode: 4, modifiers: [.command], characters: "h"),
+            role: .commit,
+            hotkey: nil,
+            commitKey: nil,
+            commitAndSendKey: nil
+        )
+        #expect(rejection == .reservedForHiding)
+        #expect(
+            PanelShortcutRejection.reservedForHiding.message(for: PanelShortcut(keyCode: 4, modifiers: [.command]))
+                == "⌘H はパネルを閉じるキーのため、登録できません。"
+        )
+
+        for role in PanelShortcutRole.allCases {
+            let shiftCommandH = PanelShortcutRules.rejection(
+                for: candidate(keyCode: 4, modifiers: [.command, .shift], characters: "h"),
+                role: role,
+                hotkey: nil,
+                commitKey: nil,
+                commitAndSendKey: nil
+            )
+            #expect(shiftCommandH == nil, "\(role)")
+        }
+    }
+
+    @Test("AC-6: 入力欄の編集ショートカット(⌘A・⌘C・⌘D・⌘L・⌘V・⌘X・⌘Z・⇧⌘Z・⌥↑・⌥↓・⇧⌥↑・⇧⌥↓)は reservedForEditing で、理由は「入力欄の編集ショートカットで使っているため」")
     func editingShortcutsAreReserved() {
         let commandLetters: [(UInt16, String)] = [
-            (0, "a"), (8, "c"), (2, "d"), (4, "h"), (37, "l"), (9, "v"), (7, "x"), (6, "z"),
+            (0, "a"), (8, "c"), (2, "d"), (37, "l"), (9, "v"), (7, "x"), (6, "z"),
         ]
         for (keyCode, characters) in commandLetters {
             let rejection = PanelShortcutRules.rejection(
@@ -56,6 +83,10 @@ struct PanelShortcutRulesTests {
                 commitAndSendKey: nil
             )
             #expect(rejection == .reservedForEditing, "⌘\(characters)")
+            #expect(
+                rejection?.message(for: PanelShortcut(keyCode: keyCode, modifiers: [.command]))
+                    == "⌘\(characters.uppercased()) は入力欄の編集ショートカットで使っているため、登録できません。"
+            )
         }
 
         let shiftCommandZ = PanelShortcutRules.rejection(

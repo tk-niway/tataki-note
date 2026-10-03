@@ -40,6 +40,7 @@ struct PanelShortcutCandidate: Equatable {
 enum PanelShortcutRejection: Equatable {
     case missingModifier
     case reservedForClosing
+    case reservedForHiding
     case reservedForEditing
     case usedByHotkey
     case usedByOtherRole(PanelShortcutRole)
@@ -51,6 +52,8 @@ enum PanelShortcutRejection: Equatable {
             return String(localized: "⌘・⌥・⌃・⇧ のどれかと組み合わせたキーを押してください。")
         case .reservedForClosing:
             return String(localized: "esc はパネルを閉じるキーのため、修飾キーと組み合わせても登録できません。")
+        case .reservedForHiding:
+            return String(localized: "\(key) はパネルを閉じるキーのため、登録できません。")
         case .reservedForEditing:
             return String(localized: "\(key) は入力欄の編集ショートカットで使っているため、登録できません。")
         case .usedByHotkey:
@@ -64,7 +67,7 @@ enum PanelShortcutRejection: Equatable {
 }
 
 enum PanelShortcutRules {
-    private static let editingCharacters: Set<String> = ["a", "c", "d", "h", "l", "v", "x", "z"]
+    private static let editingCharacters: Set<String> = ["a", "c", "d", "l", "v", "x", "z"]
 
     static func rejection(
         for candidate: PanelShortcutCandidate,
@@ -80,6 +83,9 @@ enum PanelShortcutRules {
         }
         if shortcut.keyCode == KeyCode.escape {
             return .reservedForClosing
+        }
+        if isReservedForHiding(candidate) {
+            return .reservedForHiding
         }
         if isReservedForEditing(candidate) {
             return .reservedForEditing
@@ -98,6 +104,10 @@ enum PanelShortcutRules {
             }
         }
         return nil
+    }
+
+    private static func isReservedForHiding(_ candidate: PanelShortcutCandidate) -> Bool {
+        candidate.shortcut.modifiers == [.command] && candidate.characters == "h"
     }
 
     private static func isReservedForEditing(_ candidate: PanelShortcutCandidate) -> Bool {

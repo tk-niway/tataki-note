@@ -136,6 +136,27 @@ struct PanelKeySettingsModelTests {
         #expect(model.rejectionMessage(for: .commit) != nil)
     }
 
+    @Test("AC-7: ⌘H は受け付けず、理由が「パネルを閉じるキーのため」になり、登録してあるキーは保存し直しても変わらない")
+    func commandHIsRejectedAndKeepsRegisteredKeys() throws {
+        let (settings, defaults, name) = try makeSettings()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let model = makeModel(settings: settings)
+        let message = "⌘H はパネルを閉じるキーのため、登録できません。"
+
+        for role in PanelShortcutRole.allCases {
+            let accepted = model.record(candidate(keyCode: 4, modifiers: [.command], characters: "h"), for: role)
+
+            #expect(!accepted, "\(role)")
+            #expect(model.rejectionMessage(for: role) == message, "\(role)")
+        }
+
+        #expect(model.displayText(for: .commit) == "⇧⌘↩")
+        #expect(model.displayText(for: .commitAndSend) == "⌘↩")
+        let reloaded = AppSettings(store: SettingsStore(defaults: defaults))
+        #expect(reloaded.commitKey == PanelShortcut.defaultCommitKey)
+        #expect(reloaded.commitAndSendKey == PanelShortcut.defaultCommitAndSendKey)
+    }
+
     @Test("AC-30: 修飾キー付きの Esc は受け付けず、理由が出る")
     func modifiedEscapeIsRejectedWithMessage() throws {
         let (settings, defaults, name) = try makeSettings()
