@@ -1,6 +1,6 @@
 import Observation
 
-/// 設定画面の「確定キー」「確定+送信キー」の記録ボックスの状態。
+/// 設定画面の「確定+挿入キー」「確定+送信キー」の記録ボックスの状態。
 @Observable final class PanelKeySettingsModel {
     @ObservationIgnored private let settings: AppSettings
     @ObservationIgnored private let hotkey: () -> PanelShortcut?

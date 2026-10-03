@@ -2,17 +2,27 @@ import Foundation
 
 /// パネルの帯に出す、書いた量の数え方。
 enum TextStatistics {
-    static func characterCount(of text: String) -> Int {
-        text.reduce(0) { count, character in
-            character.isNewline ? count : count + 1
+    /// 文字数と行数を、文章を1回走査して数える。
+    static func counts(of text: String) -> (characters: Int, lines: Int) {
+        guard !text.isEmpty else { return (0, 0) }
+        var characters = 0
+        var newlines = 0
+        for character in text {
+            if character.isNewline {
+                newlines += 1
+            } else {
+                characters += 1
+            }
         }
+        return (characters, newlines + 1)
+    }
+
+    static func characterCount(of text: String) -> Int {
+        counts(of: text).characters
     }
 
     static func lineCount(of text: String) -> Int {
-        guard !text.isEmpty else { return 0 }
-        return text.reduce(1) { count, character in
-            character.isNewline ? count + 1 : count
-        }
+        counts(of: text).lines
     }
 }
 
@@ -37,33 +47,49 @@ struct PanelStatusBarContent: Equatable {
     var isEmpty: Bool { entries.isEmpty }
 
     init(text: String, items: [PanelStatusItem], commitKey: PanelShortcut?, commitAndSendKey: PanelShortcut?) {
+        self.init(
+            text: text,
+            items: items,
+            commitKeyText: commitKey?.displayText,
+            commitAndSendKeyText: commitAndSendKey?.displayText
+        )
+    }
+
+    init(text: String, items: [PanelStatusItem], commitKeyText: String?, commitAndSendKeyText: String?) {
+        let needsCounts = items.contains { $0 == .characterCount || $0 == .lineCount }
+        let counts = needsCounts ? TextStatistics.counts(of: text) : (characters: 0, lines: 0)
         entries = items.compactMap { item in
-            Self.entry(for: item, text: text, commitKey: commitKey, commitAndSendKey: commitAndSendKey)
+            Self.entry(
+                for: item,
+                counts: counts,
+                commitKeyText: commitKeyText,
+                commitAndSendKeyText: commitAndSendKeyText
+            )
         }
     }
 
     private static func entry(
         for item: PanelStatusItem,
-        text: String,
-        commitKey: PanelShortcut?,
-        commitAndSendKey: PanelShortcut?
+        counts: (characters: Int, lines: Int),
+        commitKeyText: String?,
+        commitAndSendKeyText: String?
     ) -> Entry? {
         switch item {
         case .lineBreak:
-            return .keyHint(item: item, key: "↩", label: String(localized: "改行"))
+            return .keyHint(item: item, key: "↩", label: item.displayName)
         case .close:
-            return .keyHint(item: item, key: "esc", label: String(localized: "閉じる"))
+            return .keyHint(item: item, key: "esc", label: item.displayName)
         case .commit:
-            guard let key = commitKey?.displayText else { return nil }
-            return .keyHint(item: item, key: key, label: String(localized: "確定"))
+            guard let key = commitKeyText else { return nil }
+            return .keyHint(item: item, key: key, label: String(localized: "確定+挿入"))
         case .commitAndSend:
-            guard let key = commitAndSendKey?.displayText else { return nil }
+            guard let key = commitAndSendKeyText else { return nil }
             return .keyHint(item: item, key: key, label: String(localized: "確定+送信"))
         case .characterCount:
-            let count = TextStatistics.characterCount(of: text).formatted()
+            let count = counts.characters.formatted()
             return .count(item: item, text: String(localized: "\(count)文字"))
         case .lineCount:
-            let count = TextStatistics.lineCount(of: text).formatted()
+            let count = counts.lines.formatted()
             return .count(item: item, text: String(localized: "\(count)行"))
         }
     }

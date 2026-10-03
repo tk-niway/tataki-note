@@ -9,13 +9,11 @@ enum PanelTextStyle {
     static let opacityRange: ClosedRange<Double> = 0.4...1.0
 
     static func clampedFontSize(_ size: Double) -> Double {
-        guard size.isFinite else { return defaultFontSize }
-        return min(max(size, fontSizeRange.lowerBound), fontSizeRange.upperBound)
+        fontSizeRange.clamping(size, nonFiniteFallback: defaultFontSize)
     }
 
     static func clampedOpacity(_ opacity: Double) -> Double {
-        guard opacity.isFinite else { return defaultOpacity }
-        return min(max(opacity, opacityRange.lowerBound), opacityRange.upperBound)
+        opacityRange.clamping(opacity, nonFiniteFallback: defaultOpacity)
     }
 
     private static let regularWeight = 5

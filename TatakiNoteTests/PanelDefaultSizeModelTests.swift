@@ -13,8 +13,7 @@ import Testing
 @MainActor
 struct PanelDefaultSizeModelTests {
     private func makeSettings(suite name: String) throws -> AppSettings {
-        let defaults = try #require(UserDefaults(suiteName: name))
-        return AppSettings(store: SettingsStore(defaults: defaults))
+        try TemporaryDefaults(name: name).makeSettings()
     }
 
     private func makeModel(suite name: String, source: HeldPanelSizeSource? = nil) throws -> PanelDefaultSizeModel {
@@ -23,7 +22,7 @@ struct PanelDefaultSizeModelTests {
     }
 
     private func removeSuite(_ name: String) {
-        UserDefaults(suiteName: name)?.removePersistentDomain(forName: name)
+        TemporaryDefaults.remove(named: name)
     }
 
     private func countCanUseChanges(of model: PanelDefaultSizeModel) -> OSAllocatedUnfairLock<Int> {
@@ -82,6 +81,21 @@ struct PanelDefaultSizeModelTests {
         let relaunched = try makeModel(suite: suite)
         #expect(relaunched.width == 4000)
         #expect(relaunched.height == 160)
+    }
+
+    @Test("AC-9: 範囲の説明文は、定数から出した全文で桁区切りが付かず、渡した範囲に従って変わる")
+    func rangeDescriptionFollowsRanges() {
+        #expect(PanelDefaultSizeModel.rangeDescription == "パネルを開いたときの大きさです(幅 320〜4000・高さ 160〜4000 pt)。変えると、次にパネルを開いたときから使います。")
+        #expect(
+            PanelDefaultSizeModel.rangeDescription(widthRange: 300...12000, heightRange: 100...2000)
+                == "パネルを開いたときの大きさです(幅 300〜12000・高さ 100〜2000 pt)。変えると、次にパネルを開いたときから使います。"
+        )
+    }
+
+    @Test("AC-9: ドラッグの説明文は「(文章で伸びた高さは含みません)」を含まない全文になる")
+    func heldSizeDescriptionOmitsGrownHeightNote() {
+        #expect(PanelDefaultSizeModel.heldSizeDescription == "パネルの端をドラッグして大きさを変えると、文章を挿入するまではその大きさで開きます(その間は、ここを変えてもパネルの大きさは変わりません)。「今のパネルの大きさを既定にする」は、ドラッグで大きさを変えた後に押せて、ドラッグで決めた大きさを既定にします。")
+        #expect(!PanelDefaultSizeModel.heldSizeDescription.contains("文章で伸びた高さ"))
     }
 
     // MARK: - 今のパネルの大きさを既定にする

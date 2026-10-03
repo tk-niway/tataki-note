@@ -23,7 +23,7 @@ struct AutoShowSettingsSection: View {
                 .pickerStyle(.radioGroup)
                 .labelsHidden()
                 .accessibilityIdentifier("settings.autoShowModePicker")
-                description("入力欄を選んだだけでパネルを開きます。ホットキーは今までどおり使えます。")
+                SettingDescription(text: "入力欄を選んだだけでパネルを開きます。ホットキーは今までどおり使えます。")
             }
         }
         .padding(.bottom, 12)
@@ -79,7 +79,7 @@ struct AutoShowSettingsSection: View {
                     .disabled(!editor.canRemove)
                 }
 
-                description("「＋」で起動中のアプリから追加します。起動していないアプリは「その他…」から選べます。")
+                SettingDescription(text: "「＋」で起動中のアプリから追加します。起動していないアプリは「その他…」から選べます。")
             }
         }
     }
@@ -108,12 +108,5 @@ struct AutoShowSettingsSection: View {
         NSApp.activate()
         guard panel.runModal() == .OK, let url = panel.url else { return }
         editor.addApplication(at: url)
-    }
-
-    private func description(_ text: LocalizedStringKey) -> some View {
-        Text(text)
-            .font(.system(size: 11))
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
     }
 }

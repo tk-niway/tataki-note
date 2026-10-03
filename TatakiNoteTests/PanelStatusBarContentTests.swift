@@ -16,7 +16,7 @@ struct PanelStatusBarContentTests {
         )
     }
 
-    @Test("AC-4: 何も設定していなければ esc 閉じる・改行・⇧⌘↩ 確定・⌘↩ 確定+送信・0文字・0行が出て、閉じるに「(下書きは残ります)」は付かない")
+    @Test("AC-2, AC-4: 何も設定していなければ esc 閉じる・改行・⇧⌘↩ 確定+挿入・⌘↩ 確定+送信・0文字・0行が出て、閉じるに「(下書きは残ります)」は付かない")
     func defaultContent() throws {
         let name = UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: name))
@@ -27,7 +27,7 @@ struct PanelStatusBarContentTests {
         #expect(content.entries == [
             .keyHint(item: .close, key: "esc", label: "閉じる"),
             .keyHint(item: .lineBreak, key: "↩", label: "改行"),
-            .keyHint(item: .commit, key: "⇧⌘↩", label: "確定"),
+            .keyHint(item: .commit, key: "⇧⌘↩", label: "確定+挿入"),
             .keyHint(item: .commitAndSend, key: "⌘↩", label: "確定+送信"),
             .count(item: .characterCount, text: "0文字"),
             .count(item: .lineCount, text: "0行"),
@@ -41,19 +41,19 @@ struct PanelStatusBarContentTests {
         let commandK = PanelShortcut(keyCode: 40, modifiers: [.command])
         let cases: [(PanelShortcut?, PanelShortcut?, [Entry])] = [
             (.shiftReturn, .commandShiftReturn, [
-                .keyHint(item: .commit, key: "⇧↩", label: "確定"),
+                .keyHint(item: .commit, key: "⇧↩", label: "確定+挿入"),
                 .keyHint(item: .commitAndSend, key: "⇧⌘↩", label: "確定+送信"),
             ]),
             (.commandReturn, .shiftReturn, [
-                .keyHint(item: .commit, key: "⌘↩", label: "確定"),
+                .keyHint(item: .commit, key: "⌘↩", label: "確定+挿入"),
                 .keyHint(item: .commitAndSend, key: "⇧↩", label: "確定+送信"),
             ]),
             (.commandShiftReturn, .commandReturn, [
-                .keyHint(item: .commit, key: "⇧⌘↩", label: "確定"),
+                .keyHint(item: .commit, key: "⇧⌘↩", label: "確定+挿入"),
                 .keyHint(item: .commitAndSend, key: "⌘↩", label: "確定+送信"),
             ]),
             (commandK, .commandReturn, [
-                .keyHint(item: .commit, key: "⌘K", label: "確定"),
+                .keyHint(item: .commit, key: "⌘K", label: "確定+挿入"),
                 .keyHint(item: .commitAndSend, key: "⌘↩", label: "確定+送信"),
             ]),
         ]
@@ -106,7 +106,7 @@ struct PanelStatusBarContentTests {
         settings.commitKey = .shiftReturn
         settings.commitAndSendKey = .commandShiftReturn
         var entries = makeContent(text: "", settings: settings).entries
-        #expect(entries.contains(.keyHint(item: .commit, key: "⇧↩", label: "確定")))
+        #expect(entries.contains(.keyHint(item: .commit, key: "⇧↩", label: "確定+挿入")))
         #expect(entries.contains(.keyHint(item: .commitAndSend, key: "⇧⌘↩", label: "確定+送信")))
 
         settings.commitKey = nil
@@ -171,7 +171,7 @@ struct PanelStatusBarContentTests {
 
         settings.hiddenPanelStatusItems = [.lineBreak, .close]
         #expect(makeContent(text: "ab", settings: settings).entries == [
-            .keyHint(item: .commit, key: "⌘↩", label: "確定"),
+            .keyHint(item: .commit, key: "⌘↩", label: "確定+挿入"),
             .keyHint(item: .commitAndSend, key: "⇧⌘↩", label: "確定+送信"),
             .count(item: .characterCount, text: "2文字"),
             .count(item: .lineCount, text: "1行"),

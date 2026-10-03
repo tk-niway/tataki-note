@@ -462,6 +462,41 @@ struct AppSettingsTests {
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).panelDefaultSize == CGSize(width: 700, height: 450.5))
     }
 
+    // MARK: - 保存済みの値の引き継ぎ
+
+    @Test("AC-10: 今の版が保存した設定値は、同じ保存先で作った AppSettings で同じ値に読める")
+    func storedValuesFromCurrentVersionAreRead() throws {
+        let name = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+
+        defaults.set(PanelScreen.mouse.rawValue, forKey: SettingsStore.Key.panelScreen)
+        defaults.set(PanelShortcut.shiftReturn.storedValue, forKey: SettingsStore.Key.commitShortcut)
+        defaults.set(PanelShortcut.commandShiftReturn.storedValue, forKey: SettingsStore.Key.commitAndSendShortcut)
+        defaults.set(18.0, forKey: SettingsStore.Key.panelFontSize)
+        defaults.set(0.7, forKey: SettingsStore.Key.panelOpacity)
+        defaults.set([PanelStatusItem.close.rawValue, PanelStatusItem.lineCount.rawValue], forKey: SettingsStore.Key.hiddenPanelStatusItems)
+        defaults.set(800.0, forKey: SettingsStore.Key.panelDefaultWidth)
+        defaults.set(600.0, forKey: SettingsStore.Key.panelDefaultHeight)
+        defaults.set(AutoShowMode.allApps.rawValue, forKey: SettingsStore.Key.autoShowMode)
+        defaults.set(AppTheme.dark.rawValue, forKey: SettingsStore.Key.appTheme)
+        defaults.set(true, forKey: SettingsStore.Key.hidesMenuBarIcon)
+
+        let settings = AppSettings(store: SettingsStore(defaults: defaults))
+
+        #expect(settings.panelScreen == .mouse)
+        #expect(settings.commitKey == .shiftReturn)
+        #expect(settings.commitAndSendKey == .commandShiftReturn)
+        #expect(settings.panelFontSize == 18)
+        #expect(settings.panelOpacity == 0.7)
+        #expect(settings.hiddenPanelStatusItems == [.close, .lineCount])
+        #expect(settings.panelDefaultWidth == 800)
+        #expect(settings.panelDefaultHeight == 600)
+        #expect(settings.autoShowMode == .allApps)
+        #expect(settings.theme == .dark)
+        #expect(settings.hidesMenuBarIcon == true)
+    }
+
     // MARK: - メニューバーのアイコン
 
     @Test("AC-9: アイコンを出すか(isMenuBarIconShown)は隠すか(hidesMenuBarIcon)の逆で、初期値は出す。書くと隠すかが逆の値で保存され、作り直しても残る")

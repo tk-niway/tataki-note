@@ -11,12 +11,9 @@ enum PracticeChatKeyAction: Equatable {
 
 /// 練習用のチャットの入力欄のキーの判定。
 enum PracticeChatKeyResolver {
-    private static let returnKeyCode: UInt16 = 36
-    private static let keypadEnterKeyCode: UInt16 = 76
-
     /// 押されたキーと修飾キー、変換中かどうかから、入力欄の動きを決める。
     static func action(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, hasMarkedText: Bool) -> PracticeChatKeyAction {
-        guard keyCode == returnKeyCode || keyCode == keypadEnterKeyCode else { return .passThrough }
+        guard keyCode == KeyCode.returnKey || keyCode == KeyCode.keypadEnter else { return .passThrough }
         let relevant = modifiers.intersection(PanelShortcut.relevantModifiers)
         if relevant.isEmpty {
             return hasMarkedText ? .commitMarkedTextAndSend : .send
@@ -101,7 +98,7 @@ enum PracticeChatReply {
             if let commitAndSendKey {
                 batch = String(localized: "\(commitAndSendKey) を使うと、入れるのと送るのを一度にできます。")
             } else {
-                batch = String(localized: "設定の「一般」で確定+送信キーを登録すると、入れるのと送るのを一度にできます。")
+                batch = String(localized: "設定の「キー」で確定+送信キーを登録すると、入れるのと送るのを一度にできます。")
             }
             return String(localized: "送信できました。") + batch
                 + String(localized: "パネルの中では、Enter を変換の確定や改行に使えます。")

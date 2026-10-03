@@ -38,10 +38,7 @@ import Observation
     }
 
     func watchPermission(interval: Duration = .seconds(1)) async {
-        while !Task.isCancelled {
-            permissionStatus.refresh()
-            try? await Task.sleep(for: interval)
-        }
+        await permissionStatus.watch(interval: interval)
     }
 
     private static func nonEmptyString(_ value: Any?) -> String? {

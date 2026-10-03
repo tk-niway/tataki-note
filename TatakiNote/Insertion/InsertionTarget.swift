@@ -19,42 +19,32 @@ struct InsertionTarget: Equatable, Sendable {
             localizedName: app.localizedName
         )
     }
+
+    /// 指定したプロセス(自分のアプリ)のものか。
+    func isOwnApp(_ ownProcessIdentifier: pid_t) -> Bool {
+        processIdentifier == ownProcessIdentifier
+    }
 }
 
 /// 最前面のアプリと、最後に前面になった自分以外のアプリを覚える。
 final class FrontmostAppTracker {
     private let workspace: NSWorkspace
-    private let notificationCenter: NotificationCenter
     private let ownProcessIdentifier: pid_t
-    private var observer: (any NSObjectProtocol)?
+    private var observer: FrontmostAppObserver?
 
     private(set) var lastActivated: InsertionTarget?
 
     init(workspace: NSWorkspace = .shared, ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier) {
         self.workspace = workspace
-        self.notificationCenter = workspace.notificationCenter
         self.ownProcessIdentifier = ownProcessIdentifier
 
         if let frontmost = workspace.frontmostApplication, frontmost.processIdentifier != ownProcessIdentifier {
             lastActivated = InsertionTarget(frontmost)
         }
 
-        observer = notificationCenter.addObserver(
-            forName: NSWorkspace.didActivateApplicationNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-            MainActor.assumeIsolated {
-                guard let self, let app else { return }
-                self.recordActivation(of: app)
-            }
-        }
-    }
-
-    deinit {
-        if let observer {
-            notificationCenter.removeObserver(observer)
+        observer = FrontmostAppObserver(notificationCenter: workspace.notificationCenter) { [weak self] app in
+            guard let app else { return }
+            self?.recordActivation(of: app)
         }
     }
 
@@ -71,10 +61,10 @@ final class FrontmostAppTracker {
         lastActivated: InsertionTarget?,
         ownProcessIdentifier: pid_t
     ) -> InsertionTarget? {
-        if let frontmost, frontmost.processIdentifier != ownProcessIdentifier {
+        if let frontmost, !frontmost.isOwnApp(ownProcessIdentifier) {
             return frontmost
         }
-        if let lastActivated, lastActivated.processIdentifier != ownProcessIdentifier {
+        if let lastActivated, !lastActivated.isOwnApp(ownProcessIdentifier) {
             return lastActivated
         }
         return nil

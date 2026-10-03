@@ -6,7 +6,7 @@ enum StatusItemNote: Equatable {
     case keyNotAssigned
 }
 
-/// 設定画面の「エディタ設定」の状態(フォント・文字サイズ・透明度・帯の項目)。
+/// 設定画面の「パネル」の状態(フォント・文字サイズ・透明度・帯の項目)。
 @Observable final class EditorSettingsModel {
     @ObservationIgnored private let settings: AppSettings
 
@@ -38,6 +38,30 @@ enum StatusItemNote: Equatable {
     var opacityPercentText: String {
         let percent = Int((settings.panelOpacity * 100).rounded())
         return String(localized: "\(percent)%")
+    }
+
+    /// 「文字サイズ」の下に出す説明文。
+    static var fontSizeDescription: String {
+        fontSizeDescription(range: PanelTextStyle.fontSizeRange)
+    }
+
+    /// 範囲を指定して作る、「文字サイズ」の説明文。
+    static func fontSizeDescription(range: ClosedRange<Double>) -> String {
+        let lower = String(Int(range.lowerBound.rounded()))
+        let upper = String(Int(range.upperBound.rounded()))
+        return String(localized: "\(lower)〜\(upper) pt の間で選べます。")
+    }
+
+    /// 「透明度」の下に出す説明文。
+    static var opacityDescription: String {
+        opacityDescription(range: PanelTextStyle.opacityRange)
+    }
+
+    /// 範囲を指定して作る、「透明度」の説明文。
+    static func opacityDescription(range: ClosedRange<Double>) -> String {
+        let upper = String(Int((range.upperBound * 100).rounded()))
+        let lower = String(Int((range.lowerBound * 100).rounded()))
+        return String(localized: "パネル全体(背景と文字)の透け具合です。\(upper)% で透けません。\(lower)% より下にはできません。")
     }
 
     func isStatusItemVisible(_ item: PanelStatusItem) -> Bool {

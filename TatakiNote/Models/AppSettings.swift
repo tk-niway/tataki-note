@@ -4,12 +4,24 @@ import Observation
 /// 利用者が設定画面で変える値。
 @Observable final class AppSettings {
     var commitKey: PanelShortcut? {
-        didSet { store.saveCommitShortcut(commitKey) }
+        didSet {
+            store.saveCommitShortcut(commitKey)
+            refreshKeyDisplayTexts()
+        }
     }
 
     var commitAndSendKey: PanelShortcut? {
-        didSet { store.saveCommitAndSendShortcut(commitAndSendKey) }
+        didSet {
+            store.saveCommitAndSendShortcut(commitAndSendKey)
+            refreshKeyDisplayTexts()
+        }
     }
+
+    private(set) var commitKeyDisplayText: String?
+
+    private(set) var commitAndSendKeyDisplayText: String?
+
+    private(set) var panelFont: NSFont
 
     var panelScreen: PanelScreen {
         didSet { store.savePanelScreen(panelScreen) }
@@ -40,6 +52,7 @@ import Observation
                 panelFontName = nil
             }
             store.savePanelFontName(panelFontName)
+            refreshPanelFont()
         }
     }
 
@@ -50,6 +63,7 @@ import Observation
                 panelFontFamilyName = nil
             }
             store.savePanelFontFamilyName(panelFontFamilyName)
+            refreshPanelFont()
         }
     }
 
@@ -60,6 +74,7 @@ import Observation
                 panelFontSize = clamped
             }
             store.savePanelFontSize(panelFontSize)
+            refreshPanelFont()
         }
     }
 
@@ -128,15 +143,19 @@ import Observation
             loadedFamilyName = family
             store.savePanelFontFamilyName(family)
         }
+        let loadedFontSize = store.loadPanelFontSize()
         self.panelFontName = loadedFontName
         self.panelFontFamilyName = loadedFamilyName
-        self.panelFontSize = store.loadPanelFontSize()
+        self.panelFontSize = loadedFontSize
+        self.panelFont = PanelTextStyle.font(name: loadedFontName, familyName: loadedFamilyName, size: loadedFontSize)
         self.panelOpacity = store.loadPanelOpacity()
         self.hiddenPanelStatusItems = store.loadHiddenPanelStatusItems()
         self.hidesMenuBarIcon = store.loadHidesMenuBarIcon()
         self.panelDefaultWidth = store.loadPanelDefaultWidth()
         self.panelDefaultHeight = store.loadPanelDefaultHeight()
         self.hasShownFirstLaunchTutorial = store.loadHasShownFirstLaunchTutorial()
+        self.commitKeyDisplayText = commitKey?.displayText
+        self.commitAndSendKeyDisplayText = commitAndSendKey?.displayText
     }
 
     var panelStatusItems: [PanelStatusItem] {
@@ -147,8 +166,20 @@ import Observation
         )
     }
 
-    var panelFont: NSFont {
-        PanelTextStyle.font(name: panelFontName, familyName: panelFontFamilyName, size: panelFontSize)
+    /// 帯に出す確定キー・確定+送信キーの表示文字を、今のキーから作り直す。変わったときだけ入れ替える。
+    func refreshKeyDisplayTexts() {
+        let commitText = commitKey?.displayText
+        if commitText != commitKeyDisplayText {
+            commitKeyDisplayText = commitText
+        }
+        let commitAndSendText = commitAndSendKey?.displayText
+        if commitAndSendText != commitAndSendKeyDisplayText {
+            commitAndSendKeyDisplayText = commitAndSendText
+        }
+    }
+
+    private func refreshPanelFont() {
+        panelFont = PanelTextStyle.font(name: panelFontName, familyName: panelFontFamilyName, size: panelFontSize)
     }
 
     /// システムフォントではなく、Mac にある書体を使っているときのその書体。

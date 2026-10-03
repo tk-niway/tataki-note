@@ -21,6 +21,7 @@ struct AutoShowInput: Equatable {
     var isJustActivated: Bool
     var isJustDismissed: Bool
     var isClickInsideFocusedElement: Bool
+    var isClickSuppressed: Bool
 }
 
 /// 入力欄が選ばれたときにパネルを自動で出すかの判定。
@@ -50,7 +51,7 @@ enum AutoShowDecision {
         }
         switch input.trigger {
         case .userClick:
-            return input.isClickInsideFocusedElement
+            return input.isClickInsideFocusedElement && !input.isClickSuppressed
         case .focusChanged:
             if input.isSameElementAsLastShown {
                 return false
@@ -79,6 +80,6 @@ enum AutoShowDecision {
     }
 
     static func accessibilityPoint(fromCocoa point: CGPoint, primaryScreenFrame: CGRect) -> CGPoint {
-        CGPoint(x: point.x, y: primaryScreenFrame.maxY - point.y)
+        ScreenCoordinates.topLeftPoint(fromCocoa: point, primaryScreenHeight: primaryScreenFrame.maxY)
     }
 }

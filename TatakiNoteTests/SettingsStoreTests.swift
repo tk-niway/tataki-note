@@ -6,12 +6,12 @@ import Testing
 @MainActor
 struct SettingsStoreTests {
     private func makeSuite() throws -> (UserDefaults, String) {
-        let name = UUID().uuidString
-        return (try #require(UserDefaults(suiteName: name)), name)
+        let temp = try TemporaryDefaults()
+        return (temp.defaults, temp.name)
     }
 
     private func removeSuite(_ defaults: UserDefaults, name: String) {
-        defaults.removePersistentDomain(forName: name)
+        TemporaryDefaults.remove(named: name)
     }
 
     @Test("AC-1: 何も保存されていなければ、確定キーは ⇧⌘↩・確定+送信キーは ⌘↩、パネルを出す画面は「入力欄の近く」で、読んだだけでは保存しない")

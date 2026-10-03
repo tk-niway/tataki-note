@@ -25,38 +25,42 @@ struct SettingsStore {
 
     let defaults: UserDefaults
 
-    // MARK: - 確定キー・確定+送信キー(新しい保存形式)
+    // MARK: - 確定+挿入キー・確定+送信キー(新しい保存形式)
 
     func loadCommitShortcut() -> PanelShortcut? {
-        if let stored = defaults.object(forKey: Key.commitShortcut) {
-            guard let array = stored as? [Any] else { return commitShortcutFallback() }
-            return array.isEmpty ? nil : (PanelShortcut(storedValue: array) ?? commitShortcutFallback())
-        }
-        if let legacy = defaults.string(forKey: Key.commitKey) {
-            guard let key = PanelActionKey(rawValue: legacy) else { return commitShortcutFallback() }
-            return key.shortcut
-        }
-        return commitShortcutFallback()
+        loadShortcut(forKey: Key.commitShortcut, legacyKey: Key.commitKey, fallback: commitShortcutFallback())
     }
 
     func saveCommitShortcut(_ shortcut: PanelShortcut?) {
-        defaults.set(shortcut?.storedValue ?? [], forKey: Key.commitShortcut)
+        saveShortcut(shortcut, forKey: Key.commitShortcut)
     }
 
     func loadCommitAndSendShortcut() -> PanelShortcut? {
-        if let stored = defaults.object(forKey: Key.commitAndSendShortcut) {
-            guard let array = stored as? [Any] else { return commitAndSendShortcutFallback() }
-            return array.isEmpty ? nil : (PanelShortcut(storedValue: array) ?? commitAndSendShortcutFallback())
-        }
-        if let legacy = defaults.string(forKey: Key.commitAndSendKey) {
-            guard let key = PanelActionKey(rawValue: legacy) else { return commitAndSendShortcutFallback() }
-            return key.shortcut
-        }
-        return commitAndSendShortcutFallback()
+        loadShortcut(
+            forKey: Key.commitAndSendShortcut,
+            legacyKey: Key.commitAndSendKey,
+            fallback: commitAndSendShortcutFallback()
+        )
     }
 
     func saveCommitAndSendShortcut(_ shortcut: PanelShortcut?) {
-        defaults.set(shortcut?.storedValue ?? [], forKey: Key.commitAndSendShortcut)
+        saveShortcut(shortcut, forKey: Key.commitAndSendShortcut)
+    }
+
+    private func loadShortcut(forKey key: String, legacyKey: String, fallback: PanelShortcut?) -> PanelShortcut? {
+        if let stored = defaults.object(forKey: key) {
+            guard let array = stored as? [Any] else { return fallback }
+            return array.isEmpty ? nil : (PanelShortcut(storedValue: array) ?? fallback)
+        }
+        if let legacy = defaults.string(forKey: legacyKey) {
+            guard let actionKey = PanelActionKey(rawValue: legacy) else { return fallback }
+            return actionKey.shortcut
+        }
+        return fallback
+    }
+
+    private func saveShortcut(_ shortcut: PanelShortcut?, forKey key: String) {
+        defaults.set(shortcut?.storedValue ?? [], forKey: key)
     }
 
     private var hasLegacyActionKeys: Bool {
@@ -72,19 +76,19 @@ struct SettingsStore {
     }
 
     func loadPanelScreen() -> PanelScreen {
-        defaults.string(forKey: Key.panelScreen).flatMap(PanelScreen.init(rawValue:)) ?? .defaultValue
+        loadStringEnum(PanelScreen.self, forKey: Key.panelScreen) ?? .defaultValue
     }
 
     func savePanelScreen(_ panelScreen: PanelScreen) {
-        defaults.set(panelScreen.rawValue, forKey: Key.panelScreen)
+        saveStringEnum(panelScreen, forKey: Key.panelScreen)
     }
 
     func loadAutoShowMode() -> AutoShowMode {
-        defaults.string(forKey: Key.autoShowMode).flatMap(AutoShowMode.init(rawValue:)) ?? .defaultValue
+        loadStringEnum(AutoShowMode.self, forKey: Key.autoShowMode) ?? .defaultValue
     }
 
     func saveAutoShowMode(_ mode: AutoShowMode) {
-        defaults.set(mode.rawValue, forKey: Key.autoShowMode)
+        saveStringEnum(mode, forKey: Key.autoShowMode)
     }
 
     func loadAutoShowApps() -> [AutoShowApp] {
@@ -101,46 +105,39 @@ struct SettingsStore {
     // MARK: - テーマ
 
     func loadAppTheme() -> AppTheme {
-        defaults.string(forKey: Key.appTheme).flatMap(AppTheme.init(rawValue:)) ?? .defaultValue
+        loadStringEnum(AppTheme.self, forKey: Key.appTheme) ?? .defaultValue
     }
 
     func saveAppTheme(_ theme: AppTheme) {
-        defaults.set(theme.rawValue, forKey: Key.appTheme)
+        saveStringEnum(theme, forKey: Key.appTheme)
     }
 
     // MARK: - パネルの文字と透明度
 
     func loadPanelFontName() -> String? {
-        guard let name = defaults.object(forKey: Key.panelFontName) as? String, !name.isEmpty else { return nil }
-        return name
+        loadNonEmptyString(forKey: Key.panelFontName)
     }
 
     func savePanelFontName(_ name: String?) {
-        if let name, !name.isEmpty {
-            defaults.set(name, forKey: Key.panelFontName)
-        } else {
-            defaults.removeObject(forKey: Key.panelFontName)
-        }
+        saveNonEmptyString(name, forKey: Key.panelFontName)
     }
 
     /// パネルの入力欄のフォントのファミリー名を読む。無い・空・文字列でない値は `nil`。
     func loadPanelFontFamilyName() -> String? {
-        guard let name = defaults.object(forKey: Key.panelFontFamilyName) as? String, !name.isEmpty else { return nil }
-        return name
+        loadNonEmptyString(forKey: Key.panelFontFamilyName)
     }
 
     /// パネルの入力欄のフォントのファミリー名を保存する。`nil`・空文字ならキーを消す。
     func savePanelFontFamilyName(_ name: String?) {
-        if let name, !name.isEmpty {
-            defaults.set(name, forKey: Key.panelFontFamilyName)
-        } else {
-            defaults.removeObject(forKey: Key.panelFontFamilyName)
-        }
+        saveNonEmptyString(name, forKey: Key.panelFontFamilyName)
     }
 
     func loadPanelFontSize() -> Double {
-        guard let stored = number(forKey: Key.panelFontSize) else { return PanelTextStyle.defaultFontSize }
-        return PanelTextStyle.clampedFontSize(stored.doubleValue)
+        loadClampedNumber(
+            forKey: Key.panelFontSize,
+            defaultValue: PanelTextStyle.defaultFontSize,
+            clamp: PanelTextStyle.clampedFontSize
+        )
     }
 
     func savePanelFontSize(_ size: Double) {
@@ -148,8 +145,11 @@ struct SettingsStore {
     }
 
     func loadPanelOpacity() -> Double {
-        guard let stored = number(forKey: Key.panelOpacity) else { return PanelTextStyle.defaultOpacity }
-        return PanelTextStyle.clampedOpacity(stored.doubleValue)
+        loadClampedNumber(
+            forKey: Key.panelOpacity,
+            defaultValue: PanelTextStyle.defaultOpacity,
+            clamp: PanelTextStyle.clampedOpacity
+        )
     }
 
     func savePanelOpacity(_ opacity: Double) {
@@ -221,6 +221,31 @@ struct SettingsStore {
 
     // MARK: - 型で読み分ける
 
+    private func loadStringEnum<T: RawRepresentable>(_ type: T.Type, forKey key: String) -> T? where T.RawValue == String {
+        defaults.string(forKey: key).flatMap(T.init(rawValue:))
+    }
+
+    private func saveStringEnum<T: RawRepresentable>(_ value: T, forKey key: String) where T.RawValue == String {
+        defaults.set(value.rawValue, forKey: key)
+    }
+
+    private func loadNonEmptyString(forKey key: String) -> String? {
+        guard let value = defaults.object(forKey: key) as? String, !value.isEmpty else { return nil }
+        return value
+    }
+
+    private func saveNonEmptyString(_ value: String?, forKey key: String) {
+        if let value, !value.isEmpty {
+            defaults.set(value, forKey: key)
+        } else {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
+    private func loadClampedNumber(forKey key: String, defaultValue: Double, clamp: (Double) -> Double) -> Double {
+        guard let stored = number(forKey: key) else { return defaultValue }
+        return clamp(stored.doubleValue)
+    }
 
     private func number(forKey key: String) -> NSNumber? {
         guard let value = defaults.object(forKey: key) as? NSNumber,

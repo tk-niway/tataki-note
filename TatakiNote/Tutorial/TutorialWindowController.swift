@@ -38,14 +38,13 @@ final class TutorialWindowController: NSObject, NSWindowDelegate {
         if window?.isVisible != true {
             model.reset()
         }
-        let window = self.window ?? makeWindow()
-        if self.window == nil {
-            self.window = window
-            window.center()
-        }
-        NSApp.activate()
-        window.makeKeyAndOrderFront(nil)
-        window.orderFrontRegardless()
+        let window = AppWindow.prepare(
+            existing: self.window,
+            make: makeWindow,
+            initialContentSize: { _ in Self.contentSize }
+        )
+        self.window = window
+        AppWindow.bringToFront(window)
         model.refreshKeys()
         model.requestPracticeFocus()
         startObservingPanel()
@@ -73,7 +72,7 @@ final class TutorialWindowController: NSObject, NSWindowDelegate {
 
     /// 練習用の入力欄への挿入が要求されたとき、窓を前に出して入力欄にフォーカスを戻す。
     func handleInsertionRequested(text: String, target: InsertionTarget, sendsAfterInsert: Bool) {
-        guard target.processIdentifier == ownProcessIdentifier,
+        guard target.isOwnApp(ownProcessIdentifier),
               let window, window.isVisible
         else { return }
         model.insertionRequested(text: text, target: target, sendsAfterInsert: sendsAfterInsert)
@@ -94,25 +93,16 @@ final class TutorialWindowController: NSObject, NSWindowDelegate {
     // MARK: - 内部
 
     func makeWindow() -> NSWindow {
-        let window = NSWindow(
-            contentRect: NSRect(origin: .zero, size: Self.contentSize),
+        let model = model
+        return AppWindow.make(
+            title: String(localized: "TatakiNote の使い方"),
+            identifier: "tutorial",
             styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
+            delegate: self,
+            rootView: ThemedWindowContent(settings: settings) {
+                TutorialView(model: model, onClose: { [weak self] in self?.close() })
+            }
         )
-        window.title = String(localized: "TatakiNote の使い方")
-        window.isReleasedWhenClosed = false
-        window.delegate = self
-        window.identifier = NSUserInterfaceItemIdentifier("tutorial")
-        window.contentView = NSHostingView(
-            rootView: TutorialRootView(
-                settings: settings,
-                model: model,
-                onClose: { [weak self] in self?.close() }
-            )
-        )
-        window.setContentSize(Self.contentSize)
-        return window
     }
 
     private func startObservingPanel() {
@@ -123,31 +113,22 @@ final class TutorialWindowController: NSObject, NSWindowDelegate {
     }
 
     private func observePanel(generation: Int) {
-        withObservationTracking {
-            _ = panelModel.isPresented
-            _ = panelModel.target
-            _ = panelModel.text
-        } onChange: { [weak self] in
-            Task { @MainActor [weak self] in
-                guard let self, self.isObservingPanel, self.observationGeneration == generation else { return }
+        observeRepeatedly(
+            tracking: { [weak self] in
+                guard let panelModel = self?.panelModel else { return }
+                _ = panelModel.isPresented
+                _ = panelModel.target
+                _ = panelModel.text
+            },
+            onChange: { [weak self] in
+                guard let self, self.isObservingPanel, self.observationGeneration == generation else { return false }
                 self.model.panelDidChange(
                     isPresented: self.panelModel.isPresented,
                     target: self.panelModel.target,
                     text: self.panelModel.text
                 )
-                self.observePanel(generation: generation)
+                return true
             }
-        }
-    }
-}
-
-private struct TutorialRootView: View {
-    let settings: AppSettings
-    let model: TutorialModel
-    let onClose: () -> Void
-
-    var body: some View {
-        TutorialView(model: model, onClose: onClose)
-            .windowStyle(theme: settings.theme)
+        )
     }
 }

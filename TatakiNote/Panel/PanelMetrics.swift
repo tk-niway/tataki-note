@@ -17,12 +17,10 @@ enum PanelMetrics {
     static let textContainerInset = NSSize(width: 11, height: 4)
 
     static func clampedDefaultWidth(_ width: Double) -> Double {
-        guard width.isFinite else { return Double(defaultSize.width) }
-        return min(max(width, defaultWidthRange.lowerBound), defaultWidthRange.upperBound)
+        defaultWidthRange.clamping(width, nonFiniteFallback: Double(defaultSize.width))
     }
 
     static func clampedDefaultHeight(_ height: Double) -> Double {
-        guard height.isFinite else { return Double(defaultSize.height) }
-        return min(max(height, defaultHeightRange.lowerBound), defaultHeightRange.upperBound)
+        defaultHeightRange.clamping(height, nonFiniteFallback: Double(defaultSize.height))
     }
 }

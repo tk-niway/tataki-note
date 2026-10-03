@@ -3,59 +3,12 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-final class PermissionCallLog {
-    private(set) var calls: [String] = []
-
-    func record(_ call: String) {
-        calls.append(call)
-    }
-}
-
-@MainActor
-final class LoggingPermissionStub: AccessibilityPermissionChecking {
-    let isTrusted: Bool
-    private let log: PermissionCallLog
-
-    init(isTrusted: Bool, log: PermissionCallLog) {
-        self.isTrusted = isTrusted
-        self.log = log
-    }
-
-    func requestSystemPrompt() {
-        log.record("prompt")
-    }
-}
-
-@MainActor
-final class LoggingSettingsOpenerStub: AccessibilitySettingsOpening {
-    private let log: PermissionCallLog
-
-    init(log: PermissionCallLog) {
-        self.log = log
-    }
-
-    func openAccessibilitySettings() {
-        log.record("open")
-    }
-}
-
-@MainActor
 struct AppInfoModelTests {
     private func makeModel(_ infoDictionary: [String: Any]) -> AppInfoModel {
         AppInfoModel(
             infoDictionary: infoDictionary,
             permissionStatus: PermissionGuideModel(permission: OverriddenAccessibilityPermission(isTrusted: true))
         )
-    }
-
-    private func waitUntil(_ condition: () -> Bool) async throws -> Bool {
-        for _ in 0..<200 {
-            if condition() {
-                return true
-            }
-            try await Task.sleep(for: .milliseconds(10))
-        }
-        return condition()
     }
 
     // MARK: - バージョン
@@ -93,7 +46,7 @@ struct AppInfoModelTests {
 
     @Test("AC-10: 表示している間に許可が変わると、開き直さなくても確かめ直しで変わり、取り消すと確かめ直しをやめる")
     func watchPermissionFollowsChangesUntilCancelled() async throws {
-        let permission = GuidePermissionStub(isTrusted: false)
+        let permission = PermissionStub(isTrusted: false)
         let model = AppInfoModel(
             infoDictionary: [:],
             permissionStatus: PermissionGuideModel(permission: permission, opener: SettingsOpenerStub())
@@ -103,9 +56,9 @@ struct AppInfoModelTests {
         let watching = Task { await model.watchPermission(interval: .milliseconds(10)) }
 
         permission.isTrusted = true
-        #expect(try await waitUntil { model.permissionStatus.isTrusted })
+        #expect(try await waitUntil(attempts: 200, interval: .milliseconds(10)) { model.permissionStatus.isTrusted })
         permission.isTrusted = false
-        #expect(try await waitUntil { !model.permissionStatus.isTrusted })
+        #expect(try await waitUntil(attempts: 200, interval: .milliseconds(10)) { !model.permissionStatus.isTrusted })
 
         watching.cancel()
         await watching.value
@@ -121,8 +74,8 @@ struct AppInfoModelTests {
         let model = AppInfoModel(
             infoDictionary: [:],
             permissionStatus: PermissionGuideModel(
-                permission: LoggingPermissionStub(isTrusted: false, log: log),
-                opener: LoggingSettingsOpenerStub(log: log)
+                permission: PermissionStub(isTrusted: false, log: log),
+                opener: SettingsOpenerStub(log: log)
             )
         )
 
@@ -137,8 +90,8 @@ struct AppInfoModelTests {
         let model = AppInfoModel(
             infoDictionary: [:],
             permissionStatus: PermissionGuideModel(
-                permission: LoggingPermissionStub(isTrusted: true, log: log),
-                opener: LoggingSettingsOpenerStub(log: log)
+                permission: PermissionStub(isTrusted: true, log: log),
+                opener: SettingsOpenerStub(log: log)
             )
         )
 

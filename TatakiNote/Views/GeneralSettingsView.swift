@@ -1,55 +1,12 @@
-import KeyboardShortcuts
 import SwiftUI
 
 /// 設定画面の「一般」。
 struct GeneralSettingsView: View {
     @Bindable var settings: AppSettings
-    @Bindable var keySettings: PanelKeySettingsModel
     let launchAtLogin: LaunchAtLoginModel
 
     var body: some View {
         Form {
-            LabeledContent("パネルを開く・閉じる") {
-                VStack(alignment: .leading, spacing: 6) {
-                    KeyboardShortcuts.Recorder("パネルを開く・閉じる", name: .togglePanel)
-                        .labelsHidden()
-                        .accessibilityIdentifier("settings.hotkeyRecorder")
-                    SettingDescription(text: "どのアプリを使っているときでも、このキーでパネルを開く・閉じるを切り替えます。")
-                }
-            }
-            .padding(.bottom, 12)
-
-            LabeledContent("確定キー") {
-                VStack(alignment: .leading, spacing: 6) {
-                    shortcutRecorder(for: .commit, recorderID: "settings.commitKeyRecorder", rejectionID: "settings.commitKeyRejection")
-                    SettingDescription(PanelShortcutRole.commit.settingDescription)
-                }
-            }
-            .padding(.bottom, 12)
-
-            LabeledContent("確定+送信キー") {
-                VStack(alignment: .leading, spacing: 6) {
-                    shortcutRecorder(for: .commitAndSend, recorderID: "settings.commitAndSendKeyRecorder", rejectionID: "settings.commitAndSendKeyRejection")
-                    SettingDescription(PanelShortcutRole.commitAndSend.settingDescription)
-                }
-            }
-            .padding(.bottom, 12)
-
-            LabeledContent("パネルを出す位置") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Picker("パネルを出す位置", selection: $settings.panelScreen) {
-                        ForEach(PanelScreen.allCases, id: \.self) { panelScreen in
-                            Text(panelScreen.displayName).tag(panelScreen)
-                        }
-                    }
-                    .pickerStyle(.radioGroup)
-                    .labelsHidden()
-                    .accessibilityIdentifier("settings.panelScreenPicker")
-                    SettingDescription(text: "パネルを新しく開くときに出す位置です。「入力欄の近く」は、挿入先のアプリで選ばれている入力欄の近くに出します。入力欄の位置が分からないときは、挿入先のウィンドウがある画面の中央に出します。ほかの3つは、その画面の中央に出します(挿入先のウィンドウが分からないときは、マウスのある画面)。「メインの画面」は、システム設定の「ディスプレイ」でメインディスプレイにしている画面です。")
-                }
-            }
-            .padding(.bottom, 12)
-
             AutoShowSettingsSection(settings: settings)
 
             LabeledContent("テーマ") {
@@ -104,57 +61,13 @@ struct GeneralSettingsView: View {
             set: { launchAtLogin.setEnabled($0) }
         )
     }
-
-    private func shortcutRecorder(for role: PanelShortcutRole, recorderID: String, rejectionID: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            PanelShortcutRecorder(
-                displayText: keySettings.displayText(for: role),
-                isRecording: keySettings.recordingRole == role,
-                isRecordingNow: { keySettings.recordingRole == role },
-                onBeginRecording: { keySettings.beginRecording(role) },
-                onRecord: { keySettings.record($0, for: role) },
-                onClear: { keySettings.clear(role) },
-                onEndRecording: { keySettings.endRecording(role) },
-                identifier: recorderID
-            )
-            .frame(width: 160, height: 22)
-            if let message = keySettings.rejectionMessage(for: role) {
-                PanelShortcutRejectionNote(message: message, identifier: rejectionID)
-            }
-        }
-    }
-}
-
-private struct PanelShortcutRejectionNote: View {
-    let message: String
-    let identifier: String
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 5) {
-            Image(systemName: "exclamationmark.circle.fill")
-                .foregroundStyle(.red)
-            Text(message)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .font(.system(size: 11))
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier(identifier)
-    }
 }
 
 private struct LaunchAtLoginErrorNote: View {
     let error: LaunchAtLoginError
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 5) {
-            Image(systemName: "exclamationmark.circle.fill")
-                .foregroundStyle(.red)
-            Text(message)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .font(.system(size: 11))
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("settings.launchAtLoginError")
+        SettingErrorNote(text: message, identifier: "settings.launchAtLoginError")
     }
 
     private var message: LocalizedStringKey {

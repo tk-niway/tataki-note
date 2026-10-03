@@ -18,4 +18,16 @@ struct EditorShortcutsTests {
             #expect(!shortcuts.contains { $0.keys.contains(keys) }, "\(keys)")
         }
     }
+
+    @Test("AC-8: 「ショートカットキー」の説明文は、割り当ては変えられないことと、確定のキーは同じ「キー」の「確定+挿入キー」「確定+送信キー」で確かめられることを書き、「一般」「エディタ設定」を書かない")
+    func settingDescriptionPointsToKeysInSameSection() {
+        let description = EditorShortcuts.settingDescription
+
+        for phrase in ["割り当ては変えられません", "確定+挿入キー", "確定+送信キー"] {
+            #expect(description.contains(phrase), "\(phrase)")
+        }
+        for phrase in ["一般", "エディタ設定"] {
+            #expect(!description.contains(phrase), "\(phrase)")
+        }
+    }
 }

@@ -2,20 +2,6 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-final class PermissionStub: AccessibilityPermissionChecking {
-    var isTrusted: Bool
-    private(set) var promptRequestCount = 0
-
-    init(isTrusted: Bool) {
-        self.isTrusted = isTrusted
-    }
-
-    func requestSystemPrompt() {
-        promptRequestCount += 1
-    }
-}
-
-@MainActor
 final class InserterStub: TextInserting {
     var result: InsertionResult
     var onInsert: (() -> Void)?

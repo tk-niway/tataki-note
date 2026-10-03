@@ -1,5 +1,5 @@
 #!/bin/bash
-# TatakiNote の配布物を作り、GitHub Releases に下書きとして載せる。
+# TatakiNote の配布物を作り、GitHub Releases に公開する。
 # 使い方: ./scripts/release.sh <コマンド> [オプション]
 #   check            VERSION の版をリリースするかを判定する(release=yes / release=no を出力。
 #                    GitHub Actions では GITHUB_OUTPUT にも書く)。公開済みなら no、未作成か下書きなら yes
@@ -8,8 +8,8 @@
 #   build [--keychain <キーチェーン>]
 #                    Release ビルド → 証明書で署名 → 検証 → dist/ に TatakiNote.app と
 #                    TatakiNote-<版>.zip(と .sha256)を作る。キーチェーン省略時は既定の検索リスト
-#   upload           dist/ の zip と release-notes/v<版>.md で、GitHub に下書きのリリースを作る
-#                    (下書きがあれば本文と添付を差し替え、公開済みなら何もしない)。gh が要る
+#   upload           dist/ の zip と release-notes/v<版>.md で、GitHub にリリースを公開する
+#                    (下書きがあれば本文と添付を差し替えて公開し、公開済みなら何もしない)。gh が要る
 # 版は VERSION(x.y.z)、リリースノートは release-notes/v<版>.md、設定は scripts/release.conf。
 set -euo pipefail
 export GIT_PAGER=cat
@@ -183,17 +183,16 @@ cmd_upload() {
       echo "$TAG は公開済みです。何もしません。"
       ;;
     none)
-      echo "==> 下書きのリリースを作る: $TAG"
-      gh release create "$TAG" --draft --target "$target" --title "$APP_NAME $VERSION" \
+      echo "==> リリースを公開する: $TAG"
+      gh release create "$TAG" --target "$target" --title "$APP_NAME $VERSION" \
         --notes-file "$NOTES" "$ZIP" "$ZIP.sha256"
       ;;
     draft)
-      echo "==> 下書きのリリースを更新する: $TAG"
-      gh release edit "$TAG" --draft --target "$target" --title "$APP_NAME $VERSION" --notes-file "$NOTES"
+      echo "==> 下書きのリリースを更新して公開する: $TAG"
+      gh release edit "$TAG" --draft=false --target "$target" --title "$APP_NAME $VERSION" --notes-file "$NOTES"
       gh release upload "$TAG" "$ZIP" "$ZIP.sha256" --clobber
       ;;
   esac
-  [ "$state" = published ] || echo "GitHub の Releases で下書きを確認し、Publish してください。"
 }
 
 [ $# -ge 1 ] || { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
