@@ -55,7 +55,7 @@ struct PanelStatusBarContent: Equatable {
             return .keyHint(item: item, key: "esc", label: String(localized: "閉じる"))
         case .commit:
             guard let key = commitKey?.displayText else { return nil }
-            return .keyHint(item: item, key: key, label: String(localized: "確定"))
+            return .keyHint(item: item, key: key, label: String(localized: "確定+挿入"))
         case .commitAndSend:
             guard let key = commitAndSendKey?.displayText else { return nil }
             return .keyHint(item: item, key: key, label: String(localized: "確定+送信"))

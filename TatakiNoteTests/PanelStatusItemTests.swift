@@ -3,10 +3,10 @@ import Testing
 
 @MainActor
 struct PanelStatusItemTests {
-    @Test("AC-31: 帯の項目は6つで、並びは閉じる・改行・確定キー・確定+送信キー・文字数・行数")
+    @Test("AC-2, AC-31: 帯の項目は6つで、並びは閉じる・改行・確定+挿入キー・確定+送信キー・文字数・行数")
     func allCasesOrder() {
         #expect(PanelStatusItem.allCases == [.close, .lineBreak, .commit, .commitAndSend, .characterCount, .lineCount])
-        #expect(PanelStatusItem.allCases.map(\.displayName) == ["閉じる", "改行", "確定キー", "確定+送信キー", "文字数", "行数"])
+        #expect(PanelStatusItem.allCases.map(\.displayName) == ["閉じる", "改行", "確定+挿入キー", "確定+送信キー", "文字数", "行数"])
     }
 
     @Test("AC-31: 帯に出す項目は allCases の順で、非表示にした項目を出さない。すべて非表示なら空")

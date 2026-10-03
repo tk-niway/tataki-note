@@ -37,7 +37,7 @@ extension PanelStatusItem {
         case .close:
             String(localized: "閉じる")
         case .commit:
-            String(localized: "確定キー")
+            String(localized: "確定+挿入キー")
         case .commitAndSend:
             String(localized: "確定+送信キー")
         case .characterCount:

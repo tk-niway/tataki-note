@@ -148,7 +148,7 @@ enum TutorialNextStepIntroduction: CaseIterable {
 
     // MARK: - キーの表示
 
-    /// 今の確定キーの表示(未設定なら `nil`)。
+    /// 今の確定+挿入キーの表示(未設定なら `nil`)。
     var commitKeyText: String? {
         settings.commitKey?.displayText
     }
@@ -189,7 +189,7 @@ enum TutorialNextStepIntroduction: CaseIterable {
         if let commitKeyText {
             return String(localized: "パネルで \(commitKeyText) を押すと、書いた文章が練習用のチャットの入力欄に入ります。内容を確かめてから ↩ を押して送信しましょう。")
         }
-        return String(localized: "確定キーも確定+送信キーも登録されていません。設定の「一般」で登録してください。")
+        return String(localized: "確定+挿入キーも確定+送信キーも登録されていません。設定の「一般」で登録してください。")
     }
 
     /// ホットキーの表示を今の設定から読み直す。

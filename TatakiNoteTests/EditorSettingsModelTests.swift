@@ -167,6 +167,21 @@ struct EditorSettingsModelTests {
         #expect(relaunched.opacityPercentText == "70%")
     }
 
+    @Test("AC-8: 「文字サイズ」の説明文は、範囲の定数から出した全文になり、渡した範囲に従って変わる")
+    func fontSizeDescriptionFollowsRange() {
+        #expect(EditorSettingsModel.fontSizeDescription == "10〜32 pt の間で選べます。")
+        #expect(EditorSettingsModel.fontSizeDescription(range: 12...40) == "12〜40 pt の間で選べます。")
+    }
+
+    @Test("AC-8: 「透明度」の説明文は、範囲の定数から出した全文になり、渡した範囲に従って変わる")
+    func opacityDescriptionFollowsRange() {
+        #expect(EditorSettingsModel.opacityDescription == "パネル全体(背景と文字)の透け具合です。100% で透けません。40% より下にはできません。")
+        #expect(
+            EditorSettingsModel.opacityDescription(range: 0.25...0.9)
+                == "パネル全体(背景と文字)の透け具合です。90% で透けません。25% より下にはできません。"
+        )
+    }
+
     // MARK: - 帯の項目
 
     @Test("AC-6: 帯の6項目は初期はすべて表示で、1つずつ切り替えられ、切り替えた値は起動し直しても残る")

@@ -43,7 +43,7 @@ struct EditorSettingsView: View {
                         .labelsHidden()
                         .accessibilityIdentifier("settings.fontSizeStepper")
                     }
-                    SettingDescription(text: "10〜32 pt の間で選べます。")
+                    SettingDescription(EditorSettingsModel.fontSizeDescription)
                 }
             }
             .padding(.bottom, 12)
@@ -62,7 +62,7 @@ struct EditorSettingsView: View {
                             .frame(width: 40, alignment: .trailing)
                             .accessibilityIdentifier("settings.opacityValue")
                     }
-                    SettingDescription(text: "パネル全体(背景と文字)の透け具合です。100% で透けません。40% より下にはできません。")
+                    SettingDescription(EditorSettingsModel.opacityDescription)
                 }
             }
             .padding(.bottom, 12)
@@ -118,8 +118,8 @@ struct EditorSettingsView: View {
                         }
                         .accessibilityIdentifier("settings.resetPanelDefaultSize")
                     }
-                    SettingDescription(text: "パネルを開いたときの大きさです(幅 320〜4000・高さ 160〜4000 pt)。変えると、次にパネルを開いたときから使います。")
-                    SettingDescription(text: "パネルの端をドラッグして大きさを変えると、文章を挿入するまではその大きさで開きます(その間は、ここを変えてもパネルの大きさは変わりません)。「今のパネルの大きさを既定にする」は、ドラッグで大きさを変えた後に押せて、ドラッグで決めた大きさを既定にします(文章で伸びた高さは含みません)。")
+                    SettingDescription(PanelDefaultSizeModel.rangeDescription)
+                    SettingDescription(PanelDefaultSizeModel.heldSizeDescription)
                 }
             }
             .padding(.bottom, 12)

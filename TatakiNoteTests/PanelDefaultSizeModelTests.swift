@@ -84,6 +84,21 @@ struct PanelDefaultSizeModelTests {
         #expect(relaunched.height == 160)
     }
 
+    @Test("AC-9: 範囲の説明文は、定数から出した全文で桁区切りが付かず、渡した範囲に従って変わる")
+    func rangeDescriptionFollowsRanges() {
+        #expect(PanelDefaultSizeModel.rangeDescription == "パネルを開いたときの大きさです(幅 320〜4000・高さ 160〜4000 pt)。変えると、次にパネルを開いたときから使います。")
+        #expect(
+            PanelDefaultSizeModel.rangeDescription(widthRange: 300...12000, heightRange: 100...2000)
+                == "パネルを開いたときの大きさです(幅 300〜12000・高さ 100〜2000 pt)。変えると、次にパネルを開いたときから使います。"
+        )
+    }
+
+    @Test("AC-9: ドラッグの説明文は「(文章で伸びた高さは含みません)」を含まない全文になる")
+    func heldSizeDescriptionOmitsGrownHeightNote() {
+        #expect(PanelDefaultSizeModel.heldSizeDescription == "パネルの端をドラッグして大きさを変えると、文章を挿入するまではその大きさで開きます(その間は、ここを変えてもパネルの大きさは変わりません)。「今のパネルの大きさを既定にする」は、ドラッグで大きさを変えた後に押せて、ドラッグで決めた大きさを既定にします。")
+        #expect(!PanelDefaultSizeModel.heldSizeDescription.contains("文章で伸びた高さ"))
+    }
+
     // MARK: - 今のパネルの大きさを既定にする
 
     @Test("AC-14: パネルが大きさを保っていなければ押せず、呼んでも既定の大きさは変わらない")

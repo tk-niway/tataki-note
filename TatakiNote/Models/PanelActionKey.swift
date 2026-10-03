@@ -1,4 +1,4 @@
-/// 以前の版で保存した確定キー・確定+送信キーの値を `PanelShortcut?` に読み替える。
+/// 以前の版で保存した確定+挿入キー・確定+送信キーの値を `PanelShortcut?` に読み替える。
 enum PanelActionKey: String, CaseIterable, Sendable {
     case shiftEnter
     case commandEnter

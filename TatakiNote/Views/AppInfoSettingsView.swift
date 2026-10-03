@@ -15,7 +15,7 @@ struct AppInfoSettingsView: View {
             }
             .padding(.bottom, 12)
 
-            LabeledContent("権限") {
+            LabeledContent("アクセシビリティの許可") {
                 HStack(alignment: .top, spacing: 16) {
                     if model.permissionStatus.isTrusted {
                         PermissionGuideIcon(isGranted: true)

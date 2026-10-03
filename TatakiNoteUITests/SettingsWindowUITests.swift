@@ -114,6 +114,27 @@ final class SettingsWindowUITests: XCTestCase {
         closeSettings(in: app)
     }
 
+    // AC-13
+    @MainActor
+    func testAC13_itemLabels() throws {
+        let app = XCUIApplication()
+        launch(app)
+
+        openSettingsFromMenu(in: app)
+        let commitLabel = app.staticTexts["確定+挿入キー"].firstMatch
+        app.revealInSettings(commitLabel)
+        XCTAssertTrue(commitLabel.exists)
+
+        let appInfo = element(in: app, identifier: sidebarAppInfoID)
+        XCTAssertTrue(appInfo.waitForExistence(timeout: timeout))
+        appInfo.click()
+        let permissionLabel = app.staticTexts["アクセシビリティの許可"].firstMatch
+        app.revealInSettings(permissionLabel)
+        XCTAssertTrue(permissionLabel.exists)
+
+        closeSettings(in: app)
+    }
+
     // AC-7
     @MainActor
     func testAC7_launchAtLoginScenario() throws {
