@@ -39,14 +39,14 @@ struct AppSettingsTests {
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).commitKey == nil)
     }
 
-    @Test("AC-1, AC-2, AC-6, AC-9: 作っただけでは何も保存せず、初期値を読む")
+    @Test("AC-1: 作っただけでは何も保存せず、初期値(確定 ⇧⌘↩)を読む")
     func initDoesNotSave() throws {
         let name = UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
-        #expect(settings.commitKey == nil)
+        #expect(settings.commitKey == .commandShiftReturn)
         #expect(settings.panelScreen == .nearFocusedField)
         #expect(defaults.object(forKey: "commitKey") == nil)
         #expect(defaults.object(forKey: "commitShortcut") == nil)
@@ -55,7 +55,7 @@ struct AppSettingsTests {
 
     // MARK: - 確定+送信キー
 
-    @Test("AC-9, AC-11: 確定+送信キーは初期値「⌘↩」で、作っただけでは保存しない。変えると保存され、作り直しても残る")
+    @Test("確定+送信キーは初期値「⌘↩」で、作っただけでは保存しない。変えると保存され、作り直しても残る")
     func commitAndSendKeyIsSavedAndSurvivesRecreation() throws {
         let name = UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: name))
@@ -65,6 +65,7 @@ struct AppSettingsTests {
         #expect(settings.commitAndSendKey == .commandReturn)
         #expect(defaults.object(forKey: "commitAndSendShortcut") == nil)
 
+        settings.commitKey = .shiftReturn
         settings.commitAndSendKey = .commandShiftReturn
         #expect(defaults.array(forKey: "commitAndSendShortcut") as? [Int] == PanelShortcut.commandShiftReturn.storedValue)
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).commitAndSendKey == .commandShiftReturn)
@@ -74,7 +75,7 @@ struct AppSettingsTests {
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).commitAndSendKey == nil)
     }
 
-    @Test("AC-14: 確定で使っているキーは確定+送信に選べず(値も保存も変わらない)、逆も同じ。登録なしはどちらでも選べる")
+    @Test("確定で使っているキーは確定+送信に選べず(値も保存も変わらない)、逆も同じ。登録なしはどちらでも選べる")
     func selectRejectsKeyUsedByTheOtherAction() throws {
         let name = UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: name))
@@ -83,7 +84,7 @@ struct AppSettingsTests {
         #expect(settings.commitAndSendKey == .commandReturn)
 
         #expect(settings.selectCommitKey(.commandReturn) == false)
-        #expect(settings.commitKey == nil)
+        #expect(settings.commitKey == .commandShiftReturn)
         #expect(defaults.object(forKey: "commitShortcut") == nil)
 
         #expect(settings.selectCommitKey(.commandShiftReturn) == true)
@@ -385,13 +386,16 @@ struct AppSettingsTests {
         #expect(reloaded.panelFont.pointSize == 32)
     }
 
-    @Test("AC-9, AC-17, AC-31: 帯に出す項目は allCases の順で、非表示にした項目と登録なしのキーを出さない。1つずつ切り替えて保存でき、すべて非表示なら空")
+    @Test("AC-4: 帯に出す項目は allCases の順で、非表示にした項目と登録なしのキーを出さない。1つずつ切り替えて保存でき、すべて非表示なら空")
     func panelStatusItemsFollowSettings() throws {
         let name = UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
 
+        #expect(settings.panelStatusItems == PanelStatusItem.allCases)
+
+        settings.commitKey = nil
         #expect(settings.panelStatusItems == [.close, .lineBreak, .commitAndSend, .characterCount, .lineCount])
 
         settings.commitKey = .shiftReturn

@@ -10,6 +10,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let permission: AccessibilityPermissionChecking
     private let performer: CommitPerformer
     private let fieldProbe: FocusedElementProbing
+    private let ownProcessIdentifier: pid_t
 
     private let sizing = PanelSizing()
     private var liveResizeStartSize: CGSize?
@@ -21,6 +22,12 @@ final class PanelController: NSObject, NSWindowDelegate {
         set { performer.onPermissionDenied = newValue }
     }
 
+    /// 返した挿入先を、前面のアプリの代わりに挿入先にする。`nil` を返すと前面のアプリを使う。
+    var targetOverride: (() -> InsertionTarget?)?
+
+    /// 確定で挿入することになったとき、パネルを閉じた後・挿入の前に、文章・挿入先・送信もするかを知らせる。
+    var onInsertionRequested: ((String, InsertionTarget, Bool) -> Void)?
+
     init(
         model: PanelModel = PanelModel(),
         settings: AppSettings,
@@ -28,7 +35,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         inserter: TextInserting = ClipboardTextInserter(),
         permission: AccessibilityPermissionChecking = SystemAccessibilityPermission(),
         notifier: InsertionFailureNotifying = InsertionFailureNotifier(),
-        fieldProbe: FocusedElementProbing = AXFocusedTextInputInspector()
+        fieldProbe: FocusedElementProbing = AXFocusedTextInputInspector(),
+        ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier
     ) {
         self.model = model
         self.panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
@@ -37,6 +45,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.permission = permission
         self.performer = CommitPerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
         self.fieldProbe = fieldProbe
+        self.ownProcessIdentifier = ownProcessIdentifier
         super.init()
 
         let hostingView = NSHostingView(
@@ -53,12 +62,22 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.delegate = self
     }
 
+    /// 挿入先のアプリへアクセシビリティの問い合わせをしてよいか。自分自身が挿入先のときは問い合わせない。
+    static func shouldQueryAccessibility(of target: InsertionTarget?, ownProcessIdentifier: pid_t) -> Bool {
+        guard let target else { return false }
+        return target.processIdentifier != ownProcessIdentifier
+    }
+
     func open() {
-        let target = targetTracker.currentTarget()
+        let target = targetOverride?() ?? targetTracker.currentTarget()
         let wasPresented = model.present(target: target)
         if !wasPresented {
             sizing.beginOpening(defaultSize: settings.panelDefaultSize)
-            if let target, permission.isTrusted {
+            let queriesAccessibility = Self.shouldQueryAccessibility(
+                of: target,
+                ownProcessIdentifier: ownProcessIdentifier
+            )
+            if let target, queriesAccessibility, permission.isTrusted {
                 AXFocusedTextInputInspector.exposeWebContent(of: target)
             }
             let mode = settings.panelScreen
@@ -70,7 +89,7 @@ final class PanelController: NSObject, NSWindowDelegate {
                 PanelOpenPlacement.fieldFrame(
                     mode: mode,
                     isTrusted: permission.isTrusted,
-                    target: target,
+                    target: queriesAccessibility ? target : nil,
                     probe: fieldProbe,
                     primaryScreenHeight: primaryScreen.frame.height
                 )
@@ -142,6 +161,9 @@ final class PanelController: NSObject, NSWindowDelegate {
     func commit(shouldSendAfterInsert: Bool = false) {
         let plan = model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
         panel.orderOut(nil)
+        if case .insert(let text, let target) = plan {
+            onInsertionRequested?(text, target, shouldSendAfterInsert)
+        }
         Task { [weak self, performer] in
             let outcome = await performer.perform(plan, shouldSendAfterInsert: shouldSendAfterInsert)
             self?.sizing.handleCommitOutcome(outcome)

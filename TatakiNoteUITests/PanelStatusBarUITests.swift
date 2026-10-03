@@ -22,10 +22,10 @@ final class PanelStatusBarUITests: XCTestCase {
         XCTAssertTrue(statusBar(in: app).waitForExistence(timeout: timeout), "帯が無い")
         assertLabel(statusItem("close", in: app), "esc 閉じる")
         assertLabel(statusItem("lineBreak", in: app), "↩ 改行")
+        assertLabel(statusItem("commit", in: app), "⇧⌘↩ 確定")
         assertLabel(statusItem("commitAndSend", in: app), "⌘↩ 確定+送信")
         assertLabel(statusItem("characterCount", in: app), "0文字")
         assertLabel(statusItem("lineCount", in: app), "0行")
-        XCTAssertFalse(statusItem("commit", in: app).exists)
 
         app.typeText("ab")
         assertLabel(statusItem("characterCount", in: app), "2文字")

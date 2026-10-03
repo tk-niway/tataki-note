@@ -33,6 +33,17 @@ struct AppInfoSettingsView: View {
                     }
                 }
             }
+            .padding(.bottom, 12)
+
+            LabeledContent("チュートリアル") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Button("チュートリアルを開く") {
+                        model.openTutorial()
+                    }
+                    .accessibilityIdentifier("settings.appInfo.openTutorial")
+                    SettingDescription(AppInfoModel.tutorialDescription)
+                }
+            }
         }
         .formStyle(.columns)
         .settingsDetailPadding()

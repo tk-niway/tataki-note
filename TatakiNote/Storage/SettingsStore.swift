@@ -20,6 +20,7 @@ struct SettingsStore {
         static let hidesMenuBarIcon = "hidesMenuBarIcon"
         static let panelDefaultWidth = "panelDefaultWidth"
         static let panelDefaultHeight = "panelDefaultHeight"
+        static let hasShownFirstLaunchTutorial = "hasShownFirstLaunchTutorial"
     }
 
     let defaults: UserDefaults
@@ -175,6 +176,16 @@ struct SettingsStore {
 
     func saveHidesMenuBarIcon(_ hides: Bool) {
         defaults.set(hides, forKey: Key.hidesMenuBarIcon)
+    }
+
+    // MARK: - 初回起動のチュートリアル
+
+    func loadHasShownFirstLaunchTutorial() -> Bool {
+        boolean(forKey: Key.hasShownFirstLaunchTutorial) ?? false
+    }
+
+    func saveHasShownFirstLaunchTutorial(_ shown: Bool) {
+        defaults.set(shown, forKey: Key.hasShownFirstLaunchTutorial)
     }
 
     // MARK: - パネルの既定の大きさ

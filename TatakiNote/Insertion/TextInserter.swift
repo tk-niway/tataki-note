@@ -75,6 +75,7 @@ final class ClipboardTextInserter: TextInserting {
     private let submitDelay: Duration
     private let settleDelay: Duration
     private let restoreDelay: Duration
+    private let ownProcessIdentifier: pid_t
 
     private var tail: Task<InsertionResult, Never>?
 
@@ -86,7 +87,8 @@ final class ClipboardTextInserter: TextInserting {
         submitSender: SubmitKeySending = EnterKeySender(),
         submitDelay: Duration = .milliseconds(80),
         settleDelay: Duration = .milliseconds(50),
-        restoreDelay: Duration = .milliseconds(500)
+        restoreDelay: Duration = .milliseconds(500),
+        ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier
     ) {
         self.pasteboard = pasteboard
         self.activator = activator
@@ -96,6 +98,7 @@ final class ClipboardTextInserter: TextInserting {
         self.submitDelay = submitDelay
         self.settleDelay = settleDelay
         self.restoreDelay = restoreDelay
+        self.ownProcessIdentifier = ownProcessIdentifier
     }
 
     func insert(_ text: String, into target: InsertionTarget, shouldSendAfterInsert: Bool) async -> InsertionResult {
@@ -118,7 +121,8 @@ final class ClipboardTextInserter: TextInserting {
         }
         try? await Task.sleep(for: settleDelay)
 
-        if focusInspector.focusedTextInputState(in: target) == .notTextInput {
+        let isOwnTarget = target.processIdentifier == ownProcessIdentifier
+        if !isOwnTarget, focusInspector.focusedTextInputState(in: target) == .notTextInput {
             return .noTextInput
         }
 

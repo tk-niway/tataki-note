@@ -42,13 +42,13 @@ struct PanelKeySettingsModelTests {
         PanelShortcutCandidate(shortcut: PanelShortcut(keyCode: keyCode, modifiers: modifiers), characters: characters)
     }
 
-    @Test("AC-9: 初期の表記は確定が登録なし(nil)・確定+送信が ⌘↩")
+    @Test("AC-1: 初期の表記は確定が ⇧⌘↩・確定+送信が ⌘↩")
     func initialDisplayTextIsNewDefault() throws {
         let (settings, defaults, name) = try makeSettings()
         defer { defaults.removePersistentDomain(forName: name) }
         let model = makeModel(settings: settings)
 
-        #expect(model.displayText(for: .commit) == nil)
+        #expect(model.displayText(for: .commit) == "⇧⌘↩")
         #expect(model.displayText(for: .commitAndSend) == "⌘↩")
     }
 
@@ -94,7 +94,7 @@ struct PanelKeySettingsModelTests {
         #expect(model.rejectionMessage(for: .commit) != nil)
     }
 
-    @Test("AC-13: ホットキーと同じキーは受け付けず、理由が出る")
+    @Test("ホットキーと同じキーは受け付けず、理由が出る")
     func hotkeyCollisionIsRejectedWithMessage() throws {
         let (settings, defaults, name) = try makeSettings()
         defer { defaults.removePersistentDomain(forName: name) }
@@ -102,23 +102,25 @@ struct PanelKeySettingsModelTests {
         let controller = FakeHotkeyController(hotkey: hotkey)
         let model = makeModel(settings: settings, controller: controller)
 
+        let before = model.displayText(for: .commit)
         let accepted = model.record(PanelShortcutCandidate(shortcut: hotkey, characters: " "), for: .commit)
 
         #expect(!accepted)
-        #expect(model.displayText(for: .commit) == nil)
+        #expect(model.displayText(for: .commit) == before)
         #expect(model.rejectionMessage(for: .commit)?.contains("パネルを開く・閉じる") == true)
     }
 
-    @Test("AC-14: もう一方で使っているキーは受け付けず、理由が出る")
+    @Test("もう一方で使っているキーは受け付けず、理由が出る")
     func otherRoleCollisionIsRejectedWithMessage() throws {
         let (settings, defaults, name) = try makeSettings()
         defer { defaults.removePersistentDomain(forName: name) }
         let model = makeModel(settings: settings)
 
+        let before = model.displayText(for: .commit)
         let accepted = model.record(candidate(keyCode: 36, modifiers: [.command], characters: "\r"), for: .commit)
 
         #expect(!accepted)
-        #expect(model.displayText(for: .commit) == nil)
+        #expect(model.displayText(for: .commit) == before)
         #expect(model.rejectionMessage(for: .commit)?.contains("確定+送信") == true)
     }
 

@@ -16,7 +16,7 @@ struct PanelStatusBarContentTests {
         )
     }
 
-    @Test("AC-8, AC-9, AC-31: 閉じるの項目は「esc 閉じる」と表示され「(下書きは残ります)」は出ない。何も設定していなければ改行・⌘↩ 確定+送信・0文字・0行が出て、確定は出ない")
+    @Test("AC-4: 何も設定していなければ esc 閉じる・改行・⇧⌘↩ 確定・⌘↩ 確定+送信・0文字・0行が出て、閉じるに「(下書きは残ります)」は付かない")
     func defaultContent() throws {
         let name = UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: name))
@@ -27,12 +27,13 @@ struct PanelStatusBarContentTests {
         #expect(content.entries == [
             .keyHint(item: .close, key: "esc", label: "閉じる"),
             .keyHint(item: .lineBreak, key: "↩", label: "改行"),
+            .keyHint(item: .commit, key: "⇧⌘↩", label: "確定"),
             .keyHint(item: .commitAndSend, key: "⌘↩", label: "確定+送信"),
             .count(item: .characterCount, text: "0文字"),
             .count(item: .lineCount, text: "0行"),
         ])
         #expect(content.isEmpty == false)
-        #expect(content.entries.map(\.id) == [.close, .lineBreak, .commitAndSend, .characterCount, .lineCount])
+        #expect(content.entries.map(\.id) == [.close, .lineBreak, .commit, .commitAndSend, .characterCount, .lineCount])
     }
 
     @Test("AC-20: 確定・確定+送信の項目は、登録したキーの表記(Return 以外の任意のキーを含む)で出る")

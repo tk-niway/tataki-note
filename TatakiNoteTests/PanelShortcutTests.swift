@@ -84,9 +84,9 @@ struct PanelShortcutTests {
         #expect(shortcut == nil)
     }
 
-    @Test("AC-9, AC-33: 新しい初期値は確定が登録なし・確定+送信が ⌘↩、以前の初期値は確定が ⌘↩・確定+送信が登録なし")
+    @Test("AC-1: 新しい初期値は確定が ⇧⌘↩・確定+送信が ⌘↩、以前の初期値は確定が ⌘↩・確定+送信が登録なし")
     func defaultAndLegacyDefaultValues() {
-        #expect(PanelShortcut.defaultCommitKey == nil)
+        #expect(PanelShortcut.defaultCommitKey == .commandShiftReturn)
         #expect(PanelShortcut.defaultCommitAndSendKey == .commandReturn)
         #expect(PanelShortcut.legacyDefaultCommitKey == .commandReturn)
         #expect(PanelShortcut.legacyDefaultCommitAndSendKey == nil)
