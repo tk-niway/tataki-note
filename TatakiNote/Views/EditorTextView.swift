@@ -25,20 +25,6 @@ class EditorTextView: NSTextView {
     /// true のときだけ、空の入力欄にプレースホルダーを薄い文字で描く。
     var drawsPlaceholder: Bool { false }
 
-    // MARK: - 描画
-
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-        guard drawsPlaceholder, string.isEmpty, !placeholder.isEmpty else { return }
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font ?? NSFont.systemFont(ofSize: NSFont.systemFontSize),
-            .foregroundColor: NSColor.placeholderTextColor,
-        ]
-        let padding = textContainer?.lineFragmentPadding ?? 0
-        let origin = NSPoint(x: textContainerOrigin.x + padding, y: textContainerOrigin.y)
-        NSAttributedString(string: placeholder, attributes: attributes).draw(at: origin)
-    }
-
     // MARK: - 変換とフォント
 
     override func didChangeText() {

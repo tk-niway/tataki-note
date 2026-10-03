@@ -218,8 +218,8 @@ struct EditorTextViewTests {
     }
 
     @Test("AC-11: 変換中の文字は commitMarkedText() で今の読みのまま確定して文章に残り、SwiftUI 側の文章にも入る。2つの入力欄で同じ")
-    func commitMarkedTextKeepsComposingTextInBothEditors() async throws {
-        try await withEachEditor { fixture in
+    func commitMarkedTextKeepsComposingTextInBothEditors() async {
+        await withEachEditor { fixture in
             let textView = fixture.textView
             textView.insertText("abc", replacementRange: noReplacement)
             startComposing("にほんご", in: textView)
@@ -234,8 +234,8 @@ struct EditorTextViewTests {
     }
 
     @Test("AC-11: 変換中に変えたフォントは、確定した後に当たる。2つの入力欄で同じ")
-    func commitMarkedTextAppliesPendingFontInBothEditors() async throws {
-        try await withEachEditor { fixture in
+    func commitMarkedTextAppliesPendingFontInBothEditors() async {
+        await withEachEditor { fixture in
             let textView = fixture.textView
             let original = NSFont.systemFont(ofSize: 13)
             let changed = NSFont.monospacedSystemFont(ofSize: 20, weight: .regular)
@@ -255,8 +255,8 @@ struct EditorTextViewTests {
     }
 
     @Test("AC-11: 変換中でないときの commitMarkedText() は何もしない。2つの入力欄で同じ")
-    func commitMarkedTextWithoutCompositionDoesNothingInBothEditors() async throws {
-        try await withEachEditor { fixture in
+    func commitMarkedTextWithoutCompositionDoesNothingInBothEditors() async {
+        await withEachEditor { fixture in
             fixture.textView.insertText("abc", replacementRange: noReplacement)
 
             fixture.textView.commitMarkedText()

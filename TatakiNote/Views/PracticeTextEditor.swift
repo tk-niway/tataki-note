@@ -7,6 +7,20 @@ final class PracticeTextView: EditorTextView {
 
     override var drawsPlaceholder: Bool { true }
 
+    // MARK: - 描画
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard string.isEmpty, !placeholder.isEmpty else { return }
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font ?? NSFont.systemFont(ofSize: NSFont.systemFontSize),
+            .foregroundColor: NSColor.placeholderTextColor,
+        ]
+        let padding = textContainer?.lineFragmentPadding ?? 0
+        let origin = NSPoint(x: textContainerOrigin.x + padding, y: textContainerOrigin.y)
+        NSAttributedString(string: placeholder, attributes: attributes).draw(at: origin)
+    }
+
     // MARK: - キー操作
 
     override func keyDown(with event: NSEvent) {
