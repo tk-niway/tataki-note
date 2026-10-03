@@ -42,19 +42,16 @@ final class PromptTextView: EditorTextView {
             return .passToSystem
         }
         let modifiers = event.modifierFlags.intersection(PanelShortcut.relevantModifiers)
-        if modifiers == [.command] {
-            switch input.characters {
-            case "d":
-                selectWordAtCursor()
-                return .handled
-            case "l":
-                expandLineSelection()
-                return .handled
-            default:
-                break
-            }
+        switch EditorKeyCommand.command(modifiers: modifiers, character: input.characters) {
+        case .selectWord:
+            selectWordAtCursor()
+            return .handled
+        case .selectLine:
+            expandLineSelection()
+            return .handled
+        default:
+            return .notHandled
         }
-        return .notHandled
     }
 
     override func copyCommand() {

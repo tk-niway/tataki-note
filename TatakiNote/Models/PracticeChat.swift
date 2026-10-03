@@ -11,12 +11,9 @@ enum PracticeChatKeyAction: Equatable {
 
 /// 練習用のチャットの入力欄のキーの判定。
 enum PracticeChatKeyResolver {
-    private static let returnKeyCode: UInt16 = 36
-    private static let keypadEnterKeyCode: UInt16 = 76
-
     /// 押されたキーと修飾キー、変換中かどうかから、入力欄の動きを決める。
     static func action(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, hasMarkedText: Bool) -> PracticeChatKeyAction {
-        guard keyCode == returnKeyCode || keyCode == keypadEnterKeyCode else { return .passThrough }
+        guard keyCode == KeyCode.returnKey || keyCode == KeyCode.keypadEnter else { return .passThrough }
         let relevant = modifiers.intersection(PanelShortcut.relevantModifiers)
         if relevant.isEmpty {
             return hasMarkedText ? .commitMarkedTextAndSend : .send

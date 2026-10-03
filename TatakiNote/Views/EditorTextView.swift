@@ -94,22 +94,19 @@ class EditorTextView: NSTextView {
         }
         let modifiers = event.modifierFlags.intersection(PanelShortcut.relevantModifiers)
         let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
-        if modifiers == [.command] {
-            switch key {
-            case "a": selectAll(nil)
-            case "c": copyCommand()
-            case "x": cutCommand()
-            case "v": pasteCommand()
-            case "z": performUndoRedo { $0.undo() }
-            default: return super.performKeyEquivalent(with: event)
-            }
-            return true
+        guard let command = EditorKeyCommand.command(modifiers: modifiers, character: key), !command.isPanelOnly else {
+            return super.performKeyEquivalent(with: event)
         }
-        if modifiers == [.command, .shift] && key == "z" {
-            performUndoRedo { $0.redo() }
-            return true
+        switch command {
+        case .selectAll: selectAll(nil)
+        case .copy: copyCommand()
+        case .cut: cutCommand()
+        case .paste: pasteCommand()
+        case .undo: performUndoRedo { $0.undo() }
+        case .redo: performUndoRedo { $0.redo() }
+        case .moveLines, .duplicateLines, .selectLine, .selectWord: return super.performKeyEquivalent(with: event)
         }
-        return super.performKeyEquivalent(with: event)
+        return true
     }
 
     private func performUndoRedo(_ action: (UndoManager) -> Void) {

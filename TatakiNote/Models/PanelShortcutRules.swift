@@ -50,8 +50,6 @@ enum PanelShortcutRejection: Equatable {
 }
 
 enum PanelShortcutRules {
-    private static let editingCharacters: Set<String> = ["a", "c", "d", "h", "l", "v", "x", "z"]
-
     static func rejection(
         for candidate: PanelShortcutCandidate,
         role: PanelShortcutRole,
@@ -88,10 +86,7 @@ enum PanelShortcutRules {
 
     private static func isReservedForEditing(_ candidate: PanelShortcutCandidate) -> Bool {
         let shortcut = candidate.shortcut
-        if shortcut.modifiers == [.command], editingCharacters.contains(candidate.characters) {
-            return true
-        }
-        if shortcut.modifiers == [.command, .shift], candidate.characters == "z" {
+        if EditorKeyCommand.isReservedKeyEquivalent(modifiers: shortcut.modifiers, character: candidate.characters) {
             return true
         }
         let input = PanelKeyInput(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers, hasMarkedText: false)
