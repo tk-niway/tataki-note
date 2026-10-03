@@ -64,7 +64,7 @@ final class PanelSizeUITests: XCTestCase {
         closePanel(in: app)
         let reopened = openPanel(in: app)
         assertSize(reopened.frame.size, equals: defaultSize, "下書きが多いと既定の大きさで開かない")
-        XCTAssertTrue((app.textViews["promptPanel.textView"].value as? String)?.isEmpty == false, "下書きが残っていない")
+        XCTAssertFalse(app.textViews["promptPanel.textView"].promptPanelText.isEmpty, "下書きが残っていない")
 
         clearText(in: app)
         closePanel(in: app)
@@ -182,7 +182,7 @@ final class PanelSizeUITests: XCTestCase {
     private func clearText(in app: XCUIApplication) {
         app.typeKey("a", modifierFlags: [.command])
         app.typeKey(.delete, modifierFlags: [])
-        XCTAssertEqual(app.textViews["promptPanel.textView"].value as? String, "")
+        XCTAssertEqual(app.textViews["promptPanel.textView"].promptPanelText, "")
     }
 
     @MainActor

@@ -30,6 +30,25 @@ final class PromptPanelUITests: XCTestCase {
         XCTAssertEqual(app.windows.count, 0)
     }
 
+    // AC-2
+    @MainActor
+    func testAC2_placeholderIsExposedAndTypedTextIsValue() throws {
+        let app = makeApp()
+        app.launch()
+
+        openPanelFromMenu(in: app)
+        let textView = app.textViews["promptPanel.textView"]
+        XCTAssertTrue(textView.waitForExistence(timeout: timeout))
+        XCTAssertEqual(textView.placeholderValue, XCUIElement.promptPanelPlaceholder)
+
+        app.typeText("abc")
+        XCTAssertEqual(textView.promptPanelText, "abc")
+
+        app.typeKey("a", modifierFlags: [.command])
+        app.typeKey(.delete, modifierFlags: [])
+        XCTAssertEqual(textView.promptPanelText, "")
+    }
+
     @MainActor
     func testAC1_AC2_AC3_AC5_AC9_AC14_AC17_panelScenario() throws {
         let app = makeApp()
@@ -46,7 +65,7 @@ final class PromptPanelUITests: XCTestCase {
         XCTAssertTrue(textView.waitForExistence(timeout: timeout))
 
         // AC-2
-        XCTAssertEqual(textView.value as? String, "")
+        XCTAssertEqual(textView.promptPanelText, "")
         app.typeText("hello")
         XCTAssertEqual(textView.value as? String, "hello")
 
