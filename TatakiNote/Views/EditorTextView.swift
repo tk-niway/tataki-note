@@ -22,16 +22,39 @@ class EditorTextView: NSTextView {
         }
     }
 
+    /// true のときだけ、空の入力欄にプレースホルダーを薄い文字で描く。
+    var drawsEmptyPlaceholder: Bool { false }
+
+    // MARK: - 描画
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard drawsEmptyPlaceholder, string.isEmpty, !placeholder.isEmpty else { return }
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font ?? NSFont.systemFont(ofSize: NSFont.systemFontSize),
+            .foregroundColor: NSColor.placeholderTextColor,
+        ]
+        let padding = textContainer?.lineFragmentPadding ?? 0
+        let origin = NSPoint(x: textContainerOrigin.x + padding, y: textContainerOrigin.y)
+        NSAttributedString(string: placeholder, attributes: attributes).draw(at: origin)
+    }
+
     // MARK: - 変換とフォント
 
     override func didChangeText() {
         super.didChangeText()
         applyPendingFontIfNeeded()
+        if drawsEmptyPlaceholder {
+            needsDisplay = true
+        }
     }
 
     override func unmarkText() {
         super.unmarkText()
         applyPendingFontIfNeeded()
+        if drawsEmptyPlaceholder {
+            needsDisplay = true
+        }
     }
 
     // MARK: - フォント
@@ -162,38 +185,6 @@ class EditorTextView: NSTextView {
         scrollView.borderType = .noBorder
         scrollView.documentView = textView
         return scrollView
-    }
-}
-
-/// 空のときにプレースホルダーを薄い文字で描く入力欄。
-class PlaceholderEditorTextView: EditorTextView {
-    // MARK: - 描画
-
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-        guard string.isEmpty, !placeholder.isEmpty else { return }
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font ?? NSFont.systemFont(ofSize: NSFont.systemFontSize),
-            .foregroundColor: NSColor.placeholderTextColor,
-        ]
-        let padding = textContainer?.lineFragmentPadding ?? 0
-        let origin = NSPoint(x: textContainerOrigin.x + padding, y: textContainerOrigin.y)
-        NSAttributedString(string: placeholder, attributes: attributes).draw(at: origin)
-    }
-
-    override func didChangeText() {
-        super.didChangeText()
-        needsDisplay = true
-    }
-
-    override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
-        super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
-        needsDisplay = true
-    }
-
-    override func unmarkText() {
-        super.unmarkText()
-        needsDisplay = true
     }
 }
 

@@ -116,6 +116,152 @@ struct EditorTextViewTests {
         )
     }
 
+    // MARK: - 2つの入力欄に共通の振る舞い
+
+    private struct EditorFixture {
+        var name: String
+        var window: NSWindow
+        var textView: EditorTextView
+        var box: TextBox
+    }
+
+    private func withEachEditor(
+        isFirstResponder: Bool = true,
+        _ body: (EditorFixture) async throws -> Void
+    ) async rethrows {
+        for isPractice in [false, true] {
+            let box = TextBox()
+            let coordinator = EditorTextCoordinator(text: Binding(get: { box.value }, set: { box.value = $0 }))
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 320, height: 160),
+                styleMask: [.titled],
+                backing: .buffered,
+                defer: true
+            )
+            window.isReleasedWhenClosed = false
+            let frame = NSRect(x: 0, y: 0, width: 320, height: 160)
+            let textView: EditorTextView = isPractice ? PracticeTextView(frame: frame) : PromptTextView(frame: frame)
+            defer {
+                textView.inputContext?.discardMarkedText()
+                window.makeFirstResponder(nil)
+                window.close()
+            }
+            textView.delegate = coordinator
+            textView.isRichText = false
+            textView.allowsUndo = true
+            window.contentView = textView
+            if isFirstResponder {
+                window.makeFirstResponder(textView)
+            }
+            try await body(EditorFixture(
+                name: isPractice ? "PracticeTextView" : "PromptTextView",
+                window: window,
+                textView: textView,
+                box: box
+            ))
+        }
+    }
+
+    private func commandKeyEvent(_ character: String, shift: Bool = false, in window: NSWindow) throws -> NSEvent {
+        try #require(NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: shift ? [.command, .shift] : [.command],
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            characters: character,
+            charactersIgnoringModifiers: character,
+            isARepeat: false,
+            keyCode: 0
+        ))
+    }
+
+    @Test("AC-4: ⌘A で全選択し、打った文字を ⌘Z で戻し、⇧⌘Z でやり直せる。2つの入力欄で同じ")
+    func selectAllUndoAndRedoWorkInBothEditors() async throws {
+        try await withEachEditor { fixture in
+            let textView = fixture.textView
+            textView.insertText("abc", replacementRange: noReplacement)
+            await pumpRunLoop()
+            let selectAll = try commandKeyEvent("a", in: fixture.window)
+            let undo = try commandKeyEvent("z", in: fixture.window)
+            let redo = try commandKeyEvent("z", shift: true, in: fixture.window)
+
+            #expect(textView.performKeyEquivalent(with: selectAll), "\(fixture.name)")
+            #expect(textView.selectedRange() == NSRange(location: 0, length: 3), "\(fixture.name)")
+
+            #expect(textView.undoManager?.canUndo == true, "\(fixture.name)")
+            #expect(textView.performKeyEquivalent(with: undo), "\(fixture.name)")
+            #expect(textView.string.isEmpty, "\(fixture.name)")
+            #expect(fixture.box.value.isEmpty, "\(fixture.name)")
+
+            #expect(textView.performKeyEquivalent(with: redo), "\(fixture.name)")
+            #expect(textView.string == "abc", "\(fixture.name)")
+            #expect(fixture.box.value == "abc", "\(fixture.name)")
+        }
+    }
+
+    @Test("AC-4: ファーストレスポンダでないときは、⌘A・⌘Z・⇧⌘Z を処理せず、文章も変わらない")
+    func keysAreIgnoredWithoutFocusInBothEditors() async throws {
+        try await withEachEditor(isFirstResponder: false) { fixture in
+            let textView = fixture.textView
+            textView.string = "keep"
+            textView.setSelectedRange(NSRange(location: 4, length: 0))
+
+            for (character, shift) in [("a", false), ("z", false), ("z", true)] {
+                let event = try commandKeyEvent(character, shift: shift, in: fixture.window)
+                #expect(!textView.performKeyEquivalent(with: event), "\(fixture.name) \(character) \(shift)")
+            }
+            #expect(textView.string == "keep", "\(fixture.name)")
+            #expect(textView.selectedRange() == NSRange(location: 4, length: 0), "\(fixture.name)")
+        }
+    }
+
+    @Test("AC-11: 変換中の文字は commitMarkedText() で今の読みのまま確定して文章に残り、SwiftUI 側の文章にも入る。2つの入力欄で同じ")
+    func commitMarkedTextKeepsComposingTextInBothEditors() async throws {
+        try await withEachEditor { fixture in
+            let textView = fixture.textView
+            textView.insertText("abc", replacementRange: noReplacement)
+            startComposing("にほんご", in: textView)
+            #expect(textView.hasMarkedText(), "\(fixture.name)")
+
+            textView.commitMarkedText()
+
+            #expect(!textView.hasMarkedText(), "\(fixture.name)")
+            #expect(textView.string == "abcにほんご", "\(fixture.name)")
+            #expect(fixture.box.value == "abcにほんご", "\(fixture.name)")
+        }
+    }
+
+    @Test("AC-11: 変換中に変えたフォントは、確定した後に当たる。2つの入力欄で同じ")
+    func commitMarkedTextAppliesPendingFontInBothEditors() async throws {
+        try await withEachEditor { fixture in
+            let textView = fixture.textView
+            let original = NSFont.systemFont(ofSize: 13)
+            let changed = NSFont.monospacedSystemFont(ofSize: 20, weight: .regular)
+            textView.applyFont(original)
+            startComposing("にほんご", in: textView)
+
+            textView.applyFont(changed)
+            #expect(textView.font == original, "\(fixture.name)")
+
+            textView.commitMarkedText()
+            #expect(textView.font == changed, "\(fixture.name)")
+        }
+    }
+
+    @Test("AC-11: 変換中でないときの commitMarkedText() は何もしない。2つの入力欄で同じ")
+    func commitMarkedTextWithoutCompositionDoesNothingInBothEditors() async throws {
+        try await withEachEditor { fixture in
+            fixture.textView.insertText("abc", replacementRange: noReplacement)
+
+            fixture.textView.commitMarkedText()
+
+            #expect(fixture.textView.string == "abc", "\(fixture.name)")
+            #expect(fixture.box.value == "abc", "\(fixture.name)")
+        }
+    }
+
     // MARK: - 同期
 
     @Test("AC-7: 入力欄で打つと、SwiftUI 側の文章がその文字列になる")

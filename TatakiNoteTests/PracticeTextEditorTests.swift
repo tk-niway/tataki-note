@@ -81,6 +81,67 @@ struct PracticeTextEditorTests {
         ))
     }
 
+    @Test("AC-6: ↩ は今の文章で送信を呼んで改行を入れず、⇧↩ は改行を入れて送信を呼ばない")
+    func returnSendsAndShiftReturnInsertsNewline() throws {
+        try withFixture { fixture in
+            var sent: [String] = []
+            fixture.textView.onSend = { sent.append($0); return true }
+            fixture.textView.string = "hi"
+            fixture.textView.setSelectedRange(NSRange(location: 2, length: 0))
+
+            fixture.textView.keyDown(with: try returnKeyEvent(in: fixture.window))
+            #expect(sent == ["hi"])
+            #expect(fixture.textView.string == "hi")
+
+            fixture.textView.keyDown(with: try returnKeyEvent(modifiers: [.shift], in: fixture.window))
+            #expect(sent == ["hi"])
+            #expect(fixture.textView.string == "hi\n")
+        }
+    }
+
+    @Test("AC-6: ⌘C・⌘X・⌘V は選択だけを扱い、テスト用のクリップボードを使い、一般のクリップボードを変えない")
+    func clipboardKeysUseSelectionAndInjectedPasteboard() throws {
+        let generalChangeCount = NSPasteboard.general.changeCount
+        try withFixture { fixture in
+            fixture.textView.string = "one two"
+            let copy = try commandKeyEvent("c", in: fixture.window)
+            let cut = try commandKeyEvent("x", in: fixture.window)
+            let paste = try commandKeyEvent("v", in: fixture.window)
+            fixture.textView.setSelectedRange(NSRange(location: 0, length: 3))
+
+            #expect(fixture.textView.performKeyEquivalent(with: copy))
+            #expect(fixture.pasteboard.string(forType: .string) == "one")
+            #expect(fixture.textView.string == "one two")
+
+            fixture.textView.setSelectedRange(NSRange(location: 4, length: 3))
+            #expect(fixture.textView.performKeyEquivalent(with: cut))
+            #expect(fixture.pasteboard.string(forType: .string) == "two")
+            #expect(fixture.textView.string == "one ")
+
+            fixture.textView.setSelectedRange(NSRange(location: 0, length: 0))
+            #expect(fixture.textView.performKeyEquivalent(with: paste))
+            #expect(fixture.textView.string == "twoone ")
+            #expect(fixture.box.value == "twoone ")
+
+            fixture.pasteboard.clearContents()
+            fixture.textView.setSelectedRange(NSRange(location: 0, length: 0))
+            #expect(fixture.textView.performKeyEquivalent(with: copy))
+            #expect(fixture.pasteboard.string(forType: .string) == nil)
+        }
+        #expect(NSPasteboard.general.changeCount == generalChangeCount)
+    }
+
+    @Test("AC-10: 練習用の入力欄は、空のときにプレースホルダーを描く対象で、アクセシビリティの値もその文になる。パネルの入力欄は描く対象にならない")
+    func placeholderIsDrawnOnlyInPracticeField() {
+        withFixture { fixture in
+            fixture.textView.placeholder = "メッセージを入力"
+
+            #expect(fixture.textView.drawsEmptyPlaceholder)
+            #expect(fixture.textView.accessibilityPlaceholderValue() == "メッセージを入力")
+        }
+        #expect(!PromptTextView().drawsEmptyPlaceholder)
+    }
+
     @Test("AC-9: 変換中でない ↩ は、入力欄の今の文字列で送信を呼び、改行を入れない")
     func returnSendsCurrentTextWithoutNewline() throws {
         try withFixture { fixture in
