@@ -177,14 +177,23 @@ struct PracticeChatTests {
         #expect(text.contains("改行"))
     }
 
-    @Test("AC-13: 確定+送信キーが無いときの返事は、設定の「一般」で登録できると書く")
+    @Test("AC-9, AC-13: 確定+送信キーが無いときの返事は、設定の「キー」で登録できると書き、設定の「一般」とは書かない")
     func commitThenReturnReplyWithoutKeyPointsToSettings() {
         let text = PracticeChatReply.text(for: .commitThenReturn, commitAndSendKey: nil, hotkey: "⌥⇧Space")
 
         #expect(text.contains("送信できました"))
-        #expect(text.contains("設定の「一般」"))
+        #expect(text.contains("設定の「キー」"))
+        #expect(!text.contains("設定の「一般」"))
         #expect(text.contains("登録"))
         #expect(text.contains("一度に"))
         #expect(text.contains("改行"))
+    }
+
+    @Test("AC-9: 確定+送信キーがあるときの返事には、設定の場所の案内が出ない")
+    func commitThenReturnReplyWithKeyHasNoSettingsGuidance() {
+        let text = PracticeChatReply.text(for: .commitThenReturn, commitAndSendKey: "⌘↩", hotkey: "⌥⇧Space")
+
+        #expect(!text.contains("設定の「キー」"))
+        #expect(!text.contains("設定の「一般」"))
     }
 }
