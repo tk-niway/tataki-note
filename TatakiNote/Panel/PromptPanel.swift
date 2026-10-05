@@ -29,6 +29,20 @@ final class PromptPanel: NSPanel {
         setAccessibilityIdentifier("promptPanel")
     }
 
-    override var canBecomeKey: Bool { true }
+    /// key のウィンドウになれるか。閉じる動きの間は false にする。
+    var acceptsKey = true
+    /// ⌘H を受け取る処理。true を返すと標準の「隠す」には渡さない。
+    var onHideKey: (() -> Bool)?
+
+    override var canBecomeKey: Bool { acceptsKey }
     override var canBecomeMain: Bool { false }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.type == .keyDown,
+           PanelHideKey.matches(modifiers: event.modifierFlags, charactersIgnoringModifiers: event.charactersIgnoringModifiers),
+           onHideKey?() == true {
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
 }
