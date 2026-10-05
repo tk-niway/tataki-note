@@ -140,12 +140,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let webContentExposer = WebContentExposer()
 
+    let insertionFailureBubble = InsertionFailureBubbleModel()
+
+    private(set) lazy var insertionFailureBubbleController = InsertionFailureBubbleController(
+        model: insertionFailureBubble,
+        locator: StatusItemAnchorLocator(),
+        presenter: MenuBarBubblePresenter(),
+        onOpenPanel: { [weak self] in self?.panelController.open() }
+    )
+
     private(set) lazy var panelController: PanelController = {
         let controller = PanelController(
             settings: self.settings,
             targetTracker: self.targetTracker,
             permission: self.permission,
+            notifier: self.insertionFailureBubbleController,
             exposeWebContent: { [webContentExposer] in webContentExposer.expose($0) }
+        )
+        controller.isTargetLookupDisabled = AppLaunchContext.isInsertionTargetDisabled(
+            environment: ProcessInfo.processInfo.environment
         )
         controller.onPermissionDenied = { [weak self] in
             self?.permissionGuide.show(reason: .commitDenied)
