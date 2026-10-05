@@ -4,8 +4,10 @@ import SwiftUI
 /// パネルの開け閉め。
 final class PanelController: NSObject, NSWindowDelegate {
     let model: PanelModel
-    private let panel: PromptPanel
+    /// 入力パネルの窓。
+    let panel: PromptPanel
     private let settings: AppSettings
+    private let animator: PanelFrameAnimating
     private let targetTracker: FrontmostAppTracker
     private let permission: AccessibilityPermissionChecking
     private let performer: CommitPerformer
@@ -16,6 +18,10 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private let sizing = PanelSizing()
     private var liveResizeStartSize: CGSize?
+
+    private var motion = PanelMotionState()
+    private var restingFrame: NSRect?
+    private var pendingCloseCompletion: (() -> Void)?
 
     var heldPanelSize: CGSize? { sizing.heldSize }
 
@@ -40,11 +46,13 @@ final class PanelController: NSObject, NSWindowDelegate {
         fieldProbe: FocusedElementProbing = AXFocusedTextInputInspector(),
         exposeWebContent: @escaping (InsertionTarget) -> Void = { AXFocusedTextInputInspector.exposeWebContent(of: $0) },
         locateTargetWindowFrame: @escaping (pid_t) -> CGRect? = { TargetWindowLocator.frontWindowFrame(processIdentifier: $0) },
-        ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier
+        ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier,
+        animator: PanelFrameAnimating = AppKitPanelFrameAnimator()
     ) {
         self.model = model
         self.panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
         self.settings = settings
+        self.animator = animator
         self.targetTracker = targetTracker
         self.permission = permission
         self.performer = CommitPerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
@@ -92,6 +100,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         settings.refreshKeyDisplayTexts()
         let wasPresented = model.present(target: target)
         if !wasPresented {
+            stopMotion()
             sizing.beginOpening(defaultSize: settings.panelDefaultSize)
             let queriesAccessibility = Self.shouldQueryAccessibility(
                 of: target,
@@ -135,12 +144,14 @@ final class PanelController: NSObject, NSWindowDelegate {
             } else {
                 panel.center()
             }
+            present(at: panel.frame)
+            return
         }
         panel.makeKeyAndOrderFront(nil)
     }
 
     func close() {
-        panel.orderOut(nil)
+        hidePanel()
         model.dismiss()
     }
 
@@ -183,7 +194,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     func commit(shouldSendAfterInsert: Bool = false) {
         let plan = model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
-        panel.orderOut(nil)
+        hidePanel()
         if case .insert(let text, let target) = plan {
             onInsertionRequested?(text, target, shouldSendAfterInsert)
         }
@@ -195,6 +206,109 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         model.dismiss()
+    }
+
+    // MARK: - 開閉の動き
+
+    private func present(at restFrame: NSRect) {
+        guard settings.isPanelAnimationEnabled else {
+            endMotion()
+            panel.makeKeyAndOrderFront(nil)
+            motion.showWithoutMotion()
+            pendingCloseCompletion = nil
+            restingFrame = nil
+            return
+        }
+        beginMotion()
+        restingFrame = restFrame
+        panel.setFrame(PanelMotion.lineFrame(of: restFrame), display: false)
+        panel.acceptsKey = true
+        panel.ignoresMouseEvents = false
+        panel.makeKeyAndOrderFront(nil)
+        let token = motion.beginOpening()
+        pendingCloseCompletion = nil
+        animator.animate(panel, to: restFrame, duration: PanelMotion.duration, curve: .easeOut) { [weak self] in
+            self?.finishMotion(token)
+        }
+    }
+
+    private func hidePanel(then completion: (() -> Void)? = nil) {
+        guard settings.isPanelAnimationEnabled, motion.phase != .hidden else {
+            panel.orderOut(nil)
+            motion.hideWithoutMotion()
+            pendingCloseCompletion = nil
+            endMotion()
+            if let frame = restingFrame {
+                restingFrame = nil
+                animator.jump(panel, to: frame)
+            }
+            completion?()
+            return
+        }
+        if motion.phase == .closing { return }
+        let originalFrame = motion.phase == .opening ? (restingFrame ?? panel.frame) : panel.frame
+        restingFrame = originalFrame
+        beginMotion()
+        panel.acceptsKey = false
+        panel.ignoresMouseEvents = true
+        let token = motion.beginClosing()
+        pendingCloseCompletion = completion
+        let closingPanel = panel
+        closingPanel.disableScreenUpdatesUntilFlush()
+        closingPanel.orderOut(nil)
+        closingPanel.orderFrontRegardless()
+        animator.animate(
+            closingPanel,
+            to: PanelMotion.lineFrame(of: originalFrame),
+            duration: PanelMotion.duration,
+            curve: .easeIn
+        ) { [weak self] in
+            if let self {
+                self.finishMotion(token)
+            } else {
+                closingPanel.orderOut(nil)
+            }
+        }
+    }
+
+    private func finishMotion(_ token: Int) {
+        guard motion.finish(token) else { return }
+        switch motion.phase {
+        case .shown:
+            restingFrame = nil
+            endMotion()
+        case .hidden:
+            panel.orderOut(nil)
+            if let frame = restingFrame {
+                panel.setFrame(frame, display: false)
+            }
+            restingFrame = nil
+            endMotion()
+            let completion = pendingCloseCompletion
+            pendingCloseCompletion = nil
+            completion?()
+        case .opening, .closing:
+            break
+        }
+    }
+
+    private func beginMotion() {
+        panel.contentMinSize = NSSize(width: 1, height: 1)
+    }
+
+    private func endMotion() {
+        panel.contentMinSize = PanelSizing.minimumSize
+        panel.acceptsKey = true
+        panel.ignoresMouseEvents = false
+    }
+
+    private func stopMotion() {
+        guard motion.phase == .opening || motion.phase == .closing else { return }
+        motion.hideWithoutMotion()
+        pendingCloseCompletion = nil
+        let frame = restingFrame ?? panel.frame
+        restingFrame = nil
+        animator.jump(panel, to: frame)
     }
 
     // MARK: - 大きさ
@@ -210,7 +324,10 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
-        NSSize(
+        if motion.phase == .opening || motion.phase == .closing {
+            return frameSize
+        }
+        return NSSize(
             width: max(frameSize.width, PanelSizing.minimumSize.width),
             height: max(frameSize.height, PanelSizing.minimumSize.height)
         )
