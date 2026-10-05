@@ -84,6 +84,14 @@ enum AppLaunchContext {
         return MainAppLoginItemService()
     }
 
+    static func isInsertionTargetDisabled(environment: [String: String]) -> Bool {
+        #if DEBUG
+        return environment["TATAKINOTE_INSERTION_TARGET"] == "none"
+        #else
+        return false
+        #endif
+    }
+
     static func shouldOpenSettingsOnReopen(hidesMenuBarIcon: Bool) -> Bool {
         hidesMenuBarIcon
     }

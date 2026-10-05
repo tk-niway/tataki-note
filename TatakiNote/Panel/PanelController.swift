@@ -27,6 +27,9 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// 返した挿入先を、前面のアプリの代わりに挿入先にする。`nil` を返すと前面のアプリを使う。
     var targetOverride: (() -> InsertionTarget?)?
 
+    /// 挿入先を探さず、挿入先が無いものとして開くか。
+    var isTargetLookupDisabled = false
+
     /// 確定で挿入することになったとき、パネルを閉じた後・挿入の前に、文章・挿入先・送信もするかを知らせる。
     var onInsertionRequested: ((String, InsertionTarget, Bool) -> Void)?
 
@@ -88,7 +91,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func open(observedFocus: ObservedFocus? = nil) {
-        let target = targetOverride?() ?? targetTracker.currentTarget()
+        let target = isTargetLookupDisabled ? nil : (targetOverride?() ?? targetTracker.currentTarget())
         settings.refreshKeyDisplayTexts()
         let wasPresented = model.present(target: target)
         if !wasPresented {

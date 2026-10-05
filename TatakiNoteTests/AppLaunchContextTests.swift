@@ -179,6 +179,28 @@ struct AppLaunchContextTests {
         }
     }
 
+    @Test("AC-12: DEBUG で TATAKINOTE_INSERTION_TARGET が none のときだけ挿入先を探さず、他の値・空・無しでは今までどおり")
+    func insertionTargetDisabled() {
+        #expect(AppLaunchContext.isInsertionTargetDisabled(environment: ["TATAKINOTE_INSERTION_TARGET": "none"]) == true)
+        #expect(
+            AppLaunchContext.isInsertionTargetDisabled(
+                environment: ["TATAKINOTE_INSERTION_TARGET": "none", "HOME": "/Users/test"]
+            ) == true
+        )
+
+        let enabled: [[String: String]] = [
+            [:],
+            ["TATAKINOTE_INSERTION_TARGET": ""],
+            ["TATAKINOTE_INSERTION_TARGET": "None"],
+            ["TATAKINOTE_INSERTION_TARGET": "frontmost"],
+            ["tatakinote_insertion_target": "none"],
+            ["HOME": "/Users/test"],
+        ]
+        for environment in enabled {
+            #expect(AppLaunchContext.isInsertionTargetDisabled(environment: environment) == false, "\(environment)")
+        }
+    }
+
     @Test("AC-10: アイコンを隠しているときだけ、もう一度開かれたら設定画面を開く(出しているときは何もしない)")
     func settingsOnReopen() {
         #expect(AppLaunchContext.shouldOpenSettingsOnReopen(hidesMenuBarIcon: true) == true)

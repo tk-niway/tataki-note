@@ -48,6 +48,7 @@ struct PanelOpenQueryTests {
         target: InsertionTarget,
         probe: FocusedElementProbeStub? = nil,
         recorder: WindowFrameLocateRecorder,
+        isTargetLookupDisabled: Bool = false,
         _ body: (PanelController) throws -> Void
     ) throws {
         let suiteName = UUID().uuidString
@@ -67,8 +68,41 @@ struct PanelOpenQueryTests {
             ownProcessIdentifier: Self.ownPid
         )
         controller.targetOverride = { target }
+        controller.isTargetLookupDisabled = isTargetLookupDisabled
         defer { controller.close() }
         try body(controller)
+    }
+
+    // MARK: - AC-12
+
+    @Test("AC-12: 挿入先を探さない設定のとき、targetOverride が挿入先を返しても、開くと挿入先は無い")
+    func openWithTargetLookupDisabledHasNoTarget() throws {
+        var target: InsertionTarget?
+        try withController(
+            mode: .mouse,
+            target: editor,
+            recorder: WindowFrameLocateRecorder(),
+            isTargetLookupDisabled: true
+        ) { controller in
+            controller.open()
+            target = controller.model.target
+        }
+        #expect(target == nil)
+    }
+
+    @Test("AC-12: 挿入先を探さない設定でないときは、今までどおり挿入先が入る")
+    func openWithTargetLookupEnabledHasTarget() throws {
+        var target: InsertionTarget?
+        try withController(
+            mode: .mouse,
+            target: editor,
+            recorder: WindowFrameLocateRecorder(),
+            isTargetLookupDisabled: false
+        ) { controller in
+            controller.open()
+            target = controller.model.target
+        }
+        #expect(target == editor)
     }
 
     // MARK: - AC-1
