@@ -14,10 +14,13 @@ final class PromptPanelUITests: XCTestCase {
     }
 
     @MainActor
-    private func makeApp() -> XCUIApplication {
+    private func makeApp(seed: [String: Any]? = nil) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["TATAKINOTE_SETTINGS_SUITE"] = settingsSuiteName
         app.launchEnvironment[AccessibilityOverride.key] = AccessibilityOverride.trusted
+        if let seed, let data = try? JSONSerialization.data(withJSONObject: seed, options: [.sortedKeys]) {
+            app.launchEnvironment["TATAKINOTE_SETTINGS_SEED"] = String(decoding: data, as: UTF8.self)
+        }
         return app
     }
 
@@ -51,7 +54,7 @@ final class PromptPanelUITests: XCTestCase {
 
     @MainActor
     func testAC1_AC2_AC3_AC5_AC9_AC14_AC17_panelScenario() throws {
-        let app = makeApp()
+        let app = makeApp(seed: ["panelAnimationEnabled": false])
         app.launch()
 
         // AC-9
