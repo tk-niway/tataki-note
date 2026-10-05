@@ -63,6 +63,15 @@ final class FakePanelFrameAnimator: PanelFrameAnimating {
     }
 }
 
+@MainActor
+final class HideApplicationCounter {
+    private(set) var count = 0
+
+    func record() {
+        count += 1
+    }
+}
+
 enum PanelMotionOpenWay: CaseIterable, Sendable {
     case hotkey
     case menu
@@ -88,6 +97,7 @@ struct PanelMotionControllerTests {
         let animator: FakePanelFrameAnimator
         let settings: AppSettings
         let inserter: InserterStub
+        let hides: HideApplicationCounter
     }
 
     private func withFixture(
@@ -106,6 +116,7 @@ struct PanelMotionControllerTests {
         let animator = FakePanelFrameAnimator()
         animator.completesPendingOnJump = completesPendingOnJump
         let inserter = InserterStub(result: .inserted)
+        let hides = HideApplicationCounter()
         let controller = PanelController(
             settings: settings,
             targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
@@ -115,11 +126,29 @@ struct PanelMotionControllerTests {
             fieldProbe: FocusedElementProbeStub(),
             exposeWebContent: { _ in },
             ownProcessIdentifier: Self.ownPid,
-            animator: animator
+            animator: animator,
+            hideApplication: { hides.record() }
         )
         controller.targetOverride = { own }
         defer { controller.panel.orderOut(nil) }
-        try await body(Fixture(controller: controller, animator: animator, settings: settings, inserter: inserter))
+        try await body(Fixture(controller: controller, animator: animator, settings: settings, inserter: inserter, hides: hides))
+    }
+
+    private func commandH(in panel: NSPanel) throws -> NSEvent {
+        try #require(
+            NSEvent.keyEvent(
+                with: .keyDown,
+                location: .zero,
+                modifierFlags: [.command],
+                timestamp: 0,
+                windowNumber: panel.windowNumber,
+                context: nil,
+                characters: "h",
+                charactersIgnoringModifiers: "h",
+                isARepeat: false,
+                keyCode: 4
+            )
+        )
     }
 
     private func expectedOpenFrame(size: CGSize) -> CGRect? {
@@ -520,6 +549,228 @@ struct PanelMotionControllerTests {
             fixture.animator.finish(2)
             #expect(controller.heldPanelSize == heldSize)
             #expect(panel.frame.size == heldSize)
+        }
+    }
+
+    // MARK: - ⌘H
+
+    @Test("AC-12: アニメーションがオンで開いているときの ⌘H は、パネルが処理して閉じる動きを始め、動きの終わりにアプリを隠す")
+    func hideKeyClosesThenHidesApplication() async throws {
+        try await withFixture { fixture in
+            let controller = fixture.controller
+            let panel = controller.panel
+            openAndSettle(fixture)
+
+            let handled = panel.performKeyEquivalent(with: try commandH(in: panel))
+
+            #expect(handled)
+            #expect(controller.model.isPresented == false)
+            #expect(fixture.animator.calls.count == 2)
+            #expect(fixture.animator.calls[1].curve == .easeIn)
+            #expect(fixture.animator.calls[1].canBecomeKey == false)
+            #expect(panel.isVisible)
+            #expect(fixture.hides.count == 0)
+
+            fixture.animator.finish(1)
+
+            #expect(panel.isVisible == false)
+            #expect(fixture.hides.count == 1)
+        }
+    }
+
+    @Test("AC-12: 開く動きの途中の ⌘H も、行き先の枠から閉じる動きにして、動きの終わりにアプリを隠す")
+    func hideKeyDuringOpeningClosesThenHidesApplication() async throws {
+        try await withFixture { fixture in
+            let controller = fixture.controller
+            let panel = controller.panel
+            controller.open()
+            let destination = fixture.animator.calls[0].frame
+
+            let handled = panel.performKeyEquivalent(with: try commandH(in: panel))
+
+            #expect(handled)
+            #expect(fixture.animator.calls.count == 2)
+            #expect(fixture.animator.calls[1].frame == PanelMotion.lineFrame(of: destination))
+            #expect(fixture.hides.count == 0)
+
+            fixture.animator.finish(0, moving: false)
+            #expect(fixture.hides.count == 0)
+
+            fixture.animator.finish(1)
+
+            #expect(panel.isVisible == false)
+            #expect(panel.frame == destination)
+            #expect(fixture.hides.count == 1)
+        }
+    }
+
+    @Test("AC-12: ⌘H の閉じる動きの途中で開き直すと、古い終わりの知らせが同期で来ても後から来ても、アプリは隠さず、パネルは開いたまま", arguments: [false, true])
+    func reopenDuringHideKeyClosingDoesNotHideApplication(completesPendingOnJump: Bool) async throws {
+        try await withFixture(completesPendingOnJump: completesPendingOnJump) { fixture in
+            let controller = fixture.controller
+            let panel = controller.panel
+            openAndSettle(fixture)
+            _ = panel.performKeyEquivalent(with: try commandH(in: panel))
+            #expect(fixture.animator.calls.count == 2)
+
+            controller.open()
+
+            #expect(fixture.animator.calls.count == 3)
+            #expect(fixture.hides.count == 0)
+            #expect(controller.model.isPresented)
+
+            fixture.animator.finish(1, moving: false)
+
+            #expect(fixture.hides.count == 0)
+            #expect(panel.isVisible)
+            #expect(panel.canBecomeKey)
+            #expect(controller.model.isPresented)
+
+            fixture.animator.finish(2)
+
+            #expect(fixture.hides.count == 0)
+            #expect(panel.isVisible)
+            #expect(controller.model.isPresented)
+        }
+    }
+
+    @Test("AC-13: アニメーションがオフのときの ⌘H は、パネルが処理せず標準の「隠す」に渡る")
+    func hideKeyIsNotHandledWhenAnimationIsOff() async throws {
+        try await withFixture(animationEnabled: false) { fixture in
+            let controller = fixture.controller
+            let panel = controller.panel
+            controller.open()
+
+            let handled = panel.performKeyEquivalent(with: try commandH(in: panel))
+
+            #expect(handled == false)
+            #expect(controller.handleHideKey() == false)
+            #expect(fixture.animator.calls.isEmpty)
+            #expect(fixture.hides.count == 0)
+            #expect(controller.model.isPresented)
+            #expect(panel.isVisible)
+        }
+    }
+
+    @Test("AC-13: 閉じる動きの途中・閉じているときの ⌘H は、パネルが処理せず標準の「隠す」に渡る")
+    func hideKeyIsNotHandledWhileClosingOrClosed() async throws {
+        try await withFixture { fixture in
+            let controller = fixture.controller
+            let panel = controller.panel
+
+            let handledWhileClosed = panel.performKeyEquivalent(with: try commandH(in: panel))
+            #expect(handledWhileClosed == false)
+            #expect(fixture.animator.calls.isEmpty)
+
+            openAndSettle(fixture)
+            controller.close()
+            #expect(fixture.animator.calls.count == 2)
+
+            let handledWhileClosing = panel.performKeyEquivalent(with: try commandH(in: panel))
+
+            #expect(handledWhileClosing == false)
+            #expect(fixture.animator.calls.count == 2)
+            #expect(fixture.hides.count == 0)
+
+            fixture.animator.finish(1)
+
+            #expect(fixture.hides.count == 0)
+            #expect(panel.isVisible == false)
+        }
+    }
+
+    // MARK: - アプリが隠れたとき
+
+    @Test("AC-15: アプリが隠れたときは、閉じる動きの途中でも動きなしで隠して閉じた状態にし、枠を閉じ始めの枠に戻し、後から終わりの知らせが来ても何もしない")
+    func closeImmediatelyDuringClosing() async throws {
+        try await withFixture { fixture in
+            let controller = fixture.controller
+            let panel = controller.panel
+            openAndSettle(fixture)
+            let moved = panel.frame.offsetBy(dx: 16, dy: -10)
+            panel.setFrame(moved, display: false)
+            controller.close()
+            panel.setFrame(PanelMotion.lineFrame(of: moved), display: false)
+            #expect(panel.isVisible)
+
+            controller.closeImmediately()
+
+            #expect(panel.isVisible == false)
+            #expect(panel.frame == moved)
+            #expect(fixture.animator.jumps == [moved])
+            #expect(panel.canBecomeKey)
+            #expect(panel.ignoresMouseEvents == false)
+            #expect(panel.contentMinSize == CGSize(width: 320, height: 160))
+            #expect(controller.model.isPresented == false)
+
+            fixture.animator.finish(1, moving: false)
+
+            #expect(panel.isVisible == false)
+            #expect(panel.frame == moved)
+            #expect(fixture.animator.calls.count == 2)
+            #expect(fixture.hides.count == 0)
+        }
+    }
+
+    @Test("AC-15: アプリが隠れたときに開く動きの途中なら、動きなしで隠して枠を行き先の枠に戻す")
+    func closeImmediatelyDuringOpening() async throws {
+        try await withFixture { fixture in
+            let controller = fixture.controller
+            let panel = controller.panel
+            controller.open()
+            let destination = fixture.animator.calls[0].frame
+            #expect(panel.frame == PanelMotion.lineFrame(of: destination))
+
+            controller.closeImmediately()
+
+            #expect(panel.isVisible == false)
+            #expect(panel.frame == destination)
+            #expect(fixture.animator.jumps == [destination])
+            #expect(controller.model.isPresented == false)
+
+            fixture.animator.finish(0, moving: false)
+
+            #expect(panel.isVisible == false)
+            #expect(panel.frame == destination)
+        }
+    }
+
+    @Test("AC-15: アプリが隠れたときに開き終わっていれば、動きなしで隠して閉じた状態にする", arguments: [false, true])
+    func closeImmediatelyWhenShown(animationEnabled: Bool) async throws {
+        try await withFixture(animationEnabled: animationEnabled) { fixture in
+            let controller = fixture.controller
+            let panel = controller.panel
+            controller.open()
+            if animationEnabled {
+                fixture.animator.finish(0)
+            }
+            let frame = panel.frame
+
+            controller.closeImmediately()
+
+            #expect(panel.isVisible == false)
+            #expect(panel.frame == frame)
+            #expect(controller.model.isPresented == false)
+            #expect(fixture.animator.calls.count == (animationEnabled ? 1 : 0))
+            #expect(panel.canBecomeKey)
+        }
+    }
+
+    @Test("AC-15: ⌘H の閉じる動きの途中にアプリが隠れたときも、動きなしで閉じ、終わりの知らせでアプリをもう一度隠さない")
+    func closeImmediatelyAfterHideKeyDoesNotHideAgain() async throws {
+        try await withFixture { fixture in
+            let controller = fixture.controller
+            let panel = controller.panel
+            openAndSettle(fixture)
+            let frame = panel.frame
+            _ = panel.performKeyEquivalent(with: try commandH(in: panel))
+
+            controller.closeImmediately()
+            fixture.animator.finish(1, moving: false)
+
+            #expect(panel.isVisible == false)
+            #expect(panel.frame == frame)
+            #expect(fixture.hides.count == 0)
         }
     }
 

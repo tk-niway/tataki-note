@@ -193,7 +193,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidHide(_ notification: Notification) {
-        panelController.close()
+        panelController.closeImmediately()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

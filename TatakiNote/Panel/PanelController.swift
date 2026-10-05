@@ -8,6 +8,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     let panel: PromptPanel
     private let settings: AppSettings
     private let animator: PanelFrameAnimating
+    private let hideApplication: () -> Void
     private let targetTracker: FrontmostAppTracker
     private let permission: AccessibilityPermissionChecking
     private let performer: CommitPerformer
@@ -47,12 +48,14 @@ final class PanelController: NSObject, NSWindowDelegate {
         exposeWebContent: @escaping (InsertionTarget) -> Void = { AXFocusedTextInputInspector.exposeWebContent(of: $0) },
         locateTargetWindowFrame: @escaping (pid_t) -> CGRect? = { TargetWindowLocator.frontWindowFrame(processIdentifier: $0) },
         ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier,
-        animator: PanelFrameAnimating = AppKitPanelFrameAnimator()
+        animator: PanelFrameAnimating = AppKitPanelFrameAnimator(),
+        hideApplication: @escaping () -> Void = { NSApp.hide(nil) }
     ) {
         self.model = model
         self.panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
         self.settings = settings
         self.animator = animator
+        self.hideApplication = hideApplication
         self.targetTracker = targetTracker
         self.permission = permission
         self.performer = CommitPerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
@@ -74,6 +77,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.contentView = hostingView
         panel.setContentSize(PanelMetrics.defaultSize)
         panel.delegate = self
+        panel.onHideKey = { [weak self] in self?.handleHideKey() ?? false }
     }
 
     /// 挿入先のアプリへアクセシビリティの問い合わせをしてよいか。自分自身が挿入先のときは問い合わせない。
@@ -153,6 +157,28 @@ final class PanelController: NSObject, NSWindowDelegate {
     func close() {
         hidePanel()
         model.dismiss()
+    }
+
+    /// アプリが隠れたときに、動きなしでパネルを閉じて枠を本来の枠に戻す。
+    func closeImmediately() {
+        motion.hideWithoutMotion()
+        pendingCloseCompletion = nil
+        panel.orderOut(nil)
+        if let frame = restingFrame {
+            restingFrame = nil
+            animator.jump(panel, to: frame)
+        }
+        endMotion()
+        model.dismiss()
+    }
+
+    /// ⌘H を受け取る。アニメーションがオンで開いているときは閉じる動きのあとにアプリを隠して true を返す。
+    func handleHideKey() -> Bool {
+        guard settings.isPanelAnimationEnabled,
+              motion.phase == .opening || motion.phase == .shown else { return false }
+        hidePanel(then: { [weak self] in self?.hideApplication() })
+        model.dismiss()
+        return true
     }
 
     func toggle() {
