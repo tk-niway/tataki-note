@@ -102,6 +102,14 @@ enum AppLaunchContext {
         return MainAppLoginItemService()
     }
 
+    static func isInsertionTargetDisabled(environment: [String: String]) -> Bool {
+        #if DEBUG
+        return environment["TATAKINOTE_INSERTION_TARGET"] == "none"
+        #else
+        return false
+        #endif
+    }
+
     static func shouldOpenSettingsOnReopen(hidesMenuBarIcon: Bool) -> Bool {
         hidesMenuBarIcon
     }
@@ -151,6 +159,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let webContentExposer = WebContentExposer()
 
+    let insertionFailureBubble = InsertionFailureBubbleModel()
+
+    private(set) lazy var insertionFailureBubbleController = InsertionFailureBubbleController(
+        model: insertionFailureBubble,
+        locator: StatusItemAnchorLocator(),
+        presenter: MenuBarBubblePresenter(),
+        onOpenPanel: { [weak self] in self?.panelController.open() }
+    )
+
     let library = DraftLibrary(
         store: DraftLibraryStore(directory: AppLaunchContext.dataDirectory(environment: ProcessInfo.processInfo.environment))
     )
@@ -160,8 +177,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settings: self.settings,
             targetTracker: self.targetTracker,
             permission: self.permission,
+            notifier: self.insertionFailureBubbleController,
             exposeWebContent: { [webContentExposer] in webContentExposer.expose($0) },
             library: self.library
+        )
+        controller.isTargetLookupDisabled = AppLaunchContext.isInsertionTargetDisabled(
+            environment: ProcessInfo.processInfo.environment
         )
         controller.onPermissionDenied = { [weak self] in
             self?.permissionGuide.show(reason: .commitDenied)
