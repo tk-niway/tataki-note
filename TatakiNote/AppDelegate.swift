@@ -36,6 +36,24 @@ enum AppLaunchContext {
         return suite
     }
 
+    static func dataDirectory(
+        environment: [String: String],
+        bundleIdentifier: String? = Bundle.main.bundleIdentifier
+    ) -> URL? {
+        if isRunningUnitTests(environment: environment) { return nil }
+        #if DEBUG
+        if let path = environment["TATAKINOTE_DATA_DIRECTORY"], !path.isEmpty {
+            return URL(fileURLWithPath: path, isDirectory: true)
+        }
+        if let suite = settingsSuiteName(environment: environment) {
+            return FileManager.default.temporaryDirectory
+                .appendingPathComponent("TatakiNote-\(suite)", isDirectory: true)
+        }
+        #endif
+        let folderName = bundleIdentifier.flatMap { $0.isEmpty ? nil : $0 } ?? "TatakiNote"
+        return URL.applicationSupportDirectory.appendingPathComponent(folderName, isDirectory: true)
+    }
+
     static func accessibilityOverride(environment: [String: String]) -> Bool? {
         #if DEBUG
         switch environment["TATAKINOTE_ACCESSIBILITY_OVERRIDE"] {
