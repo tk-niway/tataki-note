@@ -150,12 +150,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let webContentExposer = WebContentExposer()
 
+    let library = DraftLibrary(
+        store: DraftLibraryStore(directory: AppLaunchContext.dataDirectory(environment: ProcessInfo.processInfo.environment))
+    )
+
     private(set) lazy var panelController: PanelController = {
         let controller = PanelController(
             settings: self.settings,
             targetTracker: self.targetTracker,
             permission: self.permission,
-            exposeWebContent: { [webContentExposer] in webContentExposer.expose($0) }
+            exposeWebContent: { [webContentExposer] in webContentExposer.expose($0) },
+            library: self.library
         )
         controller.onPermissionDenied = { [weak self] in
             self?.permissionGuide.show(reason: .commitDenied)
@@ -174,6 +179,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let environment = ProcessInfo.processInfo.environment
         if AppLaunchContext.shouldRegisterHotkeys(environment: environment) {
+            ReservedPanelKeys.apply(
+                to: settings,
+                hotkey: PanelShortcut.currentHotkey(),
+                defaultHotkey: KeyboardShortcuts.Name.togglePanel.initialShortcut.map { PanelShortcut($0) },
+                resetHotkey: { KeyboardShortcuts.reset(.togglePanel) }
+            )
             KeyboardShortcuts.onKeyDown(for: .togglePanel) { [weak self] in
                 self?.panelController.toggle()
             }
@@ -212,6 +223,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidHide(_ notification: Notification) {
         panelController.close()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        panelController.flushDrafts()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

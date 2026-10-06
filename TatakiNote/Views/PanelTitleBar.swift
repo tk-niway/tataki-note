@@ -87,7 +87,7 @@ struct PanelTitleBar: View {
         }
         .buttonStyle(TitleBarIconButtonStyle())
         .focusable(false)
-        .disabled(!(session?.isNewDraftAvailable ?? false))
+        .disabled(!(session?.isNewDraftAvailable ?? false) || session?.pendingSwitch != nil)
         .help("新しい書きかけ(⌘N)")
         .accessibilityLabel("新しい書きかけ")
         .accessibilityIdentifier("promptPanel.newDraftButton")
@@ -99,7 +99,7 @@ struct PanelTitleBar: View {
         }
         .buttonStyle(TitleBarIconButtonStyle())
         .focusable(false)
-        .disabled(!(session?.isSaveAvailable ?? false))
+        .disabled(!(session?.isSaveAvailable ?? false) || session?.pendingSwitch != nil)
         .help("下書きに保存(⌘S)")
         .accessibilityLabel("下書きに保存")
         .accessibilityIdentifier("promptPanel.saveDraftButton")

@@ -4,7 +4,7 @@ import SwiftUI
 /// パネルの開け閉め。
 final class PanelController: NSObject, NSWindowDelegate {
     let model: PanelModel
-    private let panel: PromptPanel
+    let panel: PromptPanel
     private let settings: AppSettings
     private let targetTracker: FrontmostAppTracker
     private let permission: AccessibilityPermissionChecking
@@ -13,9 +13,14 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let exposeWebContent: (InsertionTarget) -> Void
     private let locateTargetWindowFrame: (pid_t) -> CGRect?
     private let ownProcessIdentifier: pid_t
+    private let library: DraftLibrary
+
+    let session: DraftSession
+    let sidebarModel: SidebarModel
 
     private let sizing = PanelSizing()
     private var liveResizeStartSize: CGSize?
+    var isAdjustingFrameForSidebar = false
 
     var heldPanelSize: CGSize? { sizing.heldSize }
 
@@ -40,7 +45,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         fieldProbe: FocusedElementProbing = AXFocusedTextInputInspector(),
         exposeWebContent: @escaping (InsertionTarget) -> Void = { AXFocusedTextInputInspector.exposeWebContent(of: $0) },
         locateTargetWindowFrame: @escaping (pid_t) -> CGRect? = { TargetWindowLocator.frontWindowFrame(processIdentifier: $0) },
-        ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier
+        ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier,
+        library: DraftLibrary = DraftLibrary(store: .inMemory)
     ) {
         self.model = model
         self.panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
@@ -52,6 +58,10 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.exposeWebContent = exposeWebContent
         self.locateTargetWindowFrame = locateTargetWindowFrame
         self.ownProcessIdentifier = ownProcessIdentifier
+        self.library = library
+        let session = DraftSession(panel: model, library: library, ownProcessIdentifier: ownProcessIdentifier)
+        self.session = session
+        self.sidebarModel = SidebarModel(settings: settings, library: library, session: session)
         super.init()
 
         let hostingView = NSHostingView(
@@ -59,13 +69,46 @@ final class PanelController: NSObject, NSWindowDelegate {
                 model: model,
                 settings: settings,
                 onKeyInput: { [weak self] in self?.handleKey($0) ?? false },
-                onClose: { [weak self] in self?.closeFromButton() }
+                onClose: { [weak self] in self?.closeFromButton() },
+                session: session,
+                sidebarModel: sidebarModel,
+                onToggleSidebar: { [weak self] in self?.toggleSidebarFromButton() },
+                onNewDraft: { [weak self] in self?.newDraftFromButton() },
+                onSaveDraft: { [weak self] in self?.saveDraftFromButton() },
+                onResolveConfirmation: { [weak self] in self?.resolveConfirmationFromButton($0) }
             )
         )
         hostingView.sizingOptions = []
         panel.contentView = hostingView
         panel.setContentSize(PanelMetrics.defaultSize)
         panel.delegate = self
+        panel.onKeyEquivalent = { [weak self] in self?.handleKey($0) ?? false }
+        applyMinimumSize()
+        configureSidebarModel()
+        observeBodyFocusRequests()
+    }
+
+    private func configureSidebarModel() {
+        let panel = panel
+        sidebarModel.markedTextProbe = { [weak panel] in
+            PromptPanel.firstResponderHasMarkedText(panel?.firstResponder)
+        }
+        sidebarModel.beforeUserAction = { [weak panel] in
+            if let panel {
+                Self.commitMarkedText(in: panel)
+            }
+        }
+    }
+
+    private func observeBodyFocusRequests() {
+        observeRepeatedly(
+            tracking: { [weak self] in _ = self?.sidebarModel.bodyFocusRequest },
+            onChange: { [weak self] in
+                guard let self else { return false }
+                self.model.requestFocus()
+                return true
+            }
+        )
     }
 
     /// 挿入先のアプリへアクセシビリティの問い合わせをしてよいか。自分自身が挿入先のときは問い合わせない。
@@ -131,8 +174,13 @@ final class PanelController: NSObject, NSWindowDelegate {
                     mode: mode,
                     fieldFrame: fieldFrame
                 )
-                panel.setFrame(placed, display: false)
+                let frame = sidebarModel.isOpen
+                    ? SidebarLayout.expandedFrame(bodyFrame: placed, visibleFrame: screen.visibleFrame)
+                    : placed
+                applyMinimumSize()
+                panel.setFrame(frame, display: false)
             } else {
+                applyMinimumSize()
                 panel.center()
             }
         }
@@ -140,8 +188,16 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func close() {
+        session.resolvePendingSwitch(.cancel)
+        sidebarModel.cancelDeletion()
         panel.orderOut(nil)
         model.dismiss()
+        library.flush()
+    }
+
+    /// 遅らせている下書きの書き出しを今行う。
+    func flushDrafts() {
+        library.flush()
     }
 
     func toggle() {
@@ -162,6 +218,12 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func handleKey(_ input: PanelKeyInput) -> Bool {
+        if session.pendingSwitch != nil {
+            return handleConfirmationKey(input)
+        }
+        if sidebarModel.pendingDeletion != nil {
+            return handleDeletionConfirmationKey(input)
+        }
         switch PanelKeyResolver.action(
             for: input,
             commitKey: settings.commitKey,
@@ -176,22 +238,130 @@ final class PanelController: NSObject, NSWindowDelegate {
         case .commitAndSend:
             commit(shouldSendAfterInsert: true)
             return true
-        case .openSearch, .saveDraft, .newDraft:
+        case .openSearch:
+            if !sidebarModel.isOpen {
+                setSidebarOpen(true)
+            }
+            sidebarModel.openForSearch()
+            return true
+        case .saveDraft:
+            session.saveCurrent()
+            return true
+        case .newDraft:
+            requestNewScratch()
             return true
         case .passThrough:
             return false
         }
     }
 
+    private func handleConfirmationKey(_ input: PanelKeyInput) -> Bool {
+        guard !input.hasMarkedText else { return false }
+        if let choice = PanelKeyResolver.confirmationChoice(for: input) {
+            session.resolvePendingSwitch(choice)
+        }
+        return true
+    }
+
+    private func handleDeletionConfirmationKey(_ input: PanelKeyInput) -> Bool {
+        guard !input.hasMarkedText else { return false }
+        switch PanelKeyResolver.deletionConfirmationKey(for: input) {
+        case .delete:
+            sidebarModel.confirmDeletion()
+        case .cancel:
+            sidebarModel.cancelDeletion()
+        case nil:
+            break
+        }
+        return true
+    }
+
+    // MARK: - クリックの操作
+
+    /// タイトルバーの新規作成のアイコン。変換中の文字を確定してから新しい書きかけにする。
+    func newDraftFromButton() {
+        guard session.pendingSwitch == nil else { return }
+        Self.commitMarkedText(in: panel)
+        requestNewScratch()
+    }
+
+    private func requestNewScratch() {
+        session.request(.newScratch)
+        if session.pendingSwitch != nil {
+            model.requestFocus()
+        }
+    }
+
+    /// タイトルバーの保存のアイコン。変換中の文字を確定してから下書きに保存する。
+    func saveDraftFromButton() {
+        guard session.pendingSwitch == nil else { return }
+        Self.commitMarkedText(in: panel)
+        session.saveCurrent()
+        model.requestFocus()
+    }
+
+    /// 確認の重ね表示のボタン。変換中の文字を確定してから答えを反映する。
+    func resolveConfirmationFromButton(_ choice: UnsavedTextChoice) {
+        Self.commitMarkedText(in: panel)
+        session.resolvePendingSwitch(choice)
+    }
+
+    /// タイトルバーのサイドバーの開閉ボタン。
+    func toggleSidebarFromButton() {
+        setSidebarOpen(!sidebarModel.isOpen)
+        model.requestFocus()
+    }
+
+    // MARK: - サイドバー
+
+    /// サイドバーを開閉する。パネルが開いていれば、窓の枠をサイドバーの幅だけ変える。
+    func setSidebarOpen(_ isOpen: Bool) {
+        let wasOpen = sidebarModel.isOpen
+        guard isOpen != wasOpen else { return }
+        guard model.isPresented else {
+            sidebarModel.setOpen(isOpen)
+            applyMinimumSize()
+            return
+        }
+        isAdjustingFrameForSidebar = true
+        defer { isAdjustingFrameForSidebar = false }
+        if isOpen {
+            let frame = SidebarLayout.expandedFrame(bodyFrame: panel.frame, visibleFrame: visibleFrameForSidebar)
+            panel.setFrame(frame, display: true, animate: false)
+            sidebarModel.setOpen(true)
+            applyMinimumSize()
+        } else {
+            sidebarModel.setOpen(false)
+            applyMinimumSize()
+            panel.setFrame(SidebarLayout.collapsedFrame(expandedFrame: panel.frame), display: true, animate: false)
+        }
+    }
+
+    private var visibleFrameForSidebar: CGRect {
+        panel.screen?.visibleFrame
+            ?? NSScreen.main?.visibleFrame
+            ?? panel.frame.insetBy(dx: -SidebarLayout.width, dy: 0)
+    }
+
+    private func applyMinimumSize() {
+        panel.contentMinSize = SidebarLayout.minimumWindowSize(isSidebarOpen: sidebarModel.isOpen)
+    }
+
+    // MARK: - 確定
+
     func commit(shouldSendAfterInsert: Bool = false) {
-        let plan = model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
+        let plan = session.prepareCommit {
+            model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
+        }
         panel.orderOut(nil)
+        library.flush()
         if case .insert(let text, let target) = plan {
             onInsertionRequested?(text, target, shouldSendAfterInsert)
         }
         Task { [weak self, performer] in
             let outcome = await performer.perform(plan, shouldSendAfterInsert: shouldSendAfterInsert)
             self?.sizing.handleCommitOutcome(outcome)
+            self?.session.finishCommit(plan, outcome: outcome)
         }
     }
 
@@ -202,20 +372,26 @@ final class PanelController: NSObject, NSWindowDelegate {
     // MARK: - 大きさ
 
     func windowWillStartLiveResize(_ notification: Notification) {
-        liveResizeStartSize = panel.frame.size
+        guard !isAdjustingFrameForSidebar else { return }
+        liveResizeStartSize = bodySize(of: panel.frame.size)
     }
 
     func windowDidEndLiveResize(_ notification: Notification) {
         defer { liveResizeStartSize = nil }
-        guard let startSize = liveResizeStartSize else { return }
-        sizing.userDidResize(from: startSize, to: panel.frame.size)
+        guard !isAdjustingFrameForSidebar, let startSize = liveResizeStartSize else { return }
+        sizing.userDidResize(from: startSize, to: bodySize(of: panel.frame.size))
     }
 
     func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
-        NSSize(
-            width: max(frameSize.width, PanelSizing.minimumSize.width),
-            height: max(frameSize.height, PanelSizing.minimumSize.height)
+        let minimum = SidebarLayout.minimumWindowSize(isSidebarOpen: sidebarModel.isOpen)
+        return NSSize(
+            width: max(frameSize.width, minimum.width),
+            height: max(frameSize.height, minimum.height)
         )
+    }
+
+    private func bodySize(of windowSize: CGSize) -> CGSize {
+        SidebarLayout.bodySize(windowSize: windowSize, isSidebarOpen: sidebarModel.isOpen)
     }
 
     func windowShouldZoom(_ window: NSWindow, toFrame newFrame: NSRect) -> Bool {
