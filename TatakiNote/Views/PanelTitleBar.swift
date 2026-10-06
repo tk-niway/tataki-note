@@ -11,10 +11,12 @@ struct PanelTitleBar: View {
     let onNewDraft: () -> Void
     let onSaveDraft: () -> Void
     let appIcon: @MainActor (InsertionTarget) -> NSImage
+    let saveAnimation: SaveAnimationModel?
 
     init(
         target: InsertionTarget?,
         session: DraftSession? = nil,
+        saveAnimation: SaveAnimationModel? = nil,
         isSidebarOpen: Bool = false,
         onClose: @escaping () -> Void,
         onToggleSidebar: @escaping () -> Void = {},
@@ -24,6 +26,7 @@ struct PanelTitleBar: View {
     ) {
         self.target = target
         self.session = session
+        self.saveAnimation = saveAnimation
         self.isSidebarOpen = isSidebarOpen
         self.onClose = onClose
         self.onToggleSidebar = onToggleSidebar
@@ -72,6 +75,16 @@ struct PanelTitleBar: View {
     private var sidebarToggleButton: some View {
         Button(action: onToggleSidebar) {
             iconLabel("sidebar.left")
+                .keyframeAnimator(initialValue: 1.0, trigger: saveAnimation?.absorbCount ?? 0) { content, scale in
+                    content.scaleEffect(scale)
+                } keyframes: { _ in
+                    KeyframeTrack {
+                        LinearKeyframe(1.0, duration: 0.001)
+                        CubicKeyframe(1.2, duration: SaveAnimationModel.absorbingDuration.seconds / 2)
+                        CubicKeyframe(1.0, duration: SaveAnimationModel.absorbingDuration.seconds / 2)
+                    }
+                }
+                .anchorPreference(key: SidebarToggleAnchorKey.self, value: .bounds) { $0 }
         }
         .buttonStyle(TitleBarIconButtonStyle())
         .focusable(false)
@@ -94,8 +107,18 @@ struct PanelTitleBar: View {
     }
 
     private var saveDraftButton: some View {
-        Button(action: onSaveDraft) {
-            iconLabel("square.and.arrow.down")
+        let isConfirming = saveAnimation?.isShowingSaveConfirmation ?? false
+        return Button(action: onSaveDraft) {
+            ZStack {
+                iconLabel("square.and.arrow.down")
+                    .opacity(isConfirming ? 0 : 1)
+                Image(systemName: "checkmark")
+                    .font(.system(size: Self.iconSize, weight: .semibold))
+                    .foregroundStyle(.green)
+                    .frame(width: Self.hitSize, height: Self.hitSize)
+                    .opacity(isConfirming ? 1 : 0)
+            }
+            .animation(.easeInOut(duration: 0.1), value: isConfirming)
         }
         .buttonStyle(TitleBarIconButtonStyle())
         .focusable(false)

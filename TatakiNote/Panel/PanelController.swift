@@ -17,6 +17,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     let session: DraftSession
     let sidebarModel: SidebarModel
+    let saveAnimation: SaveAnimationModel
 
     private let sizing = PanelSizing()
     private var liveResizeStartSize: CGSize?
@@ -46,7 +47,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         exposeWebContent: @escaping (InsertionTarget) -> Void = { AXFocusedTextInputInspector.exposeWebContent(of: $0) },
         locateTargetWindowFrame: @escaping (pid_t) -> CGRect? = { TargetWindowLocator.frontWindowFrame(processIdentifier: $0) },
         ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier,
-        library: DraftLibrary = DraftLibrary(store: .inMemory)
+        library: DraftLibrary = DraftLibrary(store: .inMemory),
+        saveAnimation: SaveAnimationModel = SaveAnimationModel()
     ) {
         self.model = model
         self.panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
@@ -62,6 +64,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         let session = DraftSession(panel: model, library: library, ownProcessIdentifier: ownProcessIdentifier)
         self.session = session
         self.sidebarModel = SidebarModel(settings: settings, library: library, session: session)
+        self.saveAnimation = saveAnimation
         super.init()
 
         let hostingView = NSHostingView(
@@ -72,6 +75,7 @@ final class PanelController: NSObject, NSWindowDelegate {
                 onClose: { [weak self] in self?.closeFromButton() },
                 session: session,
                 sidebarModel: sidebarModel,
+                saveAnimation: saveAnimation,
                 onToggleSidebar: { [weak self] in self?.toggleSidebarFromButton() },
                 onNewDraft: { [weak self] in self?.newDraftFromButton() },
                 onSaveDraft: { [weak self] in self?.saveDraftFromButton() },
@@ -86,6 +90,22 @@ final class PanelController: NSObject, NSWindowDelegate {
         applyMinimumSize()
         configureSidebarModel()
         observeBodyFocusRequests()
+        observeSaveEvents()
+    }
+
+    private func observeSaveEvents() {
+        observeRepeatedly(
+            tracking: { [weak self] in _ = self?.session.lastSaveEvent },
+            onChange: { [weak self] in
+                guard let self else { return false }
+                if let event = self.session.lastSaveEvent {
+                    let animation = self.saveAnimation
+                    let isSidebarOpen = self.sidebarModel.isOpen
+                    Task { await animation.play(event, isSidebarOpen: isSidebarOpen) }
+                }
+                return true
+            }
+        )
     }
 
     private func configureSidebarModel() {

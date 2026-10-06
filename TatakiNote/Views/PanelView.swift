@@ -9,6 +9,7 @@ struct PanelView: View {
     let onClose: () -> Void
     let session: DraftSession?
     let sidebarModel: SidebarModel?
+    let saveAnimation: SaveAnimationModel?
     let onToggleSidebar: () -> Void
     let onNewDraft: () -> Void
     let onSaveDraft: () -> Void
@@ -22,6 +23,7 @@ struct PanelView: View {
         onClose: @escaping () -> Void,
         session: DraftSession? = nil,
         sidebarModel: SidebarModel? = nil,
+        saveAnimation: SaveAnimationModel? = nil,
         onToggleSidebar: @escaping () -> Void = {},
         onNewDraft: @escaping () -> Void = {},
         onSaveDraft: @escaping () -> Void = {},
@@ -34,6 +36,7 @@ struct PanelView: View {
         self.onClose = onClose
         self.session = session
         self.sidebarModel = sidebarModel
+        self.saveAnimation = saveAnimation
         self.onToggleSidebar = onToggleSidebar
         self.onNewDraft = onNewDraft
         self.onSaveDraft = onSaveDraft
@@ -53,7 +56,7 @@ struct PanelView: View {
         let isSidebarOpen = sidebarModel?.isOpen ?? false
         HStack(spacing: 0) {
             if let sidebarModel, isSidebarOpen {
-                SidebarView(model: sidebarModel)
+                SidebarView(model: sidebarModel, highlightedDraftID: saveAnimation?.highlightedDraftID)
                     .ignoresSafeArea(edges: .top)
                 Divider()
                     .ignoresSafeArea(edges: .top)
@@ -66,6 +69,7 @@ struct PanelView: View {
             PanelTitleBar(
                 target: model.target,
                 session: session,
+                saveAnimation: saveAnimation,
                 isSidebarOpen: isSidebarOpen,
                 onClose: onClose,
                 onToggleSidebar: onToggleSidebar,
@@ -74,6 +78,11 @@ struct PanelView: View {
                 appIcon: appIcon
             )
             .ignoresSafeArea(edges: .top)
+        }
+        .overlayPreferenceValue(SidebarToggleAnchorKey.self) { anchor in
+            if let saveAnimation {
+                SaveAnimationOverlay(model: saveAnimation, toggleAnchor: anchor)
+            }
         }
     }
 

@@ -4,6 +4,7 @@ import SwiftUI
 /// パネルの左側に出す、下書きと履歴の一覧。
 struct SidebarView: View {
     @Bindable var model: SidebarModel
+    var highlightedDraftID: UUID?
 
     @State private var isSearchFocused = false
     @FocusState private var isListFocused: Bool
@@ -142,8 +143,10 @@ struct SidebarView: View {
                     ForEach(rows) { row in
                         rowView(row, isSelected: row.id == selection, isEmphasized: isEmphasized)
                             .id(row.id)
+                            .transition(.move(edge: .top).combined(with: .opacity))
                     }
                 }
+                .animation(.easeOut(duration: 0.25), value: rows.map(\.id))
                 .padding(.horizontal, 6)
                 .padding(.bottom, 6)
             }
@@ -190,10 +193,15 @@ struct SidebarView: View {
         .padding(.horizontal, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: row.kind == .draft ? 28 : 40)
-        .background(
-            RoundedRectangle(cornerRadius: Self.rowCornerRadius)
-                .fill(rowBackground(isSelected: isSelected, isEmphasized: isEmphasized))
-        )
+        .background {
+            ZStack {
+                RoundedRectangle(cornerRadius: Self.rowCornerRadius)
+                    .fill(rowBackground(isSelected: isSelected, isEmphasized: isEmphasized))
+                if row.id == highlightedDraftID {
+                    SavedRowHighlight(cornerRadius: Self.rowCornerRadius)
+                }
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture {
             model.activate(row.id)
@@ -316,5 +324,23 @@ struct SidebarView: View {
         if modifiers.contains(.option) { flags.insert(.option) }
         if modifiers.contains(.control) { flags.insert(.control) }
         return flags
+    }
+}
+
+private struct SavedRowHighlight: View {
+    let cornerRadius: CGFloat
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isFaded = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius)
+            .fill(Color.yellow.opacity(isFaded ? 0 : (colorScheme == .dark ? 0.25 : 0.45)))
+            .onAppear {
+                withAnimation(.linear(duration: SaveAnimationModel.highlightDuration.seconds)) {
+                    isFaded = true
+                }
+            }
+            .accessibilityHidden(true)
     }
 }
