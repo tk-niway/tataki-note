@@ -36,6 +36,24 @@ enum AppLaunchContext {
         return suite
     }
 
+    static func dataDirectory(
+        environment: [String: String],
+        bundleIdentifier: String? = Bundle.main.bundleIdentifier
+    ) -> URL? {
+        if isRunningUnitTests(environment: environment) { return nil }
+        #if DEBUG
+        if let path = environment["TATAKINOTE_DATA_DIRECTORY"], !path.isEmpty {
+            return URL(fileURLWithPath: path, isDirectory: true)
+        }
+        if let suite = settingsSuiteName(environment: environment) {
+            return FileManager.default.temporaryDirectory
+                .appendingPathComponent("TatakiNote-\(suite)", isDirectory: true)
+        }
+        #endif
+        let folderName = bundleIdentifier.flatMap { $0.isEmpty ? nil : $0 } ?? "TatakiNote"
+        return URL.applicationSupportDirectory.appendingPathComponent(folderName, isDirectory: true)
+    }
+
     static func accessibilityOverride(environment: [String: String]) -> Bool? {
         #if DEBUG
         switch environment["TATAKINOTE_ACCESSIBILITY_OVERRIDE"] {
@@ -135,7 +153,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelDefaultSize: PanelDefaultSizeModel(
             settings: settings,
             currentPanelSize: { [weak self] in self?.panelController.heldPanelSize }
-        )
+        ),
+        library: library
     )
 
     let webContentExposer = WebContentExposer()
@@ -149,13 +168,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         onOpenPanel: { [weak self] in self?.panelController.open() }
     )
 
+    let library = DraftLibrary(
+        store: DraftLibraryStore(directory: AppLaunchContext.dataDirectory(environment: ProcessInfo.processInfo.environment))
+    )
+
     private(set) lazy var panelController: PanelController = {
         let controller = PanelController(
             settings: self.settings,
             targetTracker: self.targetTracker,
             permission: self.permission,
             notifier: self.insertionFailureBubbleController,
-            exposeWebContent: { [webContentExposer] in webContentExposer.expose($0) }
+            exposeWebContent: { [webContentExposer] in webContentExposer.expose($0) },
+            library: self.library
         )
         controller.isTargetLookupDisabled = AppLaunchContext.isInsertionTargetDisabled(
             environment: ProcessInfo.processInfo.environment
@@ -177,6 +201,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let environment = ProcessInfo.processInfo.environment
         if AppLaunchContext.shouldRegisterHotkeys(environment: environment) {
+            ReservedPanelKeys.apply(
+                to: settings,
+                hotkey: PanelShortcut.currentHotkey(),
+                defaultHotkey: KeyboardShortcuts.Name.togglePanel.initialShortcut.map { PanelShortcut($0) },
+                resetHotkey: { KeyboardShortcuts.reset(.togglePanel) }
+            )
             KeyboardShortcuts.onKeyDown(for: .togglePanel) { [weak self] in
                 self?.panelController.toggle()
             }
@@ -214,7 +244,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidHide(_ notification: Notification) {
-        panelController.close()
+        panelController.closeImmediately()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        panelController.flushDrafts()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

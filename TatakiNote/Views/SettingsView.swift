@@ -15,6 +15,7 @@ struct SettingsView: View {
 
     @State private var editorModel: EditorSettingsModel
     @State private var keySettingsModel: PanelKeySettingsModel
+    @State private var historyModel: HistorySettingsModel
 
     init(
         settings: AppSettings,
@@ -22,6 +23,7 @@ struct SettingsView: View {
         launchAtLogin: LaunchAtLoginModel,
         appInfo: AppInfoModel,
         panelDefaultSize: PanelDefaultSizeModel,
+        library: DraftLibrary = DraftLibrary(store: .inMemory),
         onShowFontPanel: @escaping () -> Void,
         onQuit: @escaping () -> Void
     ) {
@@ -34,6 +36,7 @@ struct SettingsView: View {
         self.onQuit = onQuit
         _editorModel = State(initialValue: EditorSettingsModel(settings: settings))
         _keySettingsModel = State(initialValue: PanelKeySettingsModel(settings: settings))
+        _historyModel = State(initialValue: HistorySettingsModel(library: library))
     }
 
     var body: some View {
@@ -44,7 +47,7 @@ struct SettingsView: View {
             ScrollView(.vertical) {
                 switch model.selectedSection {
                 case .general:
-                    GeneralSettingsView(settings: settings, launchAtLogin: launchAtLogin)
+                    GeneralSettingsView(settings: settings, launchAtLogin: launchAtLogin, history: historyModel)
                 case .keys:
                     KeySettingsView(keySettings: keySettingsModel)
                 case .panel:

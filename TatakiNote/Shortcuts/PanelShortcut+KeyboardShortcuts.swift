@@ -15,6 +15,13 @@ extension PanelShortcut {
         return PanelShortcut(shortcut)
     }
 
+    static func setHotkey(_ shortcut: PanelShortcut?) {
+        KeyboardShortcuts.setShortcut(
+            shortcut.map { KeyboardShortcuts.Shortcut(KeyboardShortcuts.Key(rawValue: Int($0.keyCode)), modifiers: $0.modifiers) },
+            for: .togglePanel
+        )
+    }
+
     static func pauseHotkey() {
         KeyboardShortcuts.disable(.togglePanel)
     }

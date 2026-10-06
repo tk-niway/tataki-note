@@ -21,6 +21,9 @@ struct SettingsStore {
         static let panelDefaultWidth = "panelDefaultWidth"
         static let panelDefaultHeight = "panelDefaultHeight"
         static let hasShownFirstLaunchTutorial = "hasShownFirstLaunchTutorial"
+        static let sidebarIsOpen = "sidebarIsOpen"
+        static let sidebarTab = "sidebarTab"
+        static let panelAnimationEnabled = "panelAnimationEnabled"
     }
 
     let defaults: UserDefaults
@@ -178,6 +181,16 @@ struct SettingsStore {
         defaults.set(hides, forKey: Key.hidesMenuBarIcon)
     }
 
+    // MARK: - パネルの開閉の動き
+
+    func loadIsPanelAnimationEnabled() -> Bool {
+        boolean(forKey: Key.panelAnimationEnabled) ?? true
+    }
+
+    func saveIsPanelAnimationEnabled(_ isEnabled: Bool) {
+        defaults.set(isEnabled, forKey: Key.panelAnimationEnabled)
+    }
+
     // MARK: - 初回起動のチュートリアル
 
     func loadHasShownFirstLaunchTutorial() -> Bool {
@@ -186,6 +199,24 @@ struct SettingsStore {
 
     func saveHasShownFirstLaunchTutorial(_ shown: Bool) {
         defaults.set(shown, forKey: Key.hasShownFirstLaunchTutorial)
+    }
+
+    // MARK: - サイドバー
+
+    func loadSidebarIsOpen() -> Bool {
+        boolean(forKey: Key.sidebarIsOpen) ?? false
+    }
+
+    func saveSidebarIsOpen(_ isOpen: Bool) {
+        defaults.set(isOpen, forKey: Key.sidebarIsOpen)
+    }
+
+    func loadSidebarTab() -> SidebarTab {
+        loadStringEnum(SidebarTab.self, forKey: Key.sidebarTab) ?? .drafts
+    }
+
+    func saveSidebarTab(_ tab: SidebarTab) {
+        saveStringEnum(tab, forKey: Key.sidebarTab)
     }
 
     // MARK: - パネルの既定の大きさ

@@ -572,19 +572,27 @@ struct TutorialModelTests {
 
     // MARK: - 手順4の紹介(AC-19)
 
-    @Test("AC-19: 手順4の紹介は「ホットキーの変更」と「下書き」の2つで、自動表示と確定+送信の紹介は無い")
+    @Test("AC-19: 手順4の紹介は「ホットキーの変更」と「書きかけ」の2つで、自動表示と確定+送信の紹介は無い")
     func nextStepIntroductions() {
         let all = TutorialNextStepIntroduction.allCases
 
         #expect(all == [.hotkeyChange, .draftKept])
         #expect(TutorialNextStepIntroduction.hotkeyChange.heading.contains("ホットキー"))
         #expect(TutorialNextStepIntroduction.draftKept.text.contains("esc"))
-        #expect(TutorialNextStepIntroduction.draftKept.text.contains("下書き"))
+        #expect(TutorialNextStepIntroduction.draftKept.text.contains("パネルに残ります"))
         for introduction in all {
             let combined = introduction.heading + introduction.text
             #expect(!combined.contains("自動表示"))
             #expect(!combined.contains("確定+送信"))
         }
+    }
+
+    @Test("AC-43: 手順4のカードは見出し「書きかけ」・本文「パネルに残ります」で、「下書き」の言葉を使わない")
+    func draftKeptCardUsesScratchWording() {
+        let card = TutorialNextStepIntroduction.draftKept
+        #expect(card.heading == "書きかけ")
+        #expect(card.text == "esc でパネルを閉じても、書いた文章はパネルに残ります。次に開くと続きから書けます。")
+        #expect(!(card.heading + card.text).contains("下書き"))
     }
 
     @Test("AC-9: 「ホットキーの変更」の紹介は、設定の「キー」の「パネルを開く・閉じる」を案内し、設定の「一般」とは書かない")

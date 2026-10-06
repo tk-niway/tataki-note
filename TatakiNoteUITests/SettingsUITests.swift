@@ -35,8 +35,8 @@ final class SettingsUITests: XCTestCase {
         // AC-11
         commitRecorder.click()
         XCTAssertEqual(commitRecorder.placeholderValue, recordingPlaceholder)
-        app.typeKey("k", modifierFlags: [.command])
-        XCTAssertTrue(waitUntil { self.recorderDisplayText(commitRecorder) == "⌘K" })
+        app.typeKey("j", modifierFlags: [.command])
+        XCTAssertTrue(waitUntil { self.recorderDisplayText(commitRecorder) == "⌘J" })
 
         closeSettings(in: app)
 
@@ -45,7 +45,7 @@ final class SettingsUITests: XCTestCase {
         let textView = app.textViews["promptPanel.textView"]
         XCTAssertTrue(textView.waitForExistence(timeout: timeout))
         XCTAssertEqual(textView.promptPanelText, "")
-        app.typeKey("k", modifierFlags: [.command])
+        app.typeKey("j", modifierFlags: [.command])
         XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
     }
 
@@ -81,8 +81,8 @@ final class SettingsUITests: XCTestCase {
         app.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(waitUntil { self.recorderDisplayText(commitRecorder) == "⇧⌘↩" })
         commitRecorder.click()
-        app.typeKey("k", modifierFlags: [.command])
-        XCTAssertTrue(waitUntil { self.recorderDisplayText(commitRecorder) == "⌘K" })
+        app.typeKey("j", modifierFlags: [.command])
+        XCTAssertTrue(waitUntil { self.recorderDisplayText(commitRecorder) == "⌘J" })
         XCTAssertFalse(commitRejection.exists)
 
         closeSettings(in: app)
@@ -225,6 +225,41 @@ final class SettingsUITests: XCTestCase {
         XCTAssertTrue(textView.waitForExistence(timeout: timeout))
         app.typeKey(.return, modifierFlags: [.command, .shift])
         XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
+    }
+
+    @MainActor
+    func testAC41_clearHistoryAsksForConfirmation() throws {
+        let dataDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TatakiNoteUITests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: dataDirectory) }
+        try FileManager.default.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
+        let history = """
+        {"version": 1, "history": [{"id": "\(UUID().uuidString)", "text": "history one", \
+        "insertedAt": "2026-10-06T05:32:00Z", "appName": "Notes"}]}
+        """
+        try Data(history.utf8).write(to: dataDirectory.appendingPathComponent("history.json"))
+
+        let app = XCUIApplication()
+        app.launchEnvironment["TATAKINOTE_DATA_DIRECTORY"] = dataDirectory.path
+        launch(app)
+
+        openSettingsFromMenu(in: app)
+        // AC-41
+        let clearButton = element(in: app, identifier: "settings.clearHistory")
+        app.revealInSettings(clearButton)
+        XCTAssertTrue(clearButton.isEnabled)
+
+        clearButton.click()
+        let alert = app.sheets.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: timeout))
+        XCTAssertTrue(alert.staticTexts["挿入の履歴をすべて削除しますか?"].exists)
+        XCTAssertTrue(alert.buttons["すべて削除"].exists)
+
+        alert.buttons["キャンセル"].click()
+        XCTAssertTrue(alert.waitForNonExistence(timeout: timeout))
+        XCTAssertTrue(clearButton.isEnabled)
+
+        closeSettings(in: app)
     }
 
     @MainActor

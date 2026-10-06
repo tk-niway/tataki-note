@@ -132,6 +132,13 @@ struct PanelSettingsView: View {
                     SettingDescription(text: "パネルの下の帯に出す項目です。すべて外すと帯ごと消え、そのぶん入力欄が広がります。")
                 }
             }
+
+            LabeledContent("アニメーション") {
+                Toggle("パネルの開閉エフェクト", isOn: $settings.isPanelAnimationEnabled)
+                    .toggleStyle(.checkbox)
+                    .accessibilityIdentifier("settings.panelAnimationToggle")
+            }
+            .padding(.top, 12)
         }
         .formStyle(.columns)
         .settingsDetailPadding()

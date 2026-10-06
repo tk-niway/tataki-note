@@ -4,6 +4,7 @@ import SwiftUI
 struct GeneralSettingsView: View {
     @Bindable var settings: AppSettings
     let launchAtLogin: LaunchAtLoginModel
+    let history: HistorySettingsModel
 
     var body: some View {
         Form {
@@ -50,9 +51,34 @@ struct GeneralSettingsView: View {
                     SettingDescription(text: "隠している間は、TatakiNote をもう一度開く(Finder・Spotlight など)と、この設定画面が開きます。ホットキーと自動表示は今までどおり使えます。終了するときは、左下の「TatakiNote を終了」を押します。")
                 }
             }
+            .padding(.bottom, 12)
+
+            LabeledContent("履歴") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Button("履歴をすべて削除") { history.requestClear() }
+                        .disabled(!history.isClearAvailable)
+                        .accessibilityIdentifier("settings.clearHistory")
+                    SettingDescription(text: "挿入した文章は、最新 50 件までこの Mac に残ります。")
+                }
+            }
         }
         .formStyle(.columns)
         .settingsDetailPadding()
+        .alert("挿入の履歴をすべて削除しますか?", isPresented: confirmingBinding) {
+            Button("すべて削除", role: .destructive) { history.confirmClear() }
+            Button("キャンセル", role: .cancel) { history.cancelClear() }
+        } message: {
+            Text("この操作は元に戻せません。")
+        }
+    }
+
+    private var confirmingBinding: Binding<Bool> {
+        Binding(
+            get: { history.isConfirming },
+            set: { isPresented in
+                if !isPresented { history.cancelClear() }
+            }
+        )
     }
 
     private var launchAtLoginBinding: Binding<Bool> {

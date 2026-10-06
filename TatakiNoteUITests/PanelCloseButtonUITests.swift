@@ -48,7 +48,7 @@ final class PanelCloseButtonUITests: XCTestCase {
     // AC-3
     @MainActor
     func testAC3_closeButtonKeepsDraggedSize() throws {
-        let app = try launchApp(seed: nil)
+        let app = try launchApp(seed: ["panelAnimationEnabled": false])
         let panel = openPanel(in: app)
 
         dragBottomRightCorner(of: panel, by: CGVector(dx: -100, dy: -60))
@@ -86,7 +86,23 @@ final class PanelCloseButtonUITests: XCTestCase {
         XCTAssertTrue(app.textViews["promptPanel.textView"].waitForExistence(timeout: timeout))
         let panel = app.dialogs["promptPanel"]
         XCTAssertTrue(panel.waitForExistence(timeout: timeout), "パネルの窓が見つからない")
+        waitForSteadyFrame(of: panel)
         return panel
+    }
+
+    @MainActor
+    private func waitForSteadyFrame(of element: XCUIElement) {
+        let deadline = Date().addingTimeInterval(timeout)
+        var previous = element.frame
+        while Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            let current = element.frame
+            if current == previous {
+                return
+            }
+            previous = current
+        }
+        XCTFail("パネルの枠が止まらない")
     }
 
     @MainActor

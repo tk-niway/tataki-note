@@ -121,9 +121,24 @@ import Observation
         }
     }
 
+    /// パネルの開閉エフェクトを使うか。
+    var isPanelAnimationEnabled: Bool {
+        didSet { store.saveIsPanelAnimationEnabled(isPanelAnimationEnabled) }
+    }
+
     /// 初回起動のチュートリアルを自動で出したか。
     var hasShownFirstLaunchTutorial: Bool {
         didSet { store.saveHasShownFirstLaunchTutorial(hasShownFirstLaunchTutorial) }
+    }
+
+    /// サイドバーを開いているか。
+    var isSidebarOpen: Bool {
+        didSet { store.saveSidebarIsOpen(isSidebarOpen) }
+    }
+
+    /// サイドバーで表示している側。
+    var sidebarTab: SidebarTab {
+        didSet { store.saveSidebarTab(sidebarTab) }
     }
 
     @ObservationIgnored private let store: SettingsStore
@@ -153,7 +168,10 @@ import Observation
         self.hidesMenuBarIcon = store.loadHidesMenuBarIcon()
         self.panelDefaultWidth = store.loadPanelDefaultWidth()
         self.panelDefaultHeight = store.loadPanelDefaultHeight()
+        self.isPanelAnimationEnabled = store.loadIsPanelAnimationEnabled()
         self.hasShownFirstLaunchTutorial = store.loadHasShownFirstLaunchTutorial()
+        self.isSidebarOpen = store.loadSidebarIsOpen()
+        self.sidebarTab = store.loadSidebarTab()
         self.commitKeyDisplayText = commitKey?.displayText
         self.commitAndSendKeyDisplayText = commitAndSendKey?.displayText
     }
