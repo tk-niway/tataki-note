@@ -213,7 +213,8 @@ struct SidebarView: View {
             .disabled(!model.isDeleteAvailable)
             .accessibilityIdentifier("sidebar.row.deleteMenuItem")
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: [row.detail, row.title].compactMap { $0 }.joined(separator: " ")))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .accessibilityValue(row.isShownInPanel ? "パネルに表示中" : "")
         .accessibilityAction(named: "削除") {
