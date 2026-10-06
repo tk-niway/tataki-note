@@ -167,19 +167,39 @@ struct InsertionFailureNotifierTests {
     func bodyText() {
         let noTarget = InsertionFailureNotice(reason: .noTarget, isDraftKept: true).body
         #expect(noTarget.contains("挿入先のアプリが分かりませんでした"))
-        #expect(noTarget.contains("下書きとして残っています"))
+        #expect(noTarget.contains("パネルに残っています"))
 
         let named = InsertionFailureNotice(reason: .targetNotActivated(appName: "TextEdit"), isDraftKept: true).body
         #expect(named.contains("TextEdit"))
-        #expect(named.contains("下書きとして残っています"))
+        #expect(named.contains("パネルに残っています"))
 
         let unnamed = InsertionFailureNotice(reason: .targetNotActivated(appName: nil), isDraftKept: true).body
         #expect(unnamed.contains("挿入先のアプリ"))
 
         let notKept = InsertionFailureNotice(reason: .targetNotActivated(appName: "TextEdit"), isDraftKept: false).body
         #expect(notKept.contains("TextEdit"))
-        #expect(notKept.contains("下書きに戻せませんでした"))
-        #expect(!notKept.contains("下書きとして残っています"))
+        #expect(notKept.contains("パネルに戻せませんでした"))
+        #expect(!notKept.contains("パネルに残っています"))
+    }
+
+    @Test("AC-43: 通知の本文に「下書き」の言葉は出ず、残っているときは「文章はパネルに残っています。」、戻せなかったときは「…この文章はパネルに戻せませんでした。」になる")
+    func bodyTextAvoidsDraftWording() {
+        let reasons: [InsertionFailureNotice.Reason] = [
+            .noTarget,
+            .targetNotActivated(appName: "TextEdit"),
+            .targetNotActivated(appName: nil),
+            .noTextInput(appName: "Safari"),
+            .noTextInput(appName: nil),
+        ]
+        for reason in reasons {
+            let kept = InsertionFailureNotice(reason: reason, isDraftKept: true).body
+            #expect(kept.contains("文章はパネルに残っています。"), "\(reason)")
+            #expect(!kept.contains("下書き"), "\(reason)")
+
+            let notKept = InsertionFailureNotice(reason: reason, isDraftKept: false).body
+            #expect(notKept.contains("パネルに新しい文章があるため、この文章はパネルに戻せませんでした。"), "\(reason)")
+            #expect(!notKept.contains("下書き"), "\(reason)")
+        }
     }
 
     @Test("入力欄が選ばれていなかったときの本文は、アプリの名前(無ければ「挿入先のアプリ」)と入力欄が選ばれていなかったことを伝える")
@@ -187,7 +207,7 @@ struct InsertionFailureNotifierTests {
         let named = InsertionFailureNotice(reason: .noTextInput(appName: "Safari"), isDraftKept: true).body
         #expect(named.contains("Safari"))
         #expect(named.contains("入力欄が選ばれていませんでした"))
-        #expect(named.contains("下書きとして残っています"))
+        #expect(named.contains("パネルに残っています"))
 
         let unnamed = InsertionFailureNotice(reason: .noTextInput(appName: nil), isDraftKept: true).body
         #expect(unnamed.contains("挿入先のアプリ"))

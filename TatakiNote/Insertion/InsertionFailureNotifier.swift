@@ -37,9 +37,9 @@ struct InsertionFailureNotice: Equatable {
 
     private var draftSentence: String {
         if isDraftKept {
-            return String(localized: "文章はパネルに下書きとして残っています。")
+            return String(localized: "文章はパネルに残っています。")
         }
-        return String(localized: "パネルに新しい文章があるため、この文章は下書きに戻せませんでした。")
+        return String(localized: "パネルに新しい文章があるため、この文章はパネルに戻せませんでした。")
     }
 }
 

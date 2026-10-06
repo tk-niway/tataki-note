@@ -106,7 +106,7 @@ private struct PermissionGuideDraftKept: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("挿入できませんでした。")
                     .font(.headline)
-                Text("書いた文章はパネルに下書きとして残っています。許可した後に、パネルを開いてもう一度確定してください。")
+                Text("書いた文章はパネルに残っています。許可した後に、パネルを開いてもう一度確定してください。")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
