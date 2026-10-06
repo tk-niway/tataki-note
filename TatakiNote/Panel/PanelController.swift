@@ -176,6 +176,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         case .commitAndSend:
             commit(shouldSendAfterInsert: true)
             return true
+        case .openSearch, .saveDraft, .newDraft:
+            return true
         case .passThrough:
             return false
         }
