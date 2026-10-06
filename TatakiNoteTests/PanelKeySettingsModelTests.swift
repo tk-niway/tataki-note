@@ -15,6 +15,12 @@ private final class FakeHotkeyController {
     func currentHotkey() -> PanelShortcut? { hotkey }
     func pause() { pauseCount += 1 }
     func resume() { resumeCount += 1 }
+    func set(_ shortcut: PanelShortcut?) {
+        hotkey = shortcut
+        setCalls.append(shortcut)
+    }
+
+    private(set) var setCalls: [PanelShortcut?] = []
 }
 
 @MainActor
@@ -33,7 +39,8 @@ struct PanelKeySettingsModelTests {
             settings: settings,
             hotkey: { controller.currentHotkey() },
             pauseHotkey: { controller.pause() },
-            resumeHotkey: { controller.resume() }
+            resumeHotkey: { controller.resume() },
+            setHotkey: { controller.set($0) }
         )
     }
 
@@ -249,6 +256,65 @@ struct PanelKeySettingsModelTests {
         #expect(model.recordingRole == nil)
         #expect(model.rejectionMessage(for: .commit) == messageBefore)
         #expect(model.displayText(for: .commit) == valueBefore)
+    }
+
+    @Test("AC-10: 「パネルを開く・閉じる」で ⌘K・⌘S・⌘N を押すと直前のキーに戻り、理由が出る")
+    func reservedHotkeyIsRevertedWithMessage() throws {
+        let (settings, defaults, name) = try makeSettings()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let previous = PanelShortcut(keyCode: 49, modifiers: [.option, .shift])
+
+        for (keyCode, label) in [(UInt16(40), "⌘K"), (UInt16(1), "⌘S"), (UInt16(45), "⌘N")] {
+            let controller = FakeHotkeyController(hotkey: previous)
+            let model = makeModel(settings: settings, controller: controller)
+            let reserved = PanelShortcut(keyCode: keyCode, modifiers: [.command])
+
+            controller.hotkey = reserved
+            model.hotkeyDidChange(to: reserved)
+
+            #expect(controller.setCalls == [previous], "\(label)")
+            #expect(controller.hotkey == previous, "\(label)")
+            #expect(model.hotkeyRejectionMessage?.contains(label) == true, "\(label)")
+            #expect(model.hotkeyRejectionMessage?.contains("登録できません") == true, "\(label)")
+        }
+    }
+
+    @Test("AC-10: 拒否して直前のキーに戻した通知では理由は消えず、受け付けるキーを押すと消える")
+    func hotkeyRejectionSurvivesRevertNotificationAndClearsOnAcceptedKey() throws {
+        let (settings, defaults, name) = try makeSettings()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let previous = PanelShortcut(keyCode: 49, modifiers: [.option, .shift])
+        let controller = FakeHotkeyController(hotkey: previous)
+        let model = makeModel(settings: settings, controller: controller)
+
+        model.hotkeyDidChange(to: PanelShortcut(keyCode: 40, modifiers: [.command]))
+        let message = model.hotkeyRejectionMessage
+        #expect(message != nil)
+
+        model.hotkeyDidChange(to: previous)
+        #expect(model.hotkeyRejectionMessage == message)
+        #expect(controller.setCalls.count == 1)
+
+        let accepted = PanelShortcut(keyCode: 38, modifiers: [.command])
+        model.hotkeyDidChange(to: accepted)
+        #expect(model.hotkeyRejectionMessage == nil)
+        #expect(controller.setCalls.count == 1)
+
+        model.hotkeyDidChange(to: PanelShortcut(keyCode: 1, modifiers: [.command]))
+        #expect(controller.setCalls == [previous, accepted], "直前のキーは受け付けたキーに更新される")
+    }
+
+    @Test("AC-10: 修飾キーが違う ⇧⌘K は予約に当たらず受け付ける")
+    func nonReservedHotkeyIsAccepted() throws {
+        let (settings, defaults, name) = try makeSettings()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let controller = FakeHotkeyController(hotkey: nil)
+        let model = makeModel(settings: settings, controller: controller)
+
+        model.hotkeyDidChange(to: PanelShortcut(keyCode: 40, modifiers: [.command, .shift]))
+
+        #expect(model.hotkeyRejectionMessage == nil)
+        #expect(controller.setCalls.isEmpty)
     }
 
     @Test("AC-29: 記録を始めるとホットキーを1回止め、記録の終わり方(受け付けた・clear・endRecording)のどれでも1回戻す")
