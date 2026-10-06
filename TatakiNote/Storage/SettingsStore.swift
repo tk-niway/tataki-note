@@ -23,6 +23,7 @@ struct SettingsStore {
         static let hasShownFirstLaunchTutorial = "hasShownFirstLaunchTutorial"
         static let sidebarIsOpen = "sidebarIsOpen"
         static let sidebarTab = "sidebarTab"
+        static let panelAnimationEnabled = "panelAnimationEnabled"
     }
 
     let defaults: UserDefaults
@@ -178,6 +179,16 @@ struct SettingsStore {
 
     func saveHidesMenuBarIcon(_ hides: Bool) {
         defaults.set(hides, forKey: Key.hidesMenuBarIcon)
+    }
+
+    // MARK: - パネルの開閉の動き
+
+    func loadIsPanelAnimationEnabled() -> Bool {
+        boolean(forKey: Key.panelAnimationEnabled) ?? true
+    }
+
+    func saveIsPanelAnimationEnabled(_ isEnabled: Bool) {
+        defaults.set(isEnabled, forKey: Key.panelAnimationEnabled)
     }
 
     // MARK: - 初回起動のチュートリアル

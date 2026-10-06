@@ -223,7 +223,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidHide(_ notification: Notification) {
-        panelController.close()
+        panelController.closeImmediately()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
