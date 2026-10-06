@@ -228,6 +228,41 @@ final class SettingsUITests: XCTestCase {
     }
 
     @MainActor
+    func testAC41_clearHistoryAsksForConfirmation() throws {
+        let dataDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TatakiNoteUITests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: dataDirectory) }
+        try FileManager.default.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
+        let history = """
+        {"version": 1, "history": [{"id": "\(UUID().uuidString)", "text": "history one", \
+        "insertedAt": "2026-10-06T05:32:00Z", "appName": "Notes"}]}
+        """
+        try Data(history.utf8).write(to: dataDirectory.appendingPathComponent("history.json"))
+
+        let app = XCUIApplication()
+        app.launchEnvironment["TATAKINOTE_DATA_DIRECTORY"] = dataDirectory.path
+        launch(app)
+
+        openSettingsFromMenu(in: app)
+        // AC-41
+        let clearButton = element(in: app, identifier: "settings.clearHistory")
+        app.revealInSettings(clearButton)
+        XCTAssertTrue(clearButton.isEnabled)
+
+        clearButton.click()
+        let alert = app.sheets.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: timeout))
+        XCTAssertTrue(alert.staticTexts["挿入の履歴をすべて削除しますか?"].exists)
+        XCTAssertTrue(alert.buttons["すべて削除"].exists)
+
+        alert.buttons["キャンセル"].click()
+        XCTAssertTrue(alert.waitForNonExistence(timeout: timeout))
+        XCTAssertTrue(clearButton.isEnabled)
+
+        closeSettings(in: app)
+    }
+
+    @MainActor
     private func launch(_ app: XCUIApplication) {
         app.launchEnvironment["TATAKINOTE_SETTINGS_SUITE"] = settingsSuiteName
         app.launchEnvironment[AccessibilityOverride.key] = AccessibilityOverride.untrusted

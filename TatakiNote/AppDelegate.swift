@@ -145,7 +145,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelDefaultSize: PanelDefaultSizeModel(
             settings: settings,
             currentPanelSize: { [weak self] in self?.panelController.heldPanelSize }
-        )
+        ),
+        library: library
     )
 
     let webContentExposer = WebContentExposer()
