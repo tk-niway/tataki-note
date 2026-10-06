@@ -146,11 +146,21 @@ final class PanelSizeUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["TATAKINOTE_SETTINGS_SUITE"] = settingsSuiteName
         app.launchEnvironment[AccessibilityOverride.key] = AccessibilityOverride.trusted
+        app.launchEnvironment["TATAKINOTE_SETTINGS_SEED"] = settingsSeedJSON(baseSeed)
         return app
     }
 
+    private let baseSeed: [String: Any] = ["panelAnimationEnabled": false]
+
+    private func settingsSeedJSON(_ values: [String: Any]) -> String {
+        let data = (try? JSONSerialization.data(withJSONObject: values, options: [.sortedKeys])) ?? Data()
+        return String(decoding: data, as: UTF8.self)
+    }
+
     private func seedDefaultPanelSize(_ size: CGSize, in app: XCUIApplication) throws {
-        let values: [String: Any] = ["panelDefaultWidth": Double(size.width), "panelDefaultHeight": Double(size.height)]
+        var values = baseSeed
+        values["panelDefaultWidth"] = Double(size.width)
+        values["panelDefaultHeight"] = Double(size.height)
         let data = try JSONSerialization.data(withJSONObject: values, options: [.sortedKeys])
         app.launchEnvironment["TATAKINOTE_SETTINGS_SEED"] = String(decoding: data, as: UTF8.self)
     }

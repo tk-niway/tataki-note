@@ -4,8 +4,11 @@ import SwiftUI
 /// パネルの開け閉め。
 final class PanelController: NSObject, NSWindowDelegate {
     let model: PanelModel
-    private let panel: PromptPanel
+    /// 入力パネルの窓。
+    let panel: PromptPanel
     private let settings: AppSettings
+    private let animator: PanelFrameAnimating
+    private let hideApplication: () -> Void
     private let targetTracker: FrontmostAppTracker
     private let permission: AccessibilityPermissionChecking
     private let performer: CommitPerformer
@@ -16,6 +19,11 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private let sizing = PanelSizing()
     private var liveResizeStartSize: CGSize?
+
+    private var motion = PanelMotionState()
+    private var restingFrame: NSRect?
+    private var pendingCloseCompletion: (() -> Void)?
+    private var closingGhost: PanelClosingGhost?
 
     var heldPanelSize: CGSize? { sizing.heldSize }
 
@@ -40,11 +48,15 @@ final class PanelController: NSObject, NSWindowDelegate {
         fieldProbe: FocusedElementProbing = AXFocusedTextInputInspector(),
         exposeWebContent: @escaping (InsertionTarget) -> Void = { AXFocusedTextInputInspector.exposeWebContent(of: $0) },
         locateTargetWindowFrame: @escaping (pid_t) -> CGRect? = { TargetWindowLocator.frontWindowFrame(processIdentifier: $0) },
-        ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier
+        ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier,
+        animator: PanelFrameAnimating = AppKitPanelFrameAnimator(),
+        hideApplication: @escaping () -> Void = { NSApp.hide(nil) }
     ) {
         self.model = model
         self.panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
         self.settings = settings
+        self.animator = animator
+        self.hideApplication = hideApplication
         self.targetTracker = targetTracker
         self.permission = permission
         self.performer = CommitPerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
@@ -66,6 +78,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.contentView = hostingView
         panel.setContentSize(PanelMetrics.defaultSize)
         panel.delegate = self
+        panel.onHideKey = { [weak self] in self?.handleHideKey() ?? false }
     }
 
     /// 挿入先のアプリへアクセシビリティの問い合わせをしてよいか。自分自身が挿入先のときは問い合わせない。
@@ -92,6 +105,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         settings.refreshKeyDisplayTexts()
         let wasPresented = model.present(target: target)
         if !wasPresented {
+            stopMotion()
             sizing.beginOpening(defaultSize: settings.panelDefaultSize)
             let queriesAccessibility = Self.shouldQueryAccessibility(
                 of: target,
@@ -135,13 +149,30 @@ final class PanelController: NSObject, NSWindowDelegate {
             } else {
                 panel.center()
             }
+            present(at: panel.frame)
+            return
         }
         panel.makeKeyAndOrderFront(nil)
     }
 
     func close() {
-        panel.orderOut(nil)
+        hidePanel()
         model.dismiss()
+    }
+
+    /// アプリが隠れたときに、動きなしでパネルを閉じて枠を本来の枠に戻す。
+    func closeImmediately() {
+        hideWithoutMotion()
+        model.dismiss()
+    }
+
+    /// ⌘H を受け取る。アニメーションがオンで開いているときは閉じる動きのあとにアプリを隠して true を返す。
+    func handleHideKey() -> Bool {
+        guard settings.isPanelAnimationEnabled,
+              motion.phase == .opening || motion.phase == .shown else { return false }
+        hidePanel(then: { [weak self] in self?.hideApplication() })
+        model.dismiss()
+        return true
     }
 
     func toggle() {
@@ -183,7 +214,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     func commit(shouldSendAfterInsert: Bool = false) {
         let plan = model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
-        panel.orderOut(nil)
+        hidePanel()
         if case .insert(let text, let target) = plan {
             onInsertionRequested?(text, target, shouldSendAfterInsert)
         }
@@ -195,6 +226,120 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         model.dismiss()
+    }
+
+    // MARK: - 開閉の動き
+
+    private func present(at restFrame: NSRect) {
+        guard settings.isPanelAnimationEnabled else {
+            endMotion()
+            panel.makeKeyAndOrderFront(nil)
+            motion.showWithoutMotion()
+            pendingCloseCompletion = nil
+            restingFrame = nil
+            return
+        }
+        beginMotion()
+        restingFrame = restFrame
+        panel.setFrame(PanelMotion.lineFrame(of: restFrame), display: false)
+        panel.makeKeyAndOrderFront(nil)
+        let token = motion.beginOpening()
+        pendingCloseCompletion = nil
+        animator.animate(panel, to: restFrame, duration: PanelMotion.duration, curve: .easeOut) { [weak self] in
+            self?.finishMotion(token)
+        }
+    }
+
+    private func hidePanel(then completion: (() -> Void)? = nil) {
+        guard settings.isPanelAnimationEnabled, motion.phase != .hidden else {
+            hideWithoutMotion()
+            completion?()
+            return
+        }
+        if motion.phase == .closing { return }
+        guard let ghost = PanelClosingGhost.make(from: panel) else {
+            hideWithoutMotion()
+            completion?()
+            return
+        }
+        let wasOpening = motion.phase == .opening
+        let panelFrame = wasOpening ? (restingFrame ?? panel.frame) : panel.frame
+        let token = motion.beginClosing()
+        pendingCloseCompletion = completion
+        restingFrame = nil
+        closingGhost = ghost
+        ghost.orderFrontRegardless()
+        panel.orderOut(nil)
+        if wasOpening {
+            animator.jump(panel, to: panelFrame)
+        }
+        endMotion()
+        animator.animate(
+            ghost,
+            to: PanelMotion.lineFrame(of: ghost.frame),
+            duration: PanelMotion.duration,
+            curve: .easeIn
+        ) { [weak self] in
+            if let self {
+                self.finishMotion(token)
+            } else {
+                ghost.orderOut(nil)
+            }
+        }
+    }
+
+    private func hideWithoutMotion() {
+        discardGhost()
+        motion.hideWithoutMotion()
+        pendingCloseCompletion = nil
+        panel.orderOut(nil)
+        if let frame = restingFrame {
+            restingFrame = nil
+            animator.jump(panel, to: frame)
+        }
+        endMotion()
+    }
+
+    private func finishMotion(_ token: Int) {
+        guard motion.finish(token) else { return }
+        switch motion.phase {
+        case .shown:
+            restingFrame = nil
+            endMotion()
+        case .hidden:
+            discardGhost()
+            let completion = pendingCloseCompletion
+            pendingCloseCompletion = nil
+            completion?()
+        case .opening, .closing:
+            break
+        }
+    }
+
+    private func discardGhost() {
+        closingGhost?.orderOut(nil)
+        closingGhost = nil
+    }
+
+    private func beginMotion() {
+        panel.contentMinSize = NSSize(width: 1, height: 1)
+    }
+
+    private func endMotion() {
+        panel.contentMinSize = PanelSizing.minimumSize
+    }
+
+    private func stopMotion() {
+        guard motion.phase == .opening || motion.phase == .closing else { return }
+        let wasOpening = motion.phase == .opening
+        discardGhost()
+        motion.hideWithoutMotion()
+        pendingCloseCompletion = nil
+        let frame = restingFrame ?? panel.frame
+        restingFrame = nil
+        if wasOpening {
+            animator.jump(panel, to: frame)
+        }
     }
 
     // MARK: - 大きさ
@@ -210,7 +355,10 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
-        NSSize(
+        if motion.phase == .opening {
+            return frameSize
+        }
+        return NSSize(
             width: max(frameSize.width, PanelSizing.minimumSize.width),
             height: max(frameSize.height, PanelSizing.minimumSize.height)
         )
