@@ -21,6 +21,8 @@ struct SettingsStore {
         static let panelDefaultWidth = "panelDefaultWidth"
         static let panelDefaultHeight = "panelDefaultHeight"
         static let hasShownFirstLaunchTutorial = "hasShownFirstLaunchTutorial"
+        static let sidebarIsOpen = "sidebarIsOpen"
+        static let sidebarTab = "sidebarTab"
         static let panelAnimationEnabled = "panelAnimationEnabled"
     }
 
@@ -197,6 +199,24 @@ struct SettingsStore {
 
     func saveHasShownFirstLaunchTutorial(_ shown: Bool) {
         defaults.set(shown, forKey: Key.hasShownFirstLaunchTutorial)
+    }
+
+    // MARK: - サイドバー
+
+    func loadSidebarIsOpen() -> Bool {
+        boolean(forKey: Key.sidebarIsOpen) ?? false
+    }
+
+    func saveSidebarIsOpen(_ isOpen: Bool) {
+        defaults.set(isOpen, forKey: Key.sidebarIsOpen)
+    }
+
+    func loadSidebarTab() -> SidebarTab {
+        loadStringEnum(SidebarTab.self, forKey: Key.sidebarTab) ?? .drafts
+    }
+
+    func saveSidebarTab(_ tab: SidebarTab) {
+        saveStringEnum(tab, forKey: Key.sidebarTab)
     }
 
     // MARK: - パネルの既定の大きさ

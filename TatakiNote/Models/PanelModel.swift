@@ -16,7 +16,16 @@ enum PanelDismissal: Equatable {
 
 /// 入力パネルの状態。
 @Observable final class PanelModel {
-    var text: String = ""
+    var text: String = "" {
+        didSet {
+            if text != oldValue {
+                onTextChange?(text)
+            }
+        }
+    }
+
+    /// 本文が変わったときに呼ぶ処理。
+    @ObservationIgnored var onTextChange: ((String) -> Void)?
 
     private(set) var isPresented = false
 
@@ -54,6 +63,11 @@ enum PanelDismissal: Equatable {
         guard text.isEmpty else { return false }
         text = draft
         return true
+    }
+
+    /// 入力欄へフォーカスを戻すよう求める。
+    func requestFocus() {
+        focusRequest += 1
     }
 
     @discardableResult func present() -> Bool {

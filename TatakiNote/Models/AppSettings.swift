@@ -131,6 +131,16 @@ import Observation
         didSet { store.saveHasShownFirstLaunchTutorial(hasShownFirstLaunchTutorial) }
     }
 
+    /// サイドバーを開いているか。
+    var isSidebarOpen: Bool {
+        didSet { store.saveSidebarIsOpen(isSidebarOpen) }
+    }
+
+    /// サイドバーで表示している側。
+    var sidebarTab: SidebarTab {
+        didSet { store.saveSidebarTab(sidebarTab) }
+    }
+
     @ObservationIgnored private let store: SettingsStore
 
     init(store: SettingsStore) {
@@ -160,6 +170,8 @@ import Observation
         self.panelDefaultHeight = store.loadPanelDefaultHeight()
         self.isPanelAnimationEnabled = store.loadIsPanelAnimationEnabled()
         self.hasShownFirstLaunchTutorial = store.loadHasShownFirstLaunchTutorial()
+        self.isSidebarOpen = store.loadSidebarIsOpen()
+        self.sidebarTab = store.loadSidebarTab()
         self.commitKeyDisplayText = commitKey?.displayText
         self.commitAndSendKeyDisplayText = commitAndSendKey?.displayText
     }

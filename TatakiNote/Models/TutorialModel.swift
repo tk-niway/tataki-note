@@ -17,7 +17,7 @@ enum TutorialNextStepIntroduction: CaseIterable {
     var heading: String {
         switch self {
         case .hotkeyChange: String(localized: "ホットキーの変更")
-        case .draftKept: String(localized: "下書き")
+        case .draftKept: String(localized: "書きかけ")
         }
     }
 
@@ -26,7 +26,7 @@ enum TutorialNextStepIntroduction: CaseIterable {
         case .hotkeyChange:
             String(localized: "設定の「キー」の「パネルを開く・閉じる」で変えられます。")
         case .draftKept:
-            String(localized: "esc でパネルを閉じても、書いた文章は下書きとして残ります。次に開くと続きから書けます。")
+            String(localized: "esc でパネルを閉じても、書いた文章はパネルに残ります。次に開くと続きから書けます。")
         }
     }
 }
