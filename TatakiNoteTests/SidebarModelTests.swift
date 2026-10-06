@@ -113,6 +113,22 @@ struct SidebarModelTests {
         #expect(fixture.model.searchFocusRequest == before + 2)
     }
 
+    @Test("AC-22: 検索欄へのフォーカスの要求は、当てたと記録するまで保留され、もう一度 openForSearch すると保留に戻る")
+    func pendingSearchFocusIsTrackedUntilHandled() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        #expect(!fixture.model.hasPendingSearchFocus)
+
+        fixture.model.openForSearch()
+        #expect(fixture.model.hasPendingSearchFocus)
+
+        fixture.model.markSearchFocusHandled()
+        #expect(!fixture.model.hasPendingSearchFocus)
+
+        fixture.model.openForSearch()
+        #expect(fixture.model.hasPendingSearchFocus)
+    }
+
     // MARK: - 絞り込み
 
     @Test("AC-23: 検索欄の文字は表示中の側を本文全体から絞り込む。2行目以降の語でも当たり、大文字・小文字と全角・半角を区別しない")

@@ -44,6 +44,7 @@ struct SidebarRow: Equatable, Identifiable {
     let title: String
     let detail: String?
     let isShownInPanel: Bool
+    var isUntitled = false
 
     /// 右クリックのメニューの削除の項目の題。
     var deleteMenuTitle: String {
@@ -79,6 +80,7 @@ struct SidebarRow: Equatable, Identifiable {
     @ObservationIgnored var beforeUserAction: () -> Void = {}
 
     private var selectedID: UUID?
+    @ObservationIgnored private var handledSearchFocusRequest = 0
 
     @ObservationIgnored private let settings: AppSettings
     @ObservationIgnored private let library: DraftLibrary
@@ -135,12 +137,14 @@ struct SidebarRow: Equatable, Identifiable {
             return library.drafts
                 .filter { matches($0.text, needle) }
                 .map { draft in
-                    SidebarRow(
+                    let firstLine = DraftListing.firstLine(of: draft.text)
+                    return SidebarRow(
                         id: draft.id,
                         kind: .draft,
-                        title: DraftListing.firstLine(of: draft.text) ?? Self.untitledDraftTitle,
+                        title: firstLine ?? Self.untitledDraftTitle,
                         detail: nil,
-                        isShownInPanel: session.document == .savedDraft(draft.id)
+                        isShownInPanel: session.document == .savedDraft(draft.id),
+                        isUntitled: firstLine == nil
                     )
                 }
         case .history:
@@ -170,16 +174,21 @@ struct SidebarRow: Equatable, Identifiable {
     /// 一覧が空のときの説明。
     var emptyMessage: String? {
         guard rows.isEmpty else { return nil }
-        let isSideEmpty = switch tab {
-        case .drafts: library.drafts.isEmpty
-        case .history: library.history.isEmpty
-        }
-        if !isSideEmpty, !trimmedQuery.isEmpty {
+        if isEmptyBySearch {
             return "「\(trimmedQuery)」に一致するものはありません"
         }
         switch tab {
         case .drafts: return "⌘S で今の文章を取っておけます"
         case .history: return "挿入した文章がここに残ります(最新 \(DraftLibrary.historyLimit) 件)"
+        }
+    }
+
+    /// 一覧が空なのが、検索で絞った結果か。
+    var isEmptyBySearch: Bool {
+        guard rows.isEmpty, !trimmedQuery.isEmpty else { return false }
+        switch tab {
+        case .drafts: return !library.drafts.isEmpty
+        case .history: return !library.history.isEmpty
         }
     }
 
@@ -204,6 +213,16 @@ struct SidebarRow: Equatable, Identifiable {
     func openForSearch() {
         setOpen(true)
         searchFocusRequest += 1
+    }
+
+    /// 検索欄へのフォーカスの要求がまだ当たっていないか。
+    var hasPendingSearchFocus: Bool {
+        searchFocusRequest != handledSearchFocusRequest
+    }
+
+    /// 検索欄へのフォーカスの要求を当てたと記録する。
+    func markSearchFocusHandled() {
+        handledSearchFocusRequest = searchFocusRequest
     }
 
     /// 選択を上下に動かす。端で止まる。
