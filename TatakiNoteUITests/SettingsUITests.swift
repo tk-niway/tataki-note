@@ -35,8 +35,8 @@ final class SettingsUITests: XCTestCase {
         // AC-11
         commitRecorder.click()
         XCTAssertEqual(commitRecorder.placeholderValue, recordingPlaceholder)
-        app.typeKey("k", modifierFlags: [.command])
-        XCTAssertTrue(waitUntil { self.recorderDisplayText(commitRecorder) == "⌘K" })
+        app.typeKey("j", modifierFlags: [.command])
+        XCTAssertTrue(waitUntil { self.recorderDisplayText(commitRecorder) == "⌘J" })
 
         closeSettings(in: app)
 
@@ -45,7 +45,7 @@ final class SettingsUITests: XCTestCase {
         let textView = app.textViews["promptPanel.textView"]
         XCTAssertTrue(textView.waitForExistence(timeout: timeout))
         XCTAssertEqual(textView.promptPanelText, "")
-        app.typeKey("k", modifierFlags: [.command])
+        app.typeKey("j", modifierFlags: [.command])
         XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
     }
 
@@ -81,8 +81,8 @@ final class SettingsUITests: XCTestCase {
         app.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(waitUntil { self.recorderDisplayText(commitRecorder) == "⇧⌘↩" })
         commitRecorder.click()
-        app.typeKey("k", modifierFlags: [.command])
-        XCTAssertTrue(waitUntil { self.recorderDisplayText(commitRecorder) == "⌘K" })
+        app.typeKey("j", modifierFlags: [.command])
+        XCTAssertTrue(waitUntil { self.recorderDisplayText(commitRecorder) == "⌘J" })
         XCTAssertFalse(commitRejection.exists)
 
         closeSettings(in: app)

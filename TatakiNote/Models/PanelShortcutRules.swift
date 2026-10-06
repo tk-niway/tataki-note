@@ -42,6 +42,7 @@ enum PanelShortcutRejection: Equatable {
     case reservedForClosing
     case reservedForHiding
     case reservedForEditing
+    case reservedForPanelCommands
     case usedByHotkey
     case usedByOtherRole(PanelShortcutRole)
 
@@ -56,6 +57,8 @@ enum PanelShortcutRejection: Equatable {
             return String(localized: "\(key) はパネルを閉じるキーのため、登録できません。")
         case .reservedForEditing:
             return String(localized: "\(key) は入力欄の編集ショートカットで使っているため、登録できません。")
+        case .reservedForPanelCommands:
+            return String(localized: "\(key) はパネルの検索・下書きの保存・新しい書きかけ(⌘K・⌘S・⌘N)で使っているため、登録できません。")
         case .usedByHotkey:
             return String(localized: "\(key) は「パネルを開く・閉じる」で使っているため、登録できません。")
         case .usedByOtherRole(.commitAndSend):
@@ -87,6 +90,9 @@ enum PanelShortcutRules {
         }
         if isReservedForEditing(candidate) {
             return .reservedForEditing
+        }
+        if ReservedPanelKeys.isReserved(candidate) {
+            return .reservedForPanelCommands
         }
         if let hotkey, shortcut == hotkey {
             return .usedByHotkey

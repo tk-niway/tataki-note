@@ -71,12 +71,12 @@ struct PanelKeySettingsModelTests {
         defer { defaults.removePersistentDomain(forName: name) }
         let model = makeModel(settings: settings)
 
-        let accepted = model.record(candidate(keyCode: 40, modifiers: [.command], characters: "k"), for: .commit)
+        let accepted = model.record(candidate(keyCode: 38, modifiers: [.command], characters: "j"), for: .commit)
 
         #expect(accepted)
-        #expect(model.displayText(for: .commit) == "⌘K")
+        #expect(model.displayText(for: .commit) == "⌘J")
         let reloaded = AppSettings(store: SettingsStore(defaults: defaults))
-        #expect(reloaded.commitKey == PanelShortcut(keyCode: 40, modifiers: [.command]))
+        #expect(reloaded.commitKey == PanelShortcut(keyCode: 38, modifiers: [.command]))
     }
 
     @Test("AC-12: 修飾キーを含まないキーは受け付けず、値は変わらず理由が出る")
@@ -178,7 +178,7 @@ struct PanelKeySettingsModelTests {
             model.beginRecording(.commit)
             _ = model.record(candidate(keyCode: 40, modifiers: [], characters: "k"), for: .commit)
             #expect(model.rejectionMessage(for: .commit) != nil)
-            _ = model.record(candidate(keyCode: 40, modifiers: [.command], characters: "k"), for: .commit)
+            _ = model.record(candidate(keyCode: 38, modifiers: [.command], characters: "j"), for: .commit)
             #expect(model.rejectionMessage(for: .commit) == nil)
         }
 
@@ -224,12 +224,12 @@ struct PanelKeySettingsModelTests {
         let controller = FakeHotkeyController(hotkey: nil)
         let model = makeModel(settings: settings, controller: controller)
 
-        let key = PanelShortcut(keyCode: 40, modifiers: [.command])
-        #expect(model.record(PanelShortcutCandidate(shortcut: key, characters: "k"), for: .commit))
+        let key = PanelShortcut(keyCode: 38, modifiers: [.command])
+        #expect(model.record(PanelShortcutCandidate(shortcut: key, characters: "j"), for: .commit))
 
         controller.hotkey = key
         model.clear(.commit)
-        let accepted = model.record(PanelShortcutCandidate(shortcut: key, characters: "k"), for: .commit)
+        let accepted = model.record(PanelShortcutCandidate(shortcut: key, characters: "j"), for: .commit)
         #expect(!accepted)
     }
 
@@ -261,7 +261,7 @@ struct PanelKeySettingsModelTests {
             let model = makeModel(settings: settings, controller: controller)
             model.beginRecording(.commit)
             #expect(controller.pauseCount == 1)
-            _ = model.record(candidate(keyCode: 40, modifiers: [.command], characters: "k"), for: .commit)
+            _ = model.record(candidate(keyCode: 38, modifiers: [.command], characters: "j"), for: .commit)
             #expect(controller.resumeCount == 1)
             model.clear(.commit)
         }
