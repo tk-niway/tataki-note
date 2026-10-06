@@ -29,7 +29,7 @@ final class PromptPanel: NSPanel {
         setAccessibilityIdentifier("promptPanel")
     }
 
-    /// key のウィンドウになれるか。閉じる動きの間は false にする。
+    /// key のウィンドウになれるか。
     var acceptsKey = true
     /// ⌘H を受け取る処理。true を返すと標準の「隠す」には渡さない。
     var onHideKey: (() -> Bool)?

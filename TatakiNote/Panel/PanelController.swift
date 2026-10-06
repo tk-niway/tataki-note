@@ -23,6 +23,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     private var motion = PanelMotionState()
     private var restingFrame: NSRect?
     private var pendingCloseCompletion: (() -> Void)?
+    private var closingGhost: PanelClosingGhost?
 
     var heldPanelSize: CGSize? { sizing.heldSize }
 
@@ -161,14 +162,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// アプリが隠れたときに、動きなしでパネルを閉じて枠を本来の枠に戻す。
     func closeImmediately() {
-        motion.hideWithoutMotion()
-        pendingCloseCompletion = nil
-        panel.orderOut(nil)
-        if let frame = restingFrame {
-            restingFrame = nil
-            animator.jump(panel, to: frame)
-        }
-        endMotion()
+        hideWithoutMotion()
         model.dismiss()
     }
 
@@ -248,8 +242,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         beginMotion()
         restingFrame = restFrame
         panel.setFrame(PanelMotion.lineFrame(of: restFrame), display: false)
-        panel.acceptsKey = true
-        panel.ignoresMouseEvents = false
         panel.makeKeyAndOrderFront(nil)
         let token = motion.beginOpening()
         pendingCloseCompletion = nil
@@ -260,41 +252,52 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private func hidePanel(then completion: (() -> Void)? = nil) {
         guard settings.isPanelAnimationEnabled, motion.phase != .hidden else {
-            panel.orderOut(nil)
-            motion.hideWithoutMotion()
-            pendingCloseCompletion = nil
-            endMotion()
-            if let frame = restingFrame {
-                restingFrame = nil
-                animator.jump(panel, to: frame)
-            }
+            hideWithoutMotion()
             completion?()
             return
         }
         if motion.phase == .closing { return }
-        let originalFrame = motion.phase == .opening ? (restingFrame ?? panel.frame) : panel.frame
-        restingFrame = originalFrame
-        beginMotion()
-        panel.acceptsKey = false
-        panel.ignoresMouseEvents = true
+        guard let ghost = PanelClosingGhost.make(from: panel) else {
+            hideWithoutMotion()
+            completion?()
+            return
+        }
+        let wasOpening = motion.phase == .opening
+        let panelFrame = wasOpening ? (restingFrame ?? panel.frame) : panel.frame
         let token = motion.beginClosing()
         pendingCloseCompletion = completion
-        let closingPanel = panel
-        closingPanel.disableScreenUpdatesUntilFlush()
-        closingPanel.orderOut(nil)
-        closingPanel.orderFrontRegardless()
+        restingFrame = nil
+        closingGhost = ghost
+        ghost.orderFrontRegardless()
+        panel.orderOut(nil)
+        if wasOpening {
+            animator.jump(panel, to: panelFrame)
+        }
+        endMotion()
         animator.animate(
-            closingPanel,
-            to: PanelMotion.lineFrame(of: originalFrame),
+            ghost,
+            to: PanelMotion.lineFrame(of: ghost.frame),
             duration: PanelMotion.duration,
             curve: .easeIn
         ) { [weak self] in
             if let self {
                 self.finishMotion(token)
             } else {
-                closingPanel.orderOut(nil)
+                ghost.orderOut(nil)
             }
         }
+    }
+
+    private func hideWithoutMotion() {
+        discardGhost()
+        motion.hideWithoutMotion()
+        pendingCloseCompletion = nil
+        panel.orderOut(nil)
+        if let frame = restingFrame {
+            restingFrame = nil
+            animator.jump(panel, to: frame)
+        }
+        endMotion()
     }
 
     private func finishMotion(_ token: Int) {
@@ -304,12 +307,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             restingFrame = nil
             endMotion()
         case .hidden:
-            panel.orderOut(nil)
-            if let frame = restingFrame {
-                panel.setFrame(frame, display: false)
-            }
-            restingFrame = nil
-            endMotion()
+            discardGhost()
             let completion = pendingCloseCompletion
             pendingCloseCompletion = nil
             completion?()
@@ -318,23 +316,30 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
     }
 
+    private func discardGhost() {
+        closingGhost?.orderOut(nil)
+        closingGhost = nil
+    }
+
     private func beginMotion() {
         panel.contentMinSize = NSSize(width: 1, height: 1)
     }
 
     private func endMotion() {
         panel.contentMinSize = PanelSizing.minimumSize
-        panel.acceptsKey = true
-        panel.ignoresMouseEvents = false
     }
 
     private func stopMotion() {
         guard motion.phase == .opening || motion.phase == .closing else { return }
+        let wasOpening = motion.phase == .opening
+        discardGhost()
         motion.hideWithoutMotion()
         pendingCloseCompletion = nil
         let frame = restingFrame ?? panel.frame
         restingFrame = nil
-        animator.jump(panel, to: frame)
+        if wasOpening {
+            animator.jump(panel, to: frame)
+        }
     }
 
     // MARK: - 大きさ
@@ -350,7 +355,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
-        if motion.phase == .opening || motion.phase == .closing {
+        if motion.phase == .opening {
             return frameSize
         }
         return NSSize(

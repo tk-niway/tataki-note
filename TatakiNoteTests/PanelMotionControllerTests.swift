@@ -248,6 +248,7 @@ struct PanelMotionControllerTests {
             #expect(controller.panel.canBecomeKey)
             #expect(controller.panel.ignoresMouseEvents == false)
             #expect(controller.model.focusRequest == 1)
+            #expect(controller.windowWillResize(controller.panel, to: NSSize(width: 10, height: 2)) == NSSize(width: 10, height: 2))
 
             controller.model.text = "abc"
             #expect(fixture.animator.isFinished(0) == false)
@@ -256,12 +257,13 @@ struct PanelMotionControllerTests {
             #expect(controller.model.text == "abc")
             #expect(controller.panel.canBecomeKey)
             #expect(controller.panel.ignoresMouseEvents == false)
+            #expect(controller.windowWillResize(controller.panel, to: NSSize(width: 10, height: 2)) == NSSize(width: 320, height: 160))
         }
     }
 
     // MARK: - 閉じる
 
-    @Test("AC-8: アニメーションがオンで開いたパネルを閉じると、閉じた状態に即座になり、key になれず・マウスを受け付けない状態で線へ縮み、終わると元の枠・key になれる状態に戻る", arguments: PanelMotionCloseWay.allCases)
+    @Test("AC-8: アニメーションがオンで開いたパネルを閉じると、閉じた状態に即座になり、本物のパネルはすぐ隠れ、見た目を写した窓が key にもマウスにも反応せず線へ縮み、終わると写した窓が消える", arguments: PanelMotionCloseWay.allCases)
     func closeStartsShrinkingMotion(way: PanelMotionCloseWay) async throws {
         try await withFixture { fixture in
             let controller = fixture.controller
@@ -276,23 +278,28 @@ struct PanelMotionControllerTests {
             #expect(controller.model.isPresented == false)
             #expect(fixture.animator.calls.count == 2)
             let call = fixture.animator.calls[1]
+            let ghost = call.window
             #expect(call.duration == 0.2)
             #expect(call.curve == .easeIn)
+            #expect(ghost !== panel)
+            #expect(call.windowFrame == moved)
             #expect(call.frame == PanelMotion.lineFrame(of: moved))
             #expect(call.canBecomeKey == false)
             #expect(call.ignoresMouseEvents)
             #expect(call.isVisible)
-            #expect(panel.canBecomeKey == false)
-            #expect(controller.windowWillResize(panel, to: NSSize(width: 10, height: 2)) == NSSize(width: 10, height: 2))
-
-            fixture.animator.finish(1)
-
             #expect(panel.isVisible == false)
             #expect(panel.frame == moved)
             #expect(panel.canBecomeKey)
             #expect(panel.ignoresMouseEvents == false)
             #expect(panel.contentMinSize == CGSize(width: 320, height: 160))
             #expect(controller.windowWillResize(panel, to: NSSize(width: 10, height: 2)) == NSSize(width: 320, height: 160))
+
+            fixture.animator.finish(1)
+
+            #expect(ghost.isVisible == false)
+            #expect(panel.isVisible == false)
+            #expect(panel.frame == moved)
+            #expect(panel.canBecomeKey)
             #expect(controller.model.isPresented == false)
         }
     }
@@ -305,9 +312,11 @@ struct PanelMotionControllerTests {
             controller.model.text = "abc"
             var motionStartedAtRequest: Int?
             var wasFinishedAtRequest: Bool?
+            var panelWasVisibleAtRequest: Bool?
             controller.onInsertionRequested = { _, _, _ in
                 motionStartedAtRequest = fixture.animator.calls.count
                 wasFinishedAtRequest = fixture.animator.isFinished(1)
+                panelWasVisibleAtRequest = controller.panel.isVisible
             }
 
             controller.commit(shouldSendAfterInsert: shouldSend)
@@ -320,10 +329,13 @@ struct PanelMotionControllerTests {
             #expect(fixture.inserter.calls.first?.shouldSendAfterInsert == shouldSend)
             #expect(motionStartedAtRequest == 2)
             #expect(wasFinishedAtRequest == false)
-            #expect(controller.panel.canBecomeKey == false)
+            #expect(panelWasVisibleAtRequest == false)
+            #expect(controller.panel.isVisible == false)
+            #expect(fixture.animator.calls[1].window.isVisible)
 
             fixture.animator.finish(1)
             #expect(controller.panel.isVisible == false)
+            #expect(fixture.animator.calls[1].window.isVisible == false)
         }
     }
 
@@ -338,11 +350,14 @@ struct PanelMotionControllerTests {
             controller.toggle()
             #expect(fixture.animator.calls.count == 2)
             #expect(controller.model.isPresented == false)
+            #expect(panel.isVisible == false)
+            #expect(fixture.animator.calls[1].window.isVisible)
 
             controller.toggle()
 
             #expect(controller.model.isPresented)
             #expect(fixture.animator.calls.count == 3)
+            #expect(fixture.animator.calls[1].window.isVisible == false)
             let call = fixture.animator.calls[2]
             #expect(call.canBecomeKey)
             #expect(call.ignoresMouseEvents == false)
@@ -367,9 +382,9 @@ struct PanelMotionControllerTests {
         }
     }
 
-    @Test("AC-10: 開く動きの途中に閉じると、開く動きの行き先の枠から閉じる動きになり、閉じ終わると行き先の枠に戻る")
-    func closeDuringOpeningShrinksFromDestination() async throws {
-        try await withFixture { fixture in
+    @Test("AC-10: 開く動きの途中に閉じると、本物のパネルはすぐ隠れて行き先の枠に戻り、そこの線へ写した窓が縮む", arguments: [false, true])
+    func closeDuringOpeningShrinksFromDestination(completesPendingOnJump: Bool) async throws {
+        try await withFixture(completesPendingOnJump: completesPendingOnJump) { fixture in
             let controller = fixture.controller
             let panel = controller.panel
             controller.toggle()
@@ -384,17 +399,22 @@ struct PanelMotionControllerTests {
             #expect(call.frame == PanelMotion.lineFrame(of: destination))
             #expect(call.canBecomeKey == false)
             #expect(call.ignoresMouseEvents)
+            #expect(call.isVisible)
+            #expect(panel.isVisible == false)
+            #expect(panel.frame == destination)
+            #expect(fixture.animator.jumps == [destination])
+            #expect(panel.canBecomeKey)
+            #expect(panel.ignoresMouseEvents == false)
 
             fixture.animator.finish(0, moving: false)
-            #expect(panel.isVisible)
-            #expect(panel.canBecomeKey == false)
+            #expect(panel.isVisible == false)
+            #expect(call.window.isVisible)
 
             fixture.animator.finish(1)
 
+            #expect(call.window.isVisible == false)
             #expect(panel.isVisible == false)
             #expect(panel.frame == destination)
-            #expect(panel.canBecomeKey)
-            #expect(panel.ignoresMouseEvents == false)
         }
     }
 
@@ -408,15 +428,16 @@ struct PanelMotionControllerTests {
             panel.setFrame(moved, display: false)
 
             controller.close()
-            panel.setFrame(PanelMotion.lineFrame(of: moved), display: false)
             controller.close()
 
             #expect(fixture.animator.calls.count == 2)
             #expect(fixture.animator.jumps.isEmpty)
             #expect(fixture.animator.calls[1].frame == PanelMotion.lineFrame(of: moved))
+            #expect(fixture.animator.calls[1].window.isVisible)
 
             fixture.animator.finish(1)
 
+            #expect(fixture.animator.calls[1].window.isVisible == false)
             #expect(panel.isVisible == false)
             #expect(panel.frame == moved)
         }
@@ -475,13 +496,13 @@ struct PanelMotionControllerTests {
             let rest = fixture.animator.calls[0].frame
             controller.toggle()
             #expect(fixture.animator.calls.count == 2)
-            #expect(panel.canBecomeKey == false)
+            #expect(panel.isVisible == false)
             fixture.settings.isPanelAnimationEnabled = false
 
             controller.toggle()
 
             #expect(fixture.animator.calls.count == 2)
-            #expect(fixture.animator.jumps == [rest])
+            #expect(fixture.animator.calls[1].window.isVisible == false)
             #expect(panel.frame == rest)
             #expect(panel.isVisible)
             #expect(panel.canBecomeKey)
@@ -568,7 +589,8 @@ struct PanelMotionControllerTests {
             #expect(fixture.animator.calls.count == 2)
             #expect(fixture.animator.calls[1].curve == .easeIn)
             #expect(fixture.animator.calls[1].canBecomeKey == false)
-            #expect(panel.isVisible)
+            #expect(panel.isVisible == false)
+            #expect(fixture.animator.calls[1].window.isVisible)
             #expect(fixture.hides.count == 0)
 
             fixture.animator.finish(1)
@@ -690,14 +712,16 @@ struct PanelMotionControllerTests {
             let moved = panel.frame.offsetBy(dx: 16, dy: -10)
             panel.setFrame(moved, display: false)
             controller.close()
-            panel.setFrame(PanelMotion.lineFrame(of: moved), display: false)
-            #expect(panel.isVisible)
+            let ghost = fixture.animator.calls[1].window
+            #expect(ghost.isVisible)
+            #expect(panel.isVisible == false)
 
             controller.closeImmediately()
 
+            #expect(ghost.isVisible == false)
             #expect(panel.isVisible == false)
             #expect(panel.frame == moved)
-            #expect(fixture.animator.jumps == [moved])
+            #expect(fixture.animator.jumps.isEmpty)
             #expect(panel.canBecomeKey)
             #expect(panel.ignoresMouseEvents == false)
             #expect(panel.contentMinSize == CGSize(width: 320, height: 160))
@@ -783,7 +807,6 @@ struct PanelMotionControllerTests {
             #expect(controller.heldPanelSize == nil)
 
             controller.close()
-            panel.setFrame(PanelMotion.lineFrame(of: panel.frame), display: false)
             fixture.animator.finish(1)
 
             #expect(controller.heldPanelSize == nil)
