@@ -127,6 +127,42 @@ struct TutorialModelTests {
         }
     }
 
+    @Test("AC-29: 他のアプリが挿入先の注意は、開いているパネルの挿入先が挿入先なしに変わると消え、閉じたときは変わらない")
+    func warningClearsWhenOpenPanelLosesTarget() throws {
+        try withModel { model, _, _ in
+            model.panelDidChange(isPresented: true, target: other, text: "")
+            #expect(model.isShowingOtherTargetWarning)
+
+            model.panelDidChange(isPresented: true, target: nil, text: "")
+            #expect(!model.isShowingOtherTargetWarning)
+
+            model.panelDidChange(isPresented: true, target: other, text: "")
+            #expect(model.isShowingOtherTargetWarning)
+
+            model.panelDidChange(isPresented: false, target: nil, text: "")
+            #expect(model.isShowingOtherTargetWarning)
+            model.panelDidChange(isPresented: false, target: other, text: "")
+            #expect(model.isShowingOtherTargetWarning)
+
+            model.panelDidChange(isPresented: true, target: nil, text: "")
+            #expect(!model.isShowingOtherTargetWarning)
+            #expect(model.currentStep == .openPanel)
+        }
+    }
+
+    @Test("AC-29: 挿入先なしに変わっても、手順4では注意の扱いは変わらず手順は進まない")
+    func warningStaysClearedAtNextSteps() throws {
+        try withModel { model, _, _ in
+            moveToNextStepsStep(model)
+            #expect(model.currentStep == .nextSteps)
+
+            model.panelDidChange(isPresented: true, target: nil, text: "")
+
+            #expect(!model.isShowingOtherTargetWarning)
+            #expect(model.currentStep == .nextSteps)
+        }
+    }
+
     @Test("AC-21: 注意の文は、練習の文章がそのアプリに入り送信もされうることと、esc で閉じて入力欄をクリックしてから開き直すことを伝える")
     func otherTargetWarningText() {
         let text = TutorialModel.otherTargetWarning

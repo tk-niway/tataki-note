@@ -43,6 +43,12 @@ enum PanelDismissal: Equatable {
         return present()
     }
 
+    /// 開いている間に挿入先を入れ替える。閉じているとき・変わらないときは何もしない。
+    func updateTarget(_ target: InsertionTarget?) {
+        guard isPresented, self.target != target else { return }
+        self.target = target
+    }
+
     func prepareCommit(isAccessibilityTrusted: Bool) -> CommitPlan {
         dismiss(as: .committed)
         if text.isEmpty {

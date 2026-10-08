@@ -207,4 +207,28 @@ struct PanelModelTests {
         #expect(model.present(target: safari) == false)
         #expect(model.target == safari)
     }
+
+    @Test("AC-6: 開いている間は updateTarget で挿入先を入れ替えられ、閉じているときと変わらないときは何もしない")
+    func updateTargetChangesTargetOnlyWhileOpen() {
+        let model = PanelModel()
+
+        model.updateTarget(textEdit)
+        #expect(model.target == nil)
+
+        model.present(target: textEdit)
+        model.updateTarget(safari)
+        #expect(model.target == safari)
+        model.updateTarget(nil)
+        #expect(model.target == nil)
+        model.updateTarget(textEdit)
+        #expect(model.target == textEdit)
+
+        let focusRequest = model.focusRequest
+        model.updateTarget(textEdit)
+        #expect(model.focusRequest == focusRequest)
+
+        model.dismiss()
+        model.updateTarget(safari)
+        #expect(model.target == textEdit)
+    }
 }

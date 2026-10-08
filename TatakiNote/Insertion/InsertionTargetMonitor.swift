@@ -1,0 +1,339 @@
+import AppKit
+import ApplicationServices
+import Observation
+
+/// 見張りを始めた時点の挿入先と、そのとき使ったフォーカスのある要素の調べの結果。
+struct InsertionTargetStart {
+    let target: InsertionTarget?
+    /// 使った調べの結果。調べなかったときは nil。
+    let focus: ObservedFocus?
+}
+
+/// パネルを開いている間、挿入先(今確定したら文章が入る入力欄)を見張る。
+final class InsertionTargetMonitor {
+    static let pollInterval: Duration = .milliseconds(100)
+    static let unavailableBackoff: TimeInterval = 1
+    static let slowQueryThreshold: TimeInterval = 0.03
+    static let slowQueryBackoff: TimeInterval = 0.5
+    static let clickRecheckDelay: Duration = .milliseconds(200)
+
+    private struct Resolution {
+        var target: InsertionTarget?
+        var outline: CGRect?
+        var focus: ObservedFocus?
+    }
+
+    /// 枠線の場所。
+    let outline = InsertionTargetOutlineModel()
+    /// TatakiNote 自身が挿入先のとき、その入力欄がまだ使えるか。nil なら使えるとみなす。
+    var isOwnTargetAvailable: (() -> Bool)?
+    /// クリックで他のアプリの入力欄を挿入先に選んだときに呼ばれる。
+    var onFieldAdopted: (() -> Void)?
+
+    private let panelModel: PanelModel
+    private let probe: FocusedElementProbing
+    private let ownProcessIdentifier: pid_t
+    private let exposeWebContent: (InsertionTarget) -> Void
+    private let isOutlineEnabled: () -> Bool
+    private let frontmostApplication: () -> InsertionTarget?
+    private let isRunning: (pid_t) -> Bool
+    private let onScreenWindows: () -> [OnScreenWindow]
+    private let mouseLocation: () -> CGPoint
+    private let primaryScreenFrame: () -> CGRect
+    private let now: () -> Date
+    private let sleep: (Duration) async -> Void
+    private let pollsAutomatically: Bool
+    private let addClickMonitor: (@escaping () -> Void) -> Any?
+    private let removeClickMonitor: (Any) -> Void
+
+    private var app: InsertionTarget?
+    private var field: AXUIElement?
+    private var rejectedElement: AXUIElement?
+    private var isWatching = false
+    private var unavailableUntil: Date?
+    private var slowUntil: Date?
+    private var pollTask: Task<Void, Never>?
+    private var recheckTask: Task<Void, Never>?
+    private var clickMonitor: Any?
+
+    init(
+        panelModel: PanelModel,
+        probe: FocusedElementProbing,
+        ownProcessIdentifier: pid_t,
+        exposeWebContent: @escaping (InsertionTarget) -> Void,
+        isOutlineEnabled: @escaping () -> Bool,
+        frontmostApplication: @escaping () -> InsertionTarget? = {
+            NSWorkspace.shared.frontmostApplication.map { InsertionTarget($0) }
+        },
+        isRunning: @escaping (pid_t) -> Bool = { RunningApplicationActivationRequester().isRunning($0) },
+        onScreenWindows: @escaping () -> [OnScreenWindow] = { TargetWindowLocator.onScreenWindows() },
+        mouseLocation: @escaping () -> CGPoint = { NSEvent.mouseLocation },
+        primaryScreenFrame: @escaping () -> CGRect = { ScreenCoordinates.primaryScreenFrame ?? .zero },
+        now: @escaping () -> Date = Date.init,
+        sleep: @escaping (Duration) async -> Void = { try? await Task.sleep(for: $0) },
+        pollsAutomatically: Bool = true,
+        addClickMonitor: @escaping (@escaping () -> Void) -> Any? = { handler in
+            NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseUp]) { _ in
+                MainActor.assumeIsolated {
+                    handler()
+                }
+            }
+        },
+        removeClickMonitor: @escaping (Any) -> Void = { NSEvent.removeMonitor($0) }
+    ) {
+        self.panelModel = panelModel
+        self.probe = probe
+        self.ownProcessIdentifier = ownProcessIdentifier
+        self.exposeWebContent = exposeWebContent
+        self.isOutlineEnabled = isOutlineEnabled
+        self.frontmostApplication = frontmostApplication
+        self.isRunning = isRunning
+        self.onScreenWindows = onScreenWindows
+        self.mouseLocation = mouseLocation
+        self.primaryScreenFrame = primaryScreenFrame
+        self.now = now
+        self.sleep = sleep
+        self.pollsAutomatically = pollsAutomatically
+        self.addClickMonitor = addClickMonitor
+        self.removeClickMonitor = removeClickMonitor
+
+        observePanelDismissal()
+    }
+
+    deinit {
+        pollTask?.cancel()
+        recheckTask?.cancel()
+        if let clickMonitor {
+            removeClickMonitor(clickMonitor)
+        }
+    }
+
+    // MARK: - 開始と終了
+
+    /// 見張りを始め、始めた時点の挿入先(入力欄があるときだけアプリ、無ければ nil)と使った調べの結果を返す。
+    @discardableResult
+    func begin(app: InsertionTarget?, observedFocus: ObservedFocus? = nil) -> InsertionTargetStart {
+        end()
+        self.app = app
+        isWatching = true
+        let resolution = resolve(observedFocus: observedFocus)
+        outline.update(resolution.outline)
+        startClickMonitor()
+        startPolling()
+        return InsertionTargetStart(target: resolution.target, focus: resolution.focus)
+    }
+
+    /// 見張りをやめ、枠線の場所を消す。
+    func end() {
+        isWatching = false
+        pollTask?.cancel()
+        pollTask = nil
+        recheckTask?.cancel()
+        recheckTask = nil
+        if let clickMonitor {
+            removeClickMonitor(clickMonitor)
+            self.clickMonitor = nil
+        }
+        app = nil
+        field = nil
+        rejectedElement = nil
+        unavailableUntil = nil
+        slowUntil = nil
+        outline.update(nil)
+    }
+
+    // MARK: - 調べ直し
+
+    /// 定期の調べ1回分。挿入先のアプリのフォーカスのある要素を調べ直す。
+    func refresh() {
+        guard isWatching else { return }
+        if let slowUntil, slowUntil > now() { return }
+        apply()
+    }
+
+    /// 他のアプリでマウスが離されたときの処理。
+    func handleClick() {
+        guard isWatching else { return }
+        let location = mouseLocation()
+        recheckTask?.cancel()
+        recheckTask = nil
+        if adoptClickedField(at: location) {
+            onFieldAdopted?()
+            return
+        }
+        let sleep = self.sleep
+        recheckTask = Task { @MainActor [weak self] in
+            await sleep(Self.clickRecheckDelay)
+            guard !Task.isCancelled, let self, self.isWatching else { return }
+            if self.adoptClickedField(at: location) {
+                self.onFieldAdopted?()
+            }
+        }
+    }
+
+    /// 今の入力欄を、選び直されるまで挿入先にしない。
+    func rejectCurrentField() {
+        rejectedElement = field
+        field = nil
+        if let app, app.isOwnApp(ownProcessIdentifier) {
+            self.app = nil
+        }
+        panelModel.updateTarget(nil)
+        outline.update(nil)
+    }
+
+    private func apply() {
+        let resolution = resolve(observedFocus: nil)
+        panelModel.updateTarget(resolution.target)
+        outline.update(resolution.outline)
+    }
+
+    // MARK: - クリックでの選び直し
+
+    private func adoptClickedField(at location: CGPoint) -> Bool {
+        guard let front = frontmostApplication(), !front.isOwnApp(ownProcessIdentifier) else { return false }
+        let result = probe.probeFocusedElement(in: front, readsFrame: true)
+        guard result.element != nil,
+              FocusedTextInputState.classifyForInsertion(result.lookup, bundleIdentifier: front.bundleIdentifier) == .textInput
+        else {
+            if front.processIdentifier == app?.processIdentifier {
+                apply()
+            }
+            return false
+        }
+        if let frame = result.frame {
+            let point = AutoShowDecision.accessibilityPoint(fromCocoa: location, primaryScreenFrame: primaryScreenFrame())
+            guard frame.contains(point) else { return false }
+        }
+        let isNewApp = app?.processIdentifier != front.processIdentifier
+        app = front
+        rejectedElement = nil
+        unavailableUntil = nil
+        slowUntil = nil
+        if isNewApp {
+            exposeWebContent(front)
+        }
+        apply()
+        return true
+    }
+
+    // MARK: - 挿入先の決定
+
+    private func resolve(observedFocus: ObservedFocus?) -> Resolution {
+        var didQuery = false
+        let startedAt = now()
+        let resolution = resolveTarget(observedFocus: observedFocus, didQuery: &didQuery)
+        if didQuery {
+            let finishedAt = now()
+            if finishedAt.timeIntervalSince(startedAt) > Self.slowQueryThreshold {
+                slowUntil = finishedAt.addingTimeInterval(Self.slowQueryBackoff)
+            }
+        }
+        return resolution
+    }
+
+    private func resolveTarget(observedFocus: ObservedFocus?, didQuery: inout Bool) -> Resolution {
+        guard let app else {
+            field = nil
+            return Resolution()
+        }
+        if app.isOwnApp(ownProcessIdentifier) {
+            field = nil
+            return (isOwnTargetAvailable?() ?? true) ? Resolution(target: app) : Resolution()
+        }
+        guard isRunning(app.processIdentifier) else {
+            self.app = nil
+            field = nil
+            return Resolution()
+        }
+        if let unavailableUntil, unavailableUntil > now() {
+            field = nil
+            return Resolution()
+        }
+        unavailableUntil = nil
+
+        let isOutlineOn = isOutlineEnabled()
+        var result: FocusedElementProbe
+        if let observedFocus, observedFocus.processIdentifier == app.processIdentifier {
+            result = observedFocus.probe
+            if isOutlineOn, result.frame == nil, let element = result.element, isTextInput(result.lookup, of: app) {
+                didQuery = true
+                result = FocusedElementProbe(element: element, lookup: result.lookup, frame: probe.frame(of: element))
+            }
+        } else {
+            didQuery = true
+            result = probe.probeFocusedElement(in: app, readsFrame: true)
+        }
+        let focus = ObservedFocus(processIdentifier: app.processIdentifier, probe: result)
+
+        if result.lookup == .unavailable {
+            field = nil
+            unavailableUntil = now().addingTimeInterval(Self.unavailableBackoff)
+            return Resolution(focus: focus)
+        }
+        guard let element = result.element, isTextInput(result.lookup, of: app) else {
+            field = nil
+            rejectedElement = nil
+            return Resolution(focus: focus)
+        }
+        if let rejectedElement, CFEqual(rejectedElement, element) {
+            field = nil
+            return Resolution(focus: focus)
+        }
+        rejectedElement = nil
+        field = element
+
+        var outlineRect: CGRect?
+        if isOutlineOn, let frame = result.frame {
+            didQuery = true
+            outlineRect = InsertionTargetOutlineGeometry.outlineRect(
+                fieldFrame: frame,
+                targetProcessIdentifier: app.processIdentifier,
+                ownProcessIdentifier: ownProcessIdentifier,
+                windows: onScreenWindows()
+            )
+        }
+        return Resolution(target: app, outline: outlineRect, focus: focus)
+    }
+
+    private func isTextInput(_ lookup: FocusedElementLookup, of app: InsertionTarget) -> Bool {
+        FocusedTextInputState.classifyForInsertion(lookup, bundleIdentifier: app.bundleIdentifier) == .textInput
+    }
+
+    // MARK: - 定期の調べとクリックの見張り
+
+    private func startPolling() {
+        guard pollsAutomatically else { return }
+        let sleep = self.sleep
+        pollTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                await sleep(Self.pollInterval)
+                guard !Task.isCancelled, let self else { return }
+                self.refresh()
+            }
+        }
+    }
+
+    private func startClickMonitor() {
+        clickMonitor = addClickMonitor { [weak self] in
+            self?.handleClick()
+        }
+    }
+
+    // MARK: - パネルが閉じたら止める
+
+    private func observePanelDismissal() {
+        observeRepeatedly(
+            tracking: { [weak self] in
+                _ = self?.panelModel.isPresented
+            },
+            onChange: { [weak self] in
+                guard let self else { return false }
+                if !self.panelModel.isPresented {
+                    self.end()
+                }
+                return true
+            }
+        )
+    }
+}
