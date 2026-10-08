@@ -17,6 +17,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let locateTargetWindowFrame: (pid_t) -> CGRect?
     private let ownProcessIdentifier: pid_t
     private let library: DraftLibrary
+    private let targetMonitor: InsertionTargetMonitor
 
     let session: DraftSession
     let sidebarModel: SidebarModel
@@ -52,6 +53,12 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// 挿入先を探さず、挿入先が無いものとして開くか。
     var isTargetLookupDisabled = false
 
+    /// TatakiNote 自身が挿入先のとき、その入力欄がまだ使えるか。nil なら使えるとみなす。
+    var isOwnTargetAvailable: (() -> Bool)? {
+        get { targetMonitor.isOwnTargetAvailable }
+        set { targetMonitor.isOwnTargetAvailable = newValue }
+    }
+
     /// サイドバーの歯車のボタンと ⌘, で、パネルを閉じた後に呼ぶ処理。
     var onOpenSettings: (() -> Void)?
 
@@ -71,7 +78,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         library: DraftLibrary = DraftLibrary(store: .inMemory),
         saveAnimation: SaveAnimationModel = SaveAnimationModel(),
         animator: PanelFrameAnimating = AppKitPanelFrameAnimator(),
-        hideApplication: @escaping () -> Void = { NSApp.hide(nil) }
+        hideApplication: @escaping () -> Void = { NSApp.hide(nil) },
+        makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil
     ) {
         self.model = model
         self.panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
@@ -86,6 +94,13 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.locateTargetWindowFrame = locateTargetWindowFrame
         self.ownProcessIdentifier = ownProcessIdentifier
         self.library = library
+        self.targetMonitor = makeTargetMonitor?(model) ?? InsertionTargetMonitor(
+            panelModel: model,
+            probe: fieldProbe,
+            ownProcessIdentifier: ownProcessIdentifier,
+            exposeWebContent: exposeWebContent,
+            isOutlineEnabled: { [settings] in settings.isInsertionTargetOutlineShown }
+        )
         let session = DraftSession(panel: model, library: library, ownProcessIdentifier: ownProcessIdentifier)
         self.session = session
         self.sidebarModel = SidebarModel(settings: settings, library: library, session: session)
@@ -178,33 +193,38 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func open(observedFocus: ObservedFocus? = nil) {
-        let target = isTargetLookupDisabled ? nil : (targetOverride?() ?? targetTracker.currentTarget())
+        let app = isTargetLookupDisabled ? nil : (targetOverride?() ?? targetTracker.currentTarget())
         settings.refreshKeyDisplayTexts()
-        let wasPresented = model.present(target: target)
+        let wasPresented = model.isPresented
+        var start: InsertionTargetStart?
+        let isTrusted = permission.isTrusted
+        if !wasPresented {
+            if let app,
+               Self.shouldExposeWebContent(
+                   target: app,
+                   ownProcessIdentifier: ownProcessIdentifier,
+                   isTrusted: isTrusted
+               ) {
+                exposeWebContent(app)
+            }
+            start = targetMonitor.begin(app: app, observedFocus: observedFocus)
+        }
+        model.present(target: wasPresented ? app : start?.target)
         if !wasPresented {
             stopMotion()
             sizing.beginOpening(defaultSize: settings.panelDefaultSize)
             let queriesAccessibility = Self.shouldQueryAccessibility(
-                of: target,
+                of: app,
                 ownProcessIdentifier: ownProcessIdentifier
             )
-            let isTrusted = permission.isTrusted
-            if let target,
-               Self.shouldExposeWebContent(
-                   target: target,
-                   ownProcessIdentifier: ownProcessIdentifier,
-                   isTrusted: isTrusted
-               ) {
-                exposeWebContent(target)
-            }
             let mode = settings.panelScreen
             let fieldFrame = ScreenCoordinates.primaryScreenFrame.flatMap { primaryScreenFrame in
                 PanelOpenPlacement.fieldFrame(
                     mode: mode,
                     isTrusted: isTrusted,
-                    target: queriesAccessibility ? target : nil,
+                    target: queriesAccessibility ? app : nil,
                     probe: fieldProbe,
-                    observedFocus: observedFocus,
+                    observedFocus: start?.focus ?? observedFocus,
                     primaryScreenHeight: primaryScreenFrame.height
                 )
             }
@@ -214,7 +234,7 @@ final class PanelController: NSObject, NSWindowDelegate {
                 screens: screens,
                 mouseLocation: NSEvent.mouseLocation,
                 fieldFrame: fieldFrame,
-                locateTargetWindowFrame: Self.windowFrameLocator(for: target, locate: locateTargetWindowFrame)
+                locateTargetWindowFrame: Self.windowFrameLocator(for: app, locate: locateTargetWindowFrame)
             ) {
                 let placed = PanelOpenPlacement.frame(
                     size: sizing.openingSize(in: screen.visibleFrame),

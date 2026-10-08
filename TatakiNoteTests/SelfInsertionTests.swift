@@ -32,7 +32,8 @@ struct SelfInsertionTests {
             inserter: inserter,
             permission: PermissionStub(isTrusted: isTrusted),
             fieldProbe: probe,
-            ownProcessIdentifier: Self.ownPid
+            ownProcessIdentifier: Self.ownPid,
+            makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )
         defer { controller.close() }
         try await body(Fixture(controller: controller, probe: probe, inserter: inserter))
@@ -63,6 +64,11 @@ struct SelfInsertionTests {
             let tracker = FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1)
             let expected = tracker.currentTarget()
             fixture.controller.targetOverride = { nil }
+            fixture.probe.result = FocusedElementProbe(
+                element: AXUIElementCreateApplication(pid_t.max),
+                lookup: WatcherFixture.textFieldLookup,
+                frame: nil
+            )
 
             fixture.controller.open()
 

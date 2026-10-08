@@ -64,14 +64,16 @@ struct WebContentExposerTests {
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.panelScreen = .main
+        let probe = FocusedElementProbeStub()
         let controller = PanelController(
             settings: settings,
             targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
             inserter: InserterStub(result: .inserted),
             permission: PermissionStub(isTrusted: isTrusted),
-            fieldProbe: FocusedElementProbeStub(),
+            fieldProbe: probe,
             exposeWebContent: exposeWebContent,
-            ownProcessIdentifier: Self.ownPid
+            ownProcessIdentifier: Self.ownPid,
+            makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )
         controller.targetOverride = { target }
         defer { controller.close() }

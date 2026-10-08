@@ -187,12 +187,17 @@ struct SaveAnimationModelTests {
             let defaults = try #require(UserDefaults(suiteName: defaultsName))
             settings = AppSettings(store: SettingsStore(defaults: defaults))
             settings.isSidebarOpen = isSidebarOpen
+            let probe = FocusedElementProbeStub()
             controller = PanelController(
                 settings: settings,
                 targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
                 permission: PermissionStub(isTrusted: true),
-                fieldProbe: FocusedElementProbeStub(),
-                saveAnimation: recorder.model
+                fieldProbe: probe,
+                saveAnimation: recorder.model,
+                makeTargetMonitor: InsertionTargetMonitor.testFactory(
+                    probe: probe,
+                    ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier
+                )
             )
         }
 

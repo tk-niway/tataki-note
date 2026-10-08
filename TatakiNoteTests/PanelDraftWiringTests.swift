@@ -30,13 +30,18 @@ struct PanelDraftWiringTests {
             self.settings = settings
             self.library = library
             self.inserter = inserter
+            let probe = FocusedElementProbeStub()
             self.controller = PanelController(
                 settings: settings,
                 targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
                 inserter: inserter,
                 permission: PermissionStub(isTrusted: isTrusted),
-                fieldProbe: FocusedElementProbeStub(),
-                library: library
+                fieldProbe: probe,
+                library: library,
+                makeTargetMonitor: InsertionTargetMonitor.testFactory(
+                    probe: probe,
+                    ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier
+                )
             )
         }
 

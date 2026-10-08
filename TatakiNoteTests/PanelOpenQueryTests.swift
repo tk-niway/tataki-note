@@ -56,15 +56,17 @@ struct PanelOpenQueryTests {
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.panelScreen = mode
+        let fieldProbe = probe ?? FocusedElementProbeStub()
         let controller = PanelController(
             settings: settings,
             targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
             inserter: InserterStub(result: .inserted),
             permission: PermissionStub(isTrusted: isTrusted),
-            fieldProbe: probe ?? FocusedElementProbeStub(),
+            fieldProbe: fieldProbe,
             exposeWebContent: { _ in },
             locateTargetWindowFrame: { recorder.locate($0) },
-            ownProcessIdentifier: Self.ownPid
+            ownProcessIdentifier: Self.ownPid,
+            makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: fieldProbe, ownProcessIdentifier: Self.ownPid)
         )
         controller.targetOverride = { target }
         controller.isTargetLookupDisabled = isTargetLookupDisabled
@@ -92,9 +94,12 @@ struct PanelOpenQueryTests {
     @Test("AC-12: 挿入先を探さない設定でないときは、今までどおり挿入先が入る")
     func openWithTargetLookupEnabledHasTarget() throws {
         var target: InsertionTarget?
+        let probe = FocusedElementProbeStub()
+        probe.result = FocusedElementProbe(element: element, lookup: WatcherFixture.textFieldLookup, frame: rectOnA)
         try withController(
             mode: .mouse,
             target: editor,
+            probe: probe,
             recorder: WindowFrameLocateRecorder(),
             isTargetLookupDisabled: false
         ) { controller in
