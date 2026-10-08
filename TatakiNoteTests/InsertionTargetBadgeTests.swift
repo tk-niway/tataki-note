@@ -65,10 +65,11 @@ struct InsertionTargetBadgeTests {
     func missingIconFallsBackToGenericApplicationIcon() throws {
         let missing = target(name: "Missing", bundleIdentifier: "invalid.tatakinote.nonexistent")
 
-        let icon = InsertionTargetBadge.systemIcon(for: missing)
+        let generic = NSImage(size: NSSize(width: 16, height: 16))
 
-        let generic = NSWorkspace.shared.icon(for: .application)
-        #expect(icon.size.width > 0)
-        #expect(icon.tiffRepresentation == generic.tiffRepresentation)
+        let icon = InsertionTargetBadge.icon(for: missing, genericIcon: generic)
+
+        #expect(icon === generic)
+        #expect(InsertionTargetBadge.systemIcon(for: missing).size.width > 0)
     }
 }

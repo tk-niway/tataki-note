@@ -29,15 +29,24 @@ struct InsertionTargetBadge: Equatable {
 
     /// 挿入先のアプリのアイコン。取れなければ汎用のアプリのアイコン。
     static func systemIcon(for target: InsertionTarget) -> NSImage {
-        if let icon = NSRunningApplication(processIdentifier: target.processIdentifier)?.icon {
-            return icon
-        }
+        icon(for: target, genericIcon: NSWorkspace.shared.icon(for: .application))
+    }
+
+    /// 動いているアプリ、入っているアプリの順にアイコンを探し、どちらも無ければ `genericIcon`。
+    static func icon(for target: InsertionTarget, genericIcon: @autoclosure () -> NSImage) -> NSImage {
+        runningApplicationIcon(for: target) ?? installedApplicationIcon(for: target) ?? genericIcon()
+    }
+
+    private static func runningApplicationIcon(for target: InsertionTarget) -> NSImage? {
+        NSRunningApplication(processIdentifier: target.processIdentifier)?.icon
+    }
+
+    private static func installedApplicationIcon(for target: InsertionTarget) -> NSImage? {
         let workspace = NSWorkspace.shared
-        if let bundleIdentifier = target.bundleIdentifier,
-           let url = workspace.urlForApplication(withBundleIdentifier: bundleIdentifier) {
-            return workspace.icon(forFile: url.path)
-        }
-        return workspace.icon(for: .application)
+        guard let bundleIdentifier = target.bundleIdentifier,
+              let url = workspace.urlForApplication(withBundleIdentifier: bundleIdentifier)
+        else { return nil }
+        return workspace.icon(forFile: url.path)
     }
 
     private var appName: String? {
