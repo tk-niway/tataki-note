@@ -24,6 +24,20 @@ struct InsertionTargetBadgeTests {
         #expect(InsertionTargetBadge.make(for: nil) == nil)
     }
 
+    @Test("AC-20: 挿入先なしの文字は「挿入先なし」で、挿入先が無いときはアイコンの表示の中身が作られず、合図のたびに合図の数が1増える")
+    func noTargetLabelAndAlertCount() {
+        #expect(InsertionTargetBadge.noTargetLabel == "挿入先なし")
+        #expect(InsertionTargetBadge.noTargetTipText.isEmpty == false)
+        #expect(InsertionTargetBadge.make(for: nil) == nil)
+
+        let model = PanelModel()
+        #expect(model.noTargetAlertCount == 0)
+        model.signalNoTarget()
+        #expect(model.noTargetAlertCount == 1)
+        model.signalNoTarget()
+        #expect(model.noTargetAlertCount == 2)
+    }
+
     @Test("AC-44: チップの文は「<アプリ名> に挿入します」、アクセシビリティのラベルは「挿入先: <アプリ名>」")
     func textsNameTheApp() throws {
         let badge = try #require(InsertionTargetBadge.make(for: target(name: "Safari")))
