@@ -5,6 +5,7 @@ import SwiftUI
 struct SidebarView: View {
     @Bindable var model: SidebarModel
     var highlightedDraftID: UUID?
+    var onOpenSettings: () -> Void = {}
 
     @State private var isSearchFocused = false
     @FocusState private var isListFocused: Bool
@@ -31,6 +32,7 @@ struct SidebarView: View {
                 deleteConfirmation(for: id)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            footer
         }
         .frame(width: SidebarLayout.width)
         .frame(maxHeight: .infinity)
@@ -252,6 +254,30 @@ struct SidebarView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("sidebar.emptyMessage")
+    }
+
+    // MARK: - 下の帯
+
+    private var footer: some View {
+        HStack(spacing: 0) {
+            Button(action: onOpenSettings) {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 14))
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PanelIconButtonStyle())
+            .focusable(false)
+            .help("設定を開く(⌘,)")
+            .accessibilityLabel("設定")
+            .accessibilityIdentifier("sidebar.settingsButton")
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .overlay(alignment: .top) {
+            Divider()
+        }
     }
 
     // MARK: - 削除の確認

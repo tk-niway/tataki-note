@@ -258,13 +258,13 @@ struct PanelKeySettingsModelTests {
         #expect(model.displayText(for: .commit) == valueBefore)
     }
 
-    @Test("AC-10: 「パネルを開く・閉じる」で ⌘K・⌘S・⌘N を押すと直前のキーに戻り、理由が出る")
+    @Test("AC-10: 「パネルを開く・閉じる」で ⌘K・⌘S・⌘N・⌘B・⌘, を押すと直前のキーに戻り、理由が出る")
     func reservedHotkeyIsRevertedWithMessage() throws {
         let (settings, defaults, name) = try makeSettings()
         defer { defaults.removePersistentDomain(forName: name) }
         let previous = PanelShortcut(keyCode: 49, modifiers: [.option, .shift])
 
-        for (keyCode, label) in [(UInt16(40), "⌘K"), (UInt16(1), "⌘S"), (UInt16(45), "⌘N")] {
+        for (keyCode, label) in [(UInt16(40), "⌘K"), (UInt16(1), "⌘S"), (UInt16(45), "⌘N"), (UInt16(11), "⌘B"), (UInt16(43), "⌘,")] {
             let controller = FakeHotkeyController(hotkey: previous)
             let model = makeModel(settings: settings, controller: controller)
             let reserved = PanelShortcut(keyCode: keyCode, modifiers: [.command])

@@ -813,4 +813,127 @@ struct PanelMotionControllerTests {
             #expect(panel.frame.size == fixture.animator.calls[0].frame.size)
         }
     }
+
+    // MARK: - サイドバーの開閉
+
+    @Test("アニメーションがオンで開いているパネルのサイドバーを開くと、本文の幅を保ったまま窓を左へ 0.2 秒で広げ、終わると幅の固定を外す")
+    func sidebarOpenSlides() async throws {
+        try await withFixture { fixture in
+            let controller = fixture.controller
+            let panel = controller.panel
+            openAndSettle(fixture)
+            let bodyFrame = panel.frame
+
+            controller.setSidebarOpen(true)
+
+            #expect(fixture.animator.calls.count == 2)
+            let call = try #require(fixture.animator.calls.last)
+            #expect(call.window === panel)
+            #expect(call.duration == 0.2)
+            #expect(call.curve == .easeOut)
+            #expect(call.windowFrame == bodyFrame)
+            #expect(call.frame.maxX == bodyFrame.maxX)
+            #expect(call.frame.width == bodyFrame.width + SidebarLayout.width)
+            #expect(controller.sidebarModel.isOpen)
+            #expect(controller.sidebarModel.slidingBodyWidth == bodyFrame.width)
+            #expect(controller.isAdjustingFrameForSidebar)
+
+            fixture.animator.finish(1)
+
+            #expect(panel.frame == call.frame)
+            #expect(controller.sidebarModel.slidingBodyWidth == nil)
+            #expect(!controller.isAdjustingFrameForSidebar)
+            #expect(panel.contentMinSize == SidebarLayout.minimumWindowSize(isSidebarOpen: true))
+        }
+    }
+
+    @Test("サイドバーを閉じるときは、動きの間は開いたままにし、終わると閉じて元の枠と最小の大きさに戻る")
+    func sidebarCloseSlides() async throws {
+        try await withFixture { fixture in
+            let controller = fixture.controller
+            let panel = controller.panel
+            openAndSettle(fixture)
+            let bodyFrame = panel.frame
+            controller.setSidebarOpen(true)
+            fixture.animator.finish(1)
+
+            controller.setSidebarOpen(false)
+
+            let call = try #require(fixture.animator.calls.last)
+            #expect(fixture.animator.calls.count == 3)
+            #expect(call.curve == .easeIn)
+            #expect(call.frame == bodyFrame)
+            #expect(controller.sidebarModel.isOpen)
+            #expect(controller.sidebarModel.slidingBodyWidth == bodyFrame.width)
+            #expect(panel.contentMinSize == SidebarLayout.minimumWindowSize(isSidebarOpen: false))
+
+            fixture.animator.finish(2)
+
+            #expect(panel.frame == bodyFrame)
+            #expect(!controller.sidebarModel.isOpen)
+            #expect(!fixture.settings.isSidebarOpen)
+            #expect(controller.sidebarModel.slidingBodyWidth == nil)
+        }
+    }
+
+    @Test("サイドバーが動いている間にもう一度開閉すると、今の動きを行き先へ飛ばしてから次の動きを始め、古い終わりの知らせは何もしない")
+    func sidebarToggleDuringSlideJumpsToEnd() async throws {
+        try await withFixture { fixture in
+            let controller = fixture.controller
+            let panel = controller.panel
+            openAndSettle(fixture)
+            let bodyFrame = panel.frame
+
+            controller.setSidebarOpen(true)
+            let expanded = fixture.animator.calls[1].frame
+            controller.setSidebarOpen(false)
+
+            #expect(fixture.animator.jumps.last == expanded)
+            #expect(fixture.animator.calls.count == 3)
+            #expect(fixture.animator.calls[2].windowFrame == expanded)
+            #expect(fixture.animator.calls[2].frame == bodyFrame)
+
+            fixture.animator.finish(1, moving: false)
+            #expect(controller.sidebarModel.isOpen)
+            #expect(controller.sidebarModel.slidingBodyWidth == bodyFrame.width)
+
+            fixture.animator.finish(2)
+            #expect(!controller.sidebarModel.isOpen)
+            #expect(panel.frame == bodyFrame)
+        }
+    }
+
+    @Test("サイドバーが動いている間にパネルを閉じると、動きを行き先へ飛ばして開閉を終えてから閉じる")
+    func closingPanelDuringSidebarSlideFinishesSlide() async throws {
+        try await withFixture { fixture in
+            let controller = fixture.controller
+            openAndSettle(fixture)
+
+            controller.setSidebarOpen(true)
+            let expanded = fixture.animator.calls[1].frame
+            controller.close()
+
+            #expect(fixture.animator.jumps.first == expanded)
+            #expect(fixture.settings.isSidebarOpen)
+            #expect(controller.sidebarModel.slidingBodyWidth == nil)
+            #expect(!controller.isAdjustingFrameForSidebar)
+        }
+    }
+
+    @Test("アニメーションがオフなら、サイドバーの開閉は動きなしですぐに枠を変える")
+    func sidebarToggleWithoutAnimationIsImmediate() async throws {
+        try await withFixture(animationEnabled: false) { fixture in
+            let controller = fixture.controller
+            let panel = controller.panel
+            controller.open()
+            let bodyFrame = panel.frame
+
+            controller.setSidebarOpen(true)
+
+            #expect(fixture.animator.calls.isEmpty)
+            #expect(panel.frame.width == bodyFrame.width + SidebarLayout.width)
+            #expect(controller.sidebarModel.isOpen)
+            #expect(controller.sidebarModel.slidingBodyWidth == nil)
+        }
+    }
 }

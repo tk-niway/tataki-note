@@ -187,6 +187,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.onPermissionDenied = { [weak self] in
             self?.permissionGuide.show(reason: .commitDenied)
         }
+        controller.onOpenSettings = { [weak self] in
+            self?.settingsWindow.show()
+        }
         controller.targetOverride = { [weak self] in
             self?.tutorial.practiceTarget()
         }

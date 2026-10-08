@@ -285,12 +285,14 @@ struct PanelKeyResolverTests {
         PanelKeyInput(keyCode: keyCode, modifiers: modifiers, hasMarkedText: hasMarkedText, characters: character)
     }
 
-    @Test("AC-21: ⌘K は検索、⌘S は保存、⌘N は新規の操作になり、Caps Lock・fn・テンキーの印が付いていても同じ")
+    @Test("AC-21: ⌘K は検索、⌘S は保存、⌘N は新規、⌘B はサイドバーの開閉、⌘, は設定を開く操作になり、Caps Lock・fn・テンキーの印が付いていても同じ")
     func panelCommandKeys() {
         let cases: [(String, UInt16, PanelKeyAction)] = [
             ("k", 40, .openSearch),
             ("s", 1, .saveDraft),
             ("n", 45, .newDraft),
+            ("b", 11, .toggleSidebar),
+            (",", 43, .openSettings),
         ]
         let extraFlags: [NSEvent.ModifierFlags] = [[], [.capsLock], [.function], [.numericPad], [.capsLock, .function]]
 
@@ -302,11 +304,11 @@ struct PanelKeyResolverTests {
         }
     }
 
-    @Test("AC-21: ⌘ だけでない修飾キーの k・s・n や、⌘ の無い k・s・n は操作にならず、入力欄に渡す")
+    @Test("AC-21: ⌘ だけでない修飾キーの k・s・n・b・, や、⌘ の無い k・s・n・b・, は操作にならず、入力欄に渡す")
     func otherModifiersOnLetterKeysPassThrough() {
         let modifierSets: [NSEvent.ModifierFlags] = [[], [.shift], [.option], [.control], [.command, .shift], [.command, .option], [.command, .control]]
 
-        for character in ["k", "s", "n"] {
+        for character in ["k", "s", "n", "b", ","] {
             for modifiers in modifierSets {
                 let input = commandKey(character, keyCode: 0, modifiers: modifiers)
                 #expect(PanelKeyResolver.action(for: input) == .passThrough, "\(modifiers) + \(character)")
@@ -316,9 +318,9 @@ struct PanelKeyResolverTests {
         #expect(PanelKeyResolver.action(for: commandJ) == .passThrough)
     }
 
-    @Test("AC-21: 未確定の文字があるときの ⌘K・⌘S・⌘N は入力メソッドに渡す")
+    @Test("AC-21: 未確定の文字があるときの ⌘K・⌘S・⌘N・⌘B・⌘, は入力メソッドに渡す")
     func panelCommandKeysPassThroughWhileComposing() {
-        for (character, keyCode) in [("k", UInt16(40)), ("s", UInt16(1)), ("n", UInt16(45))] {
+        for (character, keyCode) in [("k", UInt16(40)), ("s", UInt16(1)), ("n", UInt16(45)), ("b", UInt16(11)), (",", UInt16(43))] {
             let input = commandKey(character, keyCode: keyCode, hasMarkedText: true)
             #expect(PanelKeyResolver.action(for: input) == .passThrough, "⌘\(character)")
         }

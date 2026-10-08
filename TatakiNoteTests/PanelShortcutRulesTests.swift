@@ -233,9 +233,9 @@ struct PanelShortcutRulesTests {
         )
     }
 
-    @Test("AC-7: ⌘K・⌘S・⌘N は両方の役割で reservedForPanelCommands になり、理由の文面は「パネルの検索・下書きの保存・新しい書きかけ」")
+    @Test("AC-7: ⌘K・⌘S・⌘N・⌘B・⌘, は両方の役割で reservedForPanelCommands になり、理由の文面は「パネルの検索・下書きの保存・新しい書きかけ・サイドバーの開閉・設定を開く操作」")
     func panelCommandKeysAreRejected() {
-        let keys: [(UInt16, String)] = [(40, "k"), (1, "s"), (45, "n")]
+        let keys: [(UInt16, String)] = [(40, "k"), (1, "s"), (45, "n"), (11, "b"), (43, ",")]
         for role in PanelShortcutRole.allCases {
             for (keyCode, characters) in keys {
                 let key = PanelShortcut(keyCode: keyCode, modifiers: [.command])
@@ -249,7 +249,7 @@ struct PanelShortcutRulesTests {
                 #expect(rejection == .reservedForPanelCommands, "\(role) ⌘\(characters)")
                 #expect(
                     rejection?.message(for: key)
-                        == "⌘\(characters.uppercased()) はパネルの検索・下書きの保存・新しい書きかけ(⌘K・⌘S・⌘N)で使っているため、登録できません。"
+                        == "⌘\(characters.uppercased()) はパネルの検索・下書きの保存・新しい書きかけ・サイドバーの開閉・設定を開く操作(⌘K・⌘S・⌘N・⌘B・⌘,)で使っているため、登録できません。"
                 )
             }
         }

@@ -19,18 +19,20 @@ struct EditorShortcutsTests {
         }
     }
 
-    @Test("AC-48: パネルの操作の行は ⌘K(下書きと履歴を検索する)・⌘S(下書きに保存する)・⌘N(新しい書きかけにする)の3行で、編集キーの7行は変わらない")
+    @Test("AC-48: パネルの操作の行は ⌘K(下書きと履歴を検索する)・⌘S(下書きに保存する)・⌘N(新しい書きかけにする)・⌘B(サイドバーを開く・閉じる)・⌘,(設定を開く)の5行で、編集キーの7行は変わらない")
     func listsPanelCommandShortcuts() {
         let commands = EditorShortcuts.panelCommands
 
-        #expect(commands.map(\.keys) == ["⌘K", "⌘S", "⌘N"])
-        #expect(commands.map(\.id) == ["searchDrafts", "saveDraft", "newDraft"])
+        #expect(commands.map(\.keys) == ["⌘K", "⌘S", "⌘N", "⌘B", "⌘,"])
+        #expect(commands.map(\.id) == ["searchDrafts", "saveDraft", "newDraft", "toggleSidebar", "openSettings"])
         #expect(commands[0].action.contains("検索"))
         #expect(commands[1].action.contains("下書きに保存"))
         #expect(commands[2].action.contains("新しい書きかけ"))
+        #expect(commands[3].action.contains("サイドバー"))
+        #expect(commands[4].action.contains("設定"))
         #expect(Set(commands.map(\.id)).isDisjoint(with: EditorShortcuts.all.map(\.id)))
         #expect(EditorShortcuts.all.count == 7)
-        #expect(EditorShortcuts.all.allSatisfy { !["⌘K", "⌘S", "⌘N"].contains($0.keys) })
+        #expect(EditorShortcuts.all.allSatisfy { !["⌘K", "⌘S", "⌘N", "⌘B", "⌘,"].contains($0.keys) })
     }
 
     @Test("AC-8: 「ショートカットキー」の説明文は、割り当ては変えられないことと、確定のキーは同じ「キー」の「確定+挿入キー」「確定+送信キー」で確かめられることを書き、「一般」「エディタ設定」を書かない")

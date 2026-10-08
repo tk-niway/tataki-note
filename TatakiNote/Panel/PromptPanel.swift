@@ -61,7 +61,7 @@ final class PromptPanel: NSPanel {
         (responder as? NSTextInputClient)?.hasMarkedText() ?? false
     }
 
-    /// `⌘K` `⌘S` `⌘N` のキーの値。どれでもなければ `nil`。
+    /// `⌘K` `⌘S` `⌘N` `⌘B` `⌘,` のキーの値。どれでもなければ `nil`。
     static func panelCommandInput(for event: NSEvent, hasMarkedText: Bool) -> PanelKeyInput? {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard modifiers.intersection(PanelShortcut.relevantModifiers) == [.command] else { return nil }

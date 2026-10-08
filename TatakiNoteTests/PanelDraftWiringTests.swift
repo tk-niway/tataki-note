@@ -146,6 +146,48 @@ struct PanelDraftWiringTests {
         #expect(fixture.model.focusRequest > before)
     }
 
+    @Test("⌘B を押すたびにサイドバーが開閉し、開閉は設定に残り、本文へフォーカスを戻す")
+    func sidebarToggleKeyOpensAndClosesSidebar() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        fixture.model.present(target: nil)
+        let onKeyEquivalent = try #require(fixture.controller.panel.onKeyEquivalent)
+        #expect(!fixture.sidebarModel.isOpen)
+        let before = fixture.model.focusRequest
+
+        #expect(onKeyEquivalent(Self.key("b", keyCode: 11, modifiers: [.command])))
+        #expect(fixture.sidebarModel.isOpen)
+        #expect(fixture.model.focusRequest > before)
+        #expect(fixture.settings.isSidebarOpen)
+
+        #expect(onKeyEquivalent(Self.key("b", keyCode: 11, modifiers: [.command])))
+        #expect(!fixture.sidebarModel.isOpen)
+        #expect(!fixture.settings.isSidebarOpen)
+    }
+
+    @Test("サイドバーの歯車のボタンと ⌘, は、書いた文章を残してパネルを閉じてから設定を開く処理を呼ぶ", arguments: [false, true])
+    func settingsButtonAndKeyClosePanelThenOpenSettings(byKey: Bool) throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        fixture.model.present(target: nil)
+        fixture.model.text = "typed"
+        var wasPresentedWhenOpening: Bool?
+        fixture.controller.onOpenSettings = { [model = fixture.model] in
+            wasPresentedWhenOpening = model.isPresented
+        }
+
+        if byKey {
+            let onKeyEquivalent = try #require(fixture.controller.panel.onKeyEquivalent)
+            #expect(onKeyEquivalent(Self.key(",", keyCode: 43, modifiers: [.command])))
+        } else {
+            fixture.controller.openSettings()
+        }
+
+        #expect(wasPresentedWhenOpening == false)
+        #expect(!fixture.model.isPresented)
+        #expect(fixture.model.text == "typed")
+    }
+
     @Test("AC-33: 新規作成のアイコンで確認を出したとき、本文へフォーカスを戻す")
     func newDraftButtonReturnsFocusToBodyWhenConfirming() throws {
         let fixture = try Fixture()

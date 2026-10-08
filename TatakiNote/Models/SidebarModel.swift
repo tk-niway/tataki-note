@@ -71,6 +71,8 @@ struct SidebarRow: Equatable, Identifiable {
 
     private(set) var pendingDeletion: UUID?
     private(set) var searchFocusRequest = 0
+    /// サイドバーが滑って開閉している間、本文の部分に保つ幅。動いていなければ nil。
+    var slidingBodyWidth: CGFloat?
     private(set) var bodyFocusRequest = 0
 
     /// 窓のファーストレスポンダーに未確定の文字があるか。

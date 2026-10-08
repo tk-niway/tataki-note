@@ -14,6 +14,7 @@ struct PanelView: View {
     let onNewDraft: () -> Void
     let onSaveDraft: () -> Void
     let onResolveConfirmation: ((UnsavedTextChoice) -> Void)?
+    let onOpenSettings: () -> Void
     let appIcon: @MainActor (InsertionTarget) -> NSImage
 
     init(
@@ -28,6 +29,7 @@ struct PanelView: View {
         onNewDraft: @escaping () -> Void = {},
         onSaveDraft: @escaping () -> Void = {},
         onResolveConfirmation: ((UnsavedTextChoice) -> Void)? = nil,
+        onOpenSettings: @escaping () -> Void = {},
         appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = { InsertionTargetBadge.systemIcon(for: $0) }
     ) {
         self.model = model
@@ -41,6 +43,7 @@ struct PanelView: View {
         self.onNewDraft = onNewDraft
         self.onSaveDraft = onSaveDraft
         self.onResolveConfirmation = onResolveConfirmation
+        self.onOpenSettings = onOpenSettings
         self.appIcon = appIcon
     }
 
@@ -54,14 +57,26 @@ struct PanelView: View {
 
     var body: some View {
         let isSidebarOpen = sidebarModel?.isOpen ?? false
+        let slidingBodyWidth = sidebarModel?.slidingBodyWidth
         HStack(spacing: 0) {
             if let sidebarModel, isSidebarOpen {
-                SidebarView(model: sidebarModel, highlightedDraftID: saveAnimation?.highlightedDraftID)
+                SidebarView(
+                    model: sidebarModel,
+                    highlightedDraftID: saveAnimation?.highlightedDraftID,
+                    onOpenSettings: onOpenSettings
+                )
+                    .frame(
+                        minWidth: 0,
+                        maxWidth: slidingBodyWidth == nil ? SidebarLayout.width : .infinity,
+                        alignment: .leading
+                    )
+                    .clipped()
                     .ignoresSafeArea(edges: .top)
                 Divider()
                     .ignoresSafeArea(edges: .top)
             }
             bodyColumn
+                .frame(width: slidingBodyWidth)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .windowStyle(theme: settings.theme, opacity: settings.panelOpacity)

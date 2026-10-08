@@ -7,13 +7,15 @@ struct ReservedPanelKeysTests {
     private let commandK = PanelShortcut(keyCode: 40, modifiers: [.command])
     private let commandS = PanelShortcut(keyCode: 1, modifiers: [.command])
     private let commandN = PanelShortcut(keyCode: 45, modifiers: [.command])
+    private let commandB = PanelShortcut(keyCode: 11, modifiers: [.command])
+    private let commandComma = PanelShortcut(keyCode: 43, modifiers: [.command])
     private let commandJ = PanelShortcut(keyCode: 38, modifiers: [.command])
     private let defaultHotkey = PanelShortcut(keyCode: 49, modifiers: [.option, .shift])
     private let defaultCommit = PanelShortcut.commandShiftReturn
     private let defaultCommitAndSend = PanelShortcut.commandReturn
 
     private func isReservedByKeyCode(_ shortcut: PanelShortcut) -> Bool {
-        shortcut.modifiers == [.command] && [40, 1, 45].contains(shortcut.keyCode)
+        shortcut.modifiers == [.command] && [40, 1, 45, 11, 43].contains(shortcut.keyCode)
     }
 
     private func migrate(
@@ -30,9 +32,9 @@ struct ReservedPanelKeysTests {
         )
     }
 
-    @Test("AC-7: 記録のキーは、修飾キーが ⌘ だけで文字が k・s・n のときだけ予約に当たる")
+    @Test("AC-7: 記録のキーは、修飾キーが ⌘ だけで文字が k・s・n・b・, のときだけ予約に当たる")
     func candidateIsReservedOnlyForCommandKSN() {
-        for (keyCode, characters) in [(40, "k"), (1, "s"), (45, "n")] as [(UInt16, String)] {
+        for (keyCode, characters) in [(40, "k"), (1, "s"), (45, "n"), (11, "b"), (43, ",")] as [(UInt16, String)] {
             let candidate = PanelShortcutCandidate(
                 shortcut: PanelShortcut(keyCode: keyCode, modifiers: [.command]),
                 characters: characters
@@ -53,11 +55,13 @@ struct ReservedPanelKeysTests {
         }
     }
 
-    @Test("AC-8: 保存値の ⌘K・⌘S・⌘N は今のキー配列の表示で予約に当たり、⇧⌘K・⌘J は当たらない")
+    @Test("AC-8: 保存値の ⌘K・⌘S・⌘N・⌘B・⌘, は今のキー配列の表示で予約に当たり、⇧⌘K・⌘J は当たらない")
     func storedShortcutIsReservedByDisplayText() {
         #expect(ReservedPanelKeys.isReserved(commandK))
         #expect(ReservedPanelKeys.isReserved(commandS))
         #expect(ReservedPanelKeys.isReserved(commandN))
+        #expect(ReservedPanelKeys.isReserved(commandB))
+        #expect(ReservedPanelKeys.isReserved(commandComma))
         #expect(!ReservedPanelKeys.isReserved(PanelShortcut(keyCode: 40, modifiers: [.command, .shift])))
         #expect(!ReservedPanelKeys.isReserved(commandJ))
         #expect(!ReservedPanelKeys.isReserved(PanelShortcut.commandReturn))
@@ -114,9 +118,9 @@ struct ReservedPanelKeysTests {
         #expect(notReset == .init(commitKey: defaultHotkey, commitAndSendKey: commandJ, shouldResetHotkey: false))
     }
 
-    @Test("AC-9: ホットキーが ⌘K・⌘S・⌘N なら初期値に戻し、それ以外のキー・登録なしはそのまま")
+    @Test("AC-9: ホットキーが ⌘K・⌘S・⌘N・⌘B・⌘, なら初期値に戻し、それ以外のキー・登録なしはそのまま")
     func reservedHotkeyIsReset() {
-        for key in [commandK, commandS, commandN] {
+        for key in [commandK, commandS, commandN, commandB, commandComma] {
             #expect(migrate(commitKey: nil, commitAndSendKey: nil, hotkey: key).shouldResetHotkey)
         }
         for key in [commandJ, defaultHotkey, PanelShortcut(keyCode: 40, modifiers: [.command, .shift])] {

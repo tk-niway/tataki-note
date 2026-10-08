@@ -1,15 +1,15 @@
 import AppKit
 
-/// パネルの検索・保存・新規に使う ⌘K・⌘S・⌘N。
+/// パネルの検索・保存・新規・サイドバーの開閉・設定に使う ⌘K・⌘S・⌘N・⌘B・⌘,。
 enum ReservedPanelKeys {
-    static let characters: [String] = ["k", "s", "n"]
+    static let characters: [String] = ["k", "s", "n", "b", ","]
 
-    /// 記録で押されたキーが ⌘K・⌘S・⌘N のどれかを返す。
+    /// 記録で押されたキーが ⌘K・⌘S・⌘N・⌘B・⌘, のどれかを返す。
     static func isReserved(_ candidate: PanelShortcutCandidate) -> Bool {
         candidate.shortcut.modifiers == [.command] && characters.contains(candidate.characters.lowercased())
     }
 
-    /// 保存値のキーが、今のキー配列で ⌘K・⌘S・⌘N に当たるかを返す。
+    /// 保存値のキーが、今のキー配列で ⌘K・⌘S・⌘N・⌘B・⌘, に当たるかを返す。
     static func isReserved(_ shortcut: PanelShortcut) -> Bool {
         shortcut.modifiers == [.command] && characters.map { "⌘" + $0.uppercased() }.contains(shortcut.displayText)
     }

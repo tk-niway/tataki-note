@@ -22,6 +22,8 @@ enum PanelKeyAction: Equatable {
     case openSearch
     case saveDraft
     case newDraft
+    case toggleSidebar
+    case openSettings
 }
 
 /// 下書きの削除の確認を出している間のキーの意味。
@@ -83,6 +85,8 @@ enum PanelKeyResolver {
         case "k": return .openSearch
         case "s": return .saveDraft
         case "n": return .newDraft
+        case "b": return .toggleSidebar
+        case ",": return .openSettings
         default: return nil
         }
     }

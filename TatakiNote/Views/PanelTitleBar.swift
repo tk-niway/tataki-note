@@ -86,9 +86,9 @@ struct PanelTitleBar: View {
                 }
                 .anchorPreference(key: SidebarToggleAnchorKey.self, value: .bounds) { $0 }
         }
-        .buttonStyle(TitleBarIconButtonStyle())
+        .buttonStyle(PanelIconButtonStyle())
         .focusable(false)
-        .help("下書きと履歴(⌘K で検索)")
+        .help("下書きと履歴(⌘B で開閉、⌘K で検索)")
         .accessibilityLabel("サイドバー")
         .accessibilityValue(isSidebarOpen ? "開いています" : "閉じています")
         .accessibilityIdentifier("promptPanel.sidebarToggle")
@@ -98,7 +98,7 @@ struct PanelTitleBar: View {
         Button(action: onNewDraft) {
             iconLabel("square.and.pencil")
         }
-        .buttonStyle(TitleBarIconButtonStyle())
+        .buttonStyle(PanelIconButtonStyle())
         .focusable(false)
         .disabled(!(session?.isNewDraftAvailable ?? false) || session?.pendingSwitch != nil)
         .help("新しい書きかけ(⌘N)")
@@ -120,7 +120,7 @@ struct PanelTitleBar: View {
             }
             .animation(.easeInOut(duration: 0.1), value: isConfirming)
         }
-        .buttonStyle(TitleBarIconButtonStyle())
+        .buttonStyle(PanelIconButtonStyle())
         .focusable(false)
         .disabled(!(session?.isSaveAvailable ?? false) || session?.pendingSwitch != nil)
         .help("下書きに保存(⌘S)")
@@ -147,17 +147,19 @@ struct PanelTitleBar: View {
         }
     }
 
-    private struct TitleBarIconButtonStyle: ButtonStyle {
-        @Environment(\.isEnabled) private var isEnabled
+}
 
-        func makeBody(configuration: Configuration) -> some View {
-            configuration.label
-                .foregroundStyle(foreground(isPressed: configuration.isPressed))
-        }
+/// パネルのアイコンのボタンの見た目。押している間だけ濃くする。
+struct PanelIconButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
 
-        private func foreground(isPressed: Bool) -> HierarchicalShapeStyle {
-            if !isEnabled { return .tertiary }
-            return isPressed ? .primary : .secondary
-        }
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(foreground(isPressed: configuration.isPressed))
+    }
+
+    private func foreground(isPressed: Bool) -> HierarchicalShapeStyle {
+        if !isEnabled { return .tertiary }
+        return isPressed ? .primary : .secondary
     }
 }

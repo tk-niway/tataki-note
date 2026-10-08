@@ -14,10 +14,12 @@ enum EditorShortcuts {
 
     static let all: [EditorShortcut] = EditorKeyCommand.allCases.compactMap(\.listing)
 
-    /// 「ショートカットキー」の一覧で編集キーの後に出す、検索・保存・新規の行。
+    /// 「ショートカットキー」の一覧で編集キーの後に出す、検索・保存・新規・サイドバーの開閉・設定の行。
     static let panelCommands: [EditorShortcut] = [
         EditorShortcut(id: "searchDrafts", keys: "⌘K", action: String(localized: "下書きと履歴を検索する(サイドバーを開く)")),
         EditorShortcut(id: "saveDraft", keys: "⌘S", action: String(localized: "下書きに保存する")),
         EditorShortcut(id: "newDraft", keys: "⌘N", action: String(localized: "新しい書きかけにする")),
+        EditorShortcut(id: "toggleSidebar", keys: "⌘B", action: String(localized: "サイドバーを開く・閉じる")),
+        EditorShortcut(id: "openSettings", keys: "⌘,", action: String(localized: "設定を開く(パネルは閉じる)")),
     ]
 }
