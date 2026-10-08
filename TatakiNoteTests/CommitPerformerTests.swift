@@ -6,6 +6,7 @@ final class InserterStub: TextInserting {
     var result: InsertionResult
     var onInsert: (() -> Void)?
     var readiness: InsertionReadiness = .ready
+    var onCheckReadiness: (() async -> Void)?
     private(set) var readinessChecks: [InsertionTarget] = []
     private(set) var calls: [(text: String, target: InsertionTarget, shouldSendAfterInsert: Bool)] = []
 
@@ -15,6 +16,7 @@ final class InserterStub: TextInserting {
 
     func checkReadiness(of target: InsertionTarget) async -> InsertionReadiness {
         readinessChecks.append(target)
+        await onCheckReadiness?()
         return readiness
     }
 
@@ -89,7 +91,7 @@ struct CommitPerformerTests {
         #expect(model.text == "draft")
     }
 
-    @Test("AC-8: 挿入先が記録できていなければ、挿入も許可の要求もせず、文章は下書きに残る")
+    @Test("AC-11: 挿入先が記録できていなければ、挿入も許可の要求もせず、パネルは開いたまま文章は残る")
     func noTargetDoesNotInsert() async {
         let model = PanelModel()
         model.present(target: nil)
@@ -100,7 +102,7 @@ struct CommitPerformerTests {
 
         await performer.perform(model.prepareCommit(isAccessibilityTrusted: permission.isTrusted))
 
-        #expect(model.isPresented == false)
+        #expect(model.isPresented)
         #expect(inserter.calls.isEmpty)
         #expect(permission.promptRequestCount == 0)
         #expect(model.text == "draft")

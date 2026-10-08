@@ -18,6 +18,8 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let ownProcessIdentifier: pid_t
     private let library: DraftLibrary
     private let targetMonitor: InsertionTargetMonitor
+    private let inserter: TextInserting
+    private var pendingInsertionCheck: Task<Void, Never>?
 
     let session: DraftSession
     let sidebarModel: SidebarModel
@@ -89,6 +91,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.targetTracker = targetTracker
         self.permission = permission
         self.performer = CommitPerformer(model: model, permission: permission, inserter: inserter)
+        self.inserter = inserter
         self.fieldProbe = fieldProbe
         self.exposeWebContent = exposeWebContent
         self.locateTargetWindowFrame = locateTargetWindowFrame
@@ -133,6 +136,22 @@ final class PanelController: NSObject, NSWindowDelegate {
         configureSidebarModel()
         observeBodyFocusRequests()
         observeSaveEvents()
+        observeInsertionCheckCancellation()
+        targetMonitor.onFieldAdopted = { [weak self] in self?.returnInputToPanel() }
+    }
+
+    private func observeInsertionCheckCancellation() {
+        observeRepeatedly(
+            tracking: { [weak self] in _ = self?.model.isPresented },
+            onChange: { [weak self] in
+                guard let self else { return false }
+                if !self.model.isPresented {
+                    self.pendingInsertionCheck?.cancel()
+                    self.pendingInsertionCheck = nil
+                }
+                return true
+            }
+        )
     }
 
     private func observeSaveEvents() {
@@ -495,20 +514,93 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     // MARK: - 確定
 
+    /// 閉じる前に挿入できるかを確かめる挿入先。確かめずに進めるときは nil。
+    static func insertionTargetToCheck(
+        target: InsertionTarget?,
+        text: String,
+        isTrusted: Bool,
+        ownProcessIdentifier: pid_t
+    ) -> InsertionTarget? {
+        guard !text.isEmpty, isTrusted, let target, !target.isOwnApp(ownProcessIdentifier) else { return nil }
+        return target
+    }
+
     func commit(shouldSendAfterInsert: Bool = false) {
+        guard pendingInsertionCheck == nil else { return }
+        library.flush()
+        guard let target = Self.insertionTargetToCheck(
+            target: model.target,
+            text: model.text,
+            isTrusted: permission.isTrusted,
+            ownProcessIdentifier: ownProcessIdentifier
+        ) else {
+            performCommit(shouldSendAfterInsert: shouldSendAfterInsert)
+            return
+        }
+        let inserter = inserter
+        pendingInsertionCheck = Task { [weak self] in
+            let readiness = await inserter.checkReadiness(of: target)
+            self?.finishInsertionCheck(readiness, target: target, shouldSendAfterInsert: shouldSendAfterInsert)
+        }
+    }
+
+    private func finishInsertionCheck(
+        _ readiness: InsertionReadiness,
+        target: InsertionTarget,
+        shouldSendAfterInsert: Bool
+    ) {
+        guard !Task.isCancelled else { return }
+        pendingInsertionCheck = nil
+        guard model.isPresented else { return }
+        guard let current = model.target else {
+            model.signalNoTarget()
+            returnInputToPanel()
+            return
+        }
+        guard current.processIdentifier == target.processIdentifier else { return }
+        switch readiness {
+        case .ready:
+            performCommit(shouldSendAfterInsert: shouldSendAfterInsert)
+        case .targetNotActivated, .noTextInput:
+            targetMonitor.rejectCurrentField()
+            model.signalNoTarget()
+            returnInputToPanel()
+        }
+    }
+
+    private func performCommit(shouldSendAfterInsert: Bool) {
         let plan = session.prepareCommit {
             model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
         }
+        if plan == .noTarget { return }
         hidePanel()
         library.flush()
         if case .insert(let text, let target) = plan {
             onInsertionRequested?(text, target, shouldSendAfterInsert)
         }
-        Task { [weak self, performer] in
+        Task { [weak self, performer, model] in
             let outcome = await performer.perform(plan, shouldSendAfterInsert: shouldSendAfterInsert)
             self?.sizing.handleCommitOutcome(outcome)
             self?.session.finishCommit(plan, outcome: outcome)
+            if case .insert(let text, _) = plan,
+               outcome == .notInserted,
+               !model.isPresented,
+               model.text == text {
+                self?.reopenAfterFailedInsertion()
+            }
         }
+    }
+
+    private func reopenAfterFailedInsertion() {
+        open()
+        targetMonitor.rejectCurrentField()
+        model.signalNoTarget()
+    }
+
+    private func returnInputToPanel() {
+        guard model.isPresented else { return }
+        panel.makeKeyAndOrderFront(nil)
+        model.requestFocus()
     }
 
     func windowWillClose(_ notification: Notification) {
