@@ -18,6 +18,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let ownProcessIdentifier: pid_t
     private let library: DraftLibrary
     private let targetMonitor: InsertionTargetMonitor
+    private let outlineController: InsertionTargetOutlineController
     private let inserter: TextInserting
     private var pendingInsertionCheck: Task<Void, Never>?
 
@@ -83,8 +84,9 @@ final class PanelController: NSObject, NSWindowDelegate {
         hideApplication: @escaping () -> Void = { NSApp.hide(nil) },
         makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil
     ) {
+        let panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
         self.model = model
-        self.panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
+        self.panel = panel
         self.settings = settings
         self.animator = animator
         self.hideApplication = hideApplication
@@ -97,12 +99,19 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.locateTargetWindowFrame = locateTargetWindowFrame
         self.ownProcessIdentifier = ownProcessIdentifier
         self.library = library
-        self.targetMonitor = makeTargetMonitor?(model) ?? InsertionTargetMonitor(
+        let targetMonitor = makeTargetMonitor?(model) ?? InsertionTargetMonitor(
             panelModel: model,
             probe: fieldProbe,
             ownProcessIdentifier: ownProcessIdentifier,
             exposeWebContent: exposeWebContent,
             isOutlineEnabled: { [settings] in settings.isInsertionTargetOutlineShown }
+        )
+        self.targetMonitor = targetMonitor
+        self.outlineController = InsertionTargetOutlineController(
+            outline: targetMonitor.outline,
+            settings: settings,
+            panelModel: model,
+            panel: panel
         )
         let session = DraftSession(panel: model, library: library, ownProcessIdentifier: ownProcessIdentifier)
         self.session = session
