@@ -15,6 +15,7 @@ struct PanelConfirmationOverlay: View {
                 (colorScheme == .dark ? Color.black.opacity(0.45) : Color.white.opacity(0.6))
                     .contentShape(Rectangle())
                     .onTapGesture {}
+                    .accessibilityHidden(true)
                 ViewThatFits(in: .horizontal) {
                     card(showsDecorations: true)
                     card(showsDecorations: false)

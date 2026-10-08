@@ -104,6 +104,7 @@ struct PanelView: View {
     private var bodyColumn: some View {
         let font = settings.panelFont
         let content = statusBarContent
+        let isConfirming = session?.pendingSwitch != nil
         return VStack(spacing: 0) {
             PromptTextEditor(
                 text: $model.text,
@@ -131,6 +132,7 @@ struct PanelView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor).ignoresSafeArea())
+        .accessibilityHidden(isConfirming)
         .overlay {
             if let session, session.pendingSwitch != nil {
                 PanelConfirmationOverlay { choice in
