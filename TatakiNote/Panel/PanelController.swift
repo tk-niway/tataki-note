@@ -64,7 +64,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         targetTracker: FrontmostAppTracker,
         inserter: TextInserting = ClipboardTextInserter(),
         permission: AccessibilityPermissionChecking = SystemAccessibilityPermission(),
-        notifier: InsertionFailureNotifying,
         fieldProbe: FocusedElementProbing = AXFocusedTextInputInspector(),
         exposeWebContent: @escaping (InsertionTarget) -> Void = { AXFocusedTextInputInspector.exposeWebContent(of: $0) },
         locateTargetWindowFrame: @escaping (pid_t) -> CGRect? = { TargetWindowLocator.frontWindowFrame(processIdentifier: $0) },
@@ -81,7 +80,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.hideApplication = hideApplication
         self.targetTracker = targetTracker
         self.permission = permission
-        self.performer = CommitPerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+        self.performer = CommitPerformer(model: model, permission: permission, inserter: inserter)
         self.fieldProbe = fieldProbe
         self.exposeWebContent = exposeWebContent
         self.locateTargetWindowFrame = locateTargetWindowFrame

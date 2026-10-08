@@ -35,7 +35,6 @@ struct PanelDraftWiringTests {
                 targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
                 inserter: inserter,
                 permission: PermissionStub(isTrusted: isTrusted),
-                notifier: NotifierStub(),
                 fieldProbe: FocusedElementProbeStub(),
                 library: library
             )

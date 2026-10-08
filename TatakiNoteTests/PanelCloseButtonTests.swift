@@ -20,7 +20,6 @@ struct PanelCloseButtonTests {
             targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
             inserter: InserterStub(result: .inserted),
             permission: PermissionStub(isTrusted: true),
-            notifier: NotifierStub(),
             fieldProbe: FocusedElementProbeStub()
         )
     }

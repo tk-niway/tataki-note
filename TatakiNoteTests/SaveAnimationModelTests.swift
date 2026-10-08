@@ -191,7 +191,6 @@ struct SaveAnimationModelTests {
                 settings: settings,
                 targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
                 permission: PermissionStub(isTrusted: true),
-                notifier: NotifierStub(),
                 fieldProbe: FocusedElementProbeStub(),
                 saveAnimation: recorder.model
             )

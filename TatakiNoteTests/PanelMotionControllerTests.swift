@@ -122,7 +122,6 @@ struct PanelMotionControllerTests {
             targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
             inserter: inserter,
             permission: PermissionStub(isTrusted: true),
-            notifier: NotifierStub(),
             fieldProbe: FocusedElementProbeStub(),
             exposeWebContent: { _ in },
             ownProcessIdentifier: Self.ownPid,

@@ -69,7 +69,6 @@ struct WebContentExposerTests {
             targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
             inserter: InserterStub(result: .inserted),
             permission: PermissionStub(isTrusted: isTrusted),
-            notifier: NotifierStub(),
             fieldProbe: FocusedElementProbeStub(),
             exposeWebContent: exposeWebContent,
             ownProcessIdentifier: Self.ownPid

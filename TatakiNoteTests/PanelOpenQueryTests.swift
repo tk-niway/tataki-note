@@ -61,7 +61,6 @@ struct PanelOpenQueryTests {
             targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
             inserter: InserterStub(result: .inserted),
             permission: PermissionStub(isTrusted: isTrusted),
-            notifier: NotifierStub(),
             fieldProbe: probe ?? FocusedElementProbeStub(),
             exposeWebContent: { _ in },
             locateTargetWindowFrame: { recorder.locate($0) },

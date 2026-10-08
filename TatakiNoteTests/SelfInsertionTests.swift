@@ -13,7 +13,6 @@ struct SelfInsertionTests {
         var controller: PanelController
         var probe: FocusedElementProbeStub
         var inserter: InserterStub
-        var notifier: NotifierStub
     }
 
     private func withFixture(
@@ -27,18 +26,16 @@ struct SelfInsertionTests {
         settings.panelScreen = .nearFocusedField
         let probe = FocusedElementProbeStub()
         let inserter = InserterStub(result: .inserted)
-        let notifier = NotifierStub()
         let controller = PanelController(
             settings: settings,
             targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
             inserter: inserter,
             permission: PermissionStub(isTrusted: isTrusted),
-            notifier: notifier,
             fieldProbe: probe,
             ownProcessIdentifier: Self.ownPid
         )
         defer { controller.close() }
-        try await body(Fixture(controller: controller, probe: probe, inserter: inserter, notifier: notifier))
+        try await body(Fixture(controller: controller, probe: probe, inserter: inserter))
     }
 
     private func waitForInsertion(_ inserter: InserterStub) async {
