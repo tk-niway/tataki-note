@@ -24,6 +24,7 @@ struct SettingsStore {
         static let sidebarIsOpen = "sidebarIsOpen"
         static let sidebarTab = "sidebarTab"
         static let panelAnimationEnabled = "panelAnimationEnabled"
+        static let insertionTargetOutlineShown = "insertionTargetOutlineShown"
     }
 
     let defaults: UserDefaults
@@ -189,6 +190,16 @@ struct SettingsStore {
 
     func saveIsPanelAnimationEnabled(_ isEnabled: Bool) {
         defaults.set(isEnabled, forKey: Key.panelAnimationEnabled)
+    }
+
+    // MARK: - 挿入先の枠線
+
+    func loadIsInsertionTargetOutlineShown() -> Bool {
+        boolean(forKey: Key.insertionTargetOutlineShown) ?? true
+    }
+
+    func saveIsInsertionTargetOutlineShown(_ isShown: Bool) {
+        defaults.set(isShown, forKey: Key.insertionTargetOutlineShown)
     }
 
     // MARK: - 初回起動のチュートリアル
