@@ -798,6 +798,24 @@ struct PanelMotionControllerTests {
         }
     }
 
+    @Test("AC-19: 開く動きで窓の枠が広がる間のライブリサイズの通知では、大きさを覚えない")
+    func openingMotionLiveResizeDoesNotHoldSize() async throws {
+        try await withFixture { fixture in
+            let controller = fixture.controller
+            let panel = controller.panel
+            controller.open()
+            let call = try #require(fixture.animator.calls.first)
+            let notification = Notification(name: NSWindow.willStartLiveResizeNotification, object: panel)
+
+            controller.windowWillStartLiveResize(notification)
+            panel.setFrame(call.frame, display: false)
+            controller.windowDidEndLiveResize(notification)
+            fixture.animator.finish(0)
+
+            #expect(controller.heldPanelSize == nil)
+        }
+    }
+
     @Test("AC-19: 閉じる動きの間に枠が線になっても、保っている大きさは変わらない")
     func closingMotionDoesNotChangeHeldSize() async throws {
         try await withFixture { fixture in

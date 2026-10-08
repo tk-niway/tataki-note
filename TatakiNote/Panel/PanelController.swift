@@ -615,7 +615,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     // MARK: - 大きさ
 
     func windowWillStartLiveResize(_ notification: Notification) {
-        guard !isAdjustingFrameForSidebar else { return }
+        guard !isAdjustingFrameForSidebar, motion.phase != .opening, motion.phase != .closing else { return }
         liveResizeStartSize = bodySize(of: panel.frame.size)
     }
 

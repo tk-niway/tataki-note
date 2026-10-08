@@ -114,6 +114,9 @@ final class SettingsWindowUITests: XCTestCase {
         launch(app)
 
         openSettingsFromMenu(in: app)
+        let keys = element(in: app, identifier: sidebarKeysID)
+        XCTAssertTrue(keys.waitForExistence(timeout: timeout))
+        keys.click()
         let commitLabel = app.staticTexts["確定+挿入キー"].firstMatch
         app.revealInSettings(commitLabel)
         XCTAssertTrue(commitLabel.exists)
