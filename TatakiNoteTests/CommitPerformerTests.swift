@@ -5,10 +5,17 @@ import Testing
 final class InserterStub: TextInserting {
     var result: InsertionResult
     var onInsert: (() -> Void)?
+    var readiness: InsertionReadiness = .ready
+    private(set) var readinessChecks: [InsertionTarget] = []
     private(set) var calls: [(text: String, target: InsertionTarget, shouldSendAfterInsert: Bool)] = []
 
     init(result: InsertionResult) {
         self.result = result
+    }
+
+    func checkReadiness(of target: InsertionTarget) async -> InsertionReadiness {
+        readinessChecks.append(target)
+        return readiness
     }
 
     func insert(_ text: String, into target: InsertionTarget, shouldSendAfterInsert: Bool) async -> InsertionResult {

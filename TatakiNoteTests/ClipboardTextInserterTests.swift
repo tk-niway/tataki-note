@@ -241,10 +241,13 @@ struct ClipboardTextInserterTests {
         #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
     }
 
-    @Test("入力欄が選ばれているか分からなければ、今までどおり ⌘V を送る")
-    func pastesWhenFocusIsUnknown() async {
+    @Test("AC-14: 入力欄が選ばれているか分からなければ、⌘V を送らず、クリップボードも変えない")
+    func doesNotPasteWhenFocusIsUnknown() async {
         let pasteboard = PasteboardFixture.makePasteboard()
         defer { pasteboard.releaseGlobally() }
+        PasteboardFixture.writeRichContents(to: pasteboard)
+        let original = PasteboardSnapshot.capture(from: pasteboard)
+        let changeCountBefore = pasteboard.changeCount
         let activator = ActivatorStub(result: true)
         let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
         let inserter = makeInserter(
@@ -256,8 +259,112 @@ struct ClipboardTextInserterTests {
 
         let result = await inserter.insert("text", into: target, shouldSendAfterInsert: false)
 
-        #expect(result == .inserted)
-        #expect(poster.records.first?.string == "text")
+        #expect(result == .noTextInput)
+        #expect(poster.records.isEmpty)
+        #expect(pasteboard.changeCount == changeCountBefore)
+        #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
+    }
+
+    @Test("AC-14: 確かめは、前面にでき入力欄が選ばれていれば ready で、貼り付けもクリップボードの変更もしない")
+    func checkReadinessIsReadyForTextInputWithoutPasting() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        PasteboardFixture.writeRichContents(to: pasteboard)
+        let original = PasteboardSnapshot.capture(from: pasteboard)
+        let changeCountBefore = pasteboard.changeCount
+        let activator = ActivatorStub(result: true)
+        let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
+        let focusInspector = FocusInspectorStub(state: .textInput)
+        let submitSender = SubmitKeySenderStub(pasteboard: pasteboard)
+        let inserter = makeInserter(
+            pasteboard: pasteboard,
+            activator: activator,
+            poster: poster,
+            focusInspector: focusInspector,
+            submitSender: submitSender
+        )
+
+        let readiness = await inserter.checkReadiness(of: target)
+
+        #expect(readiness == .ready)
+        #expect(activator.targets == [target])
+        #expect(focusInspector.targets == [target])
+        #expect(poster.records.isEmpty)
+        #expect(submitSender.records.isEmpty)
+        #expect(pasteboard.changeCount == changeCountBefore)
+        #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
+    }
+
+    @Test("AC-14: 確かめは、前面にできなければ targetNotActivated、入力欄でない・分からなければ noTextInput で、クリップボードを変えない")
+    func checkReadinessReportsWhyInsertionIsNotPossible() async {
+        let scenarios: [(String, Bool, FocusedTextInputState, InsertionReadiness)] = [
+            ("前面にできない", false, .textInput, .targetNotActivated),
+            ("入力欄でない", true, .notTextInput, .noTextInput),
+            ("分からない", true, .unknown, .noTextInput),
+        ]
+        for (name, canActivate, focusState, expected) in scenarios {
+            let pasteboard = PasteboardFixture.makePasteboard()
+            defer { pasteboard.releaseGlobally() }
+            PasteboardFixture.writeRichContents(to: pasteboard)
+            let original = PasteboardSnapshot.capture(from: pasteboard)
+            let changeCountBefore = pasteboard.changeCount
+            let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
+            let inserter = makeInserter(
+                pasteboard: pasteboard,
+                activator: ActivatorStub(result: canActivate),
+                poster: poster,
+                focusInspector: FocusInspectorStub(state: focusState)
+            )
+
+            let readiness = await inserter.checkReadiness(of: target)
+
+            #expect(readiness == expected, "\(name)")
+            #expect(poster.records.isEmpty, "\(name)")
+            #expect(pasteboard.changeCount == changeCountBefore, "\(name)")
+            #expect(PasteboardSnapshot.capture(from: pasteboard) == original, "\(name)")
+        }
+    }
+
+    @Test("AC-14: 前面にできなければ、確かめは入力欄を調べない")
+    func checkReadinessSkipsInspectionWhenActivationFails() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        let focusInspector = FocusInspectorStub(state: .textInput)
+        let inserter = makeInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: false),
+            poster: PasteShortcutPosterStub(pasteboard: pasteboard),
+            focusInspector: focusInspector
+        )
+
+        let readiness = await inserter.checkReadiness(of: target)
+
+        #expect(readiness == .targetNotActivated)
+        #expect(focusInspector.targets.isEmpty)
+    }
+
+    @Test("AC-14: 自分自身が挿入先のときは、確かめは入力欄を調べずに ready")
+    func checkReadinessIsReadyForOwnApp() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        let ownTarget = InsertionTarget(processIdentifier: 4242, bundleIdentifier: "TatakiNote", localizedName: "TatakiNote")
+        let focusInspector = FocusInspectorStub(state: .notTextInput)
+        let inserter = ClipboardTextInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: true),
+            poster: PasteShortcutPosterStub(pasteboard: pasteboard),
+            focusInspector: focusInspector,
+            submitSender: SubmitKeySenderStub(pasteboard: pasteboard),
+            submitDelay: .zero,
+            settleDelay: .zero,
+            restoreDelay: .zero,
+            ownProcessIdentifier: 4242
+        )
+
+        let readiness = await inserter.checkReadiness(of: ownTarget)
+
+        #expect(readiness == .ready)
+        #expect(focusInspector.targets.isEmpty)
     }
 
     @Test("AC-13: 挿入の途中で他のアプリがクリップボードを書き換えたら、元の内容で上書きしない")
@@ -395,10 +502,13 @@ struct ClipboardTextInserterTests {
         }
     }
 
-    @Test("AC-13: 入力欄かどうか分からないアプリでは、確定+送信で今までどおり ⌘V を送り、Enter も送る")
-    func pastesAndSendsWhenFocusIsUnknown() async {
+    @Test("AC-14: 入力欄かどうか分からないアプリでは、確定+送信でも ⌘V も Enter も送らず、クリップボードも変えない")
+    func doesNotPasteOrSendWhenFocusIsUnknown() async {
         let pasteboard = PasteboardFixture.makePasteboard()
         defer { pasteboard.releaseGlobally() }
+        PasteboardFixture.writeRichContents(to: pasteboard)
+        let original = PasteboardSnapshot.capture(from: pasteboard)
+        let changeCountBefore = pasteboard.changeCount
         let activator = ActivatorStub(result: true)
         let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
         let submitSender = SubmitKeySenderStub(pasteboard: pasteboard)
@@ -412,10 +522,11 @@ struct ClipboardTextInserterTests {
 
         let result = await inserter.insert("hello", into: target, shouldSendAfterInsert: true)
 
-        #expect(result == .inserted)
-        #expect(poster.records.first?.string == "hello")
-        #expect(submitSender.records.count == 1)
-        #expect(submitSender.records.first?.target == target)
+        #expect(result == .noTextInput)
+        #expect(poster.records.isEmpty)
+        #expect(submitSender.records.isEmpty)
+        #expect(pasteboard.changeCount == changeCountBefore)
+        #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
     }
 
     // MARK: - 写し取りと書き戻し
