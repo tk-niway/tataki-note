@@ -72,6 +72,56 @@ struct TargetWindowLocatorTests {
         #expect(TargetWindowLocator.frontWindowBounds(in: [], processIdentifier: targetPID) == nil)
     }
 
+    @Test("AC-4: ウィンドウの一覧から、所有者・階層・枠が読める項目だけを並びのまま取り出す")
+    func onScreenWindowsKeepsOrderOfReadableEntries() {
+        let first = CGRect(x: 0, y: 0, width: 300, height: 300)
+        let second = CGRect(x: 10, y: 10, width: 200, height: 400)
+        let third = CGRect(x: 50, y: 60, width: 70, height: 80)
+        let windowList: [[String: Any]] = [
+            window(pid: otherPID, layer: 0, bounds: first),
+            [
+                kCGWindowOwnerPID as String: NSNumber(value: targetPID),
+                kCGWindowBounds as String: second.dictionaryRepresentation,
+            ],
+            [
+                kCGWindowLayer as String: NSNumber(value: 0),
+                kCGWindowBounds as String: second.dictionaryRepresentation,
+            ],
+            [
+                kCGWindowOwnerPID as String: NSNumber(value: targetPID),
+                kCGWindowLayer as String: NSNumber(value: 0),
+                kCGWindowBounds as String: "壊れた値",
+            ],
+            window(pid: targetPID, layer: 101, bounds: second),
+            window(pid: targetPID, layer: 0, bounds: third),
+        ]
+
+        #expect(TargetWindowLocator.onScreenWindows(in: windowList) == [
+            OnScreenWindow(processIdentifier: otherPID, layer: 0, bounds: first),
+            OnScreenWindow(processIdentifier: targetPID, layer: 101, bounds: second),
+            OnScreenWindow(processIdentifier: targetPID, layer: 0, bounds: third),
+        ])
+        #expect(TargetWindowLocator.onScreenWindows(in: []).isEmpty)
+    }
+
+    @Test("AC-4: 透明度が 0 のウィンドウは飛ばし、0 でないものと透明度の無いものは残す")
+    func onScreenWindowsSkipsTransparentWindows() {
+        let bounds = CGRect(x: 0, y: 0, width: 100, height: 100)
+        func withAlpha(_ alpha: Double?, pid: pid_t) -> [String: Any] {
+            var entry = window(pid: pid, layer: 0, bounds: bounds)
+            if let alpha { entry[kCGWindowAlpha as String] = NSNumber(value: alpha) }
+            return entry
+        }
+        let windowList = [
+            withAlpha(0, pid: 1),
+            withAlpha(0.5, pid: 2),
+            withAlpha(nil, pid: 3),
+            withAlpha(1, pid: 4),
+        ]
+
+        #expect(TargetWindowLocator.onScreenWindows(in: windowList).map(\.processIdentifier) == [2, 3, 4])
+    }
+
     @Test("AC-5, AC-7: 選んだウィンドウの枠を左下が原点の座標に直すと、重なりの大きい画面が選ばれる")
     func selectedWindowLeadsToScreen() {
         let screenA = ScreenGeometry(
