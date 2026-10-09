@@ -123,8 +123,8 @@ struct PanelSettingsView: View {
                         Toggle(item.displayName, isOn: statusItemBinding(item))
                             .toggleStyle(.checkbox)
                             .accessibilityIdentifier("settings.statusItem.\(item.rawValue)")
-                        if model.statusItemNote(item) == .keyNotAssigned {
-                            SettingDescription(text: "キーを登録していないあいだは帯に出ません")
+                        if let note = model.statusItemNote(item) {
+                            SettingDescription(statusItemNoteText(note))
                                 .padding(.leading, 20)
                                 .accessibilityIdentifier("settings.statusItemNote.\(item.rawValue)")
                         }
@@ -152,6 +152,13 @@ struct PanelSettingsView: View {
         }
         .formStyle(.columns)
         .settingsDetailPadding()
+    }
+
+    private func statusItemNoteText(_ note: StatusItemNote) -> String {
+        switch note {
+        case .keyNotAssigned: String(localized: "キーを登録していないあいだは帯に出ません")
+        case .noteMode: String(localized: "ノートモードのあいだは帯に出ません")
+        }
     }
 
     private func statusItemBinding(_ item: PanelStatusItem) -> Binding<Bool> {

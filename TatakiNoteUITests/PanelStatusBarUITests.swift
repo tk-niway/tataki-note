@@ -13,6 +13,7 @@ final class PanelStatusBarUITests: XCTestCase {
         UserDefaults(suiteName: settingsSuiteName)?.removePersistentDomain(forName: settingsSuiteName)
     }
 
+    // AC-6
     @MainActor
     func testAC6_AC8_AC12_defaultStatusBar() throws {
         let app = try launchApp(seed: nil)
@@ -22,8 +23,8 @@ final class PanelStatusBarUITests: XCTestCase {
         XCTAssertTrue(statusBar(in: app).waitForExistence(timeout: timeout), "帯が無い")
         assertLabel(statusItem("close", in: app), "esc 閉じる")
         assertLabel(statusItem("lineBreak", in: app), "↩ 改行")
-        assertLabel(statusItem("commit", in: app), "⇧⌘↩ 確定+挿入")
-        assertLabel(statusItem("commitAndSend", in: app), "⌘↩ 確定+送信")
+        assertLabel(statusItem("commit", in: app), "⇧⌘↩ 挿入")
+        assertLabel(statusItem("commitAndSend", in: app), "⌘↩ 送信")
         assertLabel(statusItem("characterCount", in: app), "0文字")
         assertLabel(statusItem("lineCount", in: app), "0行")
 
@@ -52,9 +53,10 @@ final class PanelStatusBarUITests: XCTestCase {
         let app = try launchApp(seed: ["commitKey": "shiftEnter", "commitAndSendKey": "commandShiftEnter"])
         _ = openPanel(in: app)
         XCTAssertTrue(statusBar(in: app).waitForExistence(timeout: timeout), "帯が無い")
+        // AC-6
         // AC-9
-        assertLabel(statusItem("commit", in: app), "⇧↩ 確定+挿入")
-        assertLabel(statusItem("commitAndSend", in: app), "⇧⌘↩ 確定+送信")
+        assertLabel(statusItem("commit", in: app), "⇧↩ 挿入")
+        assertLabel(statusItem("commitAndSend", in: app), "⇧⌘↩ 送信")
 
         // AC-31
         let closeX = statusItem("close", in: app).frame.minX
@@ -68,6 +70,20 @@ final class PanelStatusBarUITests: XCTestCase {
         XCTAssertLessThan(commitX, commitAndSendX)
         XCTAssertLessThan(commitAndSendX, characterCountX)
         XCTAssertLessThan(characterCountX, lineCountX)
+    }
+
+    // AC-7
+    @MainActor
+    func testAC7_noteModeHidesCommitHints() throws {
+        let app = try launchApp(seed: ["appMode": "note"])
+        _ = openPanel(in: app)
+        XCTAssertTrue(statusBar(in: app).waitForExistence(timeout: timeout), "帯が無い")
+        assertLabel(statusItem("close", in: app), "esc 閉じる")
+        assertLabel(statusItem("lineBreak", in: app), "↩ 改行")
+        assertLabel(statusItem("characterCount", in: app), "0文字")
+        assertLabel(statusItem("lineCount", in: app), "0行")
+        XCTAssertFalse(statusItem("commit", in: app).exists)
+        XCTAssertFalse(statusItem("commitAndSend", in: app).exists)
     }
 
     // AC-10

@@ -1,0 +1,158 @@
+import AppKit
+import Foundation
+import Testing
+@testable import TatakiNote
+
+@MainActor
+private final class HotkeyRecorder {
+    private(set) var pauseCount = 0
+    private(set) var resumeCount = 0
+
+    func pause() { pauseCount += 1 }
+    func resume() { resumeCount += 1 }
+}
+
+@MainActor
+struct NoteModeKeySettingsTests {
+    private func makeModel(settings: AppSettings, recorder: HotkeyRecorder) -> PanelKeySettingsModel {
+        PanelKeySettingsModel(
+            settings: settings,
+            hotkey: { nil },
+            pauseHotkey: { recorder.pause() },
+            resumeHotkey: { recorder.resume() },
+            setHotkey: { _ in }
+        )
+    }
+
+    private func candidate(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, characters: String) -> PanelShortcutCandidate {
+        PanelShortcutCandidate(shortcut: PanelShortcut(keyCode: keyCode, modifiers: modifiers), characters: characters)
+    }
+
+    // MARK: - AC-8
+
+    @Test("AC-8: もう一方が未登録の確定+挿入キーは消せず、理由が出て、記録は終わる(ホットキーも戻る)")
+    func lastCommitKeyIsNotCleared() throws {
+        let temp = try TemporaryDefaults()
+        defer { temp.remove() }
+        let settings = temp.makeSettings()
+        settings.selectCommitAndSendKey(nil)
+        let recorder = HotkeyRecorder()
+        let model = makeModel(settings: settings, recorder: recorder)
+
+        model.beginRecording(.commit)
+        #expect(recorder.pauseCount == 1)
+        model.clear(.commit)
+
+        #expect(settings.commitKey == .defaultCommitKey)
+        #expect(settings.commitAndSendKey == nil)
+        #expect(model.rejectionMessage(for: .commit) == PanelKeySettingsModel.lastKeyClearMessage)
+        #expect(model.recordingRole == nil)
+        #expect(recorder.resumeCount == 1)
+        let reloaded = temp.makeSettings()
+        #expect(reloaded.commitKey == .defaultCommitKey)
+    }
+
+    @Test("AC-8: もう一方が未登録の確定+送信キーも消せず、理由が出る(記録していなくても理由は出る)")
+    func lastCommitAndSendKeyIsNotCleared() throws {
+        let temp = try TemporaryDefaults()
+        defer { temp.remove() }
+        let settings = temp.makeSettings()
+        settings.selectCommitKey(nil)
+        let recorder = HotkeyRecorder()
+        let model = makeModel(settings: settings, recorder: recorder)
+
+        model.clear(.commitAndSend)
+
+        #expect(settings.commitAndSendKey == .defaultCommitAndSendKey)
+        #expect(settings.commitKey == nil)
+        #expect(model.rejectionMessage(for: .commitAndSend) == PanelKeySettingsModel.lastKeyClearMessage)
+        #expect(model.rejectionMessage(for: .commit) == nil)
+        #expect(recorder.pauseCount == 0)
+        #expect(recorder.resumeCount == 0)
+    }
+
+    @Test("AC-8: もう一方が登録済みなら今までどおり消せ、理由は出ない")
+    func keyIsClearedWhenOtherIsRegistered() throws {
+        let temp = try TemporaryDefaults()
+        defer { temp.remove() }
+        let settings = temp.makeSettings()
+        let recorder = HotkeyRecorder()
+        let model = makeModel(settings: settings, recorder: recorder)
+
+        model.beginRecording(.commit)
+        model.clear(.commit)
+
+        #expect(settings.commitKey == nil)
+        #expect(settings.commitAndSendKey == .defaultCommitAndSendKey)
+        #expect(model.rejectionMessage(for: .commit) == nil)
+        #expect(model.recordingRole == nil)
+        #expect(recorder.resumeCount == 1)
+    }
+
+    @Test("AC-8: 最後の1つが残っていても、もう一方は登録できる。登録すると理由は消える")
+    func otherKeyCanBeRegisteredWhileLastKeyRemains() throws {
+        let temp = try TemporaryDefaults()
+        defer { temp.remove() }
+        let settings = temp.makeSettings()
+        settings.selectCommitAndSendKey(nil)
+        let recorder = HotkeyRecorder()
+        let model = makeModel(settings: settings, recorder: recorder)
+
+        model.clear(.commit)
+        #expect(model.rejectionMessage(for: .commit) != nil)
+
+        model.beginRecording(.commitAndSend)
+        let accepted = model.record(candidate(keyCode: 38, modifiers: [.command], characters: "j"), for: .commitAndSend)
+
+        #expect(accepted)
+        #expect(settings.commitAndSendKey == PanelShortcut(keyCode: 38, modifiers: [.command]))
+        #expect(settings.commitKey == .defaultCommitKey)
+
+        model.beginRecording(.commit)
+        #expect(model.rejectionMessage(for: .commit) == nil)
+        model.clear(.commit)
+        #expect(settings.commitKey == nil)
+        #expect(model.rejectionMessage(for: .commit) == nil)
+    }
+
+    // MARK: - AC-9
+
+    @Test("AC-9: ノートモードでは確定+挿入キー・確定+送信キーに「帯に出ません」の注記が付く。登録の有無より優先する")
+    func statusItemNoteInNoteMode() throws {
+        let temp = try TemporaryDefaults()
+        defer { temp.remove() }
+        let settings = temp.makeSettings()
+        let model = EditorSettingsModel(settings: settings)
+
+        settings.selectAppMode(.note, hotkey: nil)
+        #expect(model.statusItemNote(.commit) == .noteMode)
+        #expect(model.statusItemNote(.commitAndSend) == .noteMode)
+        for item in [PanelStatusItem.lineBreak, .close, .characterCount, .lineCount] {
+            #expect(model.statusItemNote(item) == nil, "\(item)")
+        }
+
+        settings.selectCommitKey(nil)
+        #expect(model.statusItemNote(.commit) == .noteMode)
+
+        model.setStatusItem(.commit, isVisible: false)
+        #expect(model.statusItemNote(.commit) == .noteMode)
+    }
+
+    @Test("AC-9: インサートモードに戻すと注記は今と同じ(未登録のときだけ「キーを登録していないあいだは帯に出ません」)")
+    func statusItemNoteInInsertMode() throws {
+        let temp = try TemporaryDefaults()
+        defer { temp.remove() }
+        let settings = temp.makeSettings()
+        let model = EditorSettingsModel(settings: settings)
+
+        #expect(model.statusItemNote(.commit) == nil)
+        #expect(model.statusItemNote(.commitAndSend) == nil)
+
+        settings.selectAppMode(.note, hotkey: nil)
+        settings.selectCommitKey(nil)
+        settings.selectAppMode(.insert, hotkey: nil)
+
+        #expect(model.statusItemNote(.commit) == .keyNotAssigned)
+        #expect(model.statusItemNote(.commitAndSend) == nil)
+    }
+}

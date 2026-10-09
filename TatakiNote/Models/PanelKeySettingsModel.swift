@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 
 /// 設定画面の「確定+挿入キー」「確定+送信キー」の記録ボックスの状態。
@@ -86,7 +87,16 @@ import Observation
         return true
     }
 
+    /// 確定+挿入キーと確定+送信キーの最後の1つを消そうとしたときの理由。
+    static let lastKeyClearMessage = String(localized: "確定+挿入キーと確定+送信キーの両方を未登録にはできません。挿入せずに使うときは、ノートモードにしてください。")
+
     func clear(_ role: PanelShortcutRole) {
+        let otherRole: PanelShortcutRole = role == .commit ? .commitAndSend : .commit
+        if shortcut(for: otherRole) == nil {
+            rejectionMessages[role] = Self.lastKeyClearMessage
+            endRecording(role)
+            return
+        }
         rejectionMessages[role] = nil
         switch role {
         case .commit: settings.selectCommitKey(nil)
