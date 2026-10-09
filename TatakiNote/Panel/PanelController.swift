@@ -80,7 +80,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         saveAnimation: SaveAnimationModel = SaveAnimationModel(),
         animator: PanelFrameAnimating = AppKitPanelFrameAnimator(),
         hideApplication: @escaping () -> Void = { NSApp.hide(nil) },
-        makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil
+        makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil,
+        isKeyboardNavigationEnabled: @escaping () -> Bool = { NSApplication.shared.isFullKeyboardAccessEnabled }
     ) {
         let panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
         self.model = model
@@ -110,7 +111,12 @@ final class PanelController: NSObject, NSWindowDelegate {
             panelModel: model,
             panel: panel
         )
-        let session = DraftSession(panel: model, library: library, ownProcessIdentifier: ownProcessIdentifier)
+        let session = DraftSession(
+            panel: model,
+            library: library,
+            ownProcessIdentifier: ownProcessIdentifier,
+            isKeyboardNavigationEnabled: isKeyboardNavigationEnabled
+        )
         self.session = session
         self.sidebarModel = SidebarModel(settings: settings, library: library, session: session)
         self.saveAnimation = saveAnimation
@@ -365,6 +371,12 @@ final class PanelController: NSObject, NSWindowDelegate {
         guard !input.hasMarkedText else { return false }
         if let choice = PanelKeyResolver.confirmationChoice(for: input) {
             session.resolvePendingSwitch(choice)
+        } else if let key = PanelKeyResolver.confirmationFocusKey(for: input) {
+            switch key {
+            case .next: session.moveConfirmationFocus(by: 1)
+            case .previous: session.moveConfirmationFocus(by: -1)
+            case .pressFocused: session.resolveFocusedConfirmation()
+            }
         }
         return true
     }

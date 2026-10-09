@@ -36,20 +36,38 @@ struct DraftSaveEvent: Equatable {
 /// パネルの文章と、下書き・履歴との結びつき。
 @Observable final class DraftSession {
     private(set) var document: PanelDocument = .scratch
-    private(set) var pendingSwitch: DocumentSwitch?
+    private(set) var pendingSwitch: DocumentSwitch? {
+        didSet {
+            guard pendingSwitch != oldValue else { return }
+            confirmationFocus = pendingSwitch == nil ? nil : (isKeyboardNavigationEnabled() ? .save : nil)
+        }
+    }
     private(set) var lastSaveEvent: DraftSaveEvent?
+
+    /// 確認で、キーボードで選んでいるボタン。確認が無いときと、キーボードナビゲーションがオフのときは nil。
+    private(set) var confirmationFocus: UnsavedTextChoice?
+
+    /// 確認のボタンの、Tab で進む順。
+    static let confirmationFocusOrder: [UnsavedTextChoice] = [.discard, .cancel, .save]
 
     @ObservationIgnored private let panel: PanelModel
     @ObservationIgnored private let library: DraftLibrary
     @ObservationIgnored private let ownProcessIdentifier: pid_t
+    @ObservationIgnored private let isKeyboardNavigationEnabled: () -> Bool
     @ObservationIgnored private var isReplacingText = false
     @ObservationIgnored private var saveEventSequence = 0
     @ObservationIgnored private var insertingDocument: (document: PanelDocument, text: String)?
 
-    init(panel: PanelModel, library: DraftLibrary, ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier) {
+    init(
+        panel: PanelModel,
+        library: DraftLibrary,
+        ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier,
+        isKeyboardNavigationEnabled: @escaping () -> Bool = { false }
+    ) {
         self.panel = panel
         self.library = library
         self.ownProcessIdentifier = ownProcessIdentifier
+        self.isKeyboardNavigationEnabled = isKeyboardNavigationEnabled
         panel.onTextChange = { [weak self] text in
             self?.panelTextDidChange(text)
         }
@@ -117,6 +135,20 @@ struct DraftSaveEvent: Equatable {
         case .cancel:
             pendingSwitch = nil
         }
+    }
+
+    /// 選んでいるボタンを、Tab で進む順に offset だけ動かす。端では反対の端へ回る。選んでいるボタンが無ければ何もしない。
+    func moveConfirmationFocus(by offset: Int) {
+        let order = Self.confirmationFocusOrder
+        guard let focus = confirmationFocus, let index = order.firstIndex(of: focus) else { return }
+        let count = order.count
+        confirmationFocus = order[((index + offset) % count + count) % count]
+    }
+
+    /// 選んでいるボタンで確認に答える。選んでいるボタンが無ければ何もしない。
+    func resolveFocusedConfirmation() {
+        guard let focus = confirmationFocus else { return }
+        resolvePendingSwitch(focus)
     }
 
     // MARK: - 削除

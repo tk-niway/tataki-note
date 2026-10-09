@@ -378,6 +378,64 @@ struct PanelKeyResolverTests {
         }
     }
 
+    @Test("AC-7, AC-8: 確認中の Tab は次、⇧Tab は前、Space は選んでいるボタンを押すになり、Caps Lock・テンキーの印は影響しない")
+    func confirmationFocusKeys() {
+        for extra: NSEvent.ModifierFlags in [[], [.capsLock], [.numericPad]] {
+            let tab = PanelKeyInput(keyCode: KeyCode.tab, modifiers: extra, hasMarkedText: false)
+            let shiftTab = PanelKeyInput(keyCode: KeyCode.tab, modifiers: extra.union(.shift), hasMarkedText: false)
+            let space = PanelKeyInput(keyCode: KeyCode.space, modifiers: extra, hasMarkedText: false)
+            #expect(PanelKeyResolver.confirmationFocusKey(for: tab) == .next, "\(tab)")
+            #expect(PanelKeyResolver.confirmationFocusKey(for: shiftTab) == .previous, "\(shiftTab)")
+            #expect(PanelKeyResolver.confirmationFocusKey(for: space) == .pressFocused, "\(space)")
+        }
+    }
+
+    @Test("AC-7, AC-8: 確認中の矢印・修飾キー付きの Tab・⇧Space・文字は、選んでいるボタンを動かす・押すキーにならない")
+    func confirmationFocusKeyIgnoresOtherKeys() {
+        let others = [
+            PanelKeyInput(keyCode: 123, modifiers: [], hasMarkedText: false),
+            PanelKeyInput(keyCode: 124, modifiers: [], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.upArrow, modifiers: [], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.downArrow, modifiers: [], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.tab, modifiers: [.control], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.tab, modifiers: [.option], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.tab, modifiers: [.command], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.tab, modifiers: [.shift, .command], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.space, modifiers: [.shift], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.space, modifiers: [.command], hasMarkedText: false),
+            PanelKeyInput(keyCode: 0, modifiers: [], hasMarkedText: false, characters: "a"),
+            PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.escape, modifiers: [], hasMarkedText: false),
+        ]
+        for input in others {
+            #expect(PanelKeyResolver.confirmationFocusKey(for: input) == nil, "\(input)")
+        }
+    }
+
+    @Test("AC-11: 未確定の文字があるときの Tab・⇧Tab・Space は、選んでいるボタンを動かす・押すキーにならない")
+    func confirmationFocusKeyIgnoresMarkedText() {
+        let composing = [
+            PanelKeyInput(keyCode: KeyCode.tab, modifiers: [], hasMarkedText: true),
+            PanelKeyInput(keyCode: KeyCode.tab, modifiers: [.shift], hasMarkedText: true),
+            PanelKeyInput(keyCode: KeyCode.space, modifiers: [], hasMarkedText: true),
+        ]
+        for input in composing {
+            #expect(PanelKeyResolver.confirmationFocusKey(for: input) == nil, "\(input)")
+        }
+    }
+
+    @Test("AC-7, AC-8, AC-11: Tab・⇧Tab・Space は、確認の答え(保存・保存しない・キャンセル)にならない")
+    func focusKeysAreNotConfirmationChoices() {
+        let inputs = [
+            PanelKeyInput(keyCode: KeyCode.tab, modifiers: [], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.tab, modifiers: [.shift], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.space, modifiers: [], hasMarkedText: false),
+        ]
+        for input in inputs {
+            #expect(PanelKeyResolver.confirmationChoice(for: input) == nil, "\(input)")
+        }
+    }
+
     // MARK: - 割り当てていない ⌘ つきの Enter の改行
 
     @Test("AC-11: ⌘Enter・⌘⇧Enter は入力欄が自分で改行を入れる対象になり、修飾なし・Shift だけ・⌥ や ⌃ を含むもの・変換中・Enter 以外のキーは対象にならない")

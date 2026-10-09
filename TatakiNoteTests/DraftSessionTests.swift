@@ -13,14 +13,23 @@ struct DraftSessionTests {
         let library: DraftLibrary
         let session: DraftSession
 
-        init(store: DraftLibraryStore, target: InsertionTarget?) {
+        init(store: DraftLibraryStore, target: InsertionTarget?, isKeyboardNavigationEnabled: @escaping () -> Bool = { false }) {
             library = DraftLibrary(store: store)
-            session = DraftSession(panel: panel, library: library, ownProcessIdentifier: DraftSessionTests.ownProcessIdentifier)
+            session = DraftSession(
+                panel: panel,
+                library: library,
+                ownProcessIdentifier: DraftSessionTests.ownProcessIdentifier,
+                isKeyboardNavigationEnabled: isKeyboardNavigationEnabled
+            )
             panel.present(target: target)
         }
 
         convenience init() {
             self.init(store: .inMemory, target: DraftSessionTests.safari)
+        }
+
+        convenience init(isKeyboardNavigationEnabled: @escaping () -> Bool) {
+            self.init(store: .inMemory, target: DraftSessionTests.safari, isKeyboardNavigationEnabled: isKeyboardNavigationEnabled)
         }
 
         convenience init(store: DraftLibraryStore) {
@@ -305,6 +314,172 @@ struct DraftSessionTests {
         #expect(fixture.session.pendingSwitch == nil)
         #expect(fixture.panel.text == "unsaved")
         #expect(fixture.session.document == .scratch)
+    }
+
+    // MARK: - 確認で選んでいるボタン
+
+    @Test("AC-6: 確認が出たとき、キーボードナビゲーションがオンなら選んでいるボタンは「保存」、オフなら無し")
+    func confirmationFocusStartsOnSaveOnlyWhenKeyboardNavigationIsOn() {
+        let on = Fixture(isKeyboardNavigationEnabled: { true })
+        let off = Fixture(isKeyboardNavigationEnabled: { false })
+        for fixture in [on, off] {
+            fixture.panel.text = "typed"
+            #expect(fixture.session.confirmationFocus == nil)
+            fixture.session.request(.newScratch)
+        }
+
+        #expect(on.session.pendingSwitch == .newScratch)
+        #expect(on.session.confirmationFocus == .save)
+        #expect(off.session.pendingSwitch == .newScratch)
+        #expect(off.session.confirmationFocus == nil)
+    }
+
+    @Test("AC-6: 確認中に別の切り替え先で確認を出し直すと、選んでいるボタンは「保存」に戻る")
+    func reissuedConfirmationResetsFocusToSave() throws {
+        let fixture = Fixture(isKeyboardNavigationEnabled: { true })
+        let draft = try #require(fixture.library.addDraft(text: "saved"))
+        fixture.panel.text = "typed"
+        fixture.session.request(.newScratch)
+        fixture.session.moveConfirmationFocus(by: 1)
+        #expect(fixture.session.confirmationFocus == .discard)
+
+        fixture.session.request(.draft(draft.id))
+
+        #expect(fixture.session.pendingSwitch == .draft(draft.id))
+        #expect(fixture.session.confirmationFocus == .save)
+    }
+
+    @Test("AC-6: 確認に答える・取り消すと、選んでいるボタンは無くなる", arguments: [UnsavedTextChoice.save, .discard, .cancel])
+    func resolvingConfirmationClearsFocus(choice: UnsavedTextChoice) {
+        let fixture = Fixture(isKeyboardNavigationEnabled: { true })
+        fixture.panel.text = "typed"
+        fixture.session.request(.newScratch)
+        #expect(fixture.session.confirmationFocus == .save)
+
+        fixture.session.resolvePendingSwitch(choice)
+
+        #expect(fixture.session.pendingSwitch == nil)
+        #expect(fixture.session.confirmationFocus == nil)
+    }
+
+    @Test("AC-6: キーボードナビゲーションの設定は確認が出た時点の値を使い、確認の途中で変わっても、その確認の間は変わらない")
+    func keyboardNavigationIsReadWhenConfirmationAppears() {
+        var isOn = true
+        let fixture = Fixture(isKeyboardNavigationEnabled: { isOn })
+        fixture.panel.text = "typed"
+        fixture.session.request(.newScratch)
+
+        isOn = false
+
+        #expect(fixture.session.confirmationFocus == .save)
+        fixture.session.moveConfirmationFocus(by: 1)
+        #expect(fixture.session.confirmationFocus == .discard)
+    }
+
+    @Test("AC-7: Tab の順に「保存」→「保存しない」→「キャンセル」→「保存」と移り、逆向きでは逆に回る")
+    func confirmationFocusMovesAndWraps() {
+        let fixture = Fixture(isKeyboardNavigationEnabled: { true })
+        fixture.panel.text = "typed"
+        fixture.session.request(.newScratch)
+
+        var forward: [UnsavedTextChoice?] = []
+        for _ in 0..<4 {
+            fixture.session.moveConfirmationFocus(by: 1)
+            forward.append(fixture.session.confirmationFocus)
+        }
+        #expect(forward == [.discard, .cancel, .save, .discard])
+
+        var backward: [UnsavedTextChoice?] = []
+        for _ in 0..<4 {
+            fixture.session.moveConfirmationFocus(by: -1)
+            backward.append(fixture.session.confirmationFocus)
+        }
+        #expect(backward == [.save, .cancel, .discard, .save])
+        #expect(fixture.session.pendingSwitch == .newScratch)
+        #expect(fixture.panel.text == "typed")
+    }
+
+    @Test("AC-7: キーボードナビゲーションがオフのとき、選んでいるボタンを動かしても何も選ばれない")
+    func confirmationFocusDoesNotMoveWhenKeyboardNavigationIsOff() {
+        let fixture = Fixture(isKeyboardNavigationEnabled: { false })
+        fixture.panel.text = "typed"
+        fixture.session.request(.newScratch)
+
+        fixture.session.moveConfirmationFocus(by: 1)
+        fixture.session.moveConfirmationFocus(by: -1)
+
+        #expect(fixture.session.confirmationFocus == nil)
+        #expect(fixture.session.pendingSwitch == .newScratch)
+        #expect(fixture.panel.text == "typed")
+    }
+
+    @Test("AC-7: 確認が無いときに選んでいるボタンを動かしても何も起きない")
+    func confirmationFocusDoesNotMoveWithoutConfirmation() {
+        let fixture = Fixture(isKeyboardNavigationEnabled: { true })
+
+        fixture.session.moveConfirmationFocus(by: 1)
+
+        #expect(fixture.session.confirmationFocus == nil)
+        #expect(fixture.session.pendingSwitch == nil)
+    }
+
+    @Test("AC-8: 選んでいるボタンが「保存」なら、押すと保存して切り替わる")
+    func resolveFocusedSaveSavesAndSwitches() throws {
+        let fixture = Fixture(isKeyboardNavigationEnabled: { true })
+        fixture.panel.text = "typed"
+        fixture.session.request(.newScratch)
+
+        fixture.session.resolveFocusedConfirmation()
+
+        let draft = try #require(fixture.library.drafts.first)
+        #expect(draft.text == "typed")
+        #expect(fixture.session.pendingSwitch == nil)
+        #expect(fixture.panel.text == "")
+        #expect(fixture.session.document == .scratch)
+    }
+
+    @Test("AC-8: 選んでいるボタンが「保存しない」なら、押すと捨てて切り替わる")
+    func resolveFocusedDiscardDiscardsAndSwitches() {
+        let fixture = Fixture(isKeyboardNavigationEnabled: { true })
+        fixture.panel.text = "typed"
+        fixture.session.request(.newScratch)
+        fixture.session.moveConfirmationFocus(by: 1)
+        #expect(fixture.session.confirmationFocus == .discard)
+
+        fixture.session.resolveFocusedConfirmation()
+
+        #expect(fixture.library.drafts.isEmpty)
+        #expect(fixture.session.pendingSwitch == nil)
+        #expect(fixture.panel.text == "")
+    }
+
+    @Test("AC-8: 選んでいるボタンが「キャンセル」なら、押すと切り替えず文章もそのまま")
+    func resolveFocusedCancelKeepsEverything() {
+        let fixture = Fixture(isKeyboardNavigationEnabled: { true })
+        fixture.panel.text = "typed"
+        fixture.session.request(.newScratch)
+        fixture.session.moveConfirmationFocus(by: -1)
+        #expect(fixture.session.confirmationFocus == .cancel)
+
+        fixture.session.resolveFocusedConfirmation()
+
+        #expect(fixture.library.drafts.isEmpty)
+        #expect(fixture.session.pendingSwitch == nil)
+        #expect(fixture.panel.text == "typed")
+        #expect(fixture.session.document == .scratch)
+    }
+
+    @Test("AC-8: キーボードナビゲーションがオフのとき、選んでいるボタンを押しても何もせず、確認も文章も変わらない")
+    func resolveFocusedDoesNothingWhenKeyboardNavigationIsOff() {
+        let fixture = Fixture(isKeyboardNavigationEnabled: { false })
+        fixture.panel.text = "typed"
+        fixture.session.request(.newScratch)
+
+        fixture.session.resolveFocusedConfirmation()
+
+        #expect(fixture.session.pendingSwitch == .newScratch)
+        #expect(fixture.panel.text == "typed")
+        #expect(fixture.library.drafts.isEmpty)
     }
 
     // MARK: - 挿入
