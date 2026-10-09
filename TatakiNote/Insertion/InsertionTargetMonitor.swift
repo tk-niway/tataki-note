@@ -150,6 +150,12 @@ final class InsertionTargetMonitor {
         outline.update(resolution.outline)
     }
 
+    /// 覚えている入力欄の位置を今1回読み、まだ使える入力欄かを返す。
+    func isTrackedFieldReadable() -> Bool {
+        guard isWatching, let field else { return false }
+        return probe.frame(of: field) != nil || !hasReadableFrame
+    }
+
     /// 他のアプリでマウスが離されたときの処理。
     func handleClick() {
         guard isWatching else { return }

@@ -19,8 +19,6 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let library: DraftLibrary
     private let targetMonitor: InsertionTargetMonitor
     private let outlineController: InsertionTargetOutlineController
-    private let inserter: TextInserting
-    private var pendingInsertionCheck: Task<Void, Never>?
 
     let session: DraftSession
     let sidebarModel: SidebarModel
@@ -93,7 +91,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.targetTracker = targetTracker
         self.permission = permission
         self.performer = CommitPerformer(model: model, permission: permission, inserter: inserter)
-        self.inserter = inserter
         self.fieldProbe = fieldProbe
         self.exposeWebContent = exposeWebContent
         self.locateTargetWindowFrame = locateTargetWindowFrame
@@ -145,22 +142,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         configureSidebarModel()
         observeBodyFocusRequests()
         observeSaveEvents()
-        observeInsertionCheckCancellation()
         targetMonitor.onFieldAdopted = { [weak self] in self?.returnInputToPanel() }
-    }
-
-    private func observeInsertionCheckCancellation() {
-        observeRepeatedly(
-            tracking: { [weak self] in _ = self?.model.isPresented },
-            onChange: { [weak self] in
-                guard let self else { return false }
-                if !self.model.isPresented {
-                    self.pendingInsertionCheck?.cancel()
-                    self.pendingInsertionCheck = nil
-                }
-                return true
-            }
-        )
     }
 
     private func observeSaveEvents() {
@@ -523,58 +505,32 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     // MARK: - 確定
 
-    /// 閉じる前に挿入できるかを確かめる挿入先。確かめずに進めるときは nil。
-    static func insertionTargetToCheck(
+    /// 閉じる前に、覚えている入力欄の位置が読めるかを確かめるか。
+    static func shouldCheckTrackedField(
         target: InsertionTarget?,
         text: String,
         isTrusted: Bool,
         ownProcessIdentifier: pid_t
-    ) -> InsertionTarget? {
-        guard !text.isEmpty, isTrusted, let target, !target.isOwnApp(ownProcessIdentifier) else { return nil }
-        return target
+    ) -> Bool {
+        guard !text.isEmpty, isTrusted, let target else { return false }
+        return !target.isOwnApp(ownProcessIdentifier)
     }
 
     func commit(shouldSendAfterInsert: Bool = false) {
-        guard pendingInsertionCheck == nil else { return }
         library.flush()
-        guard let target = Self.insertionTargetToCheck(
+        let shouldCheckField = Self.shouldCheckTrackedField(
             target: model.target,
             text: model.text,
             isTrusted: permission.isTrusted,
             ownProcessIdentifier: ownProcessIdentifier
-        ) else {
-            performCommit(shouldSendAfterInsert: shouldSendAfterInsert)
-            return
-        }
-        let inserter = inserter
-        pendingInsertionCheck = Task { [weak self] in
-            let readiness = await inserter.checkReadiness(of: target)
-            self?.finishInsertionCheck(readiness, target: target, shouldSendAfterInsert: shouldSendAfterInsert)
-        }
-    }
-
-    private func finishInsertionCheck(
-        _ readiness: InsertionReadiness,
-        target: InsertionTarget,
-        shouldSendAfterInsert: Bool
-    ) {
-        guard !Task.isCancelled else { return }
-        pendingInsertionCheck = nil
-        guard model.isPresented else { return }
-        guard let current = model.target else {
-            model.signalNoTarget()
-            returnInputToPanel()
-            return
-        }
-        guard current.processIdentifier == target.processIdentifier else { return }
-        switch readiness {
-        case .ready:
-            performCommit(shouldSendAfterInsert: shouldSendAfterInsert)
-        case .targetNotActivated, .noTextInput:
+        )
+        if shouldCheckField, !targetMonitor.isTrackedFieldReadable() {
             targetMonitor.rejectCurrentField()
             model.signalNoTarget()
             returnInputToPanel()
+            return
         }
+        performCommit(shouldSendAfterInsert: shouldSendAfterInsert)
     }
 
     private func performCommit(shouldSendAfterInsert: Bool) {

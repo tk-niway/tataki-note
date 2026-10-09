@@ -6,16 +6,7 @@ enum InsertionResult: Equatable {
     case noTextInput
 }
 
-/// 挿入する前の確かめの結果。
-enum InsertionReadiness: Equatable {
-    case ready
-    case targetNotActivated
-    case noTextInput
-}
-
 protocol TextInserting {
-    /// 挿入先のアプリを前面にし、入力欄が選ばれているかを確かめる。貼り付けはしない。
-    func checkReadiness(of target: InsertionTarget) async -> InsertionReadiness
     func insert(_ text: String, into target: InsertionTarget, shouldSendAfterInsert: Bool) async -> InsertionResult
 }
 
@@ -229,17 +220,6 @@ final class ClipboardTextInserter: TextInserting {
         self.restoreDelay = restoreDelay
         self.ownProcessIdentifier = ownProcessIdentifier
         self.snapshotter = snapshotter ?? BackgroundPasteboardSnapshotter(pasteboard: pasteboard)
-    }
-
-    func checkReadiness(of target: InsertionTarget) async -> InsertionReadiness {
-        guard await activator.activate(target) else {
-            return .targetNotActivated
-        }
-        if target.isOwnApp(ownProcessIdentifier) {
-            return .ready
-        }
-        try? await Task.sleep(for: settleDelay)
-        return focusInspector.focusedTextInputState(in: target) == .textInput ? .ready : .noTextInput
     }
 
     func insert(_ text: String, into target: InsertionTarget, shouldSendAfterInsert: Bool) async -> InsertionResult {

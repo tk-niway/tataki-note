@@ -5,22 +5,6 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-private final class ReadinessGate {
-    private var continuation: CheckedContinuation<Void, Never>?
-
-    var isWaiting: Bool { continuation != nil }
-
-    func wait() async {
-        await withCheckedContinuation { continuation = $0 }
-    }
-
-    func release() {
-        continuation?.resume()
-        continuation = nil
-    }
-}
-
-@MainActor
 private final class FrontApplicationBox {
     var app: InsertionTarget?
 }
@@ -125,18 +109,15 @@ struct PanelInsertionCheckTests {
         _ = try? await waitUntil(attempts: 300, interval: .milliseconds(10), condition)
     }
 
-    private func waitUntilGateIsWaiting(_ gate: ReadinessGate) async {
-        await waitFor { gate.isWaiting }
-    }
-
     // MARK: - AC-11
 
-    @Test("AC-11: 挿入先なしで確定・確定+送信すると、パネルは開いたまま文章もそのままで、挿入も確かめもされず、合図が1回増え、履歴に残らない", arguments: [false, true])
+    @Test("AC-11: 挿入先なしで確定・確定+送信すると、パネルは開いたまま文章もそのままで、挿入も入力欄の確かめもされず、合図が1回増え、履歴に残らない", arguments: [false, true])
     func noTargetCommitKeepsPanelOpen(shouldSend: Bool) async throws {
         try await withFixture(target: nil) { fixture in
             openWithText(fixture, "draft")
             #expect(fixture.model.target == nil)
             let alertsBefore = fixture.model.noTargetAlertCount
+            let framesBefore = fixture.probe.frameRequests.count
 
             fixture.controller.commit(shouldSendAfterInsert: shouldSend)
             await settle()
@@ -144,7 +125,7 @@ struct PanelInsertionCheckTests {
             #expect(fixture.model.isPresented)
             #expect(fixture.model.text == "draft")
             #expect(fixture.model.noTargetAlertCount == alertsBefore + 1)
-            #expect(fixture.inserter.readinessChecks.isEmpty)
+            #expect(fixture.probe.frameRequests.count == framesBefore)
             #expect(fixture.inserter.calls.isEmpty)
             #expect(fixture.library.history.isEmpty)
         }
@@ -152,27 +133,21 @@ struct PanelInsertionCheckTests {
 
     // MARK: - AC-12
 
-    @Test("AC-12: 他のアプリが挿入先の確定では、確かめが済むまでパネルは閉じず挿入もせず、通ると閉じてその文章・挿入先・送信の有無で1回挿入する", arguments: [false, true])
-    func otherAppCommitChecksBeforeClosing(shouldSend: Bool) async throws {
+    @Test("AC-12: 他のアプリが挿入先の確定では、入力欄の位置を同期で1回読み、読めればその場でパネルが閉じて、その文章・挿入先・送信の有無で1回挿入する", arguments: [false, true])
+    func otherAppCommitReadsFieldOnceThenCloses(shouldSend: Bool) async throws {
         try await withFixture(target: other) { fixture in
-            let gate = ReadinessGate()
-            fixture.inserter.onCheckReadiness = { await gate.wait() }
             openWithText(fixture)
+            fixture.monitor.refresh()
             #expect(fixture.model.target == other)
+            let framesBefore = fixture.probe.frameRequests.count
 
             fixture.controller.commit(shouldSendAfterInsert: shouldSend)
-            await waitUntilGateIsWaiting(gate)
 
-            #expect(fixture.inserter.readinessChecks == [other])
-            #expect(fixture.model.isPresented)
-            #expect(fixture.model.text == "hello\nworld")
-            #expect(fixture.inserter.calls.isEmpty)
-
-            gate.release()
-            await waitFor { !fixture.inserter.calls.isEmpty }
-
+            #expect(fixture.probe.frameRequests.count == framesBefore + 1)
             #expect(fixture.model.isPresented == false)
-            #expect(fixture.inserter.readinessChecks.count == 1)
+            await waitFor { !fixture.inserter.calls.isEmpty }
+            await settle()
+
             #expect(fixture.inserter.calls.count == 1)
             #expect(fixture.inserter.calls.first?.text == "hello\nworld")
             #expect(fixture.inserter.calls.first?.target == other)
@@ -180,46 +155,65 @@ struct PanelInsertionCheckTests {
         }
     }
 
-    @Test("AC-12, AC-17, AC-18: 閉じる前に確かめるのは、文章があり・許可があり・挿入先が自分以外のときだけ")
-    func insertionTargetToCheckRules() {
+    @Test("AC-12: 入力欄の位置がもともと読めないアプリでも、確定ではそのままパネルが閉じて挿入される")
+    func neverReadableFieldStillInserts() async throws {
+        try await withFixture(target: other) { fixture in
+            fixture.probe.elementFrame = nil
+            openWithText(fixture)
+            fixture.monitor.refresh()
+            #expect(fixture.model.target == other)
+
+            fixture.controller.commit()
+
+            #expect(fixture.model.isPresented == false)
+            await waitFor { !fixture.inserter.calls.isEmpty }
+            #expect(fixture.inserter.calls.count == 1)
+            #expect(fixture.model.noTargetAlertCount == 0)
+        }
+    }
+
+    @Test("AC-12, AC-17, AC-18: 閉じる前に入力欄の位置を読むのは、文章があり・許可があり・挿入先が自分以外のときだけ")
+    func shouldCheckTrackedFieldRules() {
         let ownPid = Self.ownPid
-        #expect(PanelController.insertionTargetToCheck(target: other, text: "a", isTrusted: true, ownProcessIdentifier: ownPid) == other)
-        #expect(PanelController.insertionTargetToCheck(target: own, text: "a", isTrusted: true, ownProcessIdentifier: ownPid) == nil)
-        #expect(PanelController.insertionTargetToCheck(target: nil, text: "a", isTrusted: true, ownProcessIdentifier: ownPid) == nil)
-        #expect(PanelController.insertionTargetToCheck(target: other, text: "", isTrusted: true, ownProcessIdentifier: ownPid) == nil)
-        #expect(PanelController.insertionTargetToCheck(target: other, text: "a", isTrusted: false, ownProcessIdentifier: ownPid) == nil)
+        #expect(PanelController.shouldCheckTrackedField(target: other, text: "a", isTrusted: true, ownProcessIdentifier: ownPid))
+        #expect(!PanelController.shouldCheckTrackedField(target: own, text: "a", isTrusted: true, ownProcessIdentifier: ownPid))
+        #expect(!PanelController.shouldCheckTrackedField(target: nil, text: "a", isTrusted: true, ownProcessIdentifier: ownPid))
+        #expect(!PanelController.shouldCheckTrackedField(target: other, text: "", isTrusted: true, ownProcessIdentifier: ownPid))
+        #expect(!PanelController.shouldCheckTrackedField(target: other, text: "a", isTrusted: false, ownProcessIdentifier: ownPid))
     }
 
     // MARK: - AC-13
 
-    @Test("AC-13: 確かめで前面にできない・入力欄が選ばれていないと分かると、パネルは開いたまま文章もそのままで挿入せず、挿入先なしになり、合図とフォーカスの要求が1回増える", arguments: [InsertionReadiness.targetNotActivated, .noTextInput])
-    func failedCheckKeepsPanelOpen(readiness: InsertionReadiness) async throws {
+    @Test("AC-13: 覚えている入力欄の位置が読めないと分かると、パネルは開いたまま文章もそのままで挿入せず、挿入先なしになり、合図とフォーカスの要求が1回増える")
+    func unreadableFieldKeepsPanelOpen() async throws {
         try await withFixture(target: other) { fixture in
-            fixture.inserter.readiness = readiness
             openWithText(fixture)
+            fixture.monitor.refresh()
+            fixture.probe.elementFrame = nil
+            #expect(fixture.model.target == other)
             let alertsBefore = fixture.model.noTargetAlertCount
             let focusBefore = fixture.model.focusRequest
 
             fixture.controller.commit()
-            await waitFor { fixture.model.noTargetAlertCount > alertsBefore }
+            await settle()
 
             #expect(fixture.model.isPresented)
             #expect(fixture.model.text == "hello\nworld")
             #expect(fixture.model.target == nil)
-            #expect(fixture.inserter.readinessChecks == [other])
             #expect(fixture.inserter.calls.isEmpty)
             #expect(fixture.model.noTargetAlertCount == alertsBefore + 1)
             #expect(fixture.model.focusRequest == focusBefore + 1)
         }
     }
 
-    @Test("AC-13: 確かめで外れた入力欄は、フォーカスが移っても挿入先に戻らず、クリックで選び直されるまで戻らない")
+    @Test("AC-13: 位置が読めなくて外れた入力欄は、フォーカスが移っても挿入先に戻らず、クリックで選び直されると挿入先に戻る")
     func rejectedFieldReturnsOnlyWhenClicked() async throws {
         try await withFixture(target: other) { fixture in
-            fixture.inserter.readiness = .noTextInput
             openWithText(fixture)
+            fixture.monitor.refresh()
+            fixture.probe.elementFrame = nil
             fixture.controller.commit()
-            await waitFor { fixture.model.noTargetAlertCount > 0 }
+            #expect(fixture.model.noTargetAlertCount == 1)
             #expect(fixture.model.target == nil)
 
             fixture.monitor.refresh()
@@ -231,22 +225,6 @@ struct PanelInsertionCheckTests {
 
             fixture.front.app = other
             fixture.monitor.handleClick()
-            #expect(fixture.model.target == other)
-        }
-    }
-
-    @Test("AC-13: 確かめで外れた入力欄は、クリックで選び直されると挿入先に戻る")
-    func rejectedFieldReturnsWhenClicked() async throws {
-        try await withFixture(target: other) { fixture in
-            fixture.inserter.readiness = .targetNotActivated
-            openWithText(fixture)
-            fixture.controller.commit()
-            await waitFor { fixture.model.noTargetAlertCount > 0 }
-            #expect(fixture.model.target == nil)
-
-            fixture.front.app = other
-            fixture.monitor.handleClick()
-
             #expect(fixture.model.target == other)
         }
     }
@@ -290,119 +268,81 @@ struct PanelInsertionCheckTests {
 
     // MARK: - AC-16
 
-    @Test("AC-16: 確かめの途中で確定キーをもう一度押しても、確かめと挿入は1回だけ")
-    func commitDuringCheckIsIgnored() async throws {
+    @Test("AC-16: 確定キーを続けて押しても、位置を読むのも挿入も1回だけで、2回目は何も入れない")
+    func repeatedCommitInsertsOnce() async throws {
         try await withFixture(target: other) { fixture in
-            let gate = ReadinessGate()
-            fixture.inserter.onCheckReadiness = { await gate.wait() }
             openWithText(fixture)
+            fixture.monitor.refresh()
+            let framesBefore = fixture.probe.frameRequests.count
 
             fixture.controller.commit()
-            await waitUntilGateIsWaiting(gate)
             fixture.controller.commit(shouldSendAfterInsert: true)
             fixture.controller.commit()
-            gate.release()
             await waitFor { !fixture.inserter.calls.isEmpty }
             await settle()
 
-            #expect(fixture.inserter.readinessChecks.count == 1)
+            #expect(fixture.probe.frameRequests.count == framesBefore + 1)
             #expect(fixture.inserter.calls.count == 1)
             #expect(fixture.inserter.calls.first?.shouldSendAfterInsert == false)
         }
     }
 
-    @Test("AC-16: 確かめの途中にパネルを閉じると、確かめの結果では何も起きず、開き直せばまた確定できる")
-    func closingDuringCheckDiscardsResult() async throws {
+    @Test("AC-16: 見張りがすでに挿入先なしにしていれば、位置を読み直さず、挿入せずに合図が1回増え、パネルは開いたまま")
+    func targetAlreadyLostSignalsWithoutReadingAgain() async throws {
         try await withFixture(target: other) { fixture in
-            let gate = ReadinessGate()
-            fixture.inserter.onCheckReadiness = { await gate.wait() }
             openWithText(fixture)
-
-            fixture.controller.commit()
-            await waitUntilGateIsWaiting(gate)
-            fixture.controller.close()
-            await settle()
-            gate.release()
-            await settle()
-
-            #expect(fixture.inserter.calls.isEmpty)
-            #expect(fixture.model.isPresented == false)
-            #expect(fixture.model.noTargetAlertCount == 0)
-            #expect(fixture.model.text == "hello\nworld")
-
-            fixture.inserter.onCheckReadiness = nil
-            fixture.controller.open()
-            fixture.controller.commit()
-            await waitFor { !fixture.inserter.calls.isEmpty }
-
-            #expect(fixture.inserter.readinessChecks.count == 2)
-            #expect(fixture.inserter.calls.count == 1)
-        }
-    }
-
-    @Test("AC-16: 確かめの途中で挿入先なしに変わると、挿入せず合図が1回増え、パネルへフォーカスを戻す")
-    func targetLostDuringCheckSignalsNoTarget() async throws {
-        try await withFixture(target: other) { fixture in
-            let gate = ReadinessGate()
-            fixture.inserter.onCheckReadiness = { await gate.wait() }
-            openWithText(fixture)
-            let alertsBefore = fixture.model.noTargetAlertCount
-            let focusBefore = fixture.model.focusRequest
-
-            fixture.controller.commit()
-            await waitUntilGateIsWaiting(gate)
             fixture.monitor.refresh()
-            #expect(fixture.model.target == other)
             fixture.probe.elementFrame = nil
             fixture.monitor.refresh()
             #expect(fixture.model.target == nil)
-            gate.release()
-            await waitFor { fixture.model.noTargetAlertCount > alertsBefore }
+            let alertsBefore = fixture.model.noTargetAlertCount
+            let framesBefore = fixture.probe.frameRequests.count
+
+            fixture.controller.commit()
             await settle()
 
+            #expect(fixture.probe.frameRequests.count == framesBefore)
             #expect(fixture.inserter.calls.isEmpty)
             #expect(fixture.model.isPresented)
             #expect(fixture.model.text == "hello\nworld")
             #expect(fixture.model.noTargetAlertCount == alertsBefore + 1)
-            #expect(fixture.model.focusRequest == focusBefore + 1)
         }
     }
 
-    @Test("AC-16: 確かめの途中で別のアプリへ選び直されると、挿入も合図もしない")
-    func switchingAppDuringCheckDiscardsResult() async throws {
+    @Test("AC-16: 位置を読む確定の後にパネルを閉じて開き直しても、また確定すれば挿入される")
+    func commitWorksAgainAfterReopening() async throws {
         try await withFixture(target: other) { fixture in
-            let gate = ReadinessGate()
-            fixture.inserter.onCheckReadiness = { await gate.wait() }
             openWithText(fixture)
-            let alertsBefore = fixture.model.noTargetAlertCount
-
+            fixture.monitor.refresh()
+            fixture.probe.elementFrame = nil
             fixture.controller.commit()
-            await waitUntilGateIsWaiting(gate)
-            fixture.front.app = another
-            fixture.monitor.handleClick()
-            #expect(fixture.model.target == another)
-            gate.release()
-            await settle()
+            #expect(fixture.model.target == nil)
 
-            #expect(fixture.inserter.calls.isEmpty)
-            #expect(fixture.model.isPresented)
-            #expect(fixture.model.text == "hello\nworld")
-            #expect(fixture.model.noTargetAlertCount == alertsBefore)
-            #expect(fixture.model.target == another)
+            fixture.controller.close()
+            fixture.probe.elementFrame = CGRect(x: 0, y: 0, width: 100, height: 20)
+            fixture.controller.open()
+            fixture.monitor.refresh()
+            #expect(fixture.model.target == other)
+            fixture.controller.commit()
+            await waitFor { !fixture.inserter.calls.isEmpty }
+
+            #expect(fixture.inserter.calls.count == 1)
+            #expect(fixture.inserter.calls.first?.text == "hello\nworld")
         }
     }
 
     // MARK: - AC-17
 
-    @Test("AC-17: TatakiNote 自身が挿入先の確定は、確かめをせずにその場でパネルが閉じて挿入される")
+    @Test("AC-17: TatakiNote 自身が挿入先の確定は、入力欄の位置を読まずにその場でパネルが閉じて挿入される")
     func ownTargetCommitClosesImmediately() async throws {
         try await withFixture(target: own) { fixture in
             openWithText(fixture, "practice")
+            let framesBefore = fixture.probe.frameRequests.count
 
             fixture.controller.commit()
 
             #expect(fixture.model.isPresented == false)
-            #expect(fixture.inserter.readinessChecks.isEmpty)
+            #expect(fixture.probe.frameRequests.count == framesBefore)
             await waitFor { !fixture.inserter.calls.isEmpty }
             #expect(fixture.inserter.calls.count == 1)
             #expect(fixture.inserter.calls.first?.text == "practice")
@@ -412,17 +352,18 @@ struct PanelInsertionCheckTests {
 
     // MARK: - AC-18
 
-    @Test("AC-18: 許可が無いときの確定は、挿入先があっても確かめず、案内を開く処理が呼ばれてパネルが閉じ、文章は残る")
+    @Test("AC-18: 許可が無いときの確定は、挿入先があっても位置を読まず、案内を開く処理が呼ばれてパネルが閉じ、文章は残る")
     func permissionDeniedClosesWithGuide() async throws {
         try await withFixture(isTrusted: false, target: other) { fixture in
             var guideOpenCount = 0
             fixture.controller.onPermissionDenied = { guideOpenCount += 1 }
             openWithText(fixture, "draft")
+            let framesBefore = fixture.probe.frameRequests.count
 
             fixture.controller.commit()
 
             #expect(fixture.model.isPresented == false)
-            #expect(fixture.inserter.readinessChecks.isEmpty)
+            #expect(fixture.probe.frameRequests.count == framesBefore)
             await waitFor { guideOpenCount > 0 }
             #expect(guideOpenCount == 1)
             #expect(fixture.inserter.calls.isEmpty)
@@ -447,16 +388,17 @@ struct PanelInsertionCheckTests {
         }
     }
 
-    @Test("AC-18: 文章が空の確定は、挿入先があってもなくても確かめずにパネルが閉じる")
+    @Test("AC-18: 文章が空の確定は、挿入先があってもなくても位置を読まずにパネルが閉じる")
     func emptyTextCommitClosesPanel() async throws {
         for target in [other, nil] as [InsertionTarget?] {
             try await withFixture(target: target) { fixture in
                 fixture.controller.open()
+                let framesBefore = fixture.probe.frameRequests.count
 
                 fixture.controller.commit()
 
                 #expect(fixture.model.isPresented == false)
-                #expect(fixture.inserter.readinessChecks.isEmpty)
+                #expect(fixture.probe.frameRequests.count == framesBefore)
                 #expect(fixture.inserter.calls.isEmpty)
                 #expect(fixture.model.noTargetAlertCount == 0)
             }
