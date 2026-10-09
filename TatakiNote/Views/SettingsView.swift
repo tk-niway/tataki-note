@@ -49,7 +49,7 @@ struct SettingsView: View {
                 case .general:
                     GeneralSettingsView(settings: settings, launchAtLogin: launchAtLogin, history: historyModel)
                 case .keys:
-                    KeySettingsView(keySettings: keySettingsModel)
+                    KeySettingsView(keySettings: keySettingsModel, isNoteMode: settings.isNoteMode)
                 case .panel:
                     PanelSettingsView(
                         settings: settings,
@@ -75,6 +75,9 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings.sidebar.\(section.rawValue)")
         }
         .listStyle(.sidebar)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            appModeToggle
+        }
         .safeAreaInset(edge: .bottom) {
             Button(action: onQuit) {
                 Label("TatakiNote を終了", systemImage: "power")
@@ -85,6 +88,49 @@ struct SettingsView: View {
             .accessibilityIdentifier("settings.quit")
             .padding(12)
         }
+    }
+
+    private var appModeToggle: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("モード")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Picker("モード", selection: appModeBinding) {
+                    Text("インサート")
+                        .tag(AppMode.insert)
+                        .accessibilityLabel(AppMode.insert.displayName)
+                        .accessibilityIdentifier("settings.appMode.insert")
+                    Text("ノート")
+                        .tag(AppMode.note)
+                        .accessibilityLabel(AppMode.note.displayName)
+                        .accessibilityIdentifier("settings.appMode.note")
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .controlSize(.small)
+                .accessibilityIdentifier("settings.appModeToggle")
+                SettingDescription(appModeDescription)
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+            Divider()
+        }
+    }
+
+    private var appModeDescription: String {
+        switch settings.appMode {
+        case .insert: String(localized: "書いた文章を、元のアプリの入力欄に挿入します。")
+        case .note: String(localized: "挿入せず、パネルで書くだけで使います。")
+        }
+    }
+
+    private var appModeBinding: Binding<AppMode> {
+        Binding(
+            get: { settings.appMode },
+            set: { settings.selectAppMode($0, hotkey: PanelShortcut.currentHotkey()) }
+        )
     }
 
     private var selectedSectionBinding: Binding<SettingsSection?> {
