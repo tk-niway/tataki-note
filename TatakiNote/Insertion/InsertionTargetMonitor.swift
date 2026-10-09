@@ -12,7 +12,6 @@ struct InsertionTargetStart {
 /// パネルを開いている間、挿入先(今確定したら文章が入る入力欄)を見張る。
 final class InsertionTargetMonitor {
     static let pollInterval: Duration = .milliseconds(100)
-    static let unavailableBackoff: TimeInterval = 1
     static let slowQueryThreshold: TimeInterval = 0.03
     static let slowQueryBackoff: TimeInterval = 0.5
     static let clickRecheckDelay: Duration = .milliseconds(200)
@@ -48,9 +47,8 @@ final class InsertionTargetMonitor {
 
     private var app: InsertionTarget?
     private var field: AXUIElement?
-    private var rejectedElement: AXUIElement?
+    private var hasReadableFrame = false
     private var isWatching = false
-    private var unavailableUntil: Date?
     private var slowUntil: Date?
     private var pollTask: Task<Void, Never>?
     private var recheckTask: Task<Void, Never>?
@@ -116,7 +114,7 @@ final class InsertionTargetMonitor {
         end()
         self.app = app
         isWatching = true
-        let resolution = resolve(observedFocus: observedFocus)
+        let resolution = measured { resolveAtOpen(observedFocus: observedFocus, didQuery: &$0) }
         outline.update(resolution.outline)
         startClickMonitor()
         startPolling()
@@ -136,19 +134,20 @@ final class InsertionTargetMonitor {
         }
         app = nil
         field = nil
-        rejectedElement = nil
-        unavailableUntil = nil
+        hasReadableFrame = false
         slowUntil = nil
         outline.update(nil)
     }
 
-    // MARK: - 調べ直し
+    // MARK: - 位置の追従
 
-    /// 定期の調べ1回分。挿入先のアプリのフォーカスのある要素を調べ直す。
+    /// 定期の調べ1回分。挿入先の入力欄の位置だけを読み、枠線を動かす。入力欄が使えなくなったときだけ挿入先なしにする。
     func refresh() {
         guard isWatching else { return }
         if let slowUntil, slowUntil > now() { return }
-        apply()
+        let resolution = measured { trackField(didQuery: &$0) }
+        panelModel.updateTarget(resolution.target)
+        outline.update(resolution.outline)
     }
 
     /// 他のアプリでマウスが離されたときの処理。
@@ -173,19 +172,17 @@ final class InsertionTargetMonitor {
 
     /// 今の入力欄を、選び直されるまで挿入先にしない。
     func rejectCurrentField() {
-        rejectedElement = field
-        field = nil
         if let app, app.isOwnApp(ownProcessIdentifier) {
             self.app = nil
         }
-        panelModel.updateTarget(nil)
-        outline.update(nil)
+        clearField()
     }
 
-    private func apply() {
-        let resolution = resolve(observedFocus: nil)
-        panelModel.updateTarget(resolution.target)
-        outline.update(resolution.outline)
+    private func clearField() {
+        field = nil
+        hasReadableFrame = false
+        panelModel.updateTarget(nil)
+        outline.update(nil)
     }
 
     // MARK: - クリックでの選び直し
@@ -193,11 +190,11 @@ final class InsertionTargetMonitor {
     private func adoptClickedField(at location: CGPoint) -> Bool {
         guard let front = frontmostApplication(), !front.isOwnApp(ownProcessIdentifier) else { return false }
         let result = probe.probeFocusedElement(in: front, readsFrame: true)
-        guard result.element != nil,
+        guard let element = result.element,
               FocusedTextInputState.classifyForInsertion(result.lookup, bundleIdentifier: front.bundleIdentifier) == .textInput
         else {
             if front.processIdentifier == app?.processIdentifier {
-                apply()
+                clearField()
             }
             return false
         }
@@ -207,22 +204,24 @@ final class InsertionTargetMonitor {
         }
         let isNewApp = app?.processIdentifier != front.processIdentifier
         app = front
-        rejectedElement = nil
-        unavailableUntil = nil
+        field = element
+        hasReadableFrame = result.frame != nil
         slowUntil = nil
         if isNewApp {
             exposeWebContent(front)
         }
-        apply()
+        panelModel.updateTarget(front)
+        var didQuery = false
+        outline.update(outlineRect(for: front, fieldFrame: result.frame, didQuery: &didQuery))
         return true
     }
 
     // MARK: - 挿入先の決定
 
-    private func resolve(observedFocus: ObservedFocus?) -> Resolution {
+    private func measured(_ body: (inout Bool) -> Resolution) -> Resolution {
         var didQuery = false
         let startedAt = now()
-        let resolution = resolveTarget(observedFocus: observedFocus, didQuery: &didQuery)
+        let resolution = body(&didQuery)
         if didQuery {
             let finishedAt = now()
             if finishedAt.timeIntervalSince(startedAt) > Self.slowQueryThreshold {
@@ -232,7 +231,7 @@ final class InsertionTargetMonitor {
         return resolution
     }
 
-    private func resolveTarget(observedFocus: ObservedFocus?, didQuery: inout Bool) -> Resolution {
+    private func resolveAtOpen(observedFocus: ObservedFocus?, didQuery: inout Bool) -> Resolution {
         guard let app else {
             field = nil
             return Resolution()
@@ -246,17 +245,11 @@ final class InsertionTargetMonitor {
             field = nil
             return Resolution()
         }
-        if let unavailableUntil, unavailableUntil > now() {
-            field = nil
-            return Resolution()
-        }
-        unavailableUntil = nil
 
-        let isOutlineOn = isOutlineEnabled()
         var result: FocusedElementProbe
         if let observedFocus, observedFocus.processIdentifier == app.processIdentifier {
             result = observedFocus.probe
-            if isOutlineOn, result.frame == nil, let element = result.element, isTextInput(result.lookup, of: app) {
+            if isOutlineEnabled(), result.frame == nil, let element = result.element, isTextInput(result.lookup, of: app) {
                 didQuery = true
                 result = FocusedElementProbe(element: element, lookup: result.lookup, frame: probe.frame(of: element))
             }
@@ -266,34 +259,52 @@ final class InsertionTargetMonitor {
         }
         let focus = ObservedFocus(processIdentifier: app.processIdentifier, probe: result)
 
-        if result.lookup == .unavailable {
-            field = nil
-            unavailableUntil = now().addingTimeInterval(Self.unavailableBackoff)
-            return Resolution(focus: focus)
-        }
         guard let element = result.element, isTextInput(result.lookup, of: app) else {
             field = nil
-            rejectedElement = nil
             return Resolution(focus: focus)
         }
-        if let rejectedElement, CFEqual(rejectedElement, element) {
-            field = nil
-            return Resolution(focus: focus)
-        }
-        rejectedElement = nil
         field = element
+        hasReadableFrame = result.frame != nil
+        let rect = outlineRect(for: app, fieldFrame: result.frame, didQuery: &didQuery)
+        return Resolution(target: app, outline: rect, focus: focus)
+    }
 
-        var outlineRect: CGRect?
-        if isOutlineOn, let frame = result.frame {
-            didQuery = true
-            outlineRect = InsertionTargetOutlineGeometry.outlineRect(
-                fieldFrame: frame,
-                targetProcessIdentifier: app.processIdentifier,
-                ownProcessIdentifier: ownProcessIdentifier,
-                windows: onScreenWindows()
-            )
+    private func trackField(didQuery: inout Bool) -> Resolution {
+        guard let app else { return Resolution() }
+        if app.isOwnApp(ownProcessIdentifier) {
+            return (isOwnTargetAvailable?() ?? true) ? Resolution(target: app) : Resolution()
         }
-        return Resolution(target: app, outline: outlineRect, focus: focus)
+        guard isRunning(app.processIdentifier) else {
+            self.app = nil
+            field = nil
+            hasReadableFrame = false
+            return Resolution()
+        }
+        guard let field else { return Resolution() }
+
+        didQuery = true
+        let frame = probe.frame(of: field)
+        if frame == nil, hasReadableFrame {
+            self.field = nil
+            hasReadableFrame = false
+            return Resolution()
+        }
+        if frame != nil {
+            hasReadableFrame = true
+        }
+        let rect = outlineRect(for: app, fieldFrame: frame, didQuery: &didQuery)
+        return Resolution(target: app, outline: rect)
+    }
+
+    private func outlineRect(for app: InsertionTarget, fieldFrame: CGRect?, didQuery: inout Bool) -> CGRect? {
+        guard isOutlineEnabled(), let fieldFrame else { return nil }
+        didQuery = true
+        return InsertionTargetOutlineGeometry.outlineRect(
+            fieldFrame: fieldFrame,
+            targetProcessIdentifier: app.processIdentifier,
+            ownProcessIdentifier: ownProcessIdentifier,
+            windows: onScreenWindows()
+        )
     }
 
     private func isTextInput(_ lookup: FocusedElementLookup, of app: InsertionTarget) -> Bool {

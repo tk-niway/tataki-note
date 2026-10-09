@@ -6,7 +6,9 @@ import Foundation
 final class PerAppProbeStub: FocusedElementProbing {
     var results: [pid_t: FocusedElementProbe] = [:]
     var elementFrame: CGRect?
+    var elementFrames: [pid_t: CGRect] = [:]
     var onProbe: (() -> Void)?
+    var onFrameRequest: (() -> Void)?
     private(set) var targets: [InsertionTarget] = []
     private(set) var readsFrameValues: [Bool] = []
     private(set) var frameRequests: [AXUIElement] = []
@@ -20,7 +22,10 @@ final class PerAppProbeStub: FocusedElementProbing {
 
     func frame(of element: AXUIElement) -> CGRect? {
         frameRequests.append(element)
-        return elementFrame
+        onFrameRequest?()
+        var pid: pid_t = 0
+        AXUIElementGetPid(element, &pid)
+        return elementFrames[pid] ?? elementFrame
     }
 
     func probeCount(for target: InsertionTarget) -> Int {

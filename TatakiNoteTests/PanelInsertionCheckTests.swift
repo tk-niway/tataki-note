@@ -66,6 +66,7 @@ struct PanelInsertionCheckTests {
         settings.isPanelAnimationEnabled = false
         let probe = FocusedElementProbeStub()
         probe.result = FocusedElementProbe(element: fieldA, lookup: WatcherFixture.textFieldLookup, frame: nil)
+        probe.elementFrame = CGRect(x: 0, y: 0, width: 100, height: 20)
         let inserter = InserterStub(result: .inserted)
         let library = DraftLibrary(store: .inMemory)
         let permission = PermissionStub(isTrusted: isTrusted)
@@ -212,8 +213,8 @@ struct PanelInsertionCheckTests {
         }
     }
 
-    @Test("AC-13: 確かめで外れた入力欄は、同じ入力欄のままでは挿入先に戻らず、別の入力欄に移ると戻る")
-    func rejectedFieldReturnsOnlyWhenFocusMoves() async throws {
+    @Test("AC-13: 確かめで外れた入力欄は、フォーカスが移っても挿入先に戻らず、クリックで選び直されるまで戻らない")
+    func rejectedFieldReturnsOnlyWhenClicked() async throws {
         try await withFixture(target: other) { fixture in
             fixture.inserter.readiness = .noTextInput
             openWithText(fixture)
@@ -226,6 +227,10 @@ struct PanelInsertionCheckTests {
 
             fixture.probe.result = FocusedElementProbe(element: fieldB, lookup: WatcherFixture.textFieldLookup, frame: nil)
             fixture.monitor.refresh()
+            #expect(fixture.model.target == nil)
+
+            fixture.front.app = other
+            fixture.monitor.handleClick()
             #expect(fixture.model.target == other)
         }
     }
@@ -346,7 +351,9 @@ struct PanelInsertionCheckTests {
 
             fixture.controller.commit()
             await waitUntilGateIsWaiting(gate)
-            fixture.probe.result = FocusedElementProbe(element: nil, lookup: .noFocusedElement, frame: nil)
+            fixture.monitor.refresh()
+            #expect(fixture.model.target == other)
+            fixture.probe.elementFrame = nil
             fixture.monitor.refresh()
             #expect(fixture.model.target == nil)
             gate.release()

@@ -83,6 +83,11 @@ final class MonitorFixture {
         in target: InsertionTarget
     ) {
         probe.results[target.processIdentifier] = FocusedElementProbe(element: element, lookup: lookup, frame: frame)
+        if let element {
+            var pid: pid_t = 0
+            AXUIElementGetPid(element, &pid)
+            probe.elementFrames[pid] = frame
+        }
     }
 
     @discardableResult
@@ -218,8 +223,8 @@ struct InsertionTargetMonitorTests {
 
     // MARK: - AC-6 開いている間の移動
 
-    @Test("AC-6: フォーカスが別の入力欄へ移ると挿入先と枠が移り、入力欄でない所では挿入先なし、戻ると戻る")
-    func followsFocusAcrossFields() {
+    @Test("AC-6: 開いている間はフォーカスが別の所へ移っても、挿入先は開いたときの入力欄に固定され、フォーカスは問い合わせ直さない")
+    func targetStaysPinnedWhenFocusMoves() {
         let f = Fixture()
         f.focus(Fixture.fieldA, frame: Fixture.frameA, in: Fixture.editor)
         f.open(Fixture.editor)
@@ -229,27 +234,79 @@ struct InsertionTargetMonitorTests {
         f.focus(Fixture.fieldB, frame: Fixture.frameB, in: Fixture.editor)
         f.monitor.refresh()
         #expect(f.model.target == Fixture.editor)
-        #expect(f.monitor.outline.rect == Fixture.frameB)
+        #expect(f.monitor.outline.rect == Fixture.frameA)
 
-        f.focus(Fixture.fieldA, frame: Fixture.frameA, lookup: Fixture.button, in: Fixture.editor)
+        f.focus(nil, frame: nil, lookup: .noFocusedElement, in: Fixture.editor)
+        f.monitor.refresh()
+        #expect(f.model.target == Fixture.editor)
+        #expect(f.monitor.outline.rect == Fixture.frameA)
+        #expect(f.probe.targets == [Fixture.editor])
+    }
+
+    @Test("AC-6: 入力欄が動くと、定期の調べは入力欄の位置だけを読んで枠を動かす")
+    func outlineFollowsFieldPosition() {
+        let f = Fixture()
+        f.focus(Fixture.fieldA, frame: Fixture.frameA, in: Fixture.editor)
+        f.open(Fixture.editor)
+
+        f.probe.elementFrames[7001] = Fixture.frameB
+        f.monitor.refresh()
+
+        #expect(f.model.target == Fixture.editor)
+        #expect(f.monitor.outline.rect == Fixture.frameB)
+        #expect(f.probe.targets == [Fixture.editor])
+        #expect(f.probe.frameRequests.count == 1)
+    }
+
+    @Test("AC-6: 入力欄の位置が読めなくなると挿入先なしになり、フォーカスが戻っても選び直されるまで戻らない")
+    func fieldThatCannotBeReadAnymoreClearsTarget() {
+        let f = Fixture()
+        f.focus(Fixture.fieldA, frame: Fixture.frameA, in: Fixture.editor)
+        f.open(Fixture.editor)
+
+        f.probe.elementFrames[7001] = nil
         f.monitor.refresh()
         #expect(f.model.target == nil)
         #expect(f.monitor.outline.rect == nil)
 
         f.focus(Fixture.fieldA, frame: Fixture.frameA, in: Fixture.editor)
         f.monitor.refresh()
+        #expect(f.model.target == nil)
+        #expect(f.probe.targets == [Fixture.editor])
+    }
+
+    @Test("AC-6: 位置が一度も読めない入力欄は、挿入先のまま枠だけが無く、位置が読めるようになると枠が出る")
+    func fieldWithoutFrameStaysTarget() {
+        let f = Fixture()
+        f.focus(Fixture.fieldA, frame: nil, in: Fixture.editor)
+        f.open(Fixture.editor)
+        #expect(f.model.target == Fixture.editor)
+
+        f.monitor.refresh()
+        #expect(f.model.target == Fixture.editor)
+        #expect(f.monitor.outline.rect == nil)
+
+        f.probe.elementFrames[7001] = Fixture.frameA
+        f.monitor.refresh()
         #expect(f.model.target == Fixture.editor)
         #expect(f.monitor.outline.rect == Fixture.frameA)
     }
 
-    @Test("AC-6: 入力欄が無い状態で開いても、あとで入力欄が選ばれると挿入先になる")
-    func becomesTargetWhenFieldAppearsLater() {
+    @Test("AC-6: 入力欄が無い状態で開くと、あとでフォーカスが入力欄に移っても挿入先なしのままで、クリックで選ぶと挿入先になる")
+    func noFieldAtOpenIsChosenOnlyByClick() async {
         let f = Fixture()
         f.open(Fixture.editor)
         #expect(f.model.target == nil)
 
         f.focus(Fixture.fieldA, frame: Fixture.frameA, in: Fixture.editor)
         f.monitor.refresh()
+        #expect(f.model.target == nil)
+        #expect(f.probe.targets == [Fixture.editor])
+
+        f.env.frontmost = Fixture.editor
+        f.env.mouse = f.clickPoint(inside: Fixture.frameA)
+        f.monitor.handleClick()
+        await f.settle()
 
         #expect(f.model.target == Fixture.editor)
         #expect(f.monitor.outline.rect == Fixture.frameA)
@@ -258,18 +315,20 @@ struct InsertionTargetMonitorTests {
     @Test("AC-6: 定期の調べが自動で動き、パネルを閉じると止まる")
     func pollingRunsUntilDismissed() async {
         let f = Fixture(polls: true)
-        f.open(Fixture.editor)
-        #expect(f.model.target == nil)
-
         f.focus(Fixture.fieldA, frame: Fixture.frameA, in: Fixture.editor)
+        f.open(Fixture.editor)
+        #expect(f.monitor.outline.rect == Fixture.frameA)
+
+        f.probe.elementFrames[7001] = Fixture.frameB
         await f.settle()
-        #expect(f.model.target == Fixture.editor)
+        #expect(f.monitor.outline.rect == Fixture.frameB)
 
         f.model.dismiss()
         await f.settle()
-        let probesAfterDismiss = f.probe.targets.count
+        let requestsAfterDismiss = f.probe.frameRequests.count
         await f.settle()
-        #expect(f.probe.targets.count == probesAfterDismiss)
+        #expect(f.probe.frameRequests.count == requestsAfterDismiss)
+        #expect(f.probe.targets == [Fixture.editor])
     }
 
     // MARK: - AC-7 アプリの終了
@@ -283,6 +342,7 @@ struct InsertionTargetMonitorTests {
 
         f.env.stoppedProcesses.insert(Fixture.editor.processIdentifier)
         f.monitor.refresh()
+        let requestsAfterStop = f.probe.frameRequests.count
 
         #expect(f.model.target == nil)
         #expect(f.monitor.outline.rect == nil)
@@ -293,6 +353,7 @@ struct InsertionTargetMonitorTests {
         f.monitor.refresh()
         #expect(f.model.target == nil)
         #expect(f.probe.targets.count == probesBefore)
+        #expect(f.probe.frameRequests.count == requestsAfterStop)
     }
 
     // MARK: - AC-8 クリックでの選び直し
@@ -486,7 +547,7 @@ struct InsertionTargetMonitorTests {
         f.monitor.handleClick()
         await f.settle()
 
-        #expect(f.probe.probeCount(for: Fixture.browser) == 2)
+        #expect(f.probe.probeCount(for: Fixture.browser) == 1)
         #expect(f.env.adoptedCount == 1)
     }
 
@@ -614,33 +675,8 @@ struct InsertionTargetMonitorTests {
 
     // MARK: - AC-19 答えないアプリ
 
-    @Test("AC-19: 挿入先のアプリが答えないと挿入先なしになり、1秒間は問い合わせず、1秒たつと調べ直す")
-    func unavailableAppBacksOffForOneSecond() {
-        let f = Fixture()
-        f.focus(nil, frame: nil, lookup: .unavailable, in: Fixture.editor)
-
-        f.open(Fixture.editor)
-        #expect(f.model.target == nil)
-        #expect(f.probe.targets.count == 1)
-
-        f.env.now += 0.5
-        f.monitor.refresh()
-        #expect(f.probe.targets.count == 1)
-
-        f.focus(Fixture.fieldA, frame: Fixture.frameA, in: Fixture.editor)
-        f.env.now += 0.4
-        f.monitor.refresh()
-        #expect(f.probe.targets.count == 1)
-        #expect(f.model.target == nil)
-
-        f.env.now += 0.6
-        f.monitor.refresh()
-        #expect(f.probe.targets.count == 2)
-        #expect(f.model.target == Fixture.editor)
-    }
-
-    @Test("AC-19: 開く時点で答えなかったときも、1秒間は問い合わせない")
-    func unavailableAtOpenBacksOff() {
+    @Test("AC-19: 開く時点で答えなかったときは挿入先なしで、あとで答えるようになってもクリックで選ぶまで問い合わせない")
+    func unavailableAtOpenStaysWithoutTargetUntilClick() async {
         let f = Fixture()
         f.focus(nil, frame: nil, lookup: .unavailable, in: Fixture.editor)
 
@@ -648,9 +684,33 @@ struct InsertionTargetMonitorTests {
 
         #expect(start.target == nil)
         #expect(start.focus?.probe.lookup == .unavailable)
+
+        f.focus(Fixture.fieldA, frame: Fixture.frameA, in: Fixture.editor)
+        f.env.now += 2
         f.monitor.refresh()
         f.monitor.refresh()
+        #expect(f.model.target == nil)
         #expect(f.probe.targets.count == 1)
+
+        f.env.frontmost = Fixture.editor
+        f.env.mouse = f.clickPoint(inside: Fixture.frameA)
+        f.monitor.handleClick()
+        await f.settle()
+        #expect(f.model.target == Fixture.editor)
+    }
+
+    @Test("AC-19: 挿入先のアプリが入力欄の位置に答えなくなると挿入先なしになる")
+    func fieldThatStopsAnsweringClearsTarget() {
+        let f = Fixture()
+        f.focus(Fixture.fieldA, frame: Fixture.frameA, in: Fixture.editor)
+        f.open(Fixture.editor)
+        #expect(f.model.target == Fixture.editor)
+
+        f.probe.elementFrames[7001] = nil
+        f.monitor.refresh()
+
+        #expect(f.model.target == nil)
+        #expect(f.monitor.outline.rect == nil)
     }
 
     // MARK: - AC-26 時間の歯止め
@@ -658,38 +718,41 @@ struct InsertionTargetMonitorTests {
     @Test("AC-26: 1回の調べに 30ms を超えると 0.5 秒は定期の調べで問い合わせず、前のままで、0.5 秒たつと調べ直す")
     func slowQueryDelaysNextPoll() {
         let f = Fixture()
-        f.probe.onProbe = { f.env.now += 0.05 }
+        f.probe.onFrameRequest = { f.env.now += 0.05 }
         f.focus(Fixture.fieldA, frame: Fixture.frameA, in: Fixture.editor)
         f.open(Fixture.editor)
-        #expect(f.probe.targets.count == 1)
 
-        f.focus(Fixture.fieldB, frame: Fixture.frameB, in: Fixture.editor)
         f.monitor.refresh()
-        #expect(f.probe.targets.count == 1)
+        #expect(f.probe.frameRequests.count == 1)
+
+        f.probe.elementFrames[7001] = Fixture.frameB
+        f.monitor.refresh()
+        #expect(f.probe.frameRequests.count == 1)
         #expect(f.model.target == Fixture.editor)
         #expect(f.monitor.outline.rect == Fixture.frameA)
 
         f.env.now += 0.4
         f.monitor.refresh()
-        #expect(f.probe.targets.count == 1)
+        #expect(f.probe.frameRequests.count == 1)
 
         f.env.now += 0.2
         f.monitor.refresh()
-        #expect(f.probe.targets.count == 2)
+        #expect(f.probe.frameRequests.count == 2)
         #expect(f.monitor.outline.rect == Fixture.frameB)
     }
 
     @Test("AC-26: 30ms 以内の調べなら、定期の調べは遅れない")
     func fastQueryDoesNotDelay() {
         let f = Fixture()
-        f.probe.onProbe = { f.env.now += 0.01 }
+        f.probe.onFrameRequest = { f.env.now += 0.01 }
         f.focus(Fixture.fieldA, frame: Fixture.frameA, in: Fixture.editor)
         f.open(Fixture.editor)
 
-        f.focus(Fixture.fieldB, frame: Fixture.frameB, in: Fixture.editor)
+        f.probe.elementFrames[7001] = Fixture.frameB
+        f.monitor.refresh()
         f.monitor.refresh()
 
-        #expect(f.probe.targets.count == 2)
+        #expect(f.probe.frameRequests.count == 2)
         #expect(f.monitor.outline.rect == Fixture.frameB)
     }
 
@@ -739,12 +802,12 @@ struct InsertionTargetMonitorTests {
 
         f.focus(Fixture.fieldB, frame: Fixture.frameB, lookup: Fixture.button, in: Fixture.editor)
         f.monitor.refresh()
-        #expect(f.model.target == nil)
-
-        f.focus(Fixture.fieldB, frame: Fixture.frameB, in: Fixture.editor)
-        f.monitor.refresh()
         #expect(f.model.target == Fixture.editor)
         #expect(f.monitor.outline.rect == nil)
+
+        f.probe.elementFrames[7001] = nil
+        f.monitor.refresh()
+        #expect(f.model.target == nil)
 
         f.focus(Fixture.fieldA, frame: Fixture.frameA, in: Fixture.browser)
         f.env.frontmost = Fixture.browser
@@ -804,8 +867,8 @@ struct InsertionTargetMonitorTests {
         #expect(f.monitor.outline.rect == nil)
     }
 
-    @Test("AC-6: 挿入できなかった入力欄は、別の入力欄に移るまで挿入先に戻らず、移ると選び直される")
-    func rejectedFieldStaysRejectedUntilFocusMoves() {
+    @Test("AC-6: 挿入できなかった入力欄は、フォーカスが移っても挿入先に戻らず、クリックで選び直されると戻る")
+    func rejectedFieldStaysRejectedUntilClicked() async {
         let f = Fixture()
         f.focus(Fixture.fieldA, frame: Fixture.frameA, in: Fixture.editor)
         f.open(Fixture.editor)
@@ -819,6 +882,12 @@ struct InsertionTargetMonitorTests {
 
         f.focus(Fixture.fieldB, frame: Fixture.frameB, in: Fixture.editor)
         f.monitor.refresh()
+        #expect(f.model.target == nil)
+
+        f.env.frontmost = Fixture.editor
+        f.env.mouse = f.clickPoint(inside: Fixture.frameB)
+        f.monitor.handleClick()
+        await f.settle()
         #expect(f.model.target == Fixture.editor)
         #expect(f.monitor.outline.rect == Fixture.frameB)
     }
