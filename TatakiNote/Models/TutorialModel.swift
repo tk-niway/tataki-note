@@ -9,25 +9,56 @@ enum TutorialStep: Int, CaseIterable, Equatable {
     case nextSteps
 }
 
+/// 文中にメニューバーのアイコンを挟む案内の文の部品。
+enum TutorialTextPart: Equatable {
+    case text(String)
+    case menuBarIcon
+}
+
+extension Array where Element == TutorialTextPart {
+    /// アイコンを除いた文字だけをつないだ文。
+    var plainText: String {
+        var result = ""
+        for part in self {
+            if case .text(let string) = part {
+                result += string
+            }
+        }
+        return result
+    }
+}
+
 /// 手順4で紹介する使い方。
 enum TutorialNextStepIntroduction: CaseIterable {
     case hotkeyChange
     case draftKept
+    case settingsAccess
 
     var heading: String {
         switch self {
         case .hotkeyChange: String(localized: "ホットキーの変更")
         case .draftKept: String(localized: "書きかけ")
+        case .settingsAccess: String(localized: "設定の開き方")
+        }
+    }
+
+    var parts: [TutorialTextPart] {
+        switch self {
+        case .hotkeyChange:
+            [.text(String(localized: "設定の「キー」の「パネルを開く・閉じる」で変えられます。"))]
+        case .draftKept:
+            [.text(String(localized: "esc でパネルを閉じても、書いた文章はパネルに残ります。次に開くと続きから書けます。"))]
+        case .settingsAccess:
+            [
+                .text(String(localized: "メニューバーの TatakiNote のアイコン")),
+                .menuBarIcon,
+                .text(String(localized: "をクリックして「設定」を選ぶと、設定ウィンドウが開きます。パネルを開いているときは ⌘, でも開けます。"))
+            ]
         }
     }
 
     var text: String {
-        switch self {
-        case .hotkeyChange:
-            String(localized: "設定の「キー」の「パネルを開く・閉じる」で変えられます。")
-        case .draftKept:
-            String(localized: "esc でパネルを閉じても、書いた文章はパネルに残ります。次に開くと続きから書けます。")
-        }
+        parts.plainText
     }
 }
 
@@ -172,12 +203,30 @@ enum TutorialNextStepIntroduction: CaseIterable {
         String(localized: "パネルの挿入先が別のアプリになっています。このまま確定すると、練習の文章がそのアプリに入り、確定+送信キーでは送信もされます。esc でパネルを閉じ、練習用のチャットの入力欄をクリックしてから開き直してください。")
     }
 
+    /// 手順1の説明の文の部品。
+    var openPanelInstructionParts: [TutorialTextPart] {
+        guard let hotkeyText else {
+            return [
+                .text(String(localized: "ホットキーが設定されていません。設定の「キー」で設定するか、メニューバーの TatakiNote のアイコン")),
+                .menuBarIcon,
+                .text(String(localized: "の「パネルを開く」で開きます。"))
+            ]
+        }
+        return [.text(String(localized: "まず下の練習用のチャットの入力欄をクリックします。それから \(hotkeyText) を押します。"))]
+    }
+
     /// 手順1の説明の文。
     var openPanelInstruction: String {
-        guard let hotkeyText else {
-            return String(localized: "ホットキーが設定されていません。設定の「キー」で設定するか、メニューバーの「パネルを開く」で開きます。")
-        }
-        return String(localized: "まず下の練習用のチャットの入力欄をクリックします。それから \(hotkeyText) を押します。")
+        openPanelInstructionParts.plainText
+    }
+
+    /// スキップしたときの案内の文の部品。
+    static var skipNoticeParts: [TutorialTextPart] {
+        [
+            .text(String(localized: "チュートリアルは、メニューバーの TatakiNote のアイコン")),
+            .menuBarIcon,
+            .text(String(localized: "→「設定」→「アプリ情報」から、いつでも開けます。"))
+        ]
     }
 
     /// 手順2の説明の文。

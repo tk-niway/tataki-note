@@ -608,11 +608,11 @@ struct TutorialModelTests {
 
     // MARK: - 手順4の紹介(AC-19)
 
-    @Test("AC-19: 手順4の紹介は「ホットキーの変更」と「書きかけ」の2つで、自動表示と確定+送信の紹介は無い")
+    @Test("AC-19: 手順4の紹介に、自動表示と確定+送信の紹介は無い")
     func nextStepIntroductions() {
         let all = TutorialNextStepIntroduction.allCases
 
-        #expect(all == [.hotkeyChange, .draftKept])
+        #expect(all == [.hotkeyChange, .draftKept, .settingsAccess])
         #expect(TutorialNextStepIntroduction.hotkeyChange.heading.contains("ホットキー"))
         #expect(TutorialNextStepIntroduction.draftKept.text.contains("esc"))
         #expect(TutorialNextStepIntroduction.draftKept.text.contains("パネルに残ります"))
