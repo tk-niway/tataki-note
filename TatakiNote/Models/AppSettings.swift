@@ -126,6 +126,11 @@ import Observation
         didSet { store.saveIsPanelAnimationEnabled(isPanelAnimationEnabled) }
     }
 
+    /// 挿入先の入力欄を枠線で囲むか。
+    var isInsertionTargetOutlineShown: Bool {
+        didSet { store.saveIsInsertionTargetOutlineShown(isInsertionTargetOutlineShown) }
+    }
+
     /// 初回起動のチュートリアルを自動で出したか。
     var hasShownFirstLaunchTutorial: Bool {
         didSet { store.saveHasShownFirstLaunchTutorial(hasShownFirstLaunchTutorial) }
@@ -169,6 +174,7 @@ import Observation
         self.panelDefaultWidth = store.loadPanelDefaultWidth()
         self.panelDefaultHeight = store.loadPanelDefaultHeight()
         self.isPanelAnimationEnabled = store.loadIsPanelAnimationEnabled()
+        self.isInsertionTargetOutlineShown = store.loadIsInsertionTargetOutlineShown()
         self.hasShownFirstLaunchTutorial = store.loadHasShownFirstLaunchTutorial()
         self.isSidebarOpen = store.loadSidebarIsOpen()
         self.sidebarTab = store.loadSidebarTab()

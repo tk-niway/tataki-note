@@ -17,6 +17,8 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let locateTargetWindowFrame: (pid_t) -> CGRect?
     private let ownProcessIdentifier: pid_t
     private let library: DraftLibrary
+    private let targetMonitor: InsertionTargetMonitor
+    private let outlineController: InsertionTargetOutlineController
 
     let session: DraftSession
     let sidebarModel: SidebarModel
@@ -52,6 +54,12 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// 挿入先を探さず、挿入先が無いものとして開くか。
     var isTargetLookupDisabled = false
 
+    /// TatakiNote 自身が挿入先のとき、その入力欄がまだ使えるか。nil なら使えるとみなす。
+    var isOwnTargetAvailable: (() -> Bool)? {
+        get { targetMonitor.isOwnTargetAvailable }
+        set { targetMonitor.isOwnTargetAvailable = newValue }
+    }
+
     /// サイドバーの歯車のボタンと ⌘, で、パネルを閉じた後に呼ぶ処理。
     var onOpenSettings: (() -> Void)?
 
@@ -64,7 +72,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         targetTracker: FrontmostAppTracker,
         inserter: TextInserting = ClipboardTextInserter(),
         permission: AccessibilityPermissionChecking = SystemAccessibilityPermission(),
-        notifier: InsertionFailureNotifying,
         fieldProbe: FocusedElementProbing = AXFocusedTextInputInspector(),
         exposeWebContent: @escaping (InsertionTarget) -> Void = { AXFocusedTextInputInspector.exposeWebContent(of: $0) },
         locateTargetWindowFrame: @escaping (pid_t) -> CGRect? = { TargetWindowLocator.frontWindowFrame(processIdentifier: $0) },
@@ -72,21 +79,37 @@ final class PanelController: NSObject, NSWindowDelegate {
         library: DraftLibrary = DraftLibrary(store: .inMemory),
         saveAnimation: SaveAnimationModel = SaveAnimationModel(),
         animator: PanelFrameAnimating = AppKitPanelFrameAnimator(),
-        hideApplication: @escaping () -> Void = { NSApp.hide(nil) }
+        hideApplication: @escaping () -> Void = { NSApp.hide(nil) },
+        makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil
     ) {
+        let panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
         self.model = model
-        self.panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
+        self.panel = panel
         self.settings = settings
         self.animator = animator
         self.hideApplication = hideApplication
         self.targetTracker = targetTracker
         self.permission = permission
-        self.performer = CommitPerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+        self.performer = CommitPerformer(model: model, permission: permission, inserter: inserter)
         self.fieldProbe = fieldProbe
         self.exposeWebContent = exposeWebContent
         self.locateTargetWindowFrame = locateTargetWindowFrame
         self.ownProcessIdentifier = ownProcessIdentifier
         self.library = library
+        let targetMonitor = makeTargetMonitor?(model) ?? InsertionTargetMonitor(
+            panelModel: model,
+            probe: fieldProbe,
+            ownProcessIdentifier: ownProcessIdentifier,
+            exposeWebContent: exposeWebContent,
+            isOutlineEnabled: { [settings] in settings.isInsertionTargetOutlineShown }
+        )
+        self.targetMonitor = targetMonitor
+        self.outlineController = InsertionTargetOutlineController(
+            outline: targetMonitor.outline,
+            settings: settings,
+            panelModel: model,
+            panel: panel
+        )
         let session = DraftSession(panel: model, library: library, ownProcessIdentifier: ownProcessIdentifier)
         self.session = session
         self.sidebarModel = SidebarModel(settings: settings, library: library, session: session)
@@ -119,6 +142,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         configureSidebarModel()
         observeBodyFocusRequests()
         observeSaveEvents()
+        targetMonitor.onFieldAdopted = { [weak self] in self?.returnInputToPanel() }
     }
 
     private func observeSaveEvents() {
@@ -179,33 +203,38 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func open(observedFocus: ObservedFocus? = nil) {
-        let target = isTargetLookupDisabled ? nil : (targetOverride?() ?? targetTracker.currentTarget())
+        let app = isTargetLookupDisabled ? nil : (targetOverride?() ?? targetTracker.currentTarget())
         settings.refreshKeyDisplayTexts()
-        let wasPresented = model.present(target: target)
+        let wasPresented = model.isPresented
+        var start: InsertionTargetStart?
+        let isTrusted = permission.isTrusted
+        if !wasPresented {
+            if let app,
+               Self.shouldExposeWebContent(
+                   target: app,
+                   ownProcessIdentifier: ownProcessIdentifier,
+                   isTrusted: isTrusted
+               ) {
+                exposeWebContent(app)
+            }
+            start = targetMonitor.begin(app: app, observedFocus: observedFocus)
+        }
+        model.present(target: wasPresented ? app : start?.target)
         if !wasPresented {
             stopMotion()
             sizing.beginOpening(defaultSize: settings.panelDefaultSize)
             let queriesAccessibility = Self.shouldQueryAccessibility(
-                of: target,
+                of: app,
                 ownProcessIdentifier: ownProcessIdentifier
             )
-            let isTrusted = permission.isTrusted
-            if let target,
-               Self.shouldExposeWebContent(
-                   target: target,
-                   ownProcessIdentifier: ownProcessIdentifier,
-                   isTrusted: isTrusted
-               ) {
-                exposeWebContent(target)
-            }
             let mode = settings.panelScreen
             let fieldFrame = ScreenCoordinates.primaryScreenFrame.flatMap { primaryScreenFrame in
                 PanelOpenPlacement.fieldFrame(
                     mode: mode,
                     isTrusted: isTrusted,
-                    target: queriesAccessibility ? target : nil,
+                    target: queriesAccessibility ? app : nil,
                     probe: fieldProbe,
-                    observedFocus: observedFocus,
+                    observedFocus: start?.focus ?? observedFocus,
                     primaryScreenHeight: primaryScreenFrame.height
                 )
             }
@@ -215,7 +244,7 @@ final class PanelController: NSObject, NSWindowDelegate {
                 screens: screens,
                 mouseLocation: NSEvent.mouseLocation,
                 fieldFrame: fieldFrame,
-                locateTargetWindowFrame: Self.windowFrameLocator(for: target, locate: locateTargetWindowFrame)
+                locateTargetWindowFrame: Self.windowFrameLocator(for: app, locate: locateTargetWindowFrame)
             ) {
                 let placed = PanelOpenPlacement.frame(
                     size: sizing.openingSize(in: screen.visibleFrame),
@@ -476,20 +505,67 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     // MARK: - 確定
 
+    /// 閉じる前に、覚えている入力欄の位置が読めるかを確かめるか。
+    static func shouldCheckTrackedField(
+        target: InsertionTarget?,
+        text: String,
+        isTrusted: Bool,
+        ownProcessIdentifier: pid_t
+    ) -> Bool {
+        guard !text.isEmpty, isTrusted, let target else { return false }
+        return !target.isOwnApp(ownProcessIdentifier)
+    }
+
     func commit(shouldSendAfterInsert: Bool = false) {
+        library.flush()
+        let shouldCheckField = Self.shouldCheckTrackedField(
+            target: model.target,
+            text: model.text,
+            isTrusted: permission.isTrusted,
+            ownProcessIdentifier: ownProcessIdentifier
+        )
+        if shouldCheckField, !targetMonitor.isTrackedFieldReadable() {
+            targetMonitor.rejectCurrentField()
+            model.signalNoTarget()
+            returnInputToPanel()
+            return
+        }
+        performCommit(shouldSendAfterInsert: shouldSendAfterInsert)
+    }
+
+    private func performCommit(shouldSendAfterInsert: Bool) {
         let plan = session.prepareCommit {
             model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
         }
+        if plan == .noTarget { return }
         hidePanel()
         library.flush()
         if case .insert(let text, let target) = plan {
             onInsertionRequested?(text, target, shouldSendAfterInsert)
         }
-        Task { [weak self, performer] in
+        Task { [weak self, performer, model] in
             let outcome = await performer.perform(plan, shouldSendAfterInsert: shouldSendAfterInsert)
             self?.sizing.handleCommitOutcome(outcome)
             self?.session.finishCommit(plan, outcome: outcome)
+            if case .insert(let text, _) = plan,
+               outcome == .notInserted,
+               !model.isPresented,
+               model.text == text {
+                self?.reopenAfterFailedInsertion()
+            }
         }
+    }
+
+    private func reopenAfterFailedInsertion() {
+        open()
+        targetMonitor.rejectCurrentField()
+        model.signalNoTarget()
+    }
+
+    private func returnInputToPanel() {
+        guard model.isPresented else { return }
+        panel.makeKeyAndOrderFront(nil)
+        model.requestFocus()
     }
 
     func windowWillClose(_ notification: Notification) {

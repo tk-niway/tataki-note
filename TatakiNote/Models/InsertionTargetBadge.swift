@@ -4,6 +4,8 @@ import UniformTypeIdentifiers
 /// タイトルバーに出す挿入先の表示の中身。
 struct InsertionTargetBadge: Equatable {
     static let label = String(localized: "挿入先")
+    static let noTargetLabel = String(localized: "挿入先なし")
+    static let noTargetTipText = String(localized: "このまま確定しても挿入しません。入れたい入力欄をクリックすると、そこが挿入先になります")
 
     let target: InsertionTarget
 

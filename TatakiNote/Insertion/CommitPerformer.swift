@@ -11,20 +11,17 @@ final class CommitPerformer {
     private let model: PanelModel
     private let permission: AccessibilityPermissionChecking
     private let inserter: TextInserting
-    private let notifier: InsertionFailureNotifying
 
     var onPermissionDenied: (() -> Void)?
 
     init(
         model: PanelModel,
         permission: AccessibilityPermissionChecking,
-        inserter: TextInserting,
-        notifier: InsertionFailureNotifying
+        inserter: TextInserting
     ) {
         self.model = model
         self.permission = permission
         self.inserter = inserter
-        self.notifier = notifier
     }
 
     @discardableResult
@@ -39,19 +36,14 @@ final class CommitPerformer {
                 permission.requestSystemPrompt()
             }
         case .noTarget:
-            await notifier.notify(InsertionFailureNotice(reason: .noTarget, isDraftKept: true))
+            break
         case .insert(let text, let target):
-            let reason: InsertionFailureNotice.Reason
             switch await inserter.insert(text, into: target, shouldSendAfterInsert: shouldSendAfterInsert) {
             case .inserted:
                 return .inserted
-            case .targetNotActivated:
-                reason = .targetNotActivated(appName: target.localizedName)
-            case .noTextInput:
-                reason = .noTextInput(appName: target.localizedName)
+            case .targetNotActivated, .noTextInput:
+                model.restoreDraft(text)
             }
-            let isDraftKept = model.restoreDraft(text)
-            await notifier.notify(InsertionFailureNotice(reason: reason, isDraftKept: isDraftKept))
         }
         return .notInserted
     }

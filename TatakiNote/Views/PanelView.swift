@@ -83,6 +83,7 @@ struct PanelView: View {
         .overlay(alignment: .top) {
             PanelTitleBar(
                 target: model.target,
+                noTargetAlertCount: model.noTargetAlertCount,
                 session: session,
                 saveAnimation: saveAnimation,
                 isSidebarOpen: isSidebarOpen,

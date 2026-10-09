@@ -15,6 +15,7 @@ struct PanelDraftWiringTests {
         let settings: AppSettings
         let library: DraftLibrary
         let inserter: InserterStub
+        let probe: FocusedElementProbeStub
         let controller: PanelController
 
         init(isTrusted: Bool = true, isSidebarOpen: Bool = false) throws {
@@ -30,14 +31,19 @@ struct PanelDraftWiringTests {
             self.settings = settings
             self.library = library
             self.inserter = inserter
+            let probe = FocusedElementProbeStub()
+            self.probe = probe
             self.controller = PanelController(
                 settings: settings,
                 targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
                 inserter: inserter,
                 permission: PermissionStub(isTrusted: isTrusted),
-                notifier: NotifierStub(),
-                fieldProbe: FocusedElementProbeStub(),
-                library: library
+                fieldProbe: probe,
+                library: library,
+                makeTargetMonitor: InsertionTargetMonitor.testFactory(
+                    probe: probe,
+                    ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier
+                )
             )
         }
 
@@ -387,7 +393,16 @@ struct PanelDraftWiringTests {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
         let draft = try fixture.addDraft("one")
-        fixture.model.present(target: Self.textEdit)
+        fixture.settings.panelScreen = .main
+        fixture.settings.isPanelAnimationEnabled = false
+        fixture.probe.result = FocusedElementProbe(
+            element: AXUIElementCreateApplication(pid_t.max),
+            lookup: WatcherFixture.textFieldLookup,
+            frame: nil
+        )
+        fixture.controller.targetOverride = { Self.textEdit }
+        fixture.controller.open()
+        #expect(fixture.model.target == Self.textEdit)
         fixture.session.request(.draft(draft.id))
         fixture.model.text = "three"
         #expect(fixture.reloadedLibrary().draft(id: draft.id)?.text == "one")

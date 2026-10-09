@@ -241,10 +241,13 @@ struct ClipboardTextInserterTests {
         #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
     }
 
-    @Test("入力欄が選ばれているか分からなければ、今までどおり ⌘V を送る")
-    func pastesWhenFocusIsUnknown() async {
+    @Test("AC-14: 入力欄が選ばれているか分からなければ、⌘V を送らず、クリップボードも変えない")
+    func doesNotPasteWhenFocusIsUnknown() async {
         let pasteboard = PasteboardFixture.makePasteboard()
         defer { pasteboard.releaseGlobally() }
+        PasteboardFixture.writeRichContents(to: pasteboard)
+        let original = PasteboardSnapshot.capture(from: pasteboard)
+        let changeCountBefore = pasteboard.changeCount
         let activator = ActivatorStub(result: true)
         let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
         let inserter = makeInserter(
@@ -256,8 +259,10 @@ struct ClipboardTextInserterTests {
 
         let result = await inserter.insert("text", into: target, shouldSendAfterInsert: false)
 
-        #expect(result == .inserted)
-        #expect(poster.records.first?.string == "text")
+        #expect(result == .noTextInput)
+        #expect(poster.records.isEmpty)
+        #expect(pasteboard.changeCount == changeCountBefore)
+        #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
     }
 
     @Test("AC-13: 挿入の途中で他のアプリがクリップボードを書き換えたら、元の内容で上書きしない")
@@ -395,10 +400,13 @@ struct ClipboardTextInserterTests {
         }
     }
 
-    @Test("AC-13: 入力欄かどうか分からないアプリでは、確定+送信で今までどおり ⌘V を送り、Enter も送る")
-    func pastesAndSendsWhenFocusIsUnknown() async {
+    @Test("AC-14: 入力欄かどうか分からないアプリでは、確定+送信でも ⌘V も Enter も送らず、クリップボードも変えない")
+    func doesNotPasteOrSendWhenFocusIsUnknown() async {
         let pasteboard = PasteboardFixture.makePasteboard()
         defer { pasteboard.releaseGlobally() }
+        PasteboardFixture.writeRichContents(to: pasteboard)
+        let original = PasteboardSnapshot.capture(from: pasteboard)
+        let changeCountBefore = pasteboard.changeCount
         let activator = ActivatorStub(result: true)
         let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
         let submitSender = SubmitKeySenderStub(pasteboard: pasteboard)
@@ -412,10 +420,11 @@ struct ClipboardTextInserterTests {
 
         let result = await inserter.insert("hello", into: target, shouldSendAfterInsert: true)
 
-        #expect(result == .inserted)
-        #expect(poster.records.first?.string == "hello")
-        #expect(submitSender.records.count == 1)
-        #expect(submitSender.records.first?.target == target)
+        #expect(result == .noTextInput)
+        #expect(poster.records.isEmpty)
+        #expect(submitSender.records.isEmpty)
+        #expect(pasteboard.changeCount == changeCountBefore)
+        #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
     }
 
     // MARK: - 写し取りと書き戻し

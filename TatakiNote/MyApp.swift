@@ -5,16 +5,13 @@ import SwiftUI
 
     var body: some Scene {
         let settings = appDelegate.settings
-        let isMenuBarIconInserted = appDelegate.insertionFailureBubble.isMenuBarIconInserted(
-            isIconShownSetting: settings.isMenuBarIconShown
-        )
 
         MenuBarExtra(
             "TatakiNote",
             image: "MenuBarIcon",
             isInserted: Binding(
-                get: { isMenuBarIconInserted },
-                set: { appDelegate.insertionFailureBubbleController.menuBarIconInsertionDidChange(to: $0, settings: settings) }
+                get: { settings.isMenuBarIconShown },
+                set: { settings.isMenuBarIconShown = $0 }
             )
         ) {
             MenuBarMenu(

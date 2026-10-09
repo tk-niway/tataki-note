@@ -101,7 +101,11 @@ enum TutorialNextStepIntroduction: CaseIterable {
 
     /// パネルの表示・挿入先・文章が変わったことを受けて、手順を進める。
     func panelDidChange(isPresented: Bool, target: InsertionTarget?, text: String) {
-        guard isPresented, let target else { return }
+        guard isPresented else { return }
+        guard let target else {
+            if currentStep != .nextSteps { isShowingOtherTargetWarning = false }
+            return
+        }
         let isOwnTarget = target.isOwnApp(ownProcessIdentifier)
         if currentStep != .nextSteps {
             isShowingOtherTargetWarning = !isOwnTarget

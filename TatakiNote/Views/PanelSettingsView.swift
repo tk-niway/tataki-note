@@ -133,6 +133,16 @@ struct PanelSettingsView: View {
                 }
             }
 
+            LabeledContent("挿入先の枠線") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Toggle("挿入先の入力欄を枠線で囲む", isOn: $settings.isInsertionTargetOutlineShown)
+                        .toggleStyle(.checkbox)
+                        .accessibilityIdentifier("settings.insertionTargetOutlineToggle")
+                    SettingDescription(text: "パネルを開いている間、文章が入る入力欄を枠線で囲みます。オフにしても、タイトルバーの挿入先の表示と「挿入先なし」の表示、確定したときの動きは変わりません。")
+                }
+            }
+            .padding(.top, 12)
+
             LabeledContent("アニメーション") {
                 Toggle("パネルの開閉エフェクト", isOn: $settings.isPanelAnimationEnabled)
                     .toggleStyle(.checkbox)

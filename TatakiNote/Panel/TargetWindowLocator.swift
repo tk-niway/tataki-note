@@ -14,6 +14,27 @@ enum TargetWindowLocator {
         return nil
     }
 
+    /// ウィンドウの一覧(CGWindowListCopyWindowInfo の結果)から、画面に出ているウィンドウを手前から順に取り出す。
+    static func onScreenWindows(in windowList: [[String: Any]]) -> [OnScreenWindow] {
+        windowList.compactMap { window in
+            guard let owner = window[kCGWindowOwnerPID as String] as? NSNumber,
+                  let layer = window[kCGWindowLayer as String] as? NSNumber,
+                  let bounds = rect(from: window[kCGWindowBounds as String])
+            else { return nil }
+            if let alpha = window[kCGWindowAlpha as String] as? NSNumber, alpha.doubleValue == 0 { return nil }
+            return OnScreenWindow(processIdentifier: owner.int32Value, layer: layer.intValue, bounds: bounds)
+        }
+    }
+
+    /// 今の画面に出ているウィンドウ。
+    static func onScreenWindows() -> [OnScreenWindow] {
+        guard let windowList = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] else { return [] }
+        return onScreenWindows(in: windowList)
+    }
+
     private static func rect(from value: Any?) -> CGRect? {
         guard let dictionary = value as? [String: Any],
               ["X", "Y", "Width", "Height"].allSatisfy({ dictionary[$0] is NSNumber })

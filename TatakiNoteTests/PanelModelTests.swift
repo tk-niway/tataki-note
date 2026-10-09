@@ -112,15 +112,38 @@ struct PanelModelTests {
         #expect(model.text == "draft")
     }
 
-    @Test("AC-8: 挿入先が記録できていなければ、閉じて文章は下書きに残る")
-    func commitWithoutTargetKeepsDraft() {
+    @Test("AC-11: 挿入先なしで確定しても閉じず、文章はそのままで、合図が1回増える")
+    func commitWithoutTargetKeepsPanelOpen() {
         let model = PanelModel()
         model.present(target: nil)
         model.text = "draft"
+        #expect(model.noTargetAlertCount == 0)
 
         #expect(model.prepareCommit(isAccessibilityTrusted: true) == .noTarget)
-        #expect(model.isPresented == false)
+        #expect(model.isPresented)
+        #expect(model.lastDismissal == nil)
         #expect(model.text == "draft")
+        #expect(model.noTargetAlertCount == 1)
+
+        #expect(model.prepareCommit(isAccessibilityTrusted: true) == .noTarget)
+        #expect(model.noTargetAlertCount == 2)
+    }
+
+    @Test("AC-18: 挿入先なしでも、許可が無ければ閉じて文章は残り、文章が空なら閉じる。どちらも合図は出ない")
+    func commitWithoutTargetStillClosesForPermissionAndEmptyText() {
+        let denied = PanelModel()
+        denied.present(target: nil)
+        denied.text = "draft"
+        #expect(denied.prepareCommit(isAccessibilityTrusted: false) == .permissionDenied)
+        #expect(denied.isPresented == false)
+        #expect(denied.text == "draft")
+        #expect(denied.noTargetAlertCount == 0)
+
+        let empty = PanelModel()
+        empty.present(target: nil)
+        #expect(empty.prepareCommit(isAccessibilityTrusted: true) == .dismissOnly)
+        #expect(empty.isPresented == false)
+        #expect(empty.noTargetAlertCount == 0)
     }
 
     @Test("AC-1: dismiss で閉じると「挿入せずに閉じた」、一度も閉じていなければ記録は無い")
@@ -135,7 +158,7 @@ struct PanelModelTests {
         #expect(model.lastDismissal == .cancelled)
     }
 
-    @Test("AC-1: prepareCommit で閉じると、空・許可なし・挿入先なし・挿入のどれでも「確定した」")
+    @Test("AC-1: prepareCommit で閉じると、空・許可なし・挿入のどれでも「確定した」。挿入先なしは閉じない")
     func commitRecordsCommittedForEveryPlan() {
         let empty = PanelModel()
         empty.present(target: textEdit)
@@ -152,7 +175,7 @@ struct PanelModelTests {
         noTarget.present(target: nil)
         noTarget.text = "draft"
         #expect(noTarget.prepareCommit(isAccessibilityTrusted: true) == .noTarget)
-        #expect(noTarget.lastDismissal == .committed)
+        #expect(noTarget.lastDismissal == nil)
 
         let inserted = PanelModel()
         inserted.present(target: textEdit)
@@ -206,5 +229,29 @@ struct PanelModelTests {
         model.dismiss()
         #expect(model.present(target: safari) == false)
         #expect(model.target == safari)
+    }
+
+    @Test("AC-6: 開いている間は updateTarget で挿入先を入れ替えられ、閉じているときと変わらないときは何もしない")
+    func updateTargetChangesTargetOnlyWhileOpen() {
+        let model = PanelModel()
+
+        model.updateTarget(textEdit)
+        #expect(model.target == nil)
+
+        model.present(target: textEdit)
+        model.updateTarget(safari)
+        #expect(model.target == safari)
+        model.updateTarget(nil)
+        #expect(model.target == nil)
+        model.updateTarget(textEdit)
+        #expect(model.target == textEdit)
+
+        let focusRequest = model.focusRequest
+        model.updateTarget(textEdit)
+        #expect(model.focusRequest == focusRequest)
+
+        model.dismiss()
+        model.updateTarget(safari)
+        #expect(model.target == textEdit)
     }
 }

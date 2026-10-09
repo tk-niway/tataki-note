@@ -159,15 +159,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let webContentExposer = WebContentExposer()
 
-    let insertionFailureBubble = InsertionFailureBubbleModel()
-
-    private(set) lazy var insertionFailureBubbleController = InsertionFailureBubbleController(
-        model: insertionFailureBubble,
-        locator: StatusItemAnchorLocator(),
-        presenter: MenuBarBubblePresenter(),
-        onOpenPanel: { [weak self] in self?.panelController.open() }
-    )
-
     let library = DraftLibrary(
         store: DraftLibraryStore(directory: AppLaunchContext.dataDirectory(environment: ProcessInfo.processInfo.environment))
     )
@@ -177,7 +168,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settings: self.settings,
             targetTracker: self.targetTracker,
             permission: self.permission,
-            notifier: self.insertionFailureBubbleController,
             exposeWebContent: { [webContentExposer] in webContentExposer.expose($0) },
             library: self.library
         )
@@ -192,6 +182,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         controller.targetOverride = { [weak self] in
             self?.tutorial.practiceTarget()
+        }
+        controller.isOwnTargetAvailable = { [weak self] in
+            self?.tutorial.window?.isVisible == true
         }
         controller.onInsertionRequested = { [weak self] text, target, sendsAfterInsert in
             self?.tutorial.handleInsertionRequested(text: text, target: target, sendsAfterInsert: sendsAfterInsert)

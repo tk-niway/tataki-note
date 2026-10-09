@@ -4,6 +4,7 @@ import SwiftUI
 /// パネルの上部に重ねる、閉じる・開閉・新規作成・保存・挿入先のバー。
 struct PanelTitleBar: View {
     let target: InsertionTarget?
+    let noTargetAlertCount: Int
     let session: DraftSession?
     let isSidebarOpen: Bool
     let onClose: () -> Void
@@ -15,6 +16,7 @@ struct PanelTitleBar: View {
 
     init(
         target: InsertionTarget?,
+        noTargetAlertCount: Int = 0,
         session: DraftSession? = nil,
         saveAnimation: SaveAnimationModel? = nil,
         isSidebarOpen: Bool = false,
@@ -25,6 +27,7 @@ struct PanelTitleBar: View {
         appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = InsertionTargetBadge.systemIcon(for:)
     ) {
         self.target = target
+        self.noTargetAlertCount = noTargetAlertCount
         self.session = session
         self.saveAnimation = saveAnimation
         self.isSidebarOpen = isSidebarOpen
@@ -47,7 +50,7 @@ struct PanelTitleBar: View {
             newDraftButton
             saveDraftButton
                 .padding(.leading, 4)
-            InsertionTargetView(target: target, appIcon: appIcon)
+            InsertionTargetView(target: target, noTargetAlertCount: noTargetAlertCount, appIcon: appIcon)
                 .padding(.leading, 10)
         }
         .padding(.leading, 8)

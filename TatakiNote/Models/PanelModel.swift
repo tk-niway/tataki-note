@@ -43,17 +43,34 @@ enum PanelDismissal: Equatable {
         return present()
     }
 
+    /// 開いている間に挿入先を入れ替える。閉じているとき・変わらないときは何もしない。
+    func updateTarget(_ target: InsertionTarget?) {
+        guard isPresented, self.target != target else { return }
+        self.target = target
+    }
+
+    /// 挿入先なしで確定しようとした回数。増えるたびに「挿入先なし」を目立たせる。
+    private(set) var noTargetAlertCount = 0
+
+    /// 「挿入先なし」を目立たせる合図を出す。
+    func signalNoTarget() {
+        noTargetAlertCount += 1
+    }
+
     func prepareCommit(isAccessibilityTrusted: Bool) -> CommitPlan {
-        dismiss(as: .committed)
         if text.isEmpty {
+            dismiss(as: .committed)
             return .dismissOnly
         }
         if !isAccessibilityTrusted {
+            dismiss(as: .committed)
             return .permissionDenied
         }
         guard let target else {
+            signalNoTarget()
             return .noTarget
         }
+        dismiss(as: .committed)
         let committed = text
         text = ""
         return .insert(text: committed, target: target)
