@@ -102,7 +102,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             probe: fieldProbe,
             ownProcessIdentifier: ownProcessIdentifier,
             exposeWebContent: exposeWebContent,
-            isOutlineEnabled: { [settings] in settings.isInsertionTargetOutlineShown }
+            isOutlineEnabled: { [settings] in settings.isInsertionTargetOutlineActive }
         )
         self.targetMonitor = targetMonitor
         self.outlineController = InsertionTargetOutlineController(
@@ -148,7 +148,30 @@ final class PanelController: NSObject, NSWindowDelegate {
         configureSidebarModel()
         observeBodyFocusRequests()
         observeSaveEvents()
+        observeAppMode()
         targetMonitor.onFieldAdopted = { [weak self] in self?.returnInputToPanel() }
+    }
+
+    private func observeAppMode() {
+        observeRepeatedly(
+            tracking: { [weak self] in _ = self?.settings.appMode },
+            onChange: { [weak self] in
+                guard let self else { return false }
+                self.applyAppMode()
+                return true
+            }
+        )
+    }
+
+    /// 開いているパネルを今のモードに合わせる。ノートモードなら見張りをやめて挿入先なしにし、インサートモードなら挿入先なしから見張りを始める。
+    func applyAppMode() {
+        guard model.isPresented else { return }
+        if settings.isNoteMode {
+            targetMonitor.end()
+            model.updateTarget(nil)
+        } else {
+            targetMonitor.begin(app: nil)
+        }
     }
 
     private func observeSaveEvents() {
@@ -209,12 +232,13 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func open(observedFocus: ObservedFocus? = nil) {
+        let isNoteMode = settings.isNoteMode
         let app = isTargetLookupDisabled ? nil : (targetOverride?() ?? targetTracker.currentTarget())
         settings.refreshKeyDisplayTexts()
         let wasPresented = model.isPresented
         var start: InsertionTargetStart?
         let isTrusted = permission.isTrusted
-        if !wasPresented {
+        if !wasPresented, !isNoteMode {
             if let app,
                Self.shouldExposeWebContent(
                    target: app,
@@ -229,11 +253,11 @@ final class PanelController: NSObject, NSWindowDelegate {
         if !wasPresented {
             stopMotion()
             sizing.beginOpening(defaultSize: settings.panelDefaultSize)
-            let queriesAccessibility = Self.shouldQueryAccessibility(
+            let queriesAccessibility = !isNoteMode && Self.shouldQueryAccessibility(
                 of: app,
                 ownProcessIdentifier: ownProcessIdentifier
             )
-            let mode = settings.panelScreen
+            let mode = settings.effectivePanelScreen
             let fieldFrame = ScreenCoordinates.primaryScreenFrame.flatMap { primaryScreenFrame in
                 PanelOpenPlacement.fieldFrame(
                     mode: mode,
@@ -331,8 +355,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
         switch PanelKeyResolver.action(
             for: input,
-            commitKey: settings.commitKey,
-            commitAndSendKey: settings.commitAndSendKey
+            commitKey: settings.isNoteMode ? nil : settings.commitKey,
+            commitAndSendKey: settings.isNoteMode ? nil : settings.commitAndSendKey
         ) {
         case .cancel:
             close()

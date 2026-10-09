@@ -13,9 +13,11 @@ struct PanelTitleBar: View {
     let onSaveDraft: () -> Void
     let appIcon: @MainActor (InsertionTarget) -> NSImage
     let saveAnimation: SaveAnimationModel?
+    let showsInsertionTarget: Bool
 
     init(
         target: InsertionTarget?,
+        showsInsertionTarget: Bool = true,
         noTargetAlertCount: Int = 0,
         session: DraftSession? = nil,
         saveAnimation: SaveAnimationModel? = nil,
@@ -27,6 +29,7 @@ struct PanelTitleBar: View {
         appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = InsertionTargetBadge.systemIcon(for:)
     ) {
         self.target = target
+        self.showsInsertionTarget = showsInsertionTarget
         self.noTargetAlertCount = noTargetAlertCount
         self.session = session
         self.saveAnimation = saveAnimation
@@ -50,8 +53,10 @@ struct PanelTitleBar: View {
             newDraftButton
             saveDraftButton
                 .padding(.leading, 4)
-            InsertionTargetView(target: target, noTargetAlertCount: noTargetAlertCount, appIcon: appIcon)
-                .padding(.leading, 10)
+            if showsInsertionTarget {
+                InsertionTargetView(target: target, noTargetAlertCount: noTargetAlertCount, appIcon: appIcon)
+                    .padding(.leading, 10)
+            }
         }
         .padding(.leading, 8)
         .padding(.trailing, 10)
