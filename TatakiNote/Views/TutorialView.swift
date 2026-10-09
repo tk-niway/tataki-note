@@ -180,6 +180,31 @@ private struct PracticeChatBubble: View {
     }
 }
 
+private enum TutorialInlineText {
+    static let iconHeight: CGFloat = 16
+    static let iconBaselineOffset: CGFloat = -3
+
+    static func make(_ parts: [TutorialTextPart]) -> Text {
+        parts.reduce(Text(verbatim: "")) { result, part in
+            result + text(for: part)
+        }
+    }
+
+    private static func text(for part: TutorialTextPart) -> Text {
+        switch part {
+        case .text(let string):
+            return Text(verbatim: string)
+        case .menuBarIcon:
+            guard let image = MenuBarIcon.inlineImage(height: iconHeight) else {
+                return Text(verbatim: "")
+            }
+            let icon = Text(Image(nsImage: image).renderingMode(.template))
+                .baselineOffset(iconBaselineOffset)
+            return Text(verbatim: " ") + icon + Text(verbatim: " ")
+        }
+    }
+}
+
 private struct TutorialSkipNotice: View {
     let onClose: () -> Void
 
@@ -194,7 +219,7 @@ private struct TutorialSkipNotice: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("チュートリアルをスキップしました。")
                         .font(.headline)
-                    Text("チュートリアルは、設定の「アプリ情報」からいつでも開けます。")
+                    TutorialInlineText.make(TutorialModel.skipNoticeParts)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -280,7 +305,7 @@ private struct TutorialStepRow: View {
     private var detail: some View {
         switch step {
         case .openPanel:
-            Text(model.openPanelInstruction)
+            TutorialInlineText.make(model.openPanelInstructionParts)
                 .fixedSize(horizontal: false, vertical: true)
         case .writeWithNewline:
             Text(model.writeInstruction)
@@ -302,7 +327,7 @@ private struct TutorialNextSteps: View {
             ForEach(TutorialNextStepIntroduction.allCases, id: \.self) { introduction in
                 TutorialIntroduction(
                     heading: Text(introduction.heading),
-                    text: Text(introduction.text)
+                    text: TutorialInlineText.make(introduction.parts)
                 )
             }
         }
