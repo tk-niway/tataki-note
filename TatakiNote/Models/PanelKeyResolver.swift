@@ -26,12 +26,6 @@ enum PanelKeyAction: Equatable {
     case openSettings
 }
 
-/// 下書きの削除の確認を出している間のキーの意味。
-enum DeletionConfirmationKey: Equatable {
-    case delete
-    case cancel
-}
-
 enum PanelKeyResolver {
     static func action(
         for input: PanelKeyInput,
@@ -67,15 +61,6 @@ enum PanelKeyResolver {
         if modifiers == [.command], input.characters == "d" {
             return .discard
         }
-        return nil
-    }
-
-    /// 下書きの削除の確認を出している間のキーが選ぶ操作。当てはまらなければ `nil`。
-    static func deletionConfirmationKey(for input: PanelKeyInput) -> DeletionConfirmationKey? {
-        guard !input.hasMarkedText,
-              input.modifiers.intersection(PanelShortcut.relevantModifiers).isEmpty else { return nil }
-        if isReturn(input) { return .delete }
-        if input.keyCode == KeyCode.escape { return .cancel }
         return nil
     }
 

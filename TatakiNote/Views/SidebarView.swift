@@ -28,10 +28,6 @@ struct SidebarView: View {
             }
             listArea
                 .padding(.top, 6)
-            if let id = model.pendingDeletion {
-                deleteConfirmation(for: id)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
             footer
         }
         .frame(width: SidebarLayout.width)
@@ -132,8 +128,6 @@ struct SidebarView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .opacity(model.pendingDeletion == nil ? 1 : 0.6)
-        .allowsHitTesting(model.pendingDeletion == nil)
     }
 
     private func list(_ rows: [SidebarRow]) -> some View {
@@ -209,7 +203,7 @@ struct SidebarView: View {
             model.activate(row.id)
         }
         .contextMenu {
-            Button(row.deleteMenuTitle) {
+            Button("削除") {
                 model.requestDelete(row.id)
             }
             .disabled(!model.isDeleteAvailable)
@@ -278,47 +272,6 @@ struct SidebarView: View {
         .overlay(alignment: .top) {
             Divider()
         }
-    }
-
-    // MARK: - 削除の確認
-
-    private func deleteConfirmation(for id: UUID) -> some View {
-        let title = model.rows.first { $0.id == id }?.title ?? ""
-        return VStack(alignment: .leading, spacing: 4) {
-            Text("この下書きを削除しますか?")
-                .font(.system(size: 12, weight: .semibold))
-            Text(verbatim: "「\(title)」")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-            HStack(spacing: 8) {
-                Spacer(minLength: 0)
-                Button("キャンセル") {
-                    model.cancelDeletion()
-                }
-                .focusable(false)
-                .accessibilityIdentifier("sidebar.deleteConfirmation.cancel")
-                Button("削除", role: .destructive) {
-                    model.confirmDeletion()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.red)
-                .focusable(false)
-                .accessibilityIdentifier("sidebar.deleteConfirmation.delete")
-            }
-            .controlSize(.small)
-            .padding(.top, 4)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .windowBackgroundColor))
-        .overlay(alignment: .top) {
-            Divider()
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("sidebar.deleteConfirmation")
     }
 
     // MARK: - キー

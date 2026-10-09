@@ -300,7 +300,6 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private func prepareToClose() {
         session.resolvePendingSwitch(.cancel)
-        sidebarModel.cancelDeletion()
     }
 
     func toggle() {
@@ -323,9 +322,6 @@ final class PanelController: NSObject, NSWindowDelegate {
     func handleKey(_ input: PanelKeyInput) -> Bool {
         if session.pendingSwitch != nil {
             return handleConfirmationKey(input)
-        }
-        if sidebarModel.pendingDeletion != nil {
-            return handleDeletionConfirmationKey(input)
         }
         switch PanelKeyResolver.action(
             for: input,
@@ -369,19 +365,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         guard !input.hasMarkedText else { return false }
         if let choice = PanelKeyResolver.confirmationChoice(for: input) {
             session.resolvePendingSwitch(choice)
-        }
-        return true
-    }
-
-    private func handleDeletionConfirmationKey(_ input: PanelKeyInput) -> Bool {
-        guard !input.hasMarkedText else { return false }
-        switch PanelKeyResolver.deletionConfirmationKey(for: input) {
-        case .delete:
-            sidebarModel.confirmDeletion()
-        case .cancel:
-            sidebarModel.cancelDeletion()
-        case nil:
-            break
         }
         return true
     }

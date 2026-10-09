@@ -339,21 +339,6 @@ struct PanelDraftWiringTests {
         #expect(fixture.model.text == "typed")
     }
 
-    @Test("AC-33: 下書きの削除の確認を出している間にパネルが閉じられると、確認は取り消され、下書きは消えない")
-    func closingCancelsPendingDeletion() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanup() }
-        let draft = try fixture.addDraft("saved")
-        fixture.model.present(target: nil)
-        fixture.sidebarModel.requestDelete(draft.id)
-        #expect(fixture.sidebarModel.pendingDeletion == draft.id)
-
-        fixture.controller.close()
-
-        #expect(fixture.sidebarModel.pendingDeletion == nil)
-        #expect(fixture.library.draft(id: draft.id) != nil)
-    }
-
     // MARK: - 書き出し
 
     @Test("AC-34: パネルを閉じたとき、書き換え途中の下書きが保存先に書き出される")
@@ -431,78 +416,21 @@ struct PanelDraftWiringTests {
         #expect(fixture.session.document == .savedDraft(draft.id))
     }
 
-    // MARK: - 下書きの削除の確認中のキー
+    // MARK: - 下書きの削除
 
-    @Test("AC-49: 下書きの削除の確認を出している間、↩ で削除される")
-    func deletionConfirmationReturnDeletes() throws {
+    @Test("AC-1: パネルを開いて本文にフォーカスがある状態で下書きの削除を求めると、キーを経なくてもすぐ消え、パネルは開いたまま")
+    func requestDeleteDeletesImmediatelyWhilePanelIsOpen() throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
         let draft = try fixture.addDraft("saved")
         fixture.model.present(target: nil)
+        _ = try fixture.attachEditor()
+
         fixture.sidebarModel.requestDelete(draft.id)
 
-        let handled = fixture.controller.handleKey(Self.returnKey)
-
-        #expect(handled)
-        #expect(fixture.sidebarModel.pendingDeletion == nil)
         #expect(fixture.library.draft(id: draft.id) == nil)
+        #expect(fixture.reloadedLibrary().draft(id: draft.id) == nil)
         #expect(fixture.model.isPresented)
-    }
-
-    @Test("AC-49: 下書きの削除の確認を出している間、esc でキャンセルされ、パネルは閉じず、下書きは残る")
-    func deletionConfirmationEscapeCancels() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanup() }
-        let draft = try fixture.addDraft("saved")
-        fixture.model.present(target: nil)
-        fixture.sidebarModel.requestDelete(draft.id)
-
-        let handled = fixture.controller.handleKey(Self.escapeKey)
-
-        #expect(handled)
-        #expect(fixture.sidebarModel.pendingDeletion == nil)
-        #expect(fixture.library.draft(id: draft.id) != nil)
-        #expect(fixture.model.isPresented)
-    }
-
-    @Test("AC-49: 下書きの削除の確認を出している間、文字は本文に入らず、確定キーでも確定しない")
-    func deletionConfirmationSwallowsOtherKeys() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanup() }
-        let draft = try fixture.addDraft("saved")
-        fixture.model.present(target: Self.textEdit)
-        fixture.model.text = "typed"
-        fixture.sidebarModel.requestDelete(draft.id)
-
-        let characterHandled = fixture.controller.handleKey(Self.key("x", keyCode: 7))
-        let commitHandled = fixture.controller.handleKey(Self.key(keyCode: KeyCode.returnKey, modifiers: [.command, .shift]))
-        let commitAndSendHandled = fixture.controller.handleKey(Self.key(keyCode: KeyCode.returnKey, modifiers: [.command]))
-
-        #expect(characterHandled)
-        #expect(commitHandled)
-        #expect(commitAndSendHandled)
-        #expect(fixture.sidebarModel.pendingDeletion == draft.id)
-        #expect(fixture.library.draft(id: draft.id) != nil)
-        #expect(fixture.model.text == "typed")
-        #expect(fixture.model.isPresented)
-        #expect(fixture.inserter.calls.isEmpty)
-    }
-
-    @Test("AC-49: 下書きの削除の確認を出している間に未確定の文字があると、↩ と esc は入力メソッドに渡り、削除もキャンセルもしない")
-    func deletionConfirmationPassesMarkedTextKeysThrough() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanup() }
-        let draft = try fixture.addDraft("saved")
-        fixture.model.present(target: nil)
-        fixture.sidebarModel.requestDelete(draft.id)
-
-        let returnHandled = fixture.controller.handleKey(Self.key(keyCode: KeyCode.returnKey, hasMarkedText: true))
-        let escapeHandled = fixture.controller.handleKey(Self.key(keyCode: KeyCode.escape, hasMarkedText: true))
-
-        #expect(!returnHandled)
-        #expect(!escapeHandled)
-        #expect(fixture.sidebarModel.pendingDeletion == draft.id)
-        #expect(fixture.library.draft(id: draft.id) != nil)
     }
 
     // MARK: - 変換中の ⌘S ⌘N ⌘K
@@ -707,7 +635,7 @@ struct PanelDraftWiringTests {
         #expect(!textView.hasMarkedText())
     }
 
-    @Test("AC-51: 本文で変換中に行の右クリックのメニューの削除(requestDelete)を呼ぶと、変換中の文字が元の下書きに入ってから削除の確認が出る")
+    @Test("AC-3: 本文で変換中に行の右クリックのメニューの削除(requestDelete)を呼ぶと、変換中の文字が元の下書きに入ってから、別の下書きが消える")
     func requestDeleteCommitsMarkedTextFirst() throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
@@ -722,8 +650,7 @@ struct PanelDraftWiringTests {
         fixture.sidebarModel.requestDelete(bravo.id)
 
         #expect(fixture.library.draft(id: alpha.id)?.text == "Alphaにほんご")
-        #expect(fixture.sidebarModel.pendingDeletion == bravo.id)
-        #expect(fixture.library.draft(id: bravo.id)?.text == "Bravo")
+        #expect(fixture.library.draft(id: bravo.id) == nil)
         #expect(!textView.hasMarkedText())
     }
 

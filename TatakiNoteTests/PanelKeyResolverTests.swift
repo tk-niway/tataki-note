@@ -378,28 +378,6 @@ struct PanelKeyResolverTests {
         }
     }
 
-    @Test("AC-49: 下書きの削除の確認中は ↩ が削除、esc がキャンセルになり、それ以外と未確定の文字があるときは何も選ばない")
-    func deletionConfirmationKeys() {
-        for keyCode in [KeyCode.returnKey, KeyCode.keypadEnter] {
-            let input = PanelKeyInput(keyCode: keyCode, modifiers: [.capsLock], hasMarkedText: false)
-            #expect(PanelKeyResolver.deletionConfirmationKey(for: input) == .delete, "keyCode \(keyCode)")
-        }
-        let escape = PanelKeyInput(keyCode: KeyCode.escape, modifiers: [], hasMarkedText: false)
-        #expect(PanelKeyResolver.deletionConfirmationKey(for: escape) == .cancel)
-
-        let others = [
-            PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.command], hasMarkedText: false),
-            PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.command, .shift], hasMarkedText: false),
-            commandKey("d", keyCode: 2),
-            PanelKeyInput(keyCode: 0, modifiers: [], hasMarkedText: false, characters: "a"),
-            PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [], hasMarkedText: true),
-            PanelKeyInput(keyCode: KeyCode.escape, modifiers: [], hasMarkedText: true),
-        ]
-        for input in others {
-            #expect(PanelKeyResolver.deletionConfirmationKey(for: input) == nil, "\(input)")
-        }
-    }
-
     // MARK: - 割り当てていない ⌘ つきの Enter の改行
 
     @Test("AC-11: ⌘Enter・⌘⇧Enter は入力欄が自分で改行を入れる対象になり、修飾なし・Shift だけ・⌥ や ⌃ を含むもの・変換中・Enter 以外のキーは対象にならない")
