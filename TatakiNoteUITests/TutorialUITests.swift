@@ -57,6 +57,30 @@ final class TutorialUITests: XCTestCase {
         XCTAssertTrue(window.waitForNonExistence(timeout: timeout), "「閉じる」で窓が閉じない")
     }
 
+    // AC-7
+    @MainActor
+    func testAC7_skipNoticeShowsSettingsRoute() throws {
+        let app = launchApp(permission: AccessibilityOverride.trusted, showsTutorial: true)
+        let window = tutorialWindow(in: app)
+        XCTAssertTrue(window.waitForExistence(timeout: timeout), "チュートリアルの窓が開かない")
+
+        let skip = app.buttons["tutorial.skip"]
+        XCTAssertTrue(skip.waitForExistence(timeout: timeout))
+        skip.click()
+
+        let notice = element(in: app, identifier: "tutorial.skipNotice")
+        XCTAssertTrue(notice.waitForExistence(timeout: timeout))
+        let noticeText = [notice.label, notice.value as? String ?? ""].joined(separator: " ")
+        XCTAssertTrue(noticeText.contains("「設定」"), "スキップの案内に「設定」が出ない: \(noticeText)")
+        XCTAssertTrue(noticeText.contains("「アプリ情報」"), "スキップの案内に「アプリ情報」が出ない: \(noticeText)")
+
+        let close = app.buttons["tutorial.skipNotice.close"]
+        XCTAssertTrue(close.exists)
+        close.click()
+
+        XCTAssertTrue(window.waitForNonExistence(timeout: timeout), "「閉じる」で窓が閉じない")
+    }
+
     // AC-26
     @MainActor
     func testAC26_untrustedGuideShowsNoteAndClosingDoesNotOpenTutorial() throws {

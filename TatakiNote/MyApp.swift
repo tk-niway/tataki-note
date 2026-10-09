@@ -8,7 +8,7 @@ import SwiftUI
 
         MenuBarExtra(
             "TatakiNote",
-            image: "MenuBarIcon",
+            image: MenuBarIcon.assetName,
             isInserted: Binding(
                 get: { settings.isMenuBarIconShown },
                 set: { settings.isMenuBarIconShown = $0 }
