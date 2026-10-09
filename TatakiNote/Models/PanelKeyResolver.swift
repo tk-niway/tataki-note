@@ -4,6 +4,15 @@ enum KeyCode {
     static let escape: UInt16 = 53
     static let returnKey: UInt16 = 36
     static let keypadEnter: UInt16 = 76
+    static let tab: UInt16 = 48
+    static let space: UInt16 = 49
+}
+
+/// 確認を出している間の、選んでいるボタンを動かす・押すキー。
+enum ConfirmationFocusKey: Equatable {
+    case next
+    case previous
+    case pressFocused
 }
 
 /// 入力欄に届いたキーの値。
@@ -24,12 +33,6 @@ enum PanelKeyAction: Equatable {
     case newDraft
     case toggleSidebar
     case openSettings
-}
-
-/// 下書きの削除の確認を出している間のキーの意味。
-enum DeletionConfirmationKey: Equatable {
-    case delete
-    case cancel
 }
 
 enum PanelKeyResolver {
@@ -70,13 +73,20 @@ enum PanelKeyResolver {
         return nil
     }
 
-    /// 下書きの削除の確認を出している間のキーが選ぶ操作。当てはまらなければ `nil`。
-    static func deletionConfirmationKey(for input: PanelKeyInput) -> DeletionConfirmationKey? {
-        guard !input.hasMarkedText,
-              input.modifiers.intersection(PanelShortcut.relevantModifiers).isEmpty else { return nil }
-        if isReturn(input) { return .delete }
-        if input.keyCode == KeyCode.escape { return .cancel }
-        return nil
+    /// 確認を出している間のキーが、選んでいるボタンを動かす・押すものなら、その意味。当てはまらなければ `nil`。
+    static func confirmationFocusKey(for input: PanelKeyInput) -> ConfirmationFocusKey? {
+        guard !input.hasMarkedText else { return nil }
+        let modifiers = input.modifiers.intersection(PanelShortcut.relevantModifiers)
+        switch input.keyCode {
+        case KeyCode.tab:
+            if modifiers.isEmpty { return .next }
+            if modifiers == [.shift] { return .previous }
+            return nil
+        case KeyCode.space:
+            return modifiers.isEmpty ? .pressFocused : nil
+        default:
+            return nil
+        }
     }
 
     private static func panelCommandAction(for input: PanelKeyInput) -> PanelKeyAction? {

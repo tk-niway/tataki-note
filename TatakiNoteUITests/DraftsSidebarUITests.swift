@@ -107,6 +107,39 @@ final class DraftsSidebarUITests: PanelDraftsUITestCase {
         XCTAssertTrue(row(in: app, containing: "xyz").waitForExistence(timeout: timeout), "保存で下書きの一覧に増えない")
     }
 
+    // AC-12
+    @MainActor
+    func testAC12_confirmationAnswersToShortcutKeys() throws {
+        let app = try launchApp()
+        _ = openPanel(in: app)
+        let body = textView(in: app)
+        let confirmation = element(in: app, identifier: "promptPanel.confirmation")
+
+        app.typeText("abc")
+        pressCommand("n", in: app)
+        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout), "確認が出ない")
+        app.typeKey("d", modifierFlags: [.command])
+        XCTAssertTrue(confirmation.waitForNonExistence(timeout: timeout), "⌘D で確認が消えない")
+        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty }, "⌘D の保存しないで本文が空にならない")
+
+        app.typeText("xyz")
+        pressCommand("n", in: app)
+        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout))
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(confirmation.waitForNonExistence(timeout: timeout), "esc で確認が消えない")
+        XCTAssertTrue(body.exists, "esc でパネルが閉じた")
+        XCTAssertEqual(body.promptPanelText, "xyz", "esc のキャンセルで文章が残らない")
+
+        pressCommand("n", in: app)
+        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout))
+        app.typeKey(.return, modifierFlags: [])
+        XCTAssertTrue(confirmation.waitForNonExistence(timeout: timeout), "↩ で確認が消えない")
+        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty }, "↩ の保存で本文が空にならない")
+
+        openSidebar(in: app)
+        XCTAssertTrue(row(in: app, containing: "xyz").waitForExistence(timeout: timeout), "↩ の保存で下書きの一覧に増えない")
+    }
+
     // AC-36
     @MainActor
     func testAC36_savedDraftShowsRowAndRightClickDeletes() throws {
@@ -136,16 +169,17 @@ final class DraftsSidebarUITests: PanelDraftsUITestCase {
         XCTAssertTrue(draftRow.waitForExistence(timeout: timeout), "保存した下書きの行が出ない")
         XCTAssertFalse(app.buttons["sidebar.deleteButton"].exists, "行にゴミ箱のボタンが出ている")
 
+        // AC-4
         draftRow.rightClick()
         let byIdentifier = app.menuItems["sidebar.row.deleteMenuItem"]
-        let menuItem = byIdentifier.waitForExistence(timeout: 2) ? byIdentifier : app.menuItems["削除…"]
+        let menuItem = byIdentifier.waitForExistence(timeout: 2) ? byIdentifier : app.menuItems["削除"]
         XCTAssertTrue(menuItem.waitForExistence(timeout: timeout), "右クリックのメニューに削除が出ない")
+        let menuItemTitle = menuItem.title.isEmpty ? menuItem.label : menuItem.title
+        XCTAssertEqual(menuItemTitle, "削除", "削除の項目の題が「削除」でない")
         menuItem.click()
 
-        let deleteConfirmation = element(in: app, identifier: "sidebar.deleteConfirmation")
-        XCTAssertTrue(deleteConfirmation.waitForExistence(timeout: timeout), "削除の確認が出ない")
-        element(in: app, identifier: "sidebar.deleteConfirmation.delete").click()
         XCTAssertTrue(draftRow.waitForNonExistence(timeout: timeout), "削除しても行が消えない")
+        XCTAssertFalse(element(in: app, identifier: "sidebar.deleteConfirmation").exists, "削除の確認が出ている")
         XCTAssertEqual(body.promptPanelText, "draft one", "削除で本文が消えた")
     }
 

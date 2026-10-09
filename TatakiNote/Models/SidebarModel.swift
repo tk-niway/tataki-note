@@ -45,31 +45,21 @@ struct SidebarRow: Equatable, Identifiable {
     let detail: String?
     let isShownInPanel: Bool
     var isUntitled = false
-
-    /// 右クリックのメニューの削除の項目の題。
-    var deleteMenuTitle: String {
-        switch kind {
-        case .draft: "削除…"
-        case .history: "削除"
-        }
-    }
 }
 
-/// サイドバーの開閉・表示中の側・検索・選択・削除の確認の状態。
+/// サイドバーの開閉・表示中の側・検索・選択の状態。
 @Observable final class SidebarModel {
     static let untitledDraftTitle = "(空の下書き)"
     static let unknownAppName = "不明なアプリ"
 
-    /// 検索欄の文字。変えると選択を先頭の行に置き直し、下書きの削除の確認を取り消す。
+    /// 検索欄の文字。変えると選択を先頭の行に置き直す。
     var query: String = "" {
         didSet {
             guard query != oldValue else { return }
             selectedID = nil
-            pendingDeletion = nil
         }
     }
 
-    private(set) var pendingDeletion: UUID?
     private(set) var searchFocusRequest = 0
     /// サイドバーが滑って開閉している間、本文の部分に保つ幅。動いていなければ nil。
     var slidingBodyWidth: CGFloat?
@@ -110,22 +100,18 @@ struct SidebarRow: Equatable, Identifiable {
 
     var isOpen: Bool { settings.isSidebarOpen }
 
-    /// サイドバーを開閉する。閉じると下書きの削除の確認を取り消す。
+    /// サイドバーを開閉する。
     func setOpen(_ isOpen: Bool) {
         settings.isSidebarOpen = isOpen
-        if !isOpen {
-            pendingDeletion = nil
-        }
     }
 
-    /// 表示中の側。変えると選択を先頭の行に置き直し、下書きの削除の確認を取り消す。
+    /// 表示中の側。変えると選択を先頭の行に置き直す。
     var tab: SidebarTab {
         get { settings.sidebarTab }
         set {
             guard newValue != settings.sidebarTab else { return }
             settings.sidebarTab = newValue
             selectedID = nil
-            pendingDeletion = nil
         }
     }
 
@@ -265,7 +251,6 @@ struct SidebarRow: Equatable, Identifiable {
     private func performActivation(of id: UUID) {
         guard let row = rows.first(where: { $0.id == id }) else { return }
         selectedID = id
-        pendingDeletion = nil
         switch row.kind {
         case .draft: session.request(.draft(id))
         case .history: session.request(.history(id))
@@ -280,12 +265,12 @@ struct SidebarRow: Equatable, Identifiable {
         session.pendingSwitch == nil
     }
 
-    /// 行の削除を求める。下書きは確認を出し、履歴はすぐ消す。
+    /// 行をすぐ消す。
     func requestDelete(_ id: UUID) {
         beforeUserAction()
         guard isDeleteAvailable, let row = rows.first(where: { $0.id == id }) else { return }
         switch row.kind {
-        case .draft: pendingDeletion = id
+        case .draft: session.deleteDraft(id: id)
         case .history: session.deleteHistoryEntry(id: id)
         }
     }
@@ -296,32 +281,12 @@ struct SidebarRow: Equatable, Identifiable {
         requestDelete(id)
     }
 
-    /// 下書きの削除の確認に「削除」と答える。
-    func confirmDeletion() {
-        guard let id = pendingDeletion else { return }
-        pendingDeletion = nil
-        session.deleteDraft(id: id)
-    }
-
-    /// 下書きの削除の確認に「キャンセル」と答える。
-    func cancelDeletion() {
-        pendingDeletion = nil
-    }
-
     // MARK: - キー
 
     /// 検索欄・一覧で押したキーを処理する。処理した(または飲み込んだ)なら `true`。
     func handleKey(_ key: SidebarKey, modifiers: NSEvent.ModifierFlags, hasMarkedText: Bool) -> Bool {
         if hasMarkedText { return false }
         let relevant = modifiers.intersection(PanelShortcut.relevantModifiers)
-        if pendingDeletion != nil {
-            switch key {
-            case .returnKey where relevant.isEmpty: confirmDeletion()
-            case .escape: cancelDeletion()
-            default: break
-            }
-            return true
-        }
         switch key {
         case .up:
             guard relevant.isEmpty else { return false }

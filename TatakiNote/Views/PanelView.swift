@@ -136,7 +136,7 @@ struct PanelView: View {
         .accessibilityHidden(isConfirming)
         .overlay {
             if let session, session.pendingSwitch != nil {
-                PanelConfirmationOverlay { choice in
+                PanelConfirmationOverlay(focusedChoice: session.confirmationFocus) { choice in
                     if let onResolveConfirmation {
                         onResolveConfirmation(choice)
                     } else {

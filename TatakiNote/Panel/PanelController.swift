@@ -80,7 +80,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         saveAnimation: SaveAnimationModel = SaveAnimationModel(),
         animator: PanelFrameAnimating = AppKitPanelFrameAnimator(),
         hideApplication: @escaping () -> Void = { NSApp.hide(nil) },
-        makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil
+        makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil,
+        isKeyboardNavigationEnabled: @escaping () -> Bool = { NSApplication.shared.isFullKeyboardAccessEnabled }
     ) {
         let panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
         self.model = model
@@ -110,7 +111,12 @@ final class PanelController: NSObject, NSWindowDelegate {
             panelModel: model,
             panel: panel
         )
-        let session = DraftSession(panel: model, library: library, ownProcessIdentifier: ownProcessIdentifier)
+        let session = DraftSession(
+            panel: model,
+            library: library,
+            ownProcessIdentifier: ownProcessIdentifier,
+            isKeyboardNavigationEnabled: isKeyboardNavigationEnabled
+        )
         self.session = session
         self.sidebarModel = SidebarModel(settings: settings, library: library, session: session)
         self.saveAnimation = saveAnimation
@@ -300,7 +306,6 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private func prepareToClose() {
         session.resolvePendingSwitch(.cancel)
-        sidebarModel.cancelDeletion()
     }
 
     func toggle() {
@@ -323,9 +328,6 @@ final class PanelController: NSObject, NSWindowDelegate {
     func handleKey(_ input: PanelKeyInput) -> Bool {
         if session.pendingSwitch != nil {
             return handleConfirmationKey(input)
-        }
-        if sidebarModel.pendingDeletion != nil {
-            return handleDeletionConfirmationKey(input)
         }
         switch PanelKeyResolver.action(
             for: input,
@@ -369,19 +371,12 @@ final class PanelController: NSObject, NSWindowDelegate {
         guard !input.hasMarkedText else { return false }
         if let choice = PanelKeyResolver.confirmationChoice(for: input) {
             session.resolvePendingSwitch(choice)
-        }
-        return true
-    }
-
-    private func handleDeletionConfirmationKey(_ input: PanelKeyInput) -> Bool {
-        guard !input.hasMarkedText else { return false }
-        switch PanelKeyResolver.deletionConfirmationKey(for: input) {
-        case .delete:
-            sidebarModel.confirmDeletion()
-        case .cancel:
-            sidebarModel.cancelDeletion()
-        case nil:
-            break
+        } else if let key = PanelKeyResolver.confirmationFocusKey(for: input) {
+            switch key {
+            case .next: session.moveConfirmationFocus(by: 1)
+            case .previous: session.moveConfirmationFocus(by: -1)
+            case .pressFocused: session.resolveFocusedConfirmation()
+            }
         }
         return true
     }

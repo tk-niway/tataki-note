@@ -2,12 +2,15 @@ import SwiftUI
 
 /// 保存していない文章があるまま切り替えるときに、本文の上に重ねる確認。
 struct PanelConfirmationOverlay: View {
+    let focusedChoice: UnsavedTextChoice?
     let onResolve: (UnsavedTextChoice) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
 
     private static let cardMaximumWidth: CGFloat = 360
     private static let cardMargin: CGFloat = 12
+    private static let focusRingWidth: CGFloat = 3
+    private static let focusRingCornerRadius: CGFloat = 9
 
     var body: some View {
         GeometryReader { proxy in
@@ -81,6 +84,15 @@ struct PanelConfirmationOverlay: View {
             }
         }
         .focusable(false)
+        .overlay {
+            if choice == focusedChoice {
+                RoundedRectangle(cornerRadius: Self.focusRingCornerRadius)
+                    .strokeBorder(Color(nsColor: .keyboardFocusIndicatorColor), lineWidth: Self.focusRingWidth)
+                    .padding(-Self.focusRingWidth)
+                    .allowsHitTesting(false)
+            }
+        }
+        .accessibilityAddTraits(choice == focusedChoice ? .isSelected : [])
         .accessibilityIdentifier("promptPanel.confirmation.\(identifier)")
     }
 }

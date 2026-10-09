@@ -329,7 +329,6 @@ struct SidebarModelTests {
         #expect(fixture.panel.text.isEmpty)
         #expect(fixture.session.document == .scratch)
         #expect(fixture.model.bodyFocusRequest == focusBefore)
-        #expect(fixture.model.pendingDeletion == nil)
         #expect(fixture.library.drafts.count == 2)
     }
 
@@ -423,58 +422,50 @@ struct SidebarModelTests {
 
     // MARK: - 削除
 
-    @Test("AC-26: 右クリックのメニューの削除の項目の題は、下書きで「削除…」・履歴で「削除」")
-    func deleteMenuTitles() throws {
-        let fixture = try Fixture()
+    @Test("AC-1: 下書きの削除は確認なしですぐ消え、右クリックした行に働き、選択は動かさない。保存先から読み直しても無い。選んでいた行を消すと選択は先頭の行になる")
+    func draftDeletionIsImmediate() throws {
+        let directory = DraftLibraryTestDirectory()
+        defer { directory.remove() }
+        let fixture = try Fixture(store: DraftLibraryStore(directory: directory.dataDirectory))
         defer { fixture.cleanUp() }
-        try fixture.addDraft("draft")
-        fixture.addHistory("history")
+        let bottom = try fixture.addDraft("bottom")
+        let middle = try fixture.addDraft("middle")
+        let top = try fixture.addDraft("top")
+        #expect(fixture.model.selection == top)
 
-        #expect(fixture.model.rows.map(\.deleteMenuTitle) == ["削除…"])
-        fixture.model.tab = .history
-        #expect(fixture.model.rows.map(\.deleteMenuTitle) == ["削除"])
+        fixture.model.requestDelete(bottom)
+
+        #expect(fixture.library.drafts.map(\.id) == [top, middle])
+        #expect(fixture.model.selection == top)
+        let reloaded = DraftLibrary(store: DraftLibraryStore(directory: directory.dataDirectory))
+        #expect(reloaded.drafts.map(\.id) == [top, middle])
+
+        fixture.model.select(middle)
+        fixture.model.requestDelete(middle)
+
+        #expect(fixture.library.drafts.map(\.id) == [top])
+        #expect(fixture.model.selection == top)
     }
 
-    @Test("AC-26: 下書きの削除は確認を出し、右クリックした行に働き、選択は動かさない。「削除」で消え「キャンセル」で残る")
-    func draftDeletionAsksFirst() throws {
-        let fixture = try Fixture()
+    @Test("AC-1: 一覧での ⌘⌫ は選んでいる行をすぐ消し、保存先から読み直しても無い")
+    func commandDeleteDeletesSelection() throws {
+        let directory = DraftLibraryTestDirectory()
+        defer { directory.remove() }
+        let fixture = try Fixture(store: DraftLibraryStore(directory: directory.dataDirectory))
         defer { fixture.cleanUp() }
         let bottom = try fixture.addDraft("bottom")
         let top = try fixture.addDraft("top")
         #expect(fixture.model.selection == top)
 
-        fixture.model.requestDelete(bottom)
-
-        #expect(fixture.model.pendingDeletion == bottom)
-        #expect(fixture.model.selection == top)
-        #expect(fixture.library.drafts.count == 2)
-
-        fixture.model.cancelDeletion()
-        #expect(fixture.model.pendingDeletion == nil)
-        #expect(fixture.library.drafts.count == 2)
-
-        fixture.model.requestDelete(bottom)
-        fixture.model.confirmDeletion()
-
-        #expect(fixture.model.pendingDeletion == nil)
-        #expect(fixture.library.drafts.map(\.id) == [top])
-        #expect(fixture.model.selection == top)
-    }
-
-    @Test("AC-26: 一覧での ⌘⌫ は選んでいる行の削除の確認を出す")
-    func commandDeleteAsksAboutSelection() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanUp() }
-        try fixture.addDraft("bottom")
-        let top = try fixture.addDraft("top")
-
         #expect(fixture.press(.deleteBackward, [.command]))
 
-        #expect(fixture.model.pendingDeletion == top)
-        #expect(fixture.library.drafts.count == 2)
+        #expect(fixture.library.drafts.map(\.id) == [bottom])
+        #expect(fixture.model.selection == bottom)
+        let reloaded = DraftLibrary(store: DraftLibraryStore(directory: directory.dataDirectory))
+        #expect(reloaded.drafts.map(\.id) == [bottom])
     }
 
-    @Test("AC-26: 修飾キー無しの ⌫ は検索欄の文字の削除のままで、削除の確認は出ない")
+    @Test("AC-26: 修飾キー無しの ⌫ は検索欄の文字の削除のままで、下書きは消えない")
     func plainDeleteBackwardPassesThrough() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
@@ -483,23 +474,7 @@ struct SidebarModelTests {
         #expect(!fixture.press(.deleteBackward))
         #expect(!fixture.press(.deleteBackward, [.option]))
 
-        #expect(fixture.model.pendingDeletion == nil)
-    }
-
-    @Test("AC-26: 別の下書きの削除の確認中に「削除…」を選ぶと、確認の対象がその下書きに替わる")
-    func secondDeletionRequestReplacesTarget() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanUp() }
-        let first = try fixture.addDraft("first")
-        let second = try fixture.addDraft("second")
-
-        fixture.model.requestDelete(first)
-        fixture.model.requestDelete(second)
-        #expect(fixture.model.pendingDeletion == second)
-
-        fixture.model.confirmDeletion()
-
-        #expect(fixture.library.drafts.map(\.id) == [first])
+        #expect(fixture.library.drafts.count == 1)
     }
 
     @Test("AC-26: 履歴の削除は確認なしですぐ消える")
@@ -512,95 +487,11 @@ struct SidebarModelTests {
 
         fixture.model.requestDelete(older)
 
-        #expect(fixture.model.pendingDeletion == nil)
         #expect(fixture.library.history.map(\.id) == [newer])
         #expect(fixture.model.selection == newer)
     }
 
-    @Test("AC-26: 削除の確認中は ↩ で削除、esc でキャンセルになり、本文へは戻らず呼び出さない")
-    func returnConfirmsAndEscapeCancelsDeletion() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanUp() }
-        let draft = try fixture.addDraft("draft")
-        let focusBefore = fixture.model.bodyFocusRequest
-
-        fixture.model.requestDelete(draft)
-        #expect(fixture.press(.escape))
-        #expect(fixture.model.pendingDeletion == nil)
-        #expect(fixture.library.drafts.count == 1)
-
-        fixture.model.requestDelete(draft)
-        #expect(fixture.press(.returnKey))
-        #expect(fixture.model.pendingDeletion == nil)
-        #expect(fixture.library.drafts.isEmpty)
-        #expect(fixture.model.bodyFocusRequest == focusBefore)
-        #expect(fixture.panel.text.isEmpty)
-    }
-
-    @Test("AC-26: 削除の確認中の ↑ ↓ ⌘⌫・修飾キー付きの ↩ は何もせず飲み込む")
-    func otherKeysAreSwallowedDuringDeletionConfirmation() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanUp() }
-        try fixture.addDraft("bottom")
-        let top = try fixture.addDraft("top")
-        fixture.model.requestDelete(top)
-
-        #expect(fixture.press(.up))
-        #expect(fixture.press(.down))
-        #expect(fixture.press(.deleteBackward, [.command]))
-        #expect(fixture.press(.returnKey, [.command, .shift]))
-        #expect(fixture.press(.returnKey, [.command]))
-
-        #expect(fixture.model.pendingDeletion == top)
-        #expect(fixture.model.selection == top)
-        #expect(fixture.library.drafts.count == 2)
-        #expect(fixture.panel.text.isEmpty)
-    }
-
-    @Test("AC-26: 確認中に検索欄の文字を変えると確認は取り消され、下書きは消えない")
-    func queryChangeCancelsDeletionConfirmation() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanUp() }
-        let draft = try fixture.addDraft("draft")
-        fixture.model.requestDelete(draft)
-
-        fixture.model.query = "d"
-
-        #expect(fixture.model.pendingDeletion == nil)
-        #expect(fixture.library.drafts.count == 1)
-    }
-
-    @Test("AC-26: 未確定の文字があるときの ↩ esc は入力メソッドに渡り、削除もキャンセルもしない")
-    func markedTextDoesNotResolveDeletionConfirmation() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanUp() }
-        let draft = try fixture.addDraft("draft")
-        fixture.model.requestDelete(draft)
-
-        #expect(!fixture.press(.returnKey, hasMarkedText: true))
-        #expect(!fixture.press(.escape, hasMarkedText: true))
-
-        #expect(fixture.model.pendingDeletion == draft)
-        #expect(fixture.library.drafts.count == 1)
-    }
-
-    @Test("AC-26: 削除の確認中に行をクリックして呼び出すと、確認は取り消してから呼び出す")
-    func activatingRowCancelsDeletionConfirmation() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanUp() }
-        let first = try fixture.addDraft("first")
-        let second = try fixture.addDraft("second")
-        fixture.model.requestDelete(first)
-
-        fixture.model.activate(second)
-
-        #expect(fixture.model.pendingDeletion == nil)
-        #expect(fixture.library.drafts.count == 2)
-        #expect(fixture.session.document == .savedDraft(second))
-        #expect(fixture.panel.text == "second")
-    }
-
-    @Test("AC-26: 保存していない文章の切り替えの確認中は、削除の項目は押せず、requestDelete も ⌘⌫ も受けない(履歴も消えない)")
+    @Test("AC-5: 保存していない文章の切り替えの確認中は、削除の項目は押せず、requestDelete も ⌘⌫ も受けない(下書きも履歴も消えない)")
     func deletionIsUnavailableWhileSwitchConfirmationIsShown() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
@@ -614,9 +505,9 @@ struct SidebarModelTests {
         #expect(!fixture.model.isDeleteAvailable)
 
         fixture.model.requestDelete(draft)
-        #expect(fixture.model.pendingDeletion == nil)
+        #expect(fixture.library.drafts.map(\.id) == [draft])
         #expect(fixture.press(.deleteBackward, [.command]))
-        #expect(fixture.model.pendingDeletion == nil)
+        #expect(fixture.library.drafts.map(\.id) == [draft])
 
         fixture.model.tab = .history
         fixture.model.requestDelete(entry)
@@ -643,7 +534,7 @@ struct SidebarModelTests {
         #expect(calls == ["before:empty", "before:text", "before:text"])
     }
 
-    @Test("AC-26: 下書きの削除でパネルに出している下書きを消すと、本文は残って保存していない書きかけになる")
+    @Test("AC-2: 下書きの削除でパネルに出している下書きを消すと、本文は残って保存していない書きかけになる")
     func deletingShownDraftKeepsText() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
@@ -651,7 +542,6 @@ struct SidebarModelTests {
         fixture.model.activate(draft)
 
         fixture.model.requestDelete(draft)
-        fixture.model.confirmDeletion()
 
         #expect(fixture.panel.text == "shown")
         #expect(fixture.session.document == .scratch)
