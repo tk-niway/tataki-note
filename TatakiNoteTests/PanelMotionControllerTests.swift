@@ -194,6 +194,16 @@ struct PanelMotionControllerTests {
         fixture.animator.finish(fixture.animator.calls.count - 1)
     }
 
+    private func openAndSettleAtRightEdge(_ fixture: Fixture) throws {
+        openAndSettle(fixture)
+        let panel = fixture.controller.panel
+        let visible = try #require(panel.screen?.visibleFrame ?? NSScreen.main?.visibleFrame)
+        try #require(visible.width >= panel.frame.width + SidebarLayout.width)
+        var frame = panel.frame
+        frame.origin.x = visible.maxX - frame.width
+        panel.setFrame(frame, display: false)
+    }
+
     // MARK: - 開く
 
     @Test("AC-6: アニメーションがオンで閉じたパネルを開くと、線の枠で前に出て、本来の枠へ 0.2 秒で広げる動きが1回始まり、終わると本来の枠になる", arguments: PanelMotionOpenWay.allCases)
@@ -840,7 +850,7 @@ struct PanelMotionControllerTests {
         try await withFixture { fixture in
             let controller = fixture.controller
             let panel = controller.panel
-            openAndSettle(fixture)
+            try openAndSettleAtRightEdge(fixture)
             let bodyFrame = panel.frame
 
             controller.setSidebarOpen(true)
@@ -871,7 +881,7 @@ struct PanelMotionControllerTests {
         try await withFixture { fixture in
             let controller = fixture.controller
             let panel = controller.panel
-            openAndSettle(fixture)
+            try openAndSettleAtRightEdge(fixture)
             let bodyFrame = panel.frame
             controller.setSidebarOpen(true)
             fixture.animator.finish(1)
@@ -900,7 +910,7 @@ struct PanelMotionControllerTests {
         try await withFixture { fixture in
             let controller = fixture.controller
             let panel = controller.panel
-            openAndSettle(fixture)
+            try openAndSettleAtRightEdge(fixture)
             let bodyFrame = panel.frame
 
             controller.setSidebarOpen(true)
