@@ -81,10 +81,10 @@ struct PanelStatusBarContent: Equatable {
             return .keyHint(item: item, key: "esc", label: item.displayName)
         case .commit:
             guard let key = commitKeyText else { return nil }
-            return .keyHint(item: item, key: key, label: String(localized: "確定+挿入"))
+            return .keyHint(item: item, key: key, label: String(localized: "挿入"))
         case .commitAndSend:
             guard let key = commitAndSendKeyText else { return nil }
-            return .keyHint(item: item, key: key, label: String(localized: "確定+送信"))
+            return .keyHint(item: item, key: key, label: String(localized: "送信"))
         case .characterCount:
             let count = counts.characters.formatted()
             return .count(item: item, text: String(localized: "\(count)文字"))

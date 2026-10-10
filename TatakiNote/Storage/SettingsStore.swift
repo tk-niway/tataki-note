@@ -25,6 +25,7 @@ struct SettingsStore {
         static let sidebarTab = "sidebarTab"
         static let panelAnimationEnabled = "panelAnimationEnabled"
         static let insertionTargetOutlineShown = "insertionTargetOutlineShown"
+        static let appMode = "appMode"
     }
 
     let defaults: UserDefaults
@@ -77,6 +78,19 @@ struct SettingsStore {
 
     private func commitAndSendShortcutFallback() -> PanelShortcut? {
         hasLegacyActionKeys ? PanelShortcut.legacyDefaultCommitAndSendKey : PanelShortcut.defaultCommitAndSendKey
+    }
+
+    // MARK: - モード
+
+    func loadAppMode() -> AppMode {
+        if let stored = loadStringEnum(AppMode.self, forKey: Key.appMode) {
+            return stored
+        }
+        return loadCommitShortcut() == nil && loadCommitAndSendShortcut() == nil ? .note : .insert
+    }
+
+    func saveAppMode(_ mode: AppMode) {
+        saveStringEnum(mode, forKey: Key.appMode)
     }
 
     func loadPanelScreen() -> PanelScreen {

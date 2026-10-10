@@ -13,6 +13,13 @@ struct SettingsSectionTests {
         #expect(!SettingsSection.allCases.map(\.displayName).contains("エディタ設定"))
     }
 
+    @Test("AC-14: 右側の中身の幅は、ウィンドウの幅からサイドバーと区切り線を引いた残りに固定される")
+    func detailWidthFillsRemainder() {
+        #expect(SettingsView.detailWidth == SettingsView.windowSize.width - SettingsView.sidebarWidth - SettingsView.dividerWidth)
+        #expect(SettingsView.sidebarWidth + SettingsView.dividerWidth + SettingsView.detailWidth == SettingsView.windowSize.width)
+        #expect(SettingsView.sidebarEdgeInset >= 12)
+    }
+
     @Test("AC-2: 設定画面は「一般」を選んだ状態で始まり、「キー」「パネル」「アプリ情報」のどれを選んでいても開き直すと「一般」に戻る")
     func opensWithGeneral() {
         let model = SettingsWindowModel()

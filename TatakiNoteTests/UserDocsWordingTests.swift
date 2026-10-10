@@ -33,7 +33,7 @@ private enum UserDocsWordingRules {
         (settingsPath, "確定+挿入・確定+送信にはなりません"),
         (guideIndexPath, "閉じる・改行・確定+挿入・確定+送信"),
         (accessibilityPath, "挿入(確定+挿入・確定+送信。"),
-        (panelPath, "⇧⌘↩ 確定+挿入"),
+        (panelPath, "⇧⌘↩ 挿入"),
     ]
 
     static func lines(of markdown: String) -> [String] {

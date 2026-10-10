@@ -146,10 +146,16 @@ import Observation
         didSet { store.saveSidebarTab(sidebarTab) }
     }
 
+    /// 今のモード。`selectAppMode(_:hotkey:)` で変える。
+    private(set) var appMode: AppMode {
+        didSet { store.saveAppMode(appMode) }
+    }
+
     @ObservationIgnored private let store: SettingsStore
 
     init(store: SettingsStore) {
         self.store = store
+        self.appMode = store.loadAppMode()
         self.commitKey = store.loadCommitShortcut()
         self.commitAndSendKey = store.loadCommitAndSendShortcut()
         self.panelScreen = store.loadPanelScreen()
@@ -182,11 +188,45 @@ import Observation
         self.commitAndSendKeyDisplayText = commitAndSendKey?.displayText
     }
 
+    var isNoteMode: Bool {
+        appMode == .note
+    }
+
+    /// モードを切り替える。インサートモードにしたとき確定キーが両方とも未登録なら、初期値を登録する(ホットキーと同じキーは除く)。
+    func selectAppMode(_ mode: AppMode, hotkey: PanelShortcut?) {
+        guard mode != appMode else { return }
+        if mode == .insert, commitKey == nil, commitAndSendKey == nil {
+            if let key = PanelShortcut.defaultCommitKey, key != hotkey {
+                commitKey = key
+            }
+            if let key = PanelShortcut.defaultCommitAndSendKey, key != hotkey {
+                commitAndSendKey = key
+            }
+        }
+        appMode = mode
+    }
+
+    /// 実際に使う「パネルを出す位置」。ノートモードでは「入力欄の近く」をマウスのある画面にする。
+    var effectivePanelScreen: PanelScreen {
+        isNoteMode && panelScreen == .nearFocusedField ? .mouse : panelScreen
+    }
+
+    /// 実際に使う自動表示の設定。ノートモードではオフ。
+    var effectiveAutoShowMode: AutoShowMode {
+        isNoteMode ? .off : autoShowMode
+    }
+
+    /// 挿入先の枠線を実際に出すか。ノートモードでは出さない。
+    var isInsertionTargetOutlineActive: Bool {
+        !isNoteMode && isInsertionTargetOutlineShown
+    }
+
+    /// 帯に出す項目。ノートモードでは改行・確定+挿入・確定+送信を出さない。
     var panelStatusItems: [PanelStatusItem] {
         PanelStatusItem.visibleItems(
-            hidden: hiddenPanelStatusItems,
-            commitKey: commitKey,
-            commitAndSendKey: commitAndSendKey
+            hidden: isNoteMode ? hiddenPanelStatusItems.union([.lineBreak]) : hiddenPanelStatusItems,
+            commitKey: isNoteMode ? nil : commitKey,
+            commitAndSendKey: isNoteMode ? nil : commitAndSendKey
         )
     }
 

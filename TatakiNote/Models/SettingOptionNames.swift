@@ -16,6 +16,17 @@ extension PanelScreen {
     }
 }
 
+extension AppMode {
+    var displayName: String {
+        switch self {
+        case .insert:
+            String(localized: "インサートモード")
+        case .note:
+            String(localized: "ノートモード")
+        }
+    }
+}
+
 extension AppTheme {
     var displayName: String {
         switch self {

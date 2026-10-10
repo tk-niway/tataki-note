@@ -137,7 +137,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private(set) lazy var tutorial = TutorialWindowController(
         settings: settings,
-        panelModel: panelController.model
+        panelModel: panelController.model,
+        draftSession: panelController.session
     )
 
     private(set) lazy var settingsWindow = SettingsWindowController(

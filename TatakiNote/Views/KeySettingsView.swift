@@ -4,6 +4,7 @@ import SwiftUI
 /// 設定画面の「キー」。
 struct KeySettingsView: View {
     @Bindable var keySettings: PanelKeySettingsModel
+    let isNoteMode: Bool
 
     var body: some View {
         Form {
@@ -22,21 +23,23 @@ struct KeySettingsView: View {
             }
             .padding(.bottom, 12)
 
-            LabeledContent("確定+挿入キー") {
-                VStack(alignment: .leading, spacing: 6) {
-                    shortcutRecorder(for: .commit, recorderID: "settings.commitKeyRecorder", rejectionID: "settings.commitKeyRejection")
-                    SettingDescription(PanelShortcutRole.commit.settingDescription)
+            if !isNoteMode {
+                LabeledContent("確定+挿入キー") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        shortcutRecorder(for: .commit, recorderID: "settings.commitKeyRecorder", rejectionID: "settings.commitKeyRejection")
+                        SettingDescription(PanelShortcutRole.commit.settingDescription)
+                    }
                 }
-            }
-            .padding(.bottom, 12)
+                .padding(.bottom, 12)
 
-            LabeledContent("確定+送信キー") {
-                VStack(alignment: .leading, spacing: 6) {
-                    shortcutRecorder(for: .commitAndSend, recorderID: "settings.commitAndSendKeyRecorder", rejectionID: "settings.commitAndSendKeyRejection")
-                    SettingDescription(PanelShortcutRole.commitAndSend.settingDescription)
+                LabeledContent("確定+送信キー") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        shortcutRecorder(for: .commitAndSend, recorderID: "settings.commitAndSendKeyRecorder", rejectionID: "settings.commitAndSendKeyRejection")
+                        SettingDescription(PanelShortcutRole.commitAndSend.settingDescription)
+                    }
                 }
+                .padding(.bottom, 12)
             }
-            .padding(.bottom, 12)
 
             LabeledContent("ショートカットキー") {
                 VStack(alignment: .leading, spacing: 6) {
@@ -58,7 +61,7 @@ struct KeySettingsView: View {
                     .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: .separatorColor)))
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("settings.shortcutList")
-                    SettingDescription(EditorShortcuts.settingDescription)
+                    SettingDescription(EditorShortcuts.settingDescription(isNoteMode: isNoteMode))
                 }
             }
         }

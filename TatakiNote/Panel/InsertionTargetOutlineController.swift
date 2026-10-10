@@ -35,7 +35,7 @@ final class InsertionTargetOutlineController {
     func update() {
         guard Self.shouldShow(
             isPanelPresented: panelModel.isPresented,
-            isOutlineEnabled: settings.isInsertionTargetOutlineShown,
+            isOutlineEnabled: settings.isInsertionTargetOutlineActive,
             rect: outline.rect
         ), let rect = outline.rect, let screenHeight = primaryScreenHeight() else {
             window.orderOut(nil)
@@ -60,6 +60,7 @@ final class InsertionTargetOutlineController {
         observeRepeatedly(
             tracking: { [weak self] in
                 _ = self?.outline.rect
+                _ = self?.settings.appMode
                 _ = self?.settings.isInsertionTargetOutlineShown
                 _ = self?.panelModel.isPresented
             },
