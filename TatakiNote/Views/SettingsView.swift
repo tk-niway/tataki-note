@@ -112,7 +112,7 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings.appModeToggle")
                 SettingDescription(appModeDescription)
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 20)
             .padding(.top, 12)
             .padding(.bottom, 8)
             Divider()
