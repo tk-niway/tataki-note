@@ -19,36 +19,25 @@ final class InserterStub: TextInserting {
 }
 
 @MainActor
-final class NotifierStub: InsertionFailureNotifying {
-    private(set) var notices: [InsertionFailureNotice] = []
-
-    func notify(_ notice: InsertionFailureNotice) async {
-        notices.append(notice)
-    }
-}
-
-@MainActor
 struct CommitPerformerTests {
     private let textEdit = InsertionTarget(processIdentifier: 101, bundleIdentifier: "com.apple.TextEdit", localizedName: "TextEdit")
 
     private func makePerformer(
         model: PanelModel,
         permission: PermissionStub,
-        inserter: InserterStub,
-        notifier: NotifierStub
+        inserter: InserterStub
     ) -> CommitPerformer {
-        CommitPerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+        CommitPerformer(model: model, permission: permission, inserter: inserter)
     }
 
-    @Test("AC-5: 文章・権限・挿入先があれば、その文章と挿入先で挿入が1回行われ、通知は出ない")
-    func insertsOnceWithoutNotice() async {
+    @Test("AC-5: 文章・権限・挿入先があれば、その文章と挿入先で挿入が1回行われる")
+    func insertsOnce() async {
         let model = PanelModel()
         model.present(target: textEdit)
         model.text = "hello\nworld"
         let permission = PermissionStub(isTrusted: true)
         let inserter = InserterStub(result: .inserted)
-        let notifier = NotifierStub()
-        let performer = makePerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+        let performer = makePerformer(model: model, permission: permission, inserter: inserter)
 
         let plan = model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
         await performer.perform(plan)
@@ -57,135 +46,115 @@ struct CommitPerformerTests {
         #expect(inserter.calls.count == 1)
         #expect(inserter.calls.first?.text == "hello\nworld")
         #expect(inserter.calls.first?.target == textEdit)
-        #expect(notifier.notices.isEmpty)
         #expect(permission.promptRequestCount == 0)
         #expect(model.text.isEmpty)
     }
 
-    @Test("AC-6: 文章が空なら、挿入・許可の要求・通知のどれも起きない")
+    @Test("AC-6: 文章が空なら、挿入・許可の要求のどちらも起きない")
     func emptyTextDoesNothing() async {
         let model = PanelModel()
         model.present(target: textEdit)
         let permission = PermissionStub(isTrusted: true)
         let inserter = InserterStub(result: .inserted)
-        let notifier = NotifierStub()
-        let performer = makePerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+        let performer = makePerformer(model: model, permission: permission, inserter: inserter)
 
         await performer.perform(model.prepareCommit(isAccessibilityTrusted: permission.isTrusted))
 
         #expect(model.isPresented == false)
         #expect(inserter.calls.isEmpty)
         #expect(permission.promptRequestCount == 0)
-        #expect(notifier.notices.isEmpty)
     }
 
-    @Test("AC-7: 権限が無ければ、挿入せず、許可の要求が1回、通知は出ず、文章は下書きに残る")
+    @Test("AC-7: 権限が無ければ、挿入せず、許可の要求が1回で、文章は下書きに残る")
     func permissionDeniedRequestsPromptOnce() async {
         let model = PanelModel()
         model.present(target: textEdit)
         model.text = "draft"
         let permission = PermissionStub(isTrusted: false)
         let inserter = InserterStub(result: .inserted)
-        let notifier = NotifierStub()
-        let performer = makePerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+        let performer = makePerformer(model: model, permission: permission, inserter: inserter)
 
         await performer.perform(model.prepareCommit(isAccessibilityTrusted: permission.isTrusted))
 
         #expect(model.isPresented == false)
         #expect(permission.promptRequestCount == 1)
         #expect(inserter.calls.isEmpty)
-        #expect(notifier.notices.isEmpty)
         #expect(model.text == "draft")
     }
 
-    @Test("AC-8: 挿入先が記録できていなければ、挿入せず、「挿入先が分からない」と下書きに残っていることの通知が1回出る")
-    func noTargetNotifiesOnce() async {
+    @Test("AC-11: 挿入先が記録できていなければ、挿入も許可の要求もせず、パネルは開いたまま文章は残る")
+    func noTargetDoesNotInsert() async {
         let model = PanelModel()
         model.present(target: nil)
         model.text = "draft"
         let permission = PermissionStub(isTrusted: true)
         let inserter = InserterStub(result: .inserted)
-        let notifier = NotifierStub()
-        let performer = makePerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+        let performer = makePerformer(model: model, permission: permission, inserter: inserter)
 
         await performer.perform(model.prepareCommit(isAccessibilityTrusted: permission.isTrusted))
 
-        #expect(model.isPresented == false)
+        #expect(model.isPresented)
         #expect(inserter.calls.isEmpty)
-        #expect(notifier.notices == [InsertionFailureNotice(reason: .noTarget, isDraftKept: true)])
         #expect(permission.promptRequestCount == 0)
         #expect(model.text == "draft")
     }
 
-    @Test("AC-9: 挿入先を前面にできなければ、文章を下書きに戻し、アプリの名前と下書きに残っていることの通知が1回出る")
-    func targetNotActivatedRestoresDraftAndNotifies() async {
+    @Test("AC-9: 挿入先を前面にできなければ、文章を下書きに戻す")
+    func targetNotActivatedRestoresDraft() async {
         let model = PanelModel()
         model.present(target: textEdit)
         model.text = "committed"
         let permission = PermissionStub(isTrusted: true)
         let inserter = InserterStub(result: .targetNotActivated)
-        let notifier = NotifierStub()
-        let performer = makePerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+        let performer = makePerformer(model: model, permission: permission, inserter: inserter)
 
         await performer.perform(model.prepareCommit(isAccessibilityTrusted: permission.isTrusted))
 
         #expect(inserter.calls.count == 1)
         #expect(model.text == "committed")
-        #expect(notifier.notices == [
-            InsertionFailureNotice(reason: .targetNotActivated(appName: "TextEdit"), isDraftKept: true),
-        ])
     }
 
-    @Test("AC-9: その間に新しい文章を書き始めていれば上書きせず、通知は下書きに戻せなかったことを伝える")
-    func targetNotActivatedKeepsNewTextAndReportsNotKept() async {
+    @Test("AC-9: その間に新しい文章を書き始めていれば、下書きに戻さず上書きしない")
+    func targetNotActivatedKeepsNewText() async {
         let model = PanelModel()
         model.present(target: textEdit)
         model.text = "committed"
         let permission = PermissionStub(isTrusted: true)
         let inserter = InserterStub(result: .targetNotActivated)
         inserter.onInsert = { model.text = "new" }
-        let notifier = NotifierStub()
-        let performer = makePerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+        let performer = makePerformer(model: model, permission: permission, inserter: inserter)
 
         await performer.perform(model.prepareCommit(isAccessibilityTrusted: permission.isTrusted))
 
         #expect(model.text == "new")
-        #expect(notifier.notices == [
-            InsertionFailureNotice(reason: .targetNotActivated(appName: "TextEdit"), isDraftKept: false),
-        ])
     }
 
-    @Test("挿入先で入力欄が選ばれていなければ、文章を下書きに戻し、アプリの名前と下書きに残っていることの通知が1回出る")
-    func noTextInputRestoresDraftAndNotifies() async {
+    @Test("挿入先で入力欄が選ばれていなければ、文章を下書きに戻す")
+    func noTextInputRestoresDraft() async {
         let model = PanelModel()
         model.present(target: textEdit)
         model.text = "committed"
         let permission = PermissionStub(isTrusted: true)
         let inserter = InserterStub(result: .noTextInput)
-        let notifier = NotifierStub()
-        let performer = makePerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+        let performer = makePerformer(model: model, permission: permission, inserter: inserter)
 
         await performer.perform(model.prepareCommit(isAccessibilityTrusted: permission.isTrusted))
 
         #expect(inserter.calls.count == 1)
         #expect(model.isPresented == false)
         #expect(model.text == "committed")
-        #expect(notifier.notices == [
-            InsertionFailureNotice(reason: .noTextInput(appName: "TextEdit"), isDraftKept: true),
-        ])
     }
 
     // MARK: - 権限が無いときの案内
 
-    @Test("AC-3: 権限が無く、案内を開く処理があれば、それが1回呼ばれ、許可の要求・挿入・通知はせず、文章は下書きに残る")
+    @Test("AC-3: 権限が無く、案内を開く処理があれば、それが1回呼ばれ、許可の要求・挿入はせず、文章は下書きに残る")
     func permissionDeniedOpensGuide() async {
         let model = PanelModel()
         model.present(target: textEdit)
         model.text = "draft"
         let permission = PermissionStub(isTrusted: false)
         let inserter = InserterStub(result: .inserted)
-        let notifier = NotifierStub()
-        let performer = makePerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+        let performer = makePerformer(model: model, permission: permission, inserter: inserter)
         var guideOpenCount = 0
         performer.onPermissionDenied = { guideOpenCount += 1 }
 
@@ -196,20 +165,18 @@ struct CommitPerformerTests {
         #expect(guideOpenCount == 1)
         #expect(permission.promptRequestCount == 0)
         #expect(inserter.calls.isEmpty)
-        #expect(notifier.notices.isEmpty)
         #expect(model.isPresented == false)
         #expect(model.text == "draft")
     }
 
-    @Test("AC-11: 権限が無く、案内を開く処理が渡されていなければ、許可の要求が1回で、挿入・通知はせず、文章は下書きに残る")
+    @Test("AC-11: 権限が無く、案内を開く処理が渡されていなければ、許可の要求が1回で、挿入はせず、文章は下書きに残る")
     func permissionDeniedWithoutGuideRequestsPrompt() async {
         let model = PanelModel()
         model.present(target: textEdit)
         model.text = "draft"
         let permission = PermissionStub(isTrusted: false)
         let inserter = InserterStub(result: .inserted)
-        let notifier = NotifierStub()
-        let performer = makePerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+        let performer = makePerformer(model: model, permission: permission, inserter: inserter)
         #expect(performer.onPermissionDenied == nil)
 
         let plan = model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
@@ -218,11 +185,10 @@ struct CommitPerformerTests {
 
         #expect(permission.promptRequestCount == 1)
         #expect(inserter.calls.isEmpty)
-        #expect(notifier.notices.isEmpty)
         #expect(model.text == "draft")
     }
 
-    @Test("AC-14: 案内を開く処理があっても、空・挿入先なし・挿入成功・前面にできないときは案内を開かず許可も求めず、通知は今までどおり")
+    @Test("AC-14: 案内を開く処理があっても、空・挿入先なし・挿入成功・前面にできないときは案内を開かず許可も求めない")
     func otherPlansDoNotOpenGuide() async {
         struct Scenario {
             let name: String
@@ -231,7 +197,6 @@ struct CommitPerformerTests {
             let insertionResult: InsertionResult
             let isExpectedPlan: (CommitPlan) -> Bool
             let expectedInsertCount: Int
-            let expectedNotices: [InsertionFailureNotice]
             let expectedTextAfter: String
         }
         let scenarios = [
@@ -242,7 +207,6 @@ struct CommitPerformerTests {
                 insertionResult: .inserted,
                 isExpectedPlan: { $0 == .dismissOnly },
                 expectedInsertCount: 0,
-                expectedNotices: [],
                 expectedTextAfter: ""
             ),
             Scenario(
@@ -252,7 +216,6 @@ struct CommitPerformerTests {
                 insertionResult: .inserted,
                 isExpectedPlan: { $0 == .noTarget },
                 expectedInsertCount: 0,
-                expectedNotices: [InsertionFailureNotice(reason: .noTarget, isDraftKept: true)],
                 expectedTextAfter: "draft"
             ),
             Scenario(
@@ -262,7 +225,6 @@ struct CommitPerformerTests {
                 insertionResult: .inserted,
                 isExpectedPlan: { if case .insert = $0 { true } else { false } },
                 expectedInsertCount: 1,
-                expectedNotices: [],
                 expectedTextAfter: ""
             ),
             Scenario(
@@ -272,7 +234,6 @@ struct CommitPerformerTests {
                 insertionResult: .targetNotActivated,
                 isExpectedPlan: { if case .insert = $0 { true } else { false } },
                 expectedInsertCount: 1,
-                expectedNotices: [InsertionFailureNotice(reason: .targetNotActivated(appName: "TextEdit"), isDraftKept: true)],
                 expectedTextAfter: "committed"
             ),
         ]
@@ -283,8 +244,7 @@ struct CommitPerformerTests {
             model.text = scenario.text
             let permission = PermissionStub(isTrusted: true)
             let inserter = InserterStub(result: scenario.insertionResult)
-            let notifier = NotifierStub()
-            let performer = makePerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+            let performer = makePerformer(model: model, permission: permission, inserter: inserter)
             var guideOpenCount = 0
             performer.onPermissionDenied = { guideOpenCount += 1 }
 
@@ -295,7 +255,6 @@ struct CommitPerformerTests {
             #expect(guideOpenCount == 0, "\(scenario.name)")
             #expect(permission.promptRequestCount == 0, "\(scenario.name)")
             #expect(inserter.calls.count == scenario.expectedInsertCount, "\(scenario.name)")
-            #expect(notifier.notices == scenario.expectedNotices, "\(scenario.name)")
             #expect(model.text == scenario.expectedTextAfter, "\(scenario.name)")
         }
     }
@@ -315,8 +274,7 @@ struct CommitPerformerTests {
             model.text = "hello"
             let permission = PermissionStub(isTrusted: true)
             let inserter = InserterStub(result: .inserted)
-            let notifier = NotifierStub()
-            let performer = makePerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+            let performer = makePerformer(model: model, permission: permission, inserter: inserter)
 
             let plan = model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
             if let shouldSend {
@@ -329,18 +287,16 @@ struct CommitPerformerTests {
             #expect(inserter.calls.first?.text == "hello", "\(name)")
             #expect(inserter.calls.first?.target == textEdit, "\(name)")
             #expect(inserter.calls.first?.shouldSendAfterInsert == expected, "\(name)")
-            #expect(notifier.notices.isEmpty, "\(name)")
         }
     }
 
-    @Test("AC-12: 文章が空のまま確定+送信しても、挿入も送信も・許可の要求・通知も起きない")
+    @Test("AC-12: 文章が空のまま確定+送信しても、挿入も送信も・許可の要求も起きない")
     func emptyTextWithSendDoesNothing() async {
         let model = PanelModel()
         model.present(target: textEdit)
         let permission = PermissionStub(isTrusted: true)
         let inserter = InserterStub(result: .inserted)
-        let notifier = NotifierStub()
-        let performer = makePerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+        let performer = makePerformer(model: model, permission: permission, inserter: inserter)
         var guideOpenCount = 0
         performer.onPermissionDenied = { guideOpenCount += 1 }
 
@@ -352,10 +308,9 @@ struct CommitPerformerTests {
         #expect(inserter.calls.isEmpty)
         #expect(permission.promptRequestCount == 0)
         #expect(guideOpenCount == 0)
-        #expect(notifier.notices.isEmpty)
     }
 
-    @Test("AC-5: 確定+送信でも、許可が無い・挿入先が分からないときは挿入(と送信)をせず、文章は下書きに残って今までどおり知らされる")
+    @Test("AC-5: 確定+送信でも、許可が無い・挿入先が分からないときは挿入(と送信)をせず、文章は下書きに残る")
     func sendDoesNotInsertWithoutPermissionOrTarget() async {
         do {
             let model = PanelModel()
@@ -363,8 +318,7 @@ struct CommitPerformerTests {
             model.text = "draft"
             let permission = PermissionStub(isTrusted: false)
             let inserter = InserterStub(result: .inserted)
-            let notifier = NotifierStub()
-            let performer = makePerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+            let performer = makePerformer(model: model, permission: permission, inserter: inserter)
             var guideOpenCount = 0
             performer.onPermissionDenied = { guideOpenCount += 1 }
 
@@ -372,7 +326,6 @@ struct CommitPerformerTests {
 
             #expect(guideOpenCount == 1)
             #expect(inserter.calls.isEmpty)
-            #expect(notifier.notices.isEmpty)
             #expect(model.text == "draft")
         }
         do {
@@ -381,38 +334,31 @@ struct CommitPerformerTests {
             model.text = "draft"
             let permission = PermissionStub(isTrusted: true)
             let inserter = InserterStub(result: .inserted)
-            let notifier = NotifierStub()
-            let performer = makePerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+            let performer = makePerformer(model: model, permission: permission, inserter: inserter)
 
             await performer.perform(model.prepareCommit(isAccessibilityTrusted: permission.isTrusted), shouldSendAfterInsert: true)
 
             #expect(inserter.calls.isEmpty)
-            #expect(notifier.notices == [InsertionFailureNotice(reason: .noTarget, isDraftKept: true)])
             #expect(model.text == "draft")
         }
     }
 
-    @Test("AC-5: 確定+送信で、挿入先を前面にできない・入力欄でないと分かったときは、文章を下書きに戻し、今までどおり知らされる")
+    @Test("AC-5: 確定+送信で、挿入先を前面にできない・入力欄でないと分かったときは、文章を下書きに戻す")
     func sendRestoresDraftWhenInsertionFails() async {
-        let scenarios: [(InsertionResult, InsertionFailureNotice.Reason)] = [
-            (.targetNotActivated, .targetNotActivated(appName: "TextEdit")),
-            (.noTextInput, .noTextInput(appName: "TextEdit")),
-        ]
-        for (insertionResult, reason) in scenarios {
+        let results: [InsertionResult] = [.targetNotActivated, .noTextInput]
+        for insertionResult in results {
             let model = PanelModel()
             model.present(target: textEdit)
             model.text = "committed"
             let permission = PermissionStub(isTrusted: true)
             let inserter = InserterStub(result: insertionResult)
-            let notifier = NotifierStub()
-            let performer = makePerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+            let performer = makePerformer(model: model, permission: permission, inserter: inserter)
 
             await performer.perform(model.prepareCommit(isAccessibilityTrusted: permission.isTrusted), shouldSendAfterInsert: true)
 
             #expect(inserter.calls.count == 1, "\(insertionResult)")
             #expect(inserter.calls.first?.shouldSendAfterInsert == true, "\(insertionResult)")
             #expect(model.text == "committed", "\(insertionResult)")
-            #expect(notifier.notices == [InsertionFailureNotice(reason: reason, isDraftKept: true)], "\(insertionResult)")
         }
     }
 
@@ -445,8 +391,7 @@ struct CommitPerformerTests {
             model.text = scenario.text
             let permission = PermissionStub(isTrusted: scenario.isTrusted)
             let inserter = InserterStub(result: scenario.insertionResult)
-            let notifier = NotifierStub()
-            let performer = makePerformer(model: model, permission: permission, inserter: inserter, notifier: notifier)
+            let performer = makePerformer(model: model, permission: permission, inserter: inserter)
 
             let outcome = await performer.perform(
                 model.prepareCommit(isAccessibilityTrusted: permission.isTrusted),

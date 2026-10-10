@@ -5,13 +5,12 @@ import SwiftUI
 
     var body: some Scene {
         let settings = appDelegate.settings
-        let isMenuBarIconShown = settings.isMenuBarIconShown
 
         MenuBarExtra(
             "TatakiNote",
-            image: "MenuBarIcon",
+            image: MenuBarIcon.assetName,
             isInserted: Binding(
-                get: { isMenuBarIconShown },
+                get: { settings.isMenuBarIconShown },
                 set: { settings.isMenuBarIconShown = $0 }
             )
         ) {

@@ -10,6 +10,7 @@ final class TutorialWindowController: NSObject, NSWindowDelegate {
 
     private let settings: AppSettings
     private let panelModel: PanelModel
+    private let draftSession: DraftSession?
     private let ownProcessIdentifier: pid_t
     private let focusWindow: (NSWindow) -> Void
     /// 開いているチュートリアルのウィンドウ。
@@ -20,11 +21,13 @@ final class TutorialWindowController: NSObject, NSWindowDelegate {
     init(
         settings: AppSettings,
         panelModel: PanelModel,
+        draftSession: DraftSession? = nil,
         ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier,
         focusWindow: @escaping (NSWindow) -> Void = { $0.makeKeyAndOrderFront(nil) }
     ) {
         self.settings = settings
         self.panelModel = panelModel
+        self.draftSession = draftSession
         self.ownProcessIdentifier = ownProcessIdentifier
         self.focusWindow = focusWindow
         self.model = TutorialModel(ownProcessIdentifier: ownProcessIdentifier, settings: settings)
@@ -110,6 +113,34 @@ final class TutorialWindowController: NSObject, NSWindowDelegate {
         isObservingPanel = true
         observationGeneration += 1
         observePanel(generation: observationGeneration)
+        observeSaveEvents(generation: observationGeneration)
+        observeAppMode(generation: observationGeneration)
+    }
+
+    private func observeSaveEvents(generation: Int) {
+        observeRepeatedly(
+            tracking: { [weak self] in
+                _ = self?.draftSession?.lastSaveEvent
+            },
+            onChange: { [weak self] in
+                guard let self, self.isObservingPanel, self.observationGeneration == generation else { return false }
+                self.model.draftDidSave()
+                return true
+            }
+        )
+    }
+
+    private func observeAppMode(generation: Int) {
+        observeRepeatedly(
+            tracking: { [weak self] in
+                _ = self?.settings.appMode
+            },
+            onChange: { [weak self] in
+                guard let self, self.isObservingPanel, self.observationGeneration == generation else { return false }
+                self.model.appModeDidChange()
+                return true
+            }
+        )
     }
 
     private func observePanel(generation: Int) {

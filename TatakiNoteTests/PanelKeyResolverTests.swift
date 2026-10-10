@@ -154,14 +154,14 @@ struct PanelKeyResolverTests {
 
     @Test("AC-18: 登録したキーは Return 以外でも確定・確定+送信になり、テンキーの Enter は Return と同じに扱う")
     func nonReturnKeysCommitToo() {
-        let commandK = PanelShortcut(keyCode: 40, modifiers: [.command])
-        let optionK = PanelShortcut(keyCode: 40, modifiers: [.option])
+        let commandJ = PanelShortcut(keyCode: 38, modifiers: [.command])
+        let optionJ = PanelShortcut(keyCode: 38, modifiers: [.option])
 
-        let commandKInput = PanelKeyInput(keyCode: 40, modifiers: [.command], hasMarkedText: false, characters: "k")
-        #expect(PanelKeyResolver.action(for: commandKInput, commitKey: commandK, commitAndSendKey: optionK) == .commit)
+        let commandJInput = PanelKeyInput(keyCode: 38, modifiers: [.command], hasMarkedText: false, characters: "j")
+        #expect(PanelKeyResolver.action(for: commandJInput, commitKey: commandJ, commitAndSendKey: optionJ) == .commit)
 
-        let optionKInput = PanelKeyInput(keyCode: 40, modifiers: [.option], hasMarkedText: false, characters: "k")
-        #expect(PanelKeyResolver.action(for: optionKInput, commitKey: commandK, commitAndSendKey: optionK) == .commitAndSend)
+        let optionJInput = PanelKeyInput(keyCode: 38, modifiers: [.option], hasMarkedText: false, characters: "j")
+        #expect(PanelKeyResolver.action(for: optionJInput, commitKey: commandJ, commitAndSendKey: optionJ) == .commitAndSend)
 
         let keypadReturn = PanelKeyInput(keyCode: KeyCode.keypadEnter, modifiers: [.command], hasMarkedText: false)
         #expect(PanelKeyResolver.action(for: keypadReturn, commitKey: .commandReturn, commitAndSendKey: nil) == .commit)
@@ -277,6 +277,163 @@ struct PanelKeyResolverTests {
         let input = PanelKeyInput(keyCode: KeyCode.escape, modifiers: [.shift], hasMarkedText: false)
 
         #expect(PanelKeyResolver.action(for: input, commitKey: shiftEscapeShortcut, commitAndSendKey: nil) == .cancel)
+    }
+
+    // MARK: - 検索・保存・新規
+
+    private func commandKey(_ character: String, keyCode: UInt16, modifiers: NSEvent.ModifierFlags = [.command], hasMarkedText: Bool = false) -> PanelKeyInput {
+        PanelKeyInput(keyCode: keyCode, modifiers: modifiers, hasMarkedText: hasMarkedText, characters: character)
+    }
+
+    @Test("AC-21: ⌘K は検索、⌘S は保存、⌘N は新規、⌘B はサイドバーの開閉、⌘, は設定を開く操作になり、Caps Lock・fn・テンキーの印が付いていても同じ")
+    func panelCommandKeys() {
+        let cases: [(String, UInt16, PanelKeyAction)] = [
+            ("k", 40, .openSearch),
+            ("s", 1, .saveDraft),
+            ("n", 45, .newDraft),
+            ("b", 11, .toggleSidebar),
+            (",", 43, .openSettings),
+        ]
+        let extraFlags: [NSEvent.ModifierFlags] = [[], [.capsLock], [.function], [.numericPad], [.capsLock, .function]]
+
+        for (character, keyCode, expected) in cases {
+            for extra in extraFlags {
+                let input = commandKey(character, keyCode: keyCode, modifiers: NSEvent.ModifierFlags.command.union(extra))
+                #expect(PanelKeyResolver.action(for: input) == expected, "⌘\(character) + \(extra)")
+            }
+        }
+    }
+
+    @Test("AC-21: ⌘ だけでない修飾キーの k・s・n・b・, や、⌘ の無い k・s・n・b・, は操作にならず、入力欄に渡す")
+    func otherModifiersOnLetterKeysPassThrough() {
+        let modifierSets: [NSEvent.ModifierFlags] = [[], [.shift], [.option], [.control], [.command, .shift], [.command, .option], [.command, .control]]
+
+        for character in ["k", "s", "n", "b", ","] {
+            for modifiers in modifierSets {
+                let input = commandKey(character, keyCode: 0, modifiers: modifiers)
+                #expect(PanelKeyResolver.action(for: input) == .passThrough, "\(modifiers) + \(character)")
+            }
+        }
+        let commandJ = commandKey("j", keyCode: 38)
+        #expect(PanelKeyResolver.action(for: commandJ) == .passThrough)
+    }
+
+    @Test("AC-21: 未確定の文字があるときの ⌘K・⌘S・⌘N・⌘B・⌘, は入力メソッドに渡す")
+    func panelCommandKeysPassThroughWhileComposing() {
+        for (character, keyCode) in [("k", UInt16(40)), ("s", UInt16(1)), ("n", UInt16(45)), ("b", UInt16(11)), (",", UInt16(43))] {
+            let input = commandKey(character, keyCode: keyCode, hasMarkedText: true)
+            #expect(PanelKeyResolver.action(for: input) == .passThrough, "⌘\(character)")
+        }
+    }
+
+    @Test("AC-21: esc・確定キー・確定+送信キーの判定は ⌘K・⌘S・⌘N を足しても変わらない")
+    func existingKeysAreUnchanged() {
+        let escape = PanelKeyInput(keyCode: KeyCode.escape, modifiers: [], hasMarkedText: false)
+        let commandReturn = PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.command], hasMarkedText: false)
+        let commandShiftReturn = PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.command, .shift], hasMarkedText: false)
+
+        #expect(PanelKeyResolver.action(for: escape) == .cancel)
+        #expect(PanelKeyResolver.action(for: commandShiftReturn) == .commit)
+        #expect(PanelKeyResolver.action(for: commandReturn) == .commitAndSend)
+        #expect(PanelKeyResolver.action(for: commandReturn, commitKey: nil, commitAndSendKey: nil) == .passThrough)
+    }
+
+    // MARK: - 確認中のキー
+
+    @Test("AC-33: 切り替えの確認中は ↩ が保存、⌘D が保存しない、esc がキャンセルになり、Caps Lock は影響しない")
+    func confirmationKeys() {
+        for keyCode in [KeyCode.returnKey, KeyCode.keypadEnter] {
+            for extra: NSEvent.ModifierFlags in [[], [.capsLock], [.numericPad]] {
+                let input = PanelKeyInput(keyCode: keyCode, modifiers: extra, hasMarkedText: false)
+                #expect(PanelKeyResolver.confirmationChoice(for: input) == .save, "keyCode \(keyCode) + \(extra)")
+            }
+        }
+        let escape = PanelKeyInput(keyCode: KeyCode.escape, modifiers: [.capsLock], hasMarkedText: false)
+        #expect(PanelKeyResolver.confirmationChoice(for: escape) == .cancel)
+        let commandD = commandKey("d", keyCode: 2, modifiers: [.command, .capsLock])
+        #expect(PanelKeyResolver.confirmationChoice(for: commandD) == .discard)
+    }
+
+    @Test("AC-33: 切り替えの確認中、確定キー・⌘D 以外の文字・修飾キー付きの ↩ は選択にならず、未確定の文字があるときは何も選ばない")
+    func confirmationIgnoresOtherKeys() {
+        let others = [
+            PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.command, .shift], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.shift], hasMarkedText: false),
+            commandKey("s", keyCode: 1),
+            commandKey("d", keyCode: 2, modifiers: [.command, .shift]),
+            commandKey("d", keyCode: 2, modifiers: []),
+            PanelKeyInput(keyCode: 0, modifiers: [], hasMarkedText: false, characters: "a"),
+        ]
+        for input in others {
+            #expect(PanelKeyResolver.confirmationChoice(for: input) == nil, "\(input)")
+        }
+
+        let composing = [
+            PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [], hasMarkedText: true),
+            PanelKeyInput(keyCode: KeyCode.escape, modifiers: [], hasMarkedText: true),
+            commandKey("d", keyCode: 2, hasMarkedText: true),
+        ]
+        for input in composing {
+            #expect(PanelKeyResolver.confirmationChoice(for: input) == nil, "\(input)")
+        }
+    }
+
+    @Test("AC-7, AC-8: 確認中の Tab は次、⇧Tab は前、Space は選んでいるボタンを押すになり、Caps Lock・テンキーの印は影響しない")
+    func confirmationFocusKeys() {
+        for extra: NSEvent.ModifierFlags in [[], [.capsLock], [.numericPad]] {
+            let tab = PanelKeyInput(keyCode: KeyCode.tab, modifiers: extra, hasMarkedText: false)
+            let shiftTab = PanelKeyInput(keyCode: KeyCode.tab, modifiers: extra.union(.shift), hasMarkedText: false)
+            let space = PanelKeyInput(keyCode: KeyCode.space, modifiers: extra, hasMarkedText: false)
+            #expect(PanelKeyResolver.confirmationFocusKey(for: tab) == .next, "\(tab)")
+            #expect(PanelKeyResolver.confirmationFocusKey(for: shiftTab) == .previous, "\(shiftTab)")
+            #expect(PanelKeyResolver.confirmationFocusKey(for: space) == .pressFocused, "\(space)")
+        }
+    }
+
+    @Test("AC-7, AC-8: 確認中の矢印・修飾キー付きの Tab・⇧Space・文字は、選んでいるボタンを動かす・押すキーにならない")
+    func confirmationFocusKeyIgnoresOtherKeys() {
+        let others = [
+            PanelKeyInput(keyCode: 123, modifiers: [], hasMarkedText: false),
+            PanelKeyInput(keyCode: 124, modifiers: [], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.upArrow, modifiers: [], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.downArrow, modifiers: [], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.tab, modifiers: [.control], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.tab, modifiers: [.option], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.tab, modifiers: [.command], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.tab, modifiers: [.shift, .command], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.space, modifiers: [.shift], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.space, modifiers: [.command], hasMarkedText: false),
+            PanelKeyInput(keyCode: 0, modifiers: [], hasMarkedText: false, characters: "a"),
+            PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.escape, modifiers: [], hasMarkedText: false),
+        ]
+        for input in others {
+            #expect(PanelKeyResolver.confirmationFocusKey(for: input) == nil, "\(input)")
+        }
+    }
+
+    @Test("AC-11: 未確定の文字があるときの Tab・⇧Tab・Space は、選んでいるボタンを動かす・押すキーにならない")
+    func confirmationFocusKeyIgnoresMarkedText() {
+        let composing = [
+            PanelKeyInput(keyCode: KeyCode.tab, modifiers: [], hasMarkedText: true),
+            PanelKeyInput(keyCode: KeyCode.tab, modifiers: [.shift], hasMarkedText: true),
+            PanelKeyInput(keyCode: KeyCode.space, modifiers: [], hasMarkedText: true),
+        ]
+        for input in composing {
+            #expect(PanelKeyResolver.confirmationFocusKey(for: input) == nil, "\(input)")
+        }
+    }
+
+    @Test("AC-7, AC-8, AC-11: Tab・⇧Tab・Space は、確認の答え(保存・保存しない・キャンセル)にならない")
+    func focusKeysAreNotConfirmationChoices() {
+        let inputs = [
+            PanelKeyInput(keyCode: KeyCode.tab, modifiers: [], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.tab, modifiers: [.shift], hasMarkedText: false),
+            PanelKeyInput(keyCode: KeyCode.space, modifiers: [], hasMarkedText: false),
+        ]
+        for input in inputs {
+            #expect(PanelKeyResolver.confirmationChoice(for: input) == nil, "\(input)")
+        }
     }
 
     // MARK: - 割り当てていない ⌘ つきの Enter の改行

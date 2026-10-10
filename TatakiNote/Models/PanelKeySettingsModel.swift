@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 
 /// 設定画面の「確定+挿入キー」「確定+送信キー」の記録ボックスの状態。
@@ -6,8 +7,11 @@ import Observation
     @ObservationIgnored private let hotkey: () -> PanelShortcut?
     @ObservationIgnored private let pauseHotkey: () -> Void
     @ObservationIgnored private let resumeHotkey: () -> Void
+    @ObservationIgnored private let setHotkey: (PanelShortcut?) -> Void
+    @ObservationIgnored private var lastAcceptedHotkey: PanelShortcut?
 
     private(set) var recordingRole: PanelShortcutRole?
+    private(set) var hotkeyRejectionMessage: String?
 
     private var rejectionMessages: [PanelShortcutRole: String] = [:]
 
@@ -15,12 +19,27 @@ import Observation
         settings: AppSettings,
         hotkey: @escaping () -> PanelShortcut? = PanelShortcut.currentHotkey,
         pauseHotkey: @escaping () -> Void = PanelShortcut.pauseHotkey,
-        resumeHotkey: @escaping () -> Void = PanelShortcut.resumeHotkey
+        resumeHotkey: @escaping () -> Void = PanelShortcut.resumeHotkey,
+        setHotkey: @escaping (PanelShortcut?) -> Void = PanelShortcut.setHotkey
     ) {
         self.settings = settings
         self.hotkey = hotkey
         self.pauseHotkey = pauseHotkey
         self.resumeHotkey = resumeHotkey
+        self.setHotkey = setHotkey
+        self.lastAcceptedHotkey = hotkey()
+    }
+
+    /// 「パネルを開く・閉じる」の記録ボックスの変更を受け、⌘K・⌘S・⌘N・⌘B・⌘, なら直前のキーに戻して理由を出す。
+    func hotkeyDidChange(to shortcut: PanelShortcut?) {
+        guard shortcut != lastAcceptedHotkey else { return }
+        if let shortcut, ReservedPanelKeys.isReserved(shortcut) {
+            hotkeyRejectionMessage = PanelShortcutRejection.reservedForPanelCommands.message(for: shortcut)
+            setHotkey(lastAcceptedHotkey)
+            return
+        }
+        hotkeyRejectionMessage = nil
+        lastAcceptedHotkey = shortcut
     }
 
     func shortcut(for role: PanelShortcutRole) -> PanelShortcut? {
@@ -68,7 +87,16 @@ import Observation
         return true
     }
 
+    /// 確定+挿入キーと確定+送信キーの最後の1つを消そうとしたときの理由。
+    static let lastKeyClearMessage = String(localized: "確定+挿入キーと確定+送信キーの両方を未登録にはできません。挿入せずに使うときは、ノートモードにしてください。")
+
     func clear(_ role: PanelShortcutRole) {
+        let otherRole: PanelShortcutRole = role == .commit ? .commitAndSend : .commit
+        if shortcut(for: otherRole) == nil {
+            rejectionMessages[role] = Self.lastKeyClearMessage
+            endRecording(role)
+            return
+        }
         rejectionMessages[role] = nil
         switch role {
         case .commit: settings.selectCommitKey(nil)

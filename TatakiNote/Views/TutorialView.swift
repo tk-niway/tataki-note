@@ -30,17 +30,23 @@ private struct TutorialContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(TutorialModel.introduction)
+            Text(model.introductionText)
                 .fixedSize(horizontal: false, vertical: true)
             if model.isShowingOtherTargetWarning {
                 TutorialOtherTargetWarning()
             }
             VStack(spacing: 4) {
-                ForEach(TutorialStep.allCases, id: \.self) { step in
-                    TutorialStepRow(step: step, model: model)
+                ForEach(model.steps, id: \.self) { step in
+                    if let number = model.stepNumber(step) {
+                        TutorialStepRow(step: step, number: number, model: model)
+                    }
                 }
             }
-            PracticeChatView(model: model)
+            if model.showsPracticeChat {
+                PracticeChatView(model: model)
+            } else {
+                Spacer(minLength: 0)
+            }
             HStack {
                 Spacer()
                 if model.showsFinishButton {
@@ -180,6 +186,31 @@ private struct PracticeChatBubble: View {
     }
 }
 
+private enum TutorialInlineText {
+    static let iconHeight: CGFloat = 16
+    static let iconBaselineOffset: CGFloat = -3
+
+    static func make(_ parts: [TutorialTextPart]) -> Text {
+        parts.reduce(Text(verbatim: "")) { result, part in
+            result + text(for: part)
+        }
+    }
+
+    private static func text(for part: TutorialTextPart) -> Text {
+        switch part {
+        case .text(let string):
+            return Text(verbatim: string)
+        case .menuBarIcon:
+            guard let image = MenuBarIcon.inlineImage(height: iconHeight) else {
+                return Text(verbatim: "")
+            }
+            let icon = Text(Image(nsImage: image).renderingMode(.template))
+                .baselineOffset(iconBaselineOffset)
+            return Text(verbatim: " ") + icon + Text(verbatim: " ")
+        }
+    }
+}
+
 private struct TutorialSkipNotice: View {
     let onClose: () -> Void
 
@@ -194,7 +225,7 @@ private struct TutorialSkipNotice: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("チュートリアルをスキップしました。")
                         .font(.headline)
-                    Text("チュートリアルは、設定の「アプリ情報」からいつでも開けます。")
+                    TutorialInlineText.make(TutorialModel.skipNoticeParts)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -232,13 +263,14 @@ private struct TutorialOtherTargetWarning: View {
 
 private struct TutorialStepRow: View {
     let step: TutorialStep
+    let number: Int
     let model: TutorialModel
 
     var body: some View {
         let isCompleted = model.isCompleted(step)
         let isCurrent = model.currentStep == step
         HStack(alignment: .top, spacing: 10) {
-            TutorialStepMarker(number: step.rawValue + 1, isCompleted: isCompleted, isCurrent: isCurrent)
+            TutorialStepMarker(number: number, isCompleted: isCompleted, isCurrent: isCurrent)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.system(size: 13, weight: isCurrent ? .semibold : .regular))
@@ -264,6 +296,7 @@ private struct TutorialStepRow: View {
         case .writeWithNewline: "Enter で改行しながら書く"
         case .send: "送る"
         case .nextSteps: "次の一歩"
+        case .saveDraft: "書いて保存する"
         }
     }
 
@@ -273,6 +306,7 @@ private struct TutorialStepRow: View {
         case .writeWithNewline: "tutorial.step.writeWithNewline"
         case .send: "tutorial.step.send"
         case .nextSteps: "tutorial.step.nextSteps"
+        case .saveDraft: "tutorial.step.saveDraft"
         }
     }
 
@@ -280,7 +314,7 @@ private struct TutorialStepRow: View {
     private var detail: some View {
         switch step {
         case .openPanel:
-            Text(model.openPanelInstruction)
+            TutorialInlineText.make(model.openPanelInstructionParts)
                 .fixedSize(horizontal: false, vertical: true)
         case .writeWithNewline:
             Text(model.writeInstruction)
@@ -290,6 +324,9 @@ private struct TutorialStepRow: View {
                 .fixedSize(horizontal: false, vertical: true)
         case .nextSteps:
             TutorialNextSteps()
+        case .saveDraft:
+            Text(model.saveDraftInstruction)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -302,7 +339,7 @@ private struct TutorialNextSteps: View {
             ForEach(TutorialNextStepIntroduction.allCases, id: \.self) { introduction in
                 TutorialIntroduction(
                     heading: Text(introduction.heading),
-                    text: Text(introduction.text)
+                    text: TutorialInlineText.make(introduction.parts)
                 )
             }
         }

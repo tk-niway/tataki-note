@@ -7,27 +7,59 @@ enum TutorialStep: Int, CaseIterable, Equatable {
     case writeWithNewline
     case send
     case nextSteps
+    case saveDraft
+}
+
+/// 文中にメニューバーのアイコンを挟む案内の文の部品。
+enum TutorialTextPart: Equatable {
+    case text(String)
+    case menuBarIcon
+}
+
+extension Array where Element == TutorialTextPart {
+    /// アイコンを除いた文字だけをつないだ文。
+    var plainText: String {
+        var result = ""
+        for part in self {
+            if case .text(let string) = part {
+                result += string
+            }
+        }
+        return result
+    }
 }
 
 /// 手順4で紹介する使い方。
 enum TutorialNextStepIntroduction: CaseIterable {
     case hotkeyChange
     case draftKept
+    case settingsAccess
 
     var heading: String {
         switch self {
         case .hotkeyChange: String(localized: "ホットキーの変更")
-        case .draftKept: String(localized: "下書き")
+        case .draftKept: String(localized: "書きかけ")
+        case .settingsAccess: String(localized: "設定の開き方")
+        }
+    }
+
+    var parts: [TutorialTextPart] {
+        switch self {
+        case .hotkeyChange:
+            [.text(String(localized: "設定の「キー」の「パネルを開く・閉じる」で変えられます。"))]
+        case .draftKept:
+            [.text(String(localized: "esc でパネルを閉じても、書いた文章はパネルに残ります。次に開くと続きから書けます。"))]
+        case .settingsAccess:
+            [
+                .text(String(localized: "メニューバーの TatakiNote のアイコン")),
+                .menuBarIcon,
+                .text(String(localized: "をクリックして「設定」を選ぶと、設定ウィンドウが開きます。パネルを開いているときは ⌘, でも開けます。"))
+            ]
         }
     }
 
     var text: String {
-        switch self {
-        case .hotkeyChange:
-            String(localized: "設定の「キー」の「パネルを開く・閉じる」で変えられます。")
-        case .draftKept:
-            String(localized: "esc でパネルを閉じても、書いた文章は下書きとして残ります。次に開くと続きから書けます。")
-        }
+        parts.plainText
     }
 }
 
@@ -66,9 +98,22 @@ enum TutorialNextStepIntroduction: CaseIterable {
 
     // MARK: - 手順
 
-    /// 手順が完了しているか(今の手順より前なら真)。
+    /// 今のモードで並べる手順。
+    var steps: [TutorialStep] {
+        settings.isNoteMode
+            ? [.openPanel, .saveDraft, .nextSteps]
+            : [.openPanel, .writeWithNewline, .send, .nextSteps]
+    }
+
+    /// 手順の番号(今のモードの並びで1から)。並びに無い手順は nil。
+    func stepNumber(_ step: TutorialStep) -> Int? {
+        steps.firstIndex(of: step).map { $0 + 1 }
+    }
+
+    /// 手順が完了しているか(今のモードの並びで、今の手順より前なら真)。
     func isCompleted(_ step: TutorialStep) -> Bool {
-        step.rawValue < currentStep.rawValue
+        guard let number = stepNumber(step), let currentNumber = stepNumber(currentStep) else { return false }
+        return number < currentNumber
     }
 
     /// 手順1から始め直し、練習用のチャット・入力欄・案内・注意・覚えていた状態を元に戻す。
@@ -101,7 +146,18 @@ enum TutorialNextStepIntroduction: CaseIterable {
 
     /// パネルの表示・挿入先・文章が変わったことを受けて、手順を進める。
     func panelDidChange(isPresented: Bool, target: InsertionTarget?, text: String) {
-        guard isPresented, let target else { return }
+        guard isPresented else { return }
+        if settings.isNoteMode {
+            isShowingOtherTargetWarning = false
+            if currentStep == .openPanel {
+                currentStep = .saveDraft
+            }
+            return
+        }
+        guard let target else {
+            if currentStep != .nextSteps { isShowingOtherTargetWarning = false }
+            return
+        }
         let isOwnTarget = target.isOwnApp(ownProcessIdentifier)
         if currentStep != .nextSteps {
             isShowingOtherTargetWarning = !isOwnTarget
@@ -115,9 +171,20 @@ enum TutorialNextStepIntroduction: CaseIterable {
             if Self.newlineCount(in: text) > newlineBaseline {
                 currentStep = .send
             }
-        case .send, .nextSteps:
+        case .send, .nextSteps, .saveDraft:
             break
         }
+    }
+
+    /// 下書きに保存されたことを受けて、手順を進める。
+    func draftDidSave() {
+        guard settings.isNoteMode, currentStep == .saveDraft else { return }
+        currentStep = .nextSteps
+    }
+
+    /// モードが変わったことを受けて、手順1から始め直す。
+    func appModeDidChange() {
+        reset()
     }
 
     /// 練習用のチャットへの挿入が要求されたことを覚える。
@@ -163,22 +230,63 @@ enum TutorialNextStepIntroduction: CaseIterable {
         String(localized: "AI チャットの入力欄では、変換の確定や改行のつもりの Enter で、書きかけのまま送られてしまうことがあります。下の練習用のチャットで、パネルで書いて送るまでを1段階ずつ試してみましょう。")
     }
 
+    /// ノートモードのときの窓の冒頭の文。
+    static var noteModeIntroduction: String {
+        String(localized: "パネルは、どのアプリを使っているときでもホットキーで開ける、書くための場所です。書いた文章は下書きに保存して、あとで続きから書けます。パネルを開いて保存するまでを試してみましょう。")
+    }
+
+    /// 今のモードの窓の冒頭の文。
+    var introductionText: String {
+        settings.isNoteMode ? Self.noteModeIntroduction : Self.introduction
+    }
+
+    /// 練習用のチャットを出すか。
+    var showsPracticeChat: Bool {
+        !settings.isNoteMode
+    }
+
     /// 挿入先が別のアプリのときの注意の文。
     static var otherTargetWarning: String {
         String(localized: "パネルの挿入先が別のアプリになっています。このまま確定すると、練習の文章がそのアプリに入り、確定+送信キーでは送信もされます。esc でパネルを閉じ、練習用のチャットの入力欄をクリックしてから開き直してください。")
     }
 
+    /// 手順1の説明の文の部品。
+    var openPanelInstructionParts: [TutorialTextPart] {
+        guard let hotkeyText else {
+            return [
+                .text(String(localized: "ホットキーが設定されていません。設定の「キー」で設定するか、メニューバーの TatakiNote のアイコン")),
+                .menuBarIcon,
+                .text(String(localized: "の「パネルを開く」で開きます。"))
+            ]
+        }
+        if settings.isNoteMode {
+            return [.text(String(localized: "\(hotkeyText) を押すと、パネルが開きます。どのアプリを使っているときでも開けます。"))]
+        }
+        return [.text(String(localized: "まず下の練習用のチャットの入力欄をクリックします。それから \(hotkeyText) を押します。"))]
+    }
+
     /// 手順1の説明の文。
     var openPanelInstruction: String {
-        guard let hotkeyText else {
-            return String(localized: "ホットキーが設定されていません。設定の「キー」で設定するか、メニューバーの「パネルを開く」で開きます。")
-        }
-        return String(localized: "まず下の練習用のチャットの入力欄をクリックします。それから \(hotkeyText) を押します。")
+        openPanelInstructionParts.plainText
+    }
+
+    /// スキップしたときの案内の文の部品。
+    static var skipNoticeParts: [TutorialTextPart] {
+        [
+            .text(String(localized: "チュートリアルは、メニューバーの TatakiNote のアイコン")),
+            .menuBarIcon,
+            .text(String(localized: "→「設定」→「アプリ情報」から、いつでも開けます。"))
+        ]
     }
 
     /// 手順2の説明の文。
     var writeInstruction: String {
         String(localized: "パネルの中では、変換の確定にも改行にも Enter を使えます。Enter で送信されることはありません。2行以上の文章を書いてみましょう。")
+    }
+
+    /// ノートモードの手順「書いて保存する」の説明の文。
+    var saveDraftInstruction: String {
+        String(localized: "パネルに文章を書いて、⌘S を押すか、タイトルバーの「下書きに保存」のアイコンを押します。保存した下書きは、⌘B で開くサイドバーからいつでも呼び出せます。")
     }
 
     /// 手順3の説明の文。

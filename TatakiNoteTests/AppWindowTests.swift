@@ -104,7 +104,7 @@ struct AppWindowTests {
 
     // MARK: - AC-11 窓を出す処理
 
-    @Test("AC-11: AppWindow.prepare は窓が無いときだけ作って大きさを決め、あるときはそのまま返す")
+    @Test("AC-11: AppWindow.prepare は窓が無いときだけ作って大きさを決め、あるときはそのまま返す。作った窓はログインし直しても復元されない")
     func prepareMakesOnlyWhenMissing() throws {
         let delegate = WindowDelegateStub()
         var makeCount = 0
@@ -128,12 +128,13 @@ struct AppWindowTests {
         #expect(first.title == "題名")
         #expect(first.identifier?.rawValue == "appWindowTest")
         #expect(first.isReleasedWhenClosed == false)
+        #expect(first.isRestorable == false)
         #expect(first.delegate === delegate)
         #expect(first.contentView is NSHostingView<Text>)
         #expect(first.isVisible == false)
     }
 
-    @Test("AC-11: チュートリアルの窓は何度開いても同じ1枚で、開くと見え、大きさ・題名・識別子・閉じるボタンが決まった形になる")
+    @Test("AC-11: チュートリアルの窓は何度開いても同じ1枚で、開くと見え、大きさ・題名・識別子・閉じるボタンが決まった形になり、ログインし直しても復元されない")
     func tutorialWindowOpensOnce() throws {
         let temp = try TemporaryDefaults()
         defer { temp.remove() }
@@ -150,6 +151,7 @@ struct AppWindowTests {
         expectContentSize(first, TutorialWindowController.contentSize)
         #expect(first.title == "TatakiNote の使い方")
         #expect(first.identifier?.rawValue == "tutorial")
+        #expect(first.isRestorable == false)
         #expect(first.styleMask == [.titled, .closable])
         #expect(isCloseButtonVisible(in: first))
     }

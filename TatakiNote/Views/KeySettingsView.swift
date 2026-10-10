@@ -4,34 +4,42 @@ import SwiftUI
 /// 設定画面の「キー」。
 struct KeySettingsView: View {
     @Bindable var keySettings: PanelKeySettingsModel
+    let isNoteMode: Bool
 
     var body: some View {
         Form {
             LabeledContent("パネルを開く・閉じる") {
                 VStack(alignment: .leading, spacing: 6) {
-                    KeyboardShortcuts.Recorder("パネルを開く・閉じる", name: .togglePanel)
-                        .labelsHidden()
-                        .accessibilityIdentifier("settings.hotkeyRecorder")
+                    KeyboardShortcuts.Recorder("パネルを開く・閉じる", name: .togglePanel) { shortcut in
+                        keySettings.hotkeyDidChange(to: shortcut.map { PanelShortcut($0) })
+                    }
+                    .labelsHidden()
+                    .accessibilityIdentifier("settings.hotkeyRecorder")
+                    if let message = keySettings.hotkeyRejectionMessage {
+                        SettingErrorNote(message, identifier: "settings.hotkeyRejection")
+                    }
                     SettingDescription(text: "どのアプリを使っているときでも、このキーでパネルを開く・閉じるを切り替えます。")
                 }
             }
             .padding(.bottom, 12)
 
-            LabeledContent("確定+挿入キー") {
-                VStack(alignment: .leading, spacing: 6) {
-                    shortcutRecorder(for: .commit, recorderID: "settings.commitKeyRecorder", rejectionID: "settings.commitKeyRejection")
-                    SettingDescription(PanelShortcutRole.commit.settingDescription)
+            if !isNoteMode {
+                LabeledContent("確定+挿入キー") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        shortcutRecorder(for: .commit, recorderID: "settings.commitKeyRecorder", rejectionID: "settings.commitKeyRejection")
+                        SettingDescription(PanelShortcutRole.commit.settingDescription)
+                    }
                 }
-            }
-            .padding(.bottom, 12)
+                .padding(.bottom, 12)
 
-            LabeledContent("確定+送信キー") {
-                VStack(alignment: .leading, spacing: 6) {
-                    shortcutRecorder(for: .commitAndSend, recorderID: "settings.commitAndSendKeyRecorder", rejectionID: "settings.commitAndSendKeyRejection")
-                    SettingDescription(PanelShortcutRole.commitAndSend.settingDescription)
+                LabeledContent("確定+送信キー") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        shortcutRecorder(for: .commitAndSend, recorderID: "settings.commitAndSendKeyRecorder", rejectionID: "settings.commitAndSendKeyRejection")
+                        SettingDescription(PanelShortcutRole.commitAndSend.settingDescription)
+                    }
                 }
+                .padding(.bottom, 12)
             }
-            .padding(.bottom, 12)
 
             LabeledContent("ショートカットキー") {
                 VStack(alignment: .leading, spacing: 6) {
@@ -40,16 +48,11 @@ struct KeySettingsView: View {
                             if shortcut.id != EditorShortcuts.all.first?.id {
                                 Divider()
                             }
-                            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                                Text(verbatim: shortcut.keys)
-                                    .frame(width: 96, alignment: .leading)
-                                Text(verbatim: shortcut.action)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.vertical, 5)
-                            .accessibilityElement(children: .combine)
-                            .accessibilityIdentifier("settings.shortcut.\(shortcut.id)")
+                            shortcutRow(shortcut, identifier: "settings.shortcut.\(shortcut.id)")
+                        }
+                        ForEach(EditorShortcuts.panelCommands) { shortcut in
+                            Divider()
+                            shortcutRow(shortcut, identifier: "settings.panelCommand.\(shortcut.id)")
                         }
                     }
                     .padding(.horizontal, 10)
@@ -58,12 +61,25 @@ struct KeySettingsView: View {
                     .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: .separatorColor)))
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("settings.shortcutList")
-                    SettingDescription(EditorShortcuts.settingDescription)
+                    SettingDescription(EditorShortcuts.settingDescription(isNoteMode: isNoteMode))
                 }
             }
         }
         .formStyle(.columns)
         .settingsDetailPadding()
+    }
+
+    private func shortcutRow(_ shortcut: EditorShortcut, identifier: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(verbatim: shortcut.keys)
+                .frame(width: 96, alignment: .leading)
+            Text(verbatim: shortcut.action)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 5)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(identifier)
     }
 
     private func shortcutRecorder(for role: PanelShortcutRole, recorderID: String, rejectionID: String) -> some View {

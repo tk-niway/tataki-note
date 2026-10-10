@@ -3,7 +3,7 @@ import SwiftUI
 
 /// 設定・許可の案内・チュートリアルの窓を作って前面に出す共通の処理。
 enum AppWindow {
-    /// 閉じても破棄しない窓を作り、SwiftUI の中身を載せる。
+    /// 閉じても破棄せず、ログインし直したときに復元されない窓を作り、SwiftUI の中身を載せる。
     static func make<Content: View>(
         title: String,
         identifier: String,
@@ -19,6 +19,7 @@ enum AppWindow {
         )
         window.title = title
         window.isReleasedWhenClosed = false
+        window.isRestorable = false
         window.identifier = NSUserInterfaceItemIdentifier(identifier)
         window.delegate = delegate
         window.contentView = NSHostingView(rootView: rootView)

@@ -22,7 +22,11 @@ struct AutoShowSettingsSection: View {
                 }
                 .pickerStyle(.radioGroup)
                 .labelsHidden()
+                .disabled(settings.isNoteMode)
                 .accessibilityIdentifier("settings.autoShowModePicker")
+                if settings.isNoteMode {
+                    NoteModeReason(restriction: .autoShow, identifier: "settings.noteModeReason.autoShow")
+                }
                 SettingDescription(text: "入力欄を選んだだけでパネルを開きます。ホットキーは今までどおり使えます。")
             }
         }
@@ -46,7 +50,8 @@ struct AutoShowSettingsSection: View {
                 .listStyle(.bordered)
                 .frame(height: 88)
                 .accessibilityIdentifier("settings.autoShowAppList")
-                .disabled(!editor.isEditable)
+                .disabled(isAppListDisabled)
+                .opacity(isAppListDisabled ? 0.5 : 1)
 
                 HStack(spacing: 8) {
                     Menu {
@@ -64,7 +69,7 @@ struct AutoShowSettingsSection: View {
                     .frame(width: 24)
                     .accessibilityLabel("追加")
                     .accessibilityIdentifier("settings.autoShowAppAdd")
-                    .disabled(!editor.isEditable)
+                    .disabled(isAppListDisabled)
 
                     Button {
                         editor.removeSelected()
@@ -76,12 +81,16 @@ struct AutoShowSettingsSection: View {
                     .frame(width: 24)
                     .accessibilityLabel("外す")
                     .accessibilityIdentifier("settings.autoShowAppRemove")
-                    .disabled(!editor.canRemove)
+                    .disabled(settings.isNoteMode || !editor.canRemove)
                 }
 
                 SettingDescription(text: "「＋」で起動中のアプリから追加します。起動していないアプリは「その他…」から選べます。")
             }
         }
+    }
+
+    private var isAppListDisabled: Bool {
+        settings.isNoteMode || !editor.isEditable
     }
 
     @ViewBuilder

@@ -245,7 +245,7 @@ final class ClipboardTextInserter: TextInserting {
         try? await Task.sleep(for: settleDelay)
 
         let isOwnTarget = target.isOwnApp(ownProcessIdentifier)
-        if !isOwnTarget, focusInspector.focusedTextInputState(in: target) == .notTextInput {
+        if !isOwnTarget, focusInspector.focusedTextInputState(in: target) != .textInput {
             _ = await capturing.value
             return .noTextInput
         }

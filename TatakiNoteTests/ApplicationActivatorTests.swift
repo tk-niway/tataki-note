@@ -27,15 +27,18 @@ struct ApplicationActivatorTests {
         InsertionTarget(processIdentifier: currentApp.processIdentifier)
     }
 
-    private func postLater(
+    private let unreachableTimeout: Duration = .seconds(3600)
+
+    private func postAfterRequest(
         _ name: Notification.Name,
         about app: NSRunningApplication,
         on center: NotificationCenter,
-        after delay: Duration = .milliseconds(30)
-    ) -> Task<Void, Never> {
-        Task { @MainActor in
-            try? await Task.sleep(for: delay)
-            center.post(name: name, object: nil, userInfo: [NSWorkspace.applicationUserInfoKey: app])
+        by requester: ActivationRequesterStub
+    ) {
+        requester.onRequest = {
+            Task { @MainActor in
+                center.post(name: name, object: nil, userInfo: [NSWorkspace.applicationUserInfoKey: app])
+            }
         }
     }
 
@@ -50,19 +53,14 @@ struct ApplicationActivatorTests {
             requester: requester,
             frontmostApp: frontmost,
             notificationCenter: center,
-            timeout: .seconds(30)
+            timeout: unreachableTimeout
         )
-        let notifier = postLater(NSWorkspace.didActivateApplicationNotification, about: currentApp, on: center)
+        postAfterRequest(NSWorkspace.didActivateApplicationNotification, about: currentApp, on: center, by: requester)
 
-        let clock = ContinuousClock()
-        let start = clock.now
         let result = await activator.activate(currentTarget)
-        let elapsed = clock.now - start
-        await notifier.value
 
         #expect(result == true)
         #expect(requester.requestCount == 1)
-        #expect(elapsed < .seconds(20))
     }
 
     // MARK: - すでに前面・動いていない
@@ -128,20 +126,20 @@ struct ApplicationActivatorTests {
     func ignoresActivationOfOtherApplications() async {
         let timeout: Duration = .milliseconds(300)
         let center = NotificationCenter()
+        let requester = ActivationRequesterStub()
         let activator = WorkspaceApplicationActivator(
-            requester: ActivationRequesterStub(),
+            requester: requester,
             frontmostApp: FrontmostApplicationStub { nil },
             notificationCenter: center,
             timeout: timeout
         )
         let target = InsertionTarget(processIdentifier: unrelatedProcessIdentifier)
-        let notifier = postLater(NSWorkspace.didActivateApplicationNotification, about: currentApp, on: center)
+        postAfterRequest(NSWorkspace.didActivateApplicationNotification, about: currentApp, on: center, by: requester)
 
         let clock = ContinuousClock()
         let start = clock.now
         let result = await activator.activate(target)
         let elapsed = clock.now - start
-        await notifier.value
 
         #expect(result == false)
         #expect(elapsed >= timeout)
@@ -169,46 +167,43 @@ struct ApplicationActivatorTests {
     @Test("AC-11: 待っている間に挿入先が終了した通知が届いたら、上限を待たずに false を返す", .timeLimit(.minutes(1)))
     func returnsFalseWhenTargetTerminates() async {
         let center = NotificationCenter()
+        let requester = ActivationRequesterStub()
         let activator = WorkspaceApplicationActivator(
-            requester: ActivationRequesterStub(),
+            requester: requester,
             frontmostApp: FrontmostApplicationStub { nil },
             notificationCenter: center,
-            timeout: .seconds(30)
+            timeout: unreachableTimeout
         )
-        let notifier = postLater(NSWorkspace.didTerminateApplicationNotification, about: currentApp, on: center)
+        postAfterRequest(NSWorkspace.didTerminateApplicationNotification, about: currentApp, on: center, by: requester)
 
-        let clock = ContinuousClock()
-        let start = clock.now
         let result = await activator.activate(currentTarget)
-        let elapsed = clock.now - start
-        await notifier.value
 
         #expect(result == false)
-        #expect(elapsed < .seconds(20))
+        #expect(requester.requestCount == 1)
     }
 
     @Test("AC-11: 待っているタスクが取り消されたら false を返す", .timeLimit(.minutes(1)))
     func returnsFalseWhenCancelled() async {
+        let (requested, requestedContinuation) = AsyncStream<Void>.makeStream()
+        let requester = ActivationRequesterStub()
+        requester.onRequest = { requestedContinuation.finish() }
         let activator = WorkspaceApplicationActivator(
-            requester: ActivationRequesterStub(),
+            requester: requester,
             frontmostApp: FrontmostApplicationStub { nil },
             notificationCenter: NotificationCenter(),
-            timeout: .seconds(30)
+            timeout: unreachableTimeout
         )
         let target = currentTarget
         let waiting = Task { @MainActor in
             await activator.activate(target)
         }
-        try? await Task.sleep(for: .milliseconds(30))
+        for await _ in requested {}
 
-        let clock = ContinuousClock()
-        let start = clock.now
         waiting.cancel()
         let result = await waiting.value
-        let elapsed = clock.now - start
 
         #expect(result == false)
-        #expect(elapsed < .seconds(20))
+        #expect(requester.requestCount == 1)
     }
 
     // MARK: - 依頼の直後の確認・既定の上限
@@ -223,17 +218,13 @@ struct ApplicationActivatorTests {
             requester: requester,
             frontmostApp: FrontmostApplicationStub { frontmostPid },
             notificationCenter: NotificationCenter(),
-            timeout: .seconds(30)
+            timeout: unreachableTimeout
         )
 
-        let clock = ContinuousClock()
-        let start = clock.now
         let result = await activator.activate(currentTarget)
-        let elapsed = clock.now - start
 
         #expect(result == true)
         #expect(requester.requestCount == 1)
-        #expect(elapsed < .seconds(20))
     }
 
     @Test("AC-12: 既定の上限は約1秒")

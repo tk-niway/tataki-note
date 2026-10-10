@@ -7,23 +7,107 @@ struct PanelView: View {
     let settings: AppSettings
     let onKeyInput: (PanelKeyInput) -> Bool
     let onClose: () -> Void
+    let session: DraftSession?
+    let sidebarModel: SidebarModel?
+    let saveAnimation: SaveAnimationModel?
+    let onToggleSidebar: () -> Void
+    let onNewDraft: () -> Void
+    let onSaveDraft: () -> Void
+    let onResolveConfirmation: ((UnsavedTextChoice) -> Void)?
+    let onOpenSettings: () -> Void
+    let appIcon: @MainActor (InsertionTarget) -> NSImage
+
+    init(
+        model: PanelModel,
+        settings: AppSettings,
+        onKeyInput: @escaping (PanelKeyInput) -> Bool,
+        onClose: @escaping () -> Void,
+        session: DraftSession? = nil,
+        sidebarModel: SidebarModel? = nil,
+        saveAnimation: SaveAnimationModel? = nil,
+        onToggleSidebar: @escaping () -> Void = {},
+        onNewDraft: @escaping () -> Void = {},
+        onSaveDraft: @escaping () -> Void = {},
+        onResolveConfirmation: ((UnsavedTextChoice) -> Void)? = nil,
+        onOpenSettings: @escaping () -> Void = {},
+        appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = { InsertionTargetBadge.systemIcon(for: $0) }
+    ) {
+        self.model = model
+        self.settings = settings
+        self.onKeyInput = onKeyInput
+        self.onClose = onClose
+        self.session = session
+        self.sidebarModel = sidebarModel
+        self.saveAnimation = saveAnimation
+        self.onToggleSidebar = onToggleSidebar
+        self.onNewDraft = onNewDraft
+        self.onSaveDraft = onSaveDraft
+        self.onResolveConfirmation = onResolveConfirmation
+        self.onOpenSettings = onOpenSettings
+        self.appIcon = appIcon
+    }
 
     private static let placeholderInset = NSSize(
         width: PanelMetrics.textContainerInset.width + NSTextContainer().lineFragmentPadding,
         height: PanelMetrics.textContainerInset.height
     )
 
-    private static let closeButtonHitSize: CGFloat = 20
-
-    private static let titleText = "TatakiNote"
-
     /// 入力欄が空のときに出す薄い文字。
     static let placeholderText = String(localized: "ここにプロンプトを書く…")
 
     var body: some View {
+        let isSidebarOpen = sidebarModel?.isOpen ?? false
+        let slidingBodyWidth = sidebarModel?.slidingBodyWidth
+        HStack(spacing: 0) {
+            if let sidebarModel, isSidebarOpen {
+                SidebarView(
+                    model: sidebarModel,
+                    highlightedDraftID: saveAnimation?.highlightedDraftID,
+                    onOpenSettings: onOpenSettings
+                )
+                    .frame(
+                        minWidth: 0,
+                        maxWidth: slidingBodyWidth == nil ? SidebarLayout.width : .infinity,
+                        alignment: .leading
+                    )
+                    .clipped()
+                    .ignoresSafeArea(edges: .top)
+                Divider()
+                    .ignoresSafeArea(edges: .top)
+            }
+            bodyColumn
+                .frame(width: slidingBodyWidth)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .windowStyle(theme: settings.theme, opacity: settings.panelOpacity)
+        .overlay(alignment: .top) {
+            PanelTitleBar(
+                target: model.target,
+                showsInsertionTarget: !settings.isNoteMode,
+                noTargetAlertCount: model.noTargetAlertCount,
+                session: session,
+                saveAnimation: saveAnimation,
+                isSidebarOpen: isSidebarOpen,
+                onClose: onClose,
+                onToggleSidebar: onToggleSidebar,
+                onNewDraft: onNewDraft,
+                onSaveDraft: onSaveDraft,
+                appIcon: appIcon
+            )
+            .ignoresSafeArea(edges: .top)
+        }
+        .overlayPreferenceValue(SidebarToggleAnchorKey.self) { anchor in
+            if let saveAnimation {
+                SaveAnimationOverlay(model: saveAnimation, toggleAnchor: anchor)
+            }
+        }
+    }
+
+    private var bodyColumn: some View {
         let font = settings.panelFont
         let content = statusBarContent
-        VStack(spacing: 0) {
+        let isConfirming = session?.pendingSwitch != nil
+        return VStack(spacing: 0) {
             PromptTextEditor(
                 text: $model.text,
                 focusRequest: model.focusRequest,
@@ -50,45 +134,17 @@ struct PanelView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor).ignoresSafeArea())
-        .windowStyle(theme: settings.theme, opacity: settings.panelOpacity)
-        .overlay(alignment: .top) {
-            Text(Self.titleText)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .frame(height: PanelMetrics.titleBarHeight)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-                .ignoresSafeArea(edges: .top)
-        }
-        .overlay(alignment: .topLeading) {
-            closeButton
-                .padding(.leading, 8)
-                .padding(.top, (PanelMetrics.titleBarHeight - Self.closeButtonHitSize) / 2)
-                .ignoresSafeArea(edges: .top)
-        }
-    }
-
-    private var closeButton: some View {
-        Button(action: onClose) {
-            Image(systemName: "xmark.circle.fill")
-                .font(.system(size: 14))
-                .frame(width: Self.closeButtonHitSize, height: Self.closeButtonHitSize)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(CloseButtonStyle())
-        .focusable(false)
-        .help("閉じる(下書きは残ります)")
-        .accessibilityLabel("閉じる")
-        .accessibilityIdentifier("promptPanel.closeButton")
-    }
-
-    private struct CloseButtonStyle: ButtonStyle {
-        @State private var isHovering = false
-
-        func makeBody(configuration: Configuration) -> some View {
-            configuration.label
-                .foregroundStyle(configuration.isPressed ? .primary : (isHovering ? .secondary : .tertiary))
-                .onHover { isHovering = $0 }
+        .accessibilityHidden(isConfirming)
+        .overlay {
+            if let session, session.pendingSwitch != nil {
+                PanelConfirmationOverlay(focusedChoice: session.confirmationFocus) { choice in
+                    if let onResolveConfirmation {
+                        onResolveConfirmation(choice)
+                    } else {
+                        session.resolvePendingSwitch(choice)
+                    }
+                }
+            }
         }
     }
 

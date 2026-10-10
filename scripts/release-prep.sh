@@ -70,7 +70,7 @@ fi
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/release-prep.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
-limit() { head -c "$1"; }
+limit() { head -c "$1"; cat > /dev/null; }
 
 # ---- 1. 利用者ガイド ----
 if [ "$SKIP_DOCS" = 1 ]; then

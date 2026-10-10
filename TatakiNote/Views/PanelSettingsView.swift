@@ -11,14 +11,22 @@ struct PanelSettingsView: View {
         Form {
             LabeledContent("パネルを出す位置") {
                 VStack(alignment: .leading, spacing: 6) {
-                    Picker("パネルを出す位置", selection: $settings.panelScreen) {
+                    VStack(alignment: .leading, spacing: 6) {
                         ForEach(PanelScreen.allCases, id: \.self) { panelScreen in
-                            Text(panelScreen.displayName).tag(panelScreen)
+                            RadioOptionButton(
+                                title: panelScreen.displayName,
+                                isOn: settings.effectivePanelScreen == panelScreen,
+                                isEnabled: isSelectable(panelScreen),
+                                action: { select(panelScreen) }
+                            )
                         }
                     }
-                    .pickerStyle(.radioGroup)
-                    .labelsHidden()
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel("パネルを出す位置")
                     .accessibilityIdentifier("settings.panelScreenPicker")
+                    if settings.isNoteMode {
+                        NoteModeReason(restriction: .nearFocusedField, identifier: "settings.noteModeReason.nearFocusedField")
+                    }
                     SettingDescription(text: "パネルを新しく開くときに出す位置です。「入力欄の近く」は、挿入先のアプリで選ばれている入力欄の近くに出します。入力欄の位置が分からないときは、挿入先のウィンドウがある画面の中央に出します。ほかの3つは、その画面の中央に出します(挿入先のウィンドウが分からないときは、マウスのある画面)。「メインの画面」は、システム設定の「ディスプレイ」でメインディスプレイにしている画面です。")
                 }
             }
@@ -123,8 +131,8 @@ struct PanelSettingsView: View {
                         Toggle(item.displayName, isOn: statusItemBinding(item))
                             .toggleStyle(.checkbox)
                             .accessibilityIdentifier("settings.statusItem.\(item.rawValue)")
-                        if model.statusItemNote(item) == .keyNotAssigned {
-                            SettingDescription(text: "キーを登録していないあいだは帯に出ません")
+                        if let note = model.statusItemNote(item) {
+                            SettingDescription(statusItemNoteText(note))
                                 .padding(.leading, 20)
                                 .accessibilityIdentifier("settings.statusItemNote.\(item.rawValue)")
                         }
@@ -132,9 +140,46 @@ struct PanelSettingsView: View {
                     SettingDescription(text: "パネルの下の帯に出す項目です。すべて外すと帯ごと消え、そのぶん入力欄が広がります。")
                 }
             }
+
+            LabeledContent("挿入先の枠線") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Toggle("挿入先の入力欄を枠線で囲む", isOn: $settings.isInsertionTargetOutlineShown)
+                        .toggleStyle(.checkbox)
+                        .disabled(settings.isNoteMode)
+                        .accessibilityIdentifier("settings.insertionTargetOutlineToggle")
+                    if settings.isNoteMode {
+                        NoteModeReason(restriction: .insertionTargetOutline, identifier: "settings.noteModeReason.insertionTargetOutline")
+                    }
+                    SettingDescription(text: "パネルを開いている間、文章が入る入力欄を枠線で囲みます。オフにしても、タイトルバーの挿入先の表示と「挿入先なし」の表示、確定したときの動きは変わりません。")
+                }
+            }
+            .padding(.top, 12)
+
+            LabeledContent("アニメーション") {
+                Toggle("パネルの開閉エフェクト", isOn: $settings.isPanelAnimationEnabled)
+                    .toggleStyle(.checkbox)
+                    .accessibilityIdentifier("settings.panelAnimationToggle")
+            }
+            .padding(.top, 12)
         }
         .formStyle(.columns)
         .settingsDetailPadding()
+    }
+
+    private func statusItemNoteText(_ note: StatusItemNote) -> String {
+        switch note {
+        case .keyNotAssigned: String(localized: "キーを登録していないあいだは帯に出ません")
+        case .noteMode: String(localized: "ノートモードのあいだは帯に出ません")
+        }
+    }
+
+    private func isSelectable(_ panelScreen: PanelScreen) -> Bool {
+        !(settings.isNoteMode && panelScreen == .nearFocusedField)
+    }
+
+    private func select(_ panelScreen: PanelScreen) {
+        guard isSelectable(panelScreen) else { return }
+        settings.panelScreen = panelScreen
     }
 
     private func statusItemBinding(_ item: PanelStatusItem) -> Binding<Bool> {

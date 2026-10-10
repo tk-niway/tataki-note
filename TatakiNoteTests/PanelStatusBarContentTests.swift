@@ -16,7 +16,7 @@ struct PanelStatusBarContentTests {
         )
     }
 
-    @Test("AC-2, AC-4: 何も設定していなければ esc 閉じる・改行・⇧⌘↩ 確定+挿入・⌘↩ 確定+送信・0文字・0行が出て、閉じるに「(下書きは残ります)」は付かない")
+    @Test("AC-2, AC-4, AC-6: 何も設定していなければ esc 閉じる・改行・⇧⌘↩ 挿入・⌘↩ 送信・0文字・0行が出て、閉じるに「(下書きは残ります)」は付かない")
     func defaultContent() throws {
         let name = UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: name))
@@ -27,8 +27,8 @@ struct PanelStatusBarContentTests {
         #expect(content.entries == [
             .keyHint(item: .close, key: "esc", label: "閉じる"),
             .keyHint(item: .lineBreak, key: "↩", label: "改行"),
-            .keyHint(item: .commit, key: "⇧⌘↩", label: "確定+挿入"),
-            .keyHint(item: .commitAndSend, key: "⌘↩", label: "確定+送信"),
+            .keyHint(item: .commit, key: "⇧⌘↩", label: "挿入"),
+            .keyHint(item: .commitAndSend, key: "⌘↩", label: "送信"),
             .count(item: .characterCount, text: "0文字"),
             .count(item: .lineCount, text: "0行"),
         ])
@@ -36,25 +36,25 @@ struct PanelStatusBarContentTests {
         #expect(content.entries.map(\.id) == [.close, .lineBreak, .commit, .commitAndSend, .characterCount, .lineCount])
     }
 
-    @Test("AC-20: 確定・確定+送信の項目は、登録したキーの表記(Return 以外の任意のキーを含む)で出る")
+    @Test("AC-6, AC-20: 挿入・送信の項目は、登録したキーの表記(Return 以外の任意のキーを含む)で出る")
     func keyHintsFollowKeys() {
         let commandK = PanelShortcut(keyCode: 40, modifiers: [.command])
         let cases: [(PanelShortcut?, PanelShortcut?, [Entry])] = [
             (.shiftReturn, .commandShiftReturn, [
-                .keyHint(item: .commit, key: "⇧↩", label: "確定+挿入"),
-                .keyHint(item: .commitAndSend, key: "⇧⌘↩", label: "確定+送信"),
+                .keyHint(item: .commit, key: "⇧↩", label: "挿入"),
+                .keyHint(item: .commitAndSend, key: "⇧⌘↩", label: "送信"),
             ]),
             (.commandReturn, .shiftReturn, [
-                .keyHint(item: .commit, key: "⌘↩", label: "確定+挿入"),
-                .keyHint(item: .commitAndSend, key: "⇧↩", label: "確定+送信"),
+                .keyHint(item: .commit, key: "⌘↩", label: "挿入"),
+                .keyHint(item: .commitAndSend, key: "⇧↩", label: "送信"),
             ]),
             (.commandShiftReturn, .commandReturn, [
-                .keyHint(item: .commit, key: "⇧⌘↩", label: "確定+挿入"),
-                .keyHint(item: .commitAndSend, key: "⌘↩", label: "確定+送信"),
+                .keyHint(item: .commit, key: "⇧⌘↩", label: "挿入"),
+                .keyHint(item: .commitAndSend, key: "⌘↩", label: "送信"),
             ]),
             (commandK, .commandReturn, [
-                .keyHint(item: .commit, key: "⌘K", label: "確定+挿入"),
-                .keyHint(item: .commitAndSend, key: "⌘↩", label: "確定+送信"),
+                .keyHint(item: .commit, key: "⌘K", label: "挿入"),
+                .keyHint(item: .commitAndSend, key: "⌘↩", label: "送信"),
             ]),
         ]
         for (commitKey, commitAndSendKey, expected) in cases {
@@ -77,7 +77,7 @@ struct PanelStatusBarContentTests {
             commitAndSendKey: .commandShiftReturn
         )
         #expect(withoutCommit.entries.map(\.item) == [.close, .lineBreak, .commitAndSend, .characterCount, .lineCount])
-        #expect(withoutCommit.entries.contains(.keyHint(item: .commitAndSend, key: "⇧⌘↩", label: "確定+送信")))
+        #expect(withoutCommit.entries.contains(.keyHint(item: .commitAndSend, key: "⇧⌘↩", label: "送信")))
 
         let withoutBoth = PanelStatusBarContent(
             text: "",
@@ -106,13 +106,13 @@ struct PanelStatusBarContentTests {
         settings.commitKey = .shiftReturn
         settings.commitAndSendKey = .commandShiftReturn
         var entries = makeContent(text: "", settings: settings).entries
-        #expect(entries.contains(.keyHint(item: .commit, key: "⇧↩", label: "確定+挿入")))
-        #expect(entries.contains(.keyHint(item: .commitAndSend, key: "⇧⌘↩", label: "確定+送信")))
+        #expect(entries.contains(.keyHint(item: .commit, key: "⇧↩", label: "挿入")))
+        #expect(entries.contains(.keyHint(item: .commitAndSend, key: "⇧⌘↩", label: "送信")))
 
         settings.commitKey = nil
         entries = makeContent(text: "", settings: settings).entries
         #expect(!entries.map(\.item).contains(.commit))
-        #expect(entries.contains(.keyHint(item: .commitAndSend, key: "⇧⌘↩", label: "確定+送信")))
+        #expect(entries.contains(.keyHint(item: .commitAndSend, key: "⇧⌘↩", label: "送信")))
     }
 
     @Test("AC-8, AC-9: 数の項目は今の文章の文字数・行数(空白は数え、改行は数えない)")
@@ -171,8 +171,8 @@ struct PanelStatusBarContentTests {
 
         settings.hiddenPanelStatusItems = [.lineBreak, .close]
         #expect(makeContent(text: "ab", settings: settings).entries == [
-            .keyHint(item: .commit, key: "⌘↩", label: "確定+挿入"),
-            .keyHint(item: .commitAndSend, key: "⇧⌘↩", label: "確定+送信"),
+            .keyHint(item: .commit, key: "⌘↩", label: "挿入"),
+            .keyHint(item: .commitAndSend, key: "⇧⌘↩", label: "送信"),
             .count(item: .characterCount, text: "2文字"),
             .count(item: .lineCount, text: "1行"),
         ])
@@ -184,5 +184,29 @@ struct PanelStatusBarContentTests {
         let empty = makeContent(text: "ab", settings: settings)
         #expect(empty.isEmpty)
         #expect(empty.entries.isEmpty)
+    }
+
+    @Test("AC-7: ノートモードの帯には改行・挿入・送信の案内が出ず、閉じる・文字数・行数は出る。インサートモードでは今と同じ")
+    func noteModeHidesLineBreakAndCommitHints() throws {
+        let temp = try TemporaryDefaults()
+        defer { temp.remove() }
+        let settings = temp.makeSettings()
+
+        #expect(makeContent(text: "ab", settings: settings).entries.map(\.item) == [
+            .close, .lineBreak, .commit, .commitAndSend, .characterCount, .lineCount,
+        ])
+
+        settings.selectAppMode(.note, hotkey: nil)
+        let noteContent = makeContent(text: "ab", settings: settings)
+        #expect(noteContent.entries == [
+            .keyHint(item: .close, key: "esc", label: "閉じる"),
+            .count(item: .characterCount, text: "2文字"),
+            .count(item: .lineCount, text: "1行"),
+        ])
+
+        settings.selectAppMode(.insert, hotkey: nil)
+        #expect(makeContent(text: "ab", settings: settings).entries.map(\.item) == [
+            .close, .lineBreak, .commit, .commitAndSend, .characterCount, .lineCount,
+        ])
     }
 }

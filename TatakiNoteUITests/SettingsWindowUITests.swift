@@ -114,6 +114,9 @@ final class SettingsWindowUITests: XCTestCase {
         launch(app)
 
         openSettingsFromMenu(in: app)
+        let keys = element(in: app, identifier: sidebarKeysID)
+        XCTAssertTrue(keys.waitForExistence(timeout: timeout))
+        keys.click()
         let commitLabel = app.staticTexts["確定+挿入キー"].firstMatch
         app.revealInSettings(commitLabel)
         XCTAssertTrue(commitLabel.exists)
@@ -235,6 +238,34 @@ final class SettingsWindowUITests: XCTestCase {
         XCTAssertTrue(general.waitForExistence(timeout: timeout))
         XCTAssertTrue(waitUntil { general.isHittable }, "開き直すとサイドバーが畳まれていた(「一般」が押せない)")
         XCTAssertTrue(quit.isHittable, "開き直すとサイドバーが畳まれていた(「TatakiNote を終了」が押せない)")
+        closeSettings(in: app)
+    }
+
+    // AC-14
+    @MainActor
+    func testAC14_sidebarStaysPutWhenSwitchingSections() throws {
+        let app = XCUIApplication()
+        launch(app)
+
+        openSettingsFromMenu(in: app)
+        let window = settingsWindow(in: app)
+        let general = element(in: app, identifier: sidebarGeneralID)
+        let quit = element(in: app, identifier: quitID)
+        XCTAssertTrue(general.waitForExistence(timeout: timeout))
+
+        let initialGeneral = general.frame
+        let initialQuit = quit.frame
+        XCTAssertGreaterThanOrEqual(initialGeneral.minX - window.frame.minX, 12, "「一般」がウィンドウの左の縁に近すぎる")
+        XCTAssertGreaterThanOrEqual(initialQuit.minX - window.frame.minX, 12, "終了ボタンがウィンドウの左の縁に近すぎる")
+
+        for identifier in [sidebarKeysID, sidebarPanelID, sidebarAppInfoID, sidebarGeneralID] {
+            element(in: app, identifier: identifier).click()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+            XCTAssertEqual(general.frame.minX, initialGeneral.minX, accuracy: 0.5, "\(identifier) を選ぶとサイドバーの位置が動いた")
+            XCTAssertEqual(general.frame.width, initialGeneral.width, accuracy: 0.5, "\(identifier) を選ぶとサイドバーの幅が動いた")
+            XCTAssertEqual(quit.frame.minX, initialQuit.minX, accuracy: 0.5, "\(identifier) を選ぶと終了ボタンの位置が動いた")
+            XCTAssertEqual(quit.frame.width, initialQuit.width, accuracy: 0.5, "\(identifier) を選ぶと終了ボタンの幅が動いた")
+        }
         closeSettings(in: app)
     }
 

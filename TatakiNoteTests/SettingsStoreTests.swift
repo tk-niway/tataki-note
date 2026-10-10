@@ -504,7 +504,11 @@ struct SettingsStoreTests {
             SettingsStore.Key.panelDefaultWidth,
             SettingsStore.Key.panelDefaultHeight,
         ] == newKeys)
-        let allKeys = existingKeys + newKeys + ["KeyboardShortcuts_togglePanel"]
+        #expect([
+            SettingsStore.Key.sidebarIsOpen,
+            SettingsStore.Key.sidebarTab,
+        ] == ["sidebarIsOpen", "sidebarTab"])
+        let allKeys = existingKeys + newKeys + ["sidebarIsOpen", "sidebarTab", "KeyboardShortcuts_togglePanel"]
         #expect(Set(allKeys).count == allKeys.count)
 
         let settings = AppSettings(store: store)

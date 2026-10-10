@@ -93,6 +93,63 @@ struct AppLaunchContextTests {
         }
     }
 
+    // MARK: - 下書きと履歴の保存先
+
+    @Test("AC-6: 単体テストの実行中は、ほかの指定があっても保存先は無し(ファイルに触れない)")
+    func dataDirectoryIsNilWhileRunningUnitTests() {
+        let environments: [[String: String]] = [
+            ["XCTestConfigurationFilePath": "/tmp/config.xctestconfiguration"],
+            ["XCTestBundlePath": "/tmp/TatakiNoteTests.xctest"],
+            [
+                "XCTestBundlePath": "/tmp/TatakiNoteTests.xctest",
+                "TATAKINOTE_DATA_DIRECTORY": "/tmp/data",
+                "TATAKINOTE_SETTINGS_SUITE": "suite",
+            ],
+        ]
+        for environment in environments {
+            #expect(AppLaunchContext.dataDirectory(environment: environment, bundleIdentifier: "jp.co.woube.TatakiNote") == nil, "\(environment)")
+        }
+    }
+
+    @Test("AC-6: DEBUG で TATAKINOTE_DATA_DIRECTORY があればその場所で、設定の suite の指定より優先する")
+    func dataDirectoryFollowsEnvironmentVariable() {
+        let environment = ["TATAKINOTE_DATA_DIRECTORY": "/tmp/tataki-data", "TATAKINOTE_SETTINGS_SUITE": "suite"]
+
+        let url = AppLaunchContext.dataDirectory(environment: environment, bundleIdentifier: "jp.co.woube.TatakiNote")
+
+        #expect(url?.path == "/tmp/tataki-data")
+    }
+
+    @Test("AC-6: DEBUG で設定の suite を指定した起動では、一時ディレクトリの下の suite 名のフォルダ")
+    func dataDirectoryIsUnderTemporaryDirectoryForSettingsSuite() {
+        let url = AppLaunchContext.dataDirectory(
+            environment: ["TATAKINOTE_SETTINGS_SUITE": "TatakiNoteUITests.abc"],
+            bundleIdentifier: "jp.co.woube.TatakiNote"
+        )
+
+        let expected = FileManager.default.temporaryDirectory.appendingPathComponent("TatakiNote-TatakiNoteUITests.abc", isDirectory: true)
+        #expect(url?.standardizedFileURL == expected.standardizedFileURL)
+    }
+
+    @Test("AC-6: それ以外は Application Support のバンドル ID のフォルダ。バンドル ID が取れなければ TatakiNote")
+    func dataDirectoryDefaultsToApplicationSupport() {
+        let withBundle = AppLaunchContext.dataDirectory(environment: [:], bundleIdentifier: "jp.co.woube.TatakiNote")
+        #expect(withBundle == URL.applicationSupportDirectory.appendingPathComponent("jp.co.woube.TatakiNote", isDirectory: true))
+
+        let emptyValues: [[String: String]] = [
+            [:],
+            ["TATAKINOTE_DATA_DIRECTORY": ""],
+            ["TATAKINOTE_SETTINGS_SUITE": ""],
+            ["HOME": "/Users/test"],
+        ]
+        for environment in emptyValues {
+            let url = AppLaunchContext.dataDirectory(environment: environment, bundleIdentifier: nil)
+            #expect(url == URL.applicationSupportDirectory.appendingPathComponent("TatakiNote", isDirectory: true), "\(environment)")
+            let emptyBundle = AppLaunchContext.dataDirectory(environment: environment, bundleIdentifier: "")
+            #expect(emptyBundle == url, "\(environment)")
+        }
+    }
+
     // MARK: - 権限の状態の上書きと、起動時の案内
 
     @Test("AC-7: DEBUG で TATAKINOTE_ACCESSIBILITY_OVERRIDE が trusted / untrusted のときだけ上書きし、それ以外は本物の権限を使う")
@@ -176,6 +233,28 @@ struct AppLaunchContextTests {
             let service = AppLaunchContext.loginItemService(environment: environment)
             #expect(service is MainAppLoginItemService, "\(environment)")
             #expect(!(service is InMemoryLoginItemService), "\(environment)")
+        }
+    }
+
+    @Test("AC-12: DEBUG で TATAKINOTE_INSERTION_TARGET が none のときだけ挿入先を探さず、他の値・空・無しでは今までどおり")
+    func insertionTargetDisabled() {
+        #expect(AppLaunchContext.isInsertionTargetDisabled(environment: ["TATAKINOTE_INSERTION_TARGET": "none"]) == true)
+        #expect(
+            AppLaunchContext.isInsertionTargetDisabled(
+                environment: ["TATAKINOTE_INSERTION_TARGET": "none", "HOME": "/Users/test"]
+            ) == true
+        )
+
+        let enabled: [[String: String]] = [
+            [:],
+            ["TATAKINOTE_INSERTION_TARGET": ""],
+            ["TATAKINOTE_INSERTION_TARGET": "None"],
+            ["TATAKINOTE_INSERTION_TARGET": "frontmost"],
+            ["tatakinote_insertion_target": "none"],
+            ["HOME": "/Users/test"],
+        ]
+        for environment in enabled {
+            #expect(AppLaunchContext.isInsertionTargetDisabled(environment: environment) == false, "\(environment)")
         }
     }
 

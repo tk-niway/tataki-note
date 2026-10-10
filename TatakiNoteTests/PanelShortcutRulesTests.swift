@@ -113,10 +113,10 @@ struct PanelShortcutRulesTests {
         }
     }
 
-    @Test("AC-15: 編集ショートカットでない ⌘ の文字(⌘K など)は reservedForEditing にならない")
+    @Test("AC-15: 編集ショートカットでない ⌘ の文字(⌘J など)は reservedForEditing にならない")
     func nonEditingCommandLetterIsNotReserved() {
         let rejection = PanelShortcutRules.rejection(
-            for: candidate(keyCode: 40, modifiers: [.command], characters: "k"),
+            for: candidate(keyCode: 38, modifiers: [.command], characters: "j"),
             role: .commit,
             hotkey: nil,
             commitKey: nil,
@@ -149,10 +149,10 @@ struct PanelShortcutRulesTests {
 
     @Test("AC-14: 確定キーで使っているキーを確定+送信キーに押しても(逆も)usedByOtherRole")
     func otherRoleCollisionIsRejected() {
-        let key = PanelShortcut(keyCode: 40, modifiers: [.command])
+        let key = PanelShortcut(keyCode: 38, modifiers: [.command])
 
         let commitAndSendUsesIt = PanelShortcutRules.rejection(
-            for: PanelShortcutCandidate(shortcut: key, characters: "k"),
+            for: PanelShortcutCandidate(shortcut: key, characters: "j"),
             role: .commit,
             hotkey: nil,
             commitKey: nil,
@@ -161,7 +161,7 @@ struct PanelShortcutRulesTests {
         #expect(commitAndSendUsesIt == .usedByOtherRole(.commitAndSend))
 
         let commitUsesIt = PanelShortcutRules.rejection(
-            for: PanelShortcutCandidate(shortcut: key, characters: "k"),
+            for: PanelShortcutCandidate(shortcut: key, characters: "j"),
             role: .commitAndSend,
             hotkey: nil,
             commitKey: key,
@@ -172,9 +172,9 @@ struct PanelShortcutRulesTests {
 
     @Test("AC-14: 自分の役割に今登録してあるキーと同じキーは受け付ける(値が変わらないので拒まない)")
     func sameRoleCurrentKeyIsAccepted() {
-        let key = PanelShortcut(keyCode: 40, modifiers: [.command])
+        let key = PanelShortcut(keyCode: 38, modifiers: [.command])
         let rejection = PanelShortcutRules.rejection(
-            for: PanelShortcutCandidate(shortcut: key, characters: "k"),
+            for: PanelShortcutCandidate(shortcut: key, characters: "j"),
             role: .commit,
             hotkey: nil,
             commitKey: key,
@@ -185,9 +185,9 @@ struct PanelShortcutRulesTests {
 
     @Test("順: ホットキーともう一方の両方に同じキーが登録されていても、先に usedByHotkey になる")
     func hotkeyRejectionTakesPrecedenceOverOtherRole() {
-        let key = PanelShortcut(keyCode: 40, modifiers: [.command])
+        let key = PanelShortcut(keyCode: 38, modifiers: [.command])
         let rejection = PanelShortcutRules.rejection(
-            for: PanelShortcutCandidate(shortcut: key, characters: "k"),
+            for: PanelShortcutCandidate(shortcut: key, characters: "j"),
             role: .commit,
             hotkey: key,
             commitKey: nil,
@@ -231,6 +231,78 @@ struct PanelShortcutRulesTests {
             PanelShortcutRejection.usedByOtherRole(.commitAndSend).message(for: key)
                 == "⌘K は「確定+送信キー」で使っているため、登録できません。"
         )
+    }
+
+    @Test("AC-7: ⌘K・⌘S・⌘N・⌘B・⌘, は両方の役割で reservedForPanelCommands になり、理由の文面は「パネルの検索・下書きの保存・新しい書きかけ・サイドバーの開閉・設定を開く操作」")
+    func panelCommandKeysAreRejected() {
+        let keys: [(UInt16, String)] = [(40, "k"), (1, "s"), (45, "n"), (11, "b"), (43, ",")]
+        for role in PanelShortcutRole.allCases {
+            for (keyCode, characters) in keys {
+                let key = PanelShortcut(keyCode: keyCode, modifiers: [.command])
+                let rejection = PanelShortcutRules.rejection(
+                    for: PanelShortcutCandidate(shortcut: key, characters: characters),
+                    role: role,
+                    hotkey: nil,
+                    commitKey: nil,
+                    commitAndSendKey: nil
+                )
+                #expect(rejection == .reservedForPanelCommands, "\(role) ⌘\(characters)")
+                #expect(
+                    rejection?.message(for: key)
+                        == "⌘\(characters.uppercased()) はパネルの検索・下書きの保存・新しい書きかけ・サイドバーの開閉・設定を開く操作(⌘K・⌘S・⌘N・⌘B・⌘,)で使っているため、登録できません。"
+                )
+            }
+        }
+    }
+
+    @Test("AC-7: ⇧⌘S などの修飾キーが違うキーと、⌘J など別の文字は受け付ける")
+    func panelCommandKeysWithOtherModifiersAreAccepted() {
+        let accepted: [(UInt16, NSEvent.ModifierFlags, String)] = [
+            (1, [.command, .shift], "s"), (40, [.command, .option], "k"), (45, [.command, .control], "n"), (38, [.command], "j"),
+        ]
+        for role in PanelShortcutRole.allCases {
+            for (keyCode, modifiers, characters) in accepted {
+                let rejection = PanelShortcutRules.rejection(
+                    for: candidate(keyCode: keyCode, modifiers: modifiers, characters: characters),
+                    role: role,
+                    hotkey: nil,
+                    commitKey: nil,
+                    commitAndSendKey: nil
+                )
+                #expect(rejection == nil, "\(role) \(modifiers) \(characters)")
+            }
+        }
+    }
+
+    @Test("AC-7: 予約の判定は編集キーの後・ホットキーとの重なりの前。既存の理由は変わらない")
+    func panelCommandRejectionOrder() {
+        let commandK = PanelShortcut(keyCode: 40, modifiers: [.command])
+        let withHotkey = PanelShortcutRules.rejection(
+            for: PanelShortcutCandidate(shortcut: commandK, characters: "k"),
+            role: .commit,
+            hotkey: commandK,
+            commitKey: nil,
+            commitAndSendKey: commandK
+        )
+        #expect(withHotkey == .reservedForPanelCommands)
+
+        let withoutModifier = PanelShortcutRules.rejection(
+            for: candidate(keyCode: 40, modifiers: [], characters: "k"),
+            role: .commit,
+            hotkey: nil,
+            commitKey: nil,
+            commitAndSendKey: nil
+        )
+        #expect(withoutModifier == .missingModifier)
+
+        let commandL = PanelShortcutRules.rejection(
+            for: candidate(keyCode: 37, modifiers: [.command], characters: "l"),
+            role: .commit,
+            hotkey: nil,
+            commitKey: nil,
+            commitAndSendKey: nil
+        )
+        #expect(commandL == .reservedForEditing)
     }
 
     @Test("修飾キーを含み、どの理由にも当たらないキー(例 ⌘Q)は受け付ける")
