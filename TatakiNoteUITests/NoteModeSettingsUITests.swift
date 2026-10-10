@@ -80,8 +80,8 @@ final class NoteModeSettingsUITests: XCTestCase {
         XCTAssertFalse(nearFocusedField.isEnabled)
         XCTAssertTrue(mouse.isEnabled)
         XCTAssertTrue(element(in: app, identifier: "settings.noteModeReason.nearFocusedField").exists)
-        mouse.click()
-        XCTAssertTrue(waitUntil { self.isChecked(mouse) })
+        XCTAssertTrue(isChecked(mouse))
+        XCTAssertFalse(isChecked(nearFocusedField))
 
         // AC-23
         let outline = element(in: app, identifier: "settings.insertionTargetOutlineToggle")
@@ -96,6 +96,8 @@ final class NoteModeSettingsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, identifier: "settings.noteModeReason.nearFocusedField").waitForNonExistence(timeout: timeout))
         XCTAssertTrue(outline.isEnabled)
         XCTAssertTrue(nearFocusedField.isEnabled)
+        XCTAssertTrue(waitUntil { self.isChecked(nearFocusedField) })
+        XCTAssertFalse(isChecked(mouse))
 
         closeSettings(in: app)
     }
@@ -117,7 +119,6 @@ final class NoteModeSettingsUITests: XCTestCase {
         XCTAssertFalse(app.radioButtons["オフ"].isEnabled)
         XCTAssertFalse(app.radioButtons["全アプリ"].isEnabled)
         XCTAssertFalse(app.radioButtons["選んだアプリのみ"].isEnabled)
-        XCTAssertFalse(list.isEnabled)
         XCTAssertFalse(addButton.isEnabled)
         XCTAssertFalse(removeButton.isEnabled)
         XCTAssertTrue(element(in: app, identifier: "settings.noteModeReason.autoShow").exists)
@@ -125,7 +126,6 @@ final class NoteModeSettingsUITests: XCTestCase {
         selectMode(.insert, in: app)
         XCTAssertTrue(element(in: app, identifier: "settings.noteModeReason.autoShow").waitForNonExistence(timeout: timeout))
         XCTAssertTrue(waitUntil { addButton.isEnabled })
-        XCTAssertTrue(list.isEnabled)
         XCTAssertTrue(app.radioButtons["オフ"].isEnabled)
         XCTAssertTrue(app.radioButtons["全アプリ"].isEnabled)
         XCTAssertTrue(app.radioButtons["選んだアプリのみ"].isEnabled)

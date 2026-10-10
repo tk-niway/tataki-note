@@ -50,7 +50,8 @@ struct AutoShowSettingsSection: View {
                 .listStyle(.bordered)
                 .frame(height: 88)
                 .accessibilityIdentifier("settings.autoShowAppList")
-                .disabled(settings.isNoteMode || !editor.isEditable)
+                .disabled(isAppListDisabled)
+                .opacity(isAppListDisabled ? 0.5 : 1)
 
                 HStack(spacing: 8) {
                     Menu {
@@ -68,7 +69,7 @@ struct AutoShowSettingsSection: View {
                     .frame(width: 24)
                     .accessibilityLabel("追加")
                     .accessibilityIdentifier("settings.autoShowAppAdd")
-                    .disabled(settings.isNoteMode || !editor.isEditable)
+                    .disabled(isAppListDisabled)
 
                     Button {
                         editor.removeSelected()
@@ -86,6 +87,10 @@ struct AutoShowSettingsSection: View {
                 SettingDescription(text: "「＋」で起動中のアプリから追加します。起動していないアプリは「その他…」から選べます。")
             }
         }
+    }
+
+    private var isAppListDisabled: Bool {
+        settings.isNoteMode || !editor.isEditable
     }
 
     @ViewBuilder

@@ -11,15 +11,18 @@ struct PanelSettingsView: View {
         Form {
             LabeledContent("パネルを出す位置") {
                 VStack(alignment: .leading, spacing: 6) {
-                    Picker("パネルを出す位置", selection: panelScreenBinding) {
+                    VStack(alignment: .leading, spacing: 6) {
                         ForEach(PanelScreen.allCases, id: \.self) { panelScreen in
-                            Text(panelScreen.displayName)
-                                .tag(panelScreen)
-                                .disabled(settings.isNoteMode && panelScreen == .nearFocusedField)
+                            RadioOptionButton(
+                                title: panelScreen.displayName,
+                                isOn: settings.effectivePanelScreen == panelScreen,
+                                isEnabled: isSelectable(panelScreen),
+                                action: { select(panelScreen) }
+                            )
                         }
                     }
-                    .pickerStyle(.radioGroup)
-                    .labelsHidden()
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel("パネルを出す位置")
                     .accessibilityIdentifier("settings.panelScreenPicker")
                     if settings.isNoteMode {
                         NoteModeReason(restriction: .nearFocusedField, identifier: "settings.noteModeReason.nearFocusedField")
@@ -170,14 +173,13 @@ struct PanelSettingsView: View {
         }
     }
 
-    private var panelScreenBinding: Binding<PanelScreen> {
-        Binding(
-            get: { settings.panelScreen },
-            set: { panelScreen in
-                guard !(settings.isNoteMode && panelScreen == .nearFocusedField) else { return }
-                settings.panelScreen = panelScreen
-            }
-        )
+    private func isSelectable(_ panelScreen: PanelScreen) -> Bool {
+        !(settings.isNoteMode && panelScreen == .nearFocusedField)
+    }
+
+    private func select(_ panelScreen: PanelScreen) {
+        guard isSelectable(panelScreen) else { return }
+        settings.panelScreen = panelScreen
     }
 
     private func statusItemBinding(_ item: PanelStatusItem) -> Binding<Bool> {
