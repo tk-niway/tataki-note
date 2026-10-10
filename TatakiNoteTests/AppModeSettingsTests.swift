@@ -310,8 +310,8 @@ struct AppModeSettingsTests {
         }
     }
 
-    @Test("AC-5, AC-7: 帯の項目は、ノートモードで確定キー2つだけが除かれ、インサートモードでは今と同じ")
-    func panelStatusItemsDropCommitKeysInNoteMode() throws {
+    @Test("AC-5, AC-7: 帯の項目は、ノートモードで改行と確定キー2つが除かれ、閉じると文字数・行数は残り、インサートモードでは今と同じ")
+    func panelStatusItemsDropLineBreakAndCommitKeysInNoteMode() throws {
         let (defaults, name) = try makeDefaults()
         defer { defaults.removePersistentDomain(forName: name) }
 
@@ -319,8 +319,9 @@ struct AppModeSettingsTests {
         #expect(loaded.panelStatusItems == [.close, .lineBreak, .commit, .commitAndSend, .characterCount, .lineCount])
 
         loaded.selectAppMode(.note, hotkey: nil)
-        #expect(loaded.panelStatusItems == [.close, .lineBreak, .characterCount, .lineCount])
+        #expect(loaded.panelStatusItems == [.close, .characterCount, .lineCount])
         #expect(loaded.commitKey == .commandShiftReturn)
+        #expect(!loaded.hiddenPanelStatusItems.contains(.lineBreak))
 
         loaded.selectAppMode(.insert, hotkey: nil)
         #expect(loaded.panelStatusItems == [.close, .lineBreak, .commit, .commitAndSend, .characterCount, .lineCount])

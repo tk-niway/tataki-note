@@ -117,7 +117,7 @@ struct NoteModeKeySettingsTests {
 
     // MARK: - AC-9
 
-    @Test("AC-9: ノートモードでは確定+挿入キー・確定+送信キーに「帯に出ません」の注記が付く。登録の有無より優先する")
+    @Test("AC-9: ノートモードでは改行・確定+挿入キー・確定+送信キーに「帯に出ません」の注記が付く。登録の有無より優先する")
     func statusItemNoteInNoteMode() throws {
         let temp = try TemporaryDefaults()
         defer { temp.remove() }
@@ -127,7 +127,8 @@ struct NoteModeKeySettingsTests {
         settings.selectAppMode(.note, hotkey: nil)
         #expect(model.statusItemNote(.commit) == .noteMode)
         #expect(model.statusItemNote(.commitAndSend) == .noteMode)
-        for item in [PanelStatusItem.lineBreak, .close, .characterCount, .lineCount] {
+        #expect(model.statusItemNote(.lineBreak) == .noteMode)
+        for item in [PanelStatusItem.close, .characterCount, .lineCount] {
             #expect(model.statusItemNote(item) == nil, "\(item)")
         }
 
@@ -154,5 +155,6 @@ struct NoteModeKeySettingsTests {
 
         #expect(model.statusItemNote(.commit) == .keyNotAssigned)
         #expect(model.statusItemNote(.commitAndSend) == nil)
+        #expect(model.statusItemNote(.lineBreak) == nil)
     }
 }

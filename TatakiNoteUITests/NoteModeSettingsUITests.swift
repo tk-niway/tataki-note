@@ -89,6 +89,7 @@ final class NoteModeSettingsUITests: XCTestCase {
         XCTAssertFalse(outline.isEnabled)
         XCTAssertTrue(element(in: app, identifier: "settings.noteModeReason.insertionTargetOutline").exists)
         XCTAssertTrue(element(in: app, identifier: "settings.statusItemNote.commit").exists)
+        XCTAssertTrue(element(in: app, identifier: "settings.statusItemNote.lineBreak").exists)
 
         selectMode(.insert, in: app)
         XCTAssertTrue(element(in: app, identifier: "settings.noteModeReason.insertionTargetOutline").waitForNonExistence(timeout: timeout))

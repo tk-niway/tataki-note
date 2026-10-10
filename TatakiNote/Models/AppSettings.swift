@@ -221,9 +221,10 @@ import Observation
         !isNoteMode && isInsertionTargetOutlineShown
     }
 
+    /// 帯に出す項目。ノートモードでは改行・確定+挿入・確定+送信を出さない。
     var panelStatusItems: [PanelStatusItem] {
         PanelStatusItem.visibleItems(
-            hidden: hiddenPanelStatusItems,
+            hidden: isNoteMode ? hiddenPanelStatusItems.union([.lineBreak]) : hiddenPanelStatusItems,
             commitKey: isNoteMode ? nil : commitKey,
             commitAndSendKey: isNoteMode ? nil : commitAndSendKey
         )

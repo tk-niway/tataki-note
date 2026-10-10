@@ -79,7 +79,9 @@ enum StatusItemNote: Equatable {
             settings.isNoteMode ? .noteMode : (settings.commitKey == nil ? .keyNotAssigned : nil)
         case .commitAndSend:
             settings.isNoteMode ? .noteMode : (settings.commitAndSendKey == nil ? .keyNotAssigned : nil)
-        case .lineBreak, .close, .characterCount, .lineCount:
+        case .lineBreak:
+            settings.isNoteMode ? .noteMode : nil
+        case .close, .characterCount, .lineCount:
             nil
         }
     }

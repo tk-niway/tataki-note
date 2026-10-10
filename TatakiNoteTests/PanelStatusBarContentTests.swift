@@ -186,8 +186,8 @@ struct PanelStatusBarContentTests {
         #expect(empty.entries.isEmpty)
     }
 
-    @Test("AC-7: ノートモードの帯には挿入・送信の案内が出ず、閉じる・改行・文字数・行数は出る。インサートモードでは今と同じ")
-    func noteModeHidesCommitHints() throws {
+    @Test("AC-7: ノートモードの帯には改行・挿入・送信の案内が出ず、閉じる・文字数・行数は出る。インサートモードでは今と同じ")
+    func noteModeHidesLineBreakAndCommitHints() throws {
         let temp = try TemporaryDefaults()
         defer { temp.remove() }
         let settings = temp.makeSettings()
@@ -200,7 +200,6 @@ struct PanelStatusBarContentTests {
         let noteContent = makeContent(text: "ab", settings: settings)
         #expect(noteContent.entries == [
             .keyHint(item: .close, key: "esc", label: "閉じる"),
-            .keyHint(item: .lineBreak, key: "↩", label: "改行"),
             .count(item: .characterCount, text: "2文字"),
             .count(item: .lineCount, text: "1行"),
         ])
