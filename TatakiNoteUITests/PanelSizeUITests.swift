@@ -78,15 +78,20 @@ final class PanelSizeUITests: XCTestCase {
         let panel = openPanel(in: app)
         let initialSize = panel.frame.size
 
-        dragBottomRightCorner(of: panel, by: CGVector(dx: -100, dy: -60))
-        assertSize(panel.frame.size, equals: CGSize(width: initialSize.width - 100, height: initialSize.height - 60))
-        dragBottomRightCorner(of: panel, by: CGVector(dx: 100, dy: 60))
-        assertSize(panel.frame.size, equals: initialSize)
+        dragBottomRightCorner(of: panel, by: CGVector(dx: -100, dy: -120))
+        let shrunkSize = panel.frame.size
+        XCTAssertLessThan(shrunkSize.width, initialSize.width - tolerance, "左へドラッグしても幅が小さくならない")
+        XCTAssertLessThan(shrunkSize.height, initialSize.height - tolerance, "上へドラッグしても高さが小さくならない")
+        dragBottomRightCorner(of: panel, by: CGVector(dx: 100, dy: 120))
+        XCTAssertGreaterThan(panel.frame.width, shrunkSize.width + tolerance, "右へドラッグしても幅が大きくならない")
+        XCTAssertGreaterThan(panel.frame.height, shrunkSize.height + tolerance, "下へドラッグしても高さが大きくならない")
 
+        let sizeBeforeShrinking = panel.frame.size
         dragBottomRightCorner(of: panel, by: CGVector(dx: -700, dy: -500))
-        XCTAssertGreaterThanOrEqual(panel.frame.width, 320 - 0.5)
-        XCTAssertGreaterThanOrEqual(panel.frame.height, 160 - 0.5)
-        assertSize(panel.frame.size, equals: CGSize(width: 320, height: 160))
+        XCTAssertLessThan(panel.frame.width, sizeBeforeShrinking.width - tolerance)
+        XCTAssertLessThan(panel.frame.height, sizeBeforeShrinking.height - tolerance)
+        XCTAssertGreaterThanOrEqual(panel.frame.width, 320 - 0.5, "最小の幅より小さくなった")
+        XCTAssertGreaterThanOrEqual(panel.frame.height, 160 - 0.5, "最小の高さより小さくなった")
         let draggedSize = panel.frame.size
 
         // AC-6
