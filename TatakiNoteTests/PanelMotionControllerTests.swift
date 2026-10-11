@@ -827,6 +827,40 @@ struct PanelMotionControllerTests {
         }
     }
 
+    @Test("AC-19: ライブリサイズの通知が来ないドラッグでも、ドラッグで決めた大きさを覚える")
+    func resizeWithoutLiveResizeHoldsSize() async throws {
+        try await withFixture { fixture in
+            let controller = fixture.controller
+            let panel = controller.panel
+            openAndSettle(fixture)
+            #expect(controller.heldPanelSize == nil)
+
+            let dragged = CGSize(width: 700, height: 500)
+            _ = controller.windowWillResize(panel, to: dragged)
+            panel.setFrame(NSRect(origin: panel.frame.origin, size: dragged), display: false)
+            controller.windowDidResize(Notification(name: NSWindow.didResizeNotification, object: panel))
+
+            #expect(controller.heldPanelSize == dragged)
+        }
+    }
+
+    @Test("AC-19: 開く動きの間に枠が変わっても、ライブリサイズの通知が無いときも大きさを覚えない")
+    func openingMotionResizeDoesNotHoldSize() async throws {
+        try await withFixture { fixture in
+            let controller = fixture.controller
+            let panel = controller.panel
+            controller.open()
+            let call = try #require(fixture.animator.calls.first)
+
+            _ = controller.windowWillResize(panel, to: call.frame.size)
+            panel.setFrame(call.frame, display: false)
+            controller.windowDidResize(Notification(name: NSWindow.didResizeNotification, object: panel))
+            fixture.animator.finish(0)
+
+            #expect(controller.heldPanelSize == nil)
+        }
+    }
+
     @Test("AC-19: 閉じる動きの間に枠が線になっても、保っている大きさは変わらない")
     func closingMotionDoesNotChangeHeldSize() async throws {
         try await withFixture { fixture in
