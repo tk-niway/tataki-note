@@ -172,7 +172,7 @@ final class SettingsUITests: XCTestCase {
         XCTAssertTrue(panelScreenPicker.waitForExistence(timeout: timeout))
 
         // AC-32
-        let titlesInOrder = ["入力欄の近く", "挿入先のウィンドウがある画面", "マウスのある画面", "メインの画面"]
+        let titlesInOrder = ["入力欄の近く", "挿入先のウィンドウがある画面", "マウスの近く", "メインの画面"]
         let nearFocusedField = radio("入力欄の近く", inPicker: panelScreenPickerID, in: app)
         XCTAssertTrue(nearFocusedField.waitForExistence(timeout: timeout))
         XCTAssertEqual(panelScreenPicker.radioButtons.count, titlesInOrder.count)
@@ -185,7 +185,7 @@ final class SettingsUITests: XCTestCase {
 
         // AC-6
         XCTAssertTrue(isChecked(nearFocusedField))
-        let mouseScreen = radio("マウスのある画面", inPicker: panelScreenPickerID, in: app)
+        let mouseScreen = radio("マウスの近く", inPicker: panelScreenPickerID, in: app)
         XCTAssertFalse(isChecked(mouseScreen))
 
         mouseScreen.click()

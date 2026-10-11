@@ -252,7 +252,7 @@ struct AppModeSettingsTests {
 
     // MARK: - AC-5
 
-    @Test("AC-5: 効く「パネルを出す位置」は、ノートモードでだけ「入力欄の近く」がマウスのある画面になる。保存値は変わらない")
+    @Test("AC-5: 効く「パネルを出す位置」は、ノートモードでだけ「入力欄の近く」が「マウスの近く」になる。保存値は変わらない")
     func effectivePanelScreenFollowsMode() throws {
         let (defaults, name) = try makeDefaults()
         defer { defaults.removePersistentDomain(forName: name) }

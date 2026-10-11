@@ -269,10 +269,11 @@ final class PanelController: NSObject, NSWindowDelegate {
                 )
             }
             let screens = NSScreen.screens.map { ScreenGeometry(frame: $0.frame, visibleFrame: $0.visibleFrame) }
+            let mouseLocation = NSEvent.mouseLocation
             if let screen = PanelOpenPlacement.screen(
                 mode: mode,
                 screens: screens,
-                mouseLocation: NSEvent.mouseLocation,
+                mouseLocation: mouseLocation,
                 fieldFrame: fieldFrame,
                 locateTargetWindowFrame: Self.windowFrameLocator(for: app, locate: locateTargetWindowFrame)
             ) {
@@ -280,7 +281,8 @@ final class PanelController: NSObject, NSWindowDelegate {
                     size: sizing.openingSize(in: screen.visibleFrame),
                     on: screen,
                     mode: mode,
-                    fieldFrame: fieldFrame
+                    fieldFrame: fieldFrame,
+                    mouseLocation: mouseLocation
                 )
                 let frame = sidebarModel.isOpen
                     ? SidebarLayout.expandedFrame(bodyFrame: placed, visibleFrame: screen.visibleFrame)
@@ -710,17 +712,21 @@ final class PanelController: NSObject, NSWindowDelegate {
     // MARK: - 大きさ
 
     func windowWillStartLiveResize(_ notification: Notification) {
+        NSLog("TNDEBUG willStartLiveResize adjusting=%d phase=%@ size=%@", isAdjustingFrameForSidebar ? 1 : 0, String(describing: motion.phase), NSStringFromSize(panel.frame.size))
         guard !isAdjustingFrameForSidebar, motion.phase != .opening, motion.phase != .closing else { return }
         liveResizeStartSize = bodySize(of: panel.frame.size)
     }
 
     func windowDidEndLiveResize(_ notification: Notification) {
+        NSLog("TNDEBUG didEndLiveResize adjusting=%d start=%@ size=%@", isAdjustingFrameForSidebar ? 1 : 0, String(describing: liveResizeStartSize), NSStringFromSize(panel.frame.size))
+        defer { NSLog("TNDEBUG heldSize=%@", String(describing: sizing.heldSize)) }
         defer { liveResizeStartSize = nil }
         guard !isAdjustingFrameForSidebar, let startSize = liveResizeStartSize else { return }
         sizing.userDidResize(from: startSize, to: bodySize(of: panel.frame.size))
     }
 
     func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        NSLog("TNDEBUG willResize inLive=%d to=%@", sender.inLiveResize ? 1 : 0, NSStringFromSize(frameSize))
         if motion.phase == .opening || sidebarSlide != nil {
             return frameSize
         }

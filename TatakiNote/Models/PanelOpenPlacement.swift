@@ -63,12 +63,26 @@ enum PanelOpenPlacement {
         )
     }
 
-    static func frame(size: CGSize, on screen: ScreenGeometry, mode: PanelScreen, fieldFrame: CGRect?) -> CGRect {
+    /// 開く枠。「マウスの近く」でマウスの位置がその画面にあれば、マウスポインタの下に出す。
+    static func frame(
+        size: CGSize,
+        on screen: ScreenGeometry,
+        mode: PanelScreen,
+        fieldFrame: CGRect?,
+        mouseLocation: CGPoint? = nil
+    ) -> CGRect {
         let visibleFrame = screen.visibleFrame
         let fittedSize = PanelPlacement.fittedSize(size, in: visibleFrame)
         if mode == .nearFocusedField, let fieldFrame,
            PanelPlacement.screenWithLargestOverlap(with: fieldFrame, in: [screen]) != nil {
             return nearField(size: fittedSize, fieldFrame: fieldFrame, visibleFrame: visibleFrame)
+        }
+        if mode == .mouse, let mouseLocation, PanelPlacement.isMouse(mouseLocation, on: screen) {
+            return nearField(
+                size: fittedSize,
+                fieldFrame: CGRect(origin: mouseLocation, size: .zero),
+                visibleFrame: visibleFrame
+            )
         }
         return PanelPlacement.centeredFrame(size: fittedSize, in: visibleFrame)
     }

@@ -206,7 +206,7 @@ import Observation
         appMode = mode
     }
 
-    /// 実際に使う「パネルを出す位置」。ノートモードでは「入力欄の近く」をマウスのある画面にする。
+    /// 実際に使う「パネルを出す位置」。ノートモードでは「入力欄の近く」を「マウスの近く」にする。
     var effectivePanelScreen: PanelScreen {
         isNoteMode && panelScreen == .nearFocusedField ? .mouse : panelScreen
     }

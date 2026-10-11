@@ -71,6 +71,63 @@ struct PanelOpenPlacementTests {
         #expect(left.minX == 0)
     }
 
+    // MARK: - マウスの近く
+
+    @Test("「マウスの近く」は、左上の角をマウスポインタに合わせ、ポインタの下に 8pt 空けて出す")
+    func mousePlacesBelowPointer() {
+        let placed = PanelOpenPlacement.frame(
+            size: size,
+            on: screenA,
+            mode: .mouse,
+            fieldFrame: nil,
+            mouseLocation: CGPoint(x: 300, y: 600)
+        )
+
+        #expect(placed == CGRect(x: 300, y: 252, width: 520, height: 340))
+    }
+
+    @Test("「マウスの近く」は、下に収まらなければポインタの上に出し、右にはみ出すときは内側へずらす")
+    func mouseFlipsAndShiftsIntoVisibleFrame() {
+        let placed = PanelOpenPlacement.frame(
+            size: size,
+            on: screenA,
+            mode: .mouse,
+            fieldFrame: nil,
+            mouseLocation: CGPoint(x: 1300, y: 100)
+        )
+
+        #expect(placed == CGRect(x: 920, y: 108, width: 520, height: 340))
+        #expect(screenA.visibleFrame.contains(placed))
+    }
+
+    @Test("「マウスの近く」でも、マウスの位置が分からないか別の画面にあれば、可視領域の中央に出す")
+    func mouseOffScreenIsCentered() {
+        let centered = PanelPlacement.centeredFrame(size: size, in: screenA.visibleFrame)
+        #expect(PanelOpenPlacement.frame(size: size, on: screenA, mode: .mouse, fieldFrame: nil) == centered)
+        #expect(
+            PanelOpenPlacement.frame(
+                size: size,
+                on: screenA,
+                mode: .mouse,
+                fieldFrame: nil,
+                mouseLocation: CGPoint(x: 2000, y: 500)
+            ) == centered
+        )
+    }
+
+    @Test("「マウスの近く」以外は、マウスの位置を渡しても中央に出す", arguments: [PanelScreen.main, PanelScreen.targetWindow, PanelScreen.nearFocusedField])
+    func otherModesIgnoreMouse(mode: PanelScreen) {
+        #expect(
+            PanelOpenPlacement.frame(
+                size: size,
+                on: screenA,
+                mode: mode,
+                fieldFrame: nil,
+                mouseLocation: CGPoint(x: 300, y: 600)
+            ) == PanelPlacement.centeredFrame(size: size, in: screenA.visibleFrame)
+        )
+    }
+
     // MARK: - 開く枠
 
     @Test("AC-10: 「入力欄の近く」で入力欄がその画面にあれば入力欄の近く、別の画面にあれば選んだ画面の中央")

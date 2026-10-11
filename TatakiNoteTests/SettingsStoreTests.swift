@@ -444,14 +444,14 @@ struct SettingsStoreTests {
         #expect(settings.panelOpacity == 0.4)
     }
 
-    @Test("AC-6, AC-7, AC-32: 「入力欄の近く」が初期値で、選択肢の並びは入力欄の近く・挿入先のウィンドウがある画面・マウスのある画面・メインの画面。保存済みの4つの値はどれも読んだまま")
+    @Test("AC-6, AC-7, AC-32: 「入力欄の近く」が初期値で、選択肢の並びは入力欄の近く・挿入先のウィンドウがある画面・マウスの近く・メインの画面。保存済みの4つの値はどれも読んだまま")
     func nearFocusedFieldIsSavedAndLoaded() throws {
         let (defaults, name) = try makeSuite()
         defer { removeSuite(defaults, name: name) }
 
         // AC-32
         #expect(PanelScreen.allCases == [.nearFocusedField, .targetWindow, .mouse, .main])
-        #expect(PanelScreen.allCases.map(\.displayName) == ["入力欄の近く", "挿入先のウィンドウがある画面", "マウスのある画面", "メインの画面"])
+        #expect(PanelScreen.allCases.map(\.displayName) == ["入力欄の近く", "挿入先のウィンドウがある画面", "マウスの近く", "メインの画面"])
         // AC-6
         #expect(PanelScreen.defaultValue == .nearFocusedField)
         #expect(SettingsStore(defaults: defaults).loadPanelScreen() == .nearFocusedField)
