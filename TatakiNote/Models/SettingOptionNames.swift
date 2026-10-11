@@ -5,7 +5,7 @@ extension PanelScreen {
     var displayName: String {
         switch self {
         case .mouse:
-            String(localized: "マウスのある画面")
+            String(localized: "マウスの近く")
         case .targetWindow:
             String(localized: "挿入先のウィンドウがある画面")
         case .main:

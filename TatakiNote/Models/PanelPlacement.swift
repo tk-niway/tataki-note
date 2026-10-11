@@ -8,12 +8,14 @@ struct ScreenGeometry: Equatable {
 
 enum PanelPlacement {
     static func screenContainingMouse(_ location: CGPoint, in screens: [ScreenGeometry]) -> ScreenGeometry? {
-        let containing = screens.first { screen in
-            let frame = screen.frame
-            return frame.minX <= location.x && location.x < frame.maxX
-                && frame.minY < location.y && location.y <= frame.maxY
-        }
-        return containing ?? screens.first
+        screens.first { isMouse(location, on: $0) } ?? screens.first
+    }
+
+    /// マウスの位置(Cocoa の座標)がその画面の上にあるか。
+    static func isMouse(_ location: CGPoint, on screen: ScreenGeometry) -> Bool {
+        let frame = screen.frame
+        return frame.minX <= location.x && location.x < frame.maxX
+            && frame.minY < location.y && location.y <= frame.maxY
     }
 
     /// 幅と高さを、可視領域を超えないように詰めた大きさ。

@@ -26,6 +26,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private let sizing = PanelSizing()
     private var liveResizeStartSize: CGSize?
+    private var resizeStartSize: CGSize?
     var isAdjustingFrameForSidebar = false
 
     private var motion = PanelMotionState()
@@ -269,10 +270,11 @@ final class PanelController: NSObject, NSWindowDelegate {
                 )
             }
             let screens = NSScreen.screens.map { ScreenGeometry(frame: $0.frame, visibleFrame: $0.visibleFrame) }
+            let mouseLocation = NSEvent.mouseLocation
             if let screen = PanelOpenPlacement.screen(
                 mode: mode,
                 screens: screens,
-                mouseLocation: NSEvent.mouseLocation,
+                mouseLocation: mouseLocation,
                 fieldFrame: fieldFrame,
                 locateTargetWindowFrame: Self.windowFrameLocator(for: app, locate: locateTargetWindowFrame)
             ) {
@@ -280,7 +282,8 @@ final class PanelController: NSObject, NSWindowDelegate {
                     size: sizing.openingSize(in: screen.visibleFrame),
                     on: screen,
                     mode: mode,
-                    fieldFrame: fieldFrame
+                    fieldFrame: fieldFrame,
+                    mouseLocation: mouseLocation
                 )
                 let frame = sidebarModel.isOpen
                     ? SidebarLayout.expandedFrame(bodyFrame: placed, visibleFrame: screen.visibleFrame)
@@ -724,11 +727,21 @@ final class PanelController: NSObject, NSWindowDelegate {
         if motion.phase == .opening || sidebarSlide != nil {
             return frameSize
         }
+        if !sender.inLiveResize, motion.phase == .shown, !isAdjustingFrameForSidebar, resizeStartSize == nil {
+            resizeStartSize = bodySize(of: sender.frame.size)
+        }
         let minimum = SidebarLayout.minimumWindowSize(isSidebarOpen: sidebarModel.isOpen)
         return NSSize(
             width: max(frameSize.width, minimum.width),
             height: max(frameSize.height, minimum.height)
         )
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        guard let startSize = resizeStartSize else { return }
+        resizeStartSize = nil
+        guard motion.phase == .shown, !isAdjustingFrameForSidebar, sidebarSlide == nil else { return }
+        sizing.userDidResize(from: startSize, to: bodySize(of: panel.frame.size))
     }
 
     private func bodySize(of windowSize: CGSize) -> CGSize {

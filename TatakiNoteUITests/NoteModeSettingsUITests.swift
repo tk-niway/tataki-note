@@ -74,7 +74,7 @@ final class NoteModeSettingsUITests: XCTestCase {
         let picker = element(in: app, identifier: "settings.panelScreenPicker")
         XCTAssertTrue(picker.waitForExistence(timeout: timeout))
         let nearFocusedField = picker.radioButtons["入力欄の近く"]
-        let mouse = picker.radioButtons["マウスのある画面"]
+        let mouse = picker.radioButtons["マウスの近く"]
         XCTAssertTrue(nearFocusedField.waitForExistence(timeout: timeout))
         XCTAssertTrue(mouse.exists)
         XCTAssertFalse(nearFocusedField.isEnabled)

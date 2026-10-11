@@ -175,8 +175,8 @@ struct NoteModePanelTests {
 
     // MARK: - AC-11
 
-    @Test("AC-11: ノートモードで「入力欄の近く」のときは、入力欄を問い合わせず、一覧も取らず、マウスのある画面の中央に出す")
-    func noteModeNearFieldUsesMouseScreenCenter() throws {
+    @Test("AC-11: ノートモードで「入力欄の近く」のときは、入力欄を問い合わせず、一覧も取らず、マウスポインタの下に出す")
+    func noteModeNearFieldPlacesNearMouse() throws {
         let defaults = try TemporaryDefaults()
         defer { defaults.remove() }
         let settings = defaults.makeSettings()
@@ -203,14 +203,20 @@ struct NoteModePanelTests {
             locateTargetWindowFrame: { recorder.locate(editor.processIdentifier) }
         )
         let size = CGSize(width: 520, height: 340)
-        let frame = try PanelOpenPlacement.frame(size: size, on: #require(screen), mode: mode, fieldFrame: fieldFrame)
+        let frame = try PanelOpenPlacement.frame(
+            size: size,
+            on: #require(screen),
+            mode: mode,
+            fieldFrame: fieldFrame,
+            mouseLocation: mouseOnB
+        )
 
         #expect(mode == .mouse)
         #expect(fieldFrame == nil)
         #expect(probe.targets.isEmpty)
         #expect(recorder.count == 0)
         #expect(screen == screenB)
-        #expect(frame == PanelPlacement.centeredFrame(size: size, in: screenB.visibleFrame))
+        #expect(frame == CGRect(x: 1480, y: 52, width: 520, height: 340))
     }
 
     @Test("AC-11: ノートモードで「入力欄の近く」以外のときは、選んだ方式のまま効く", arguments: [PanelScreen.mouse, PanelScreen.main, PanelScreen.targetWindow])
