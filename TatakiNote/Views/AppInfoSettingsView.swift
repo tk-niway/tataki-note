@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 設定画面の「アプリ情報」。
+/// 設定画面の「情報」。
 struct AppInfoSettingsView: View {
     let model: AppInfoModel
 

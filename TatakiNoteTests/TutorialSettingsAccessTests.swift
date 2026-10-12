@@ -36,7 +36,7 @@ struct TutorialSettingsAccessTests {
         #expect(TutorialNextStepIntroduction.allCases == [.hotkeyChange, .draftKept, .settingsAccess])
         #expect(TutorialNextStepIntroduction.settingsAccess.heading == "設定の開き方")
         #expect(TutorialNextStepIntroduction.hotkeyChange.heading == "ホットキーの変更")
-        #expect(TutorialNextStepIntroduction.hotkeyChange.text == "設定の「キー」の「パネルを開く・閉じる」で変えられます。")
+        #expect(TutorialNextStepIntroduction.hotkeyChange.text == "設定の「開き方とキー」の「パネルを開く・閉じる」で変えられます。")
         #expect(TutorialNextStepIntroduction.draftKept.heading == "書きかけ")
         #expect(TutorialNextStepIntroduction.draftKept.text == "esc でパネルを閉じても、書いた文章はパネルに残ります。次に開くと続きから書けます。")
     }
@@ -54,7 +54,7 @@ struct TutorialSettingsAccessTests {
         #expect(text.contains("パネルを開いているとき"))
     }
 
-    @Test("AC-3: スキップの案内は、メニューバーのアイコン→「設定」→「アプリ情報」からいつでも開けることを伝える")
+    @Test("AC-2: スキップの案内は、メニューバーのアイコン→「設定」→「情報」からいつでも開けることを伝え、「アプリ情報」とは書かない")
     func skipNoticeRoute() throws {
         let parts = TutorialModel.skipNoticeParts
         let text = parts.plainText
@@ -64,8 +64,9 @@ struct TutorialSettingsAccessTests {
         #expect(text.contains("チュートリアル"))
         #expect(text.contains("いつでも開けます"))
         let settingsRange = try #require(text.range(of: "「設定」"))
-        let appInfoRange = try #require(text.range(of: "「アプリ情報」"))
+        let appInfoRange = try #require(text.range(of: "「情報」"))
         #expect(settingsRange.lowerBound < appInfoRange.lowerBound)
+        #expect(!text.contains("「アプリ情報」"))
     }
 
     @Test("AC-4: ホットキー未設定の手順1の文はアイコンの部品を1つ含み、ホットキーがあるときは今と同じ文でアイコンを含まない")
@@ -75,7 +76,8 @@ struct TutorialSettingsAccessTests {
 
             #expect(iconCount(parts) == 1)
             #expect(textBeforeIcon(parts)?.hasSuffix("メニューバーの TatakiNote のアイコン") == true)
-            #expect(parts.plainText.contains("設定の「キー」"))
+            #expect(parts.plainText.contains("設定の「開き方とキー」"))
+            #expect(!parts.plainText.contains("設定の「キー」"))
             #expect(parts.plainText.contains("パネルを開く"))
             #expect(model.openPanelInstruction == parts.plainText)
         }

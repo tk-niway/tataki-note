@@ -4,10 +4,10 @@ import Testing
 
 @MainActor
 struct SettingsSectionTests {
-    @Test("AC-1: サイドバーの項目は「一般」「キー」「パネル」「アプリ情報」の順で、表示名・アイコン・識別子に使う値が決まっていて、「エディタ設定」は無い")
+    @Test("サイドバーの項目は「一般」「開き方とキー」「パネル」「情報」の順で、表示名・アイコン・識別子に使う値が決まっていて、「エディタ設定」は無い")
     func sidebarSectionsInOrder() {
         #expect(SettingsSection.allCases == [.general, .keys, .panel, .appInfo])
-        #expect(SettingsSection.allCases.map(\.displayName) == ["一般", "キー", "パネル", "アプリ情報"])
+        #expect(SettingsSection.allCases.map(\.displayName) == ["一般", "開き方とキー", "パネル", "情報"])
         #expect(SettingsSection.allCases.map(\.systemImage) == ["gearshape", "keyboard", "macwindow", "info.circle"])
         #expect(SettingsSection.allCases.map(\.rawValue) == ["general", "keys", "panel", "appInfo"])
         #expect(!SettingsSection.allCases.map(\.displayName).contains("エディタ設定"))
@@ -20,7 +20,7 @@ struct SettingsSectionTests {
         #expect(SettingsView.sidebarEdgeInset >= 12)
     }
 
-    @Test("AC-2: 設定画面は「一般」を選んだ状態で始まり、「キー」「パネル」「アプリ情報」のどれを選んでいても開き直すと「一般」に戻る")
+    @Test("設定画面は「一般」を選んだ状態で始まり、「開き方とキー」「パネル」「情報」のどれを選んでいても開き直すと「一般」に戻る")
     func opensWithGeneral() {
         let model = SettingsWindowModel()
         #expect(model.selectedSection == .general)
@@ -32,7 +32,7 @@ struct SettingsSectionTests {
         }
     }
 
-    @Test("AC-2: 「キー」「パネル」「アプリ情報」のどれを出したまま設定画面の窓を閉じても「一般」に戻る")
+    @Test("「開き方とキー」「パネル」「情報」のどれを出したまま設定画面の窓を閉じても「一般」に戻る")
     func closingWindowReturnsToGeneral() throws {
         let name = UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: name))

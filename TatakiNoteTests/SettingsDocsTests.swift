@@ -28,7 +28,7 @@ struct SettingsDocsTests {
         return pages
     }
 
-    @Test("AC-11: 設定のページの「一般の項目」「キーの項目」「パネルの項目」「アプリ情報の項目」の見出しが、サイドバーと同じ順に並ぶ")
+    @Test("AC-3: 設定のページの「一般の項目」「開き方とキーの項目」「パネルの項目」「情報の項目」の見出しが、サイドバーと同じ名前・同じ順に並ぶ")
     func sectionHeadingsFollowSidebarOrder() throws {
         let pages = try loadPages()
         let settings = try #require(pages[Self.settingsPage])
@@ -38,7 +38,7 @@ struct SettingsDocsTests {
             .map { String($0.dropFirst(3)) }
         let expected = SettingsSection.allCases.map { "\($0.displayName)の項目" }
 
-        #expect(expected == ["一般の項目", "キーの項目", "パネルの項目", "アプリ情報の項目"])
+        #expect(expected == ["一般の項目", "開き方とキーの項目", "パネルの項目", "情報の項目"])
         let found = headings.filter { expected.contains($0) }
         #expect(found == expected, "見出しの並び: \(found)")
     }
@@ -69,12 +69,13 @@ struct SettingsDocsTests {
         #expect(problems.isEmpty, "古い場所の書き方が残っています:\n\(problems.joined(separator: "\n"))")
     }
 
-    @Test("AC-11: 挿入と送信のページは、キーの登録先として「キーの項目」へリンクし、「一般の項目」へはリンクしない")
+    @Test("AC-3: 挿入と送信のページは、キーの登録先として「開き方とキーの項目」へリンクし、古い「キーの項目」「一般の項目」へはリンクしない")
     func insertAndSendLinksToKeySection() throws {
         let pages = try loadPages()
         let page = try #require(pages[Self.insertAndSendPage], "\(Self.insertAndSendPage) がありません")
 
-        #expect(page.contains("settings.md#キーの項目"))
+        #expect(page.contains("settings.md#開き方とキーの項目"))
+        #expect(!page.contains("settings.md#キーの項目"))
         #expect(!page.contains("settings.md#一般の項目"))
     }
 

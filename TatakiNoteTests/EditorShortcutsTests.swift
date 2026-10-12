@@ -35,7 +35,7 @@ struct EditorShortcutsTests {
         #expect(EditorShortcuts.all.allSatisfy { !["⌘K", "⌘S", "⌘N", "⌘B", "⌘,"].contains($0.keys) })
     }
 
-    @Test("AC-8: 「ショートカットキー」の説明文は、割り当ては変えられないことと、確定のキーは同じ「キー」の「確定+挿入キー」「確定+送信キー」で確かめられることを書き、「一般」「エディタ設定」を書かない")
+    @Test("AC-8: 「ショートカットキー」の説明文は、割り当ては変えられないことと、確定のキーは同じ「開き方とキー」の「確定+挿入キー」「確定+送信キー」で確かめられることを書き、「一般」「エディタ設定」を書かない")
     func settingDescriptionPointsToKeysInSameSection() {
         let description = EditorShortcuts.settingDescription
 

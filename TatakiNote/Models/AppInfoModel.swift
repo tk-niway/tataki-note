@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// 設定画面の「アプリ情報」の状態(バージョン・アクセシビリティの許可の状態)。
+/// 設定画面の「情報」の状態(バージョン・アクセシビリティの許可の状態)。
 @Observable final class AppInfoModel {
     let version: String?
     let build: String?

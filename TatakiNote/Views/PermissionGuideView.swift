@@ -171,7 +171,7 @@ private struct PermissionGuideTutorialNote: View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Image(systemName: "info.circle")
                 .accessibilityHidden(true)
-            Text("チュートリアルは、設定の「アプリ情報」からいつでも開けます。")
+            Text(PermissionGuideModel.tutorialNoteText)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .font(.system(size: 12))

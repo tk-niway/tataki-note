@@ -1,7 +1,7 @@
 import KeyboardShortcuts
 import SwiftUI
 
-/// 設定画面の「キー」。
+/// 設定画面の「開き方とキー」。
 struct KeySettingsView: View {
     @Bindable var keySettings: PanelKeySettingsModel
     let isNoteMode: Bool

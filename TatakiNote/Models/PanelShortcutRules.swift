@@ -14,7 +14,7 @@ extension PanelShortcutRole {
         }
     }
 
-    /// 設定の「キー」で記録ボックスの下に出す説明文。
+    /// 設定の「開き方とキー」で記録ボックスの下に出す説明文。
     var settingDescription: String {
         settingDescription(initialKey: initialKey)
     }

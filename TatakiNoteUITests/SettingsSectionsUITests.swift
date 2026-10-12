@@ -56,7 +56,7 @@ final class SettingsSectionsUITests: XCTestCase {
         }
         let keyFrames = [hotkey] + keysOrder.map { element(in: app, identifier: $0) }
         let keyYPositions = keyFrames.map(\.frame.minY)
-        XCTAssertEqual(keyYPositions, keyYPositions.sorted(), "「キー」の項目が上から ホットキー・確定キー・確定+送信キー・ショートカットキー の順に並んでいない")
+        XCTAssertEqual(keyYPositions, keyYPositions.sorted(), "「開き方とキー」の項目が上から ホットキー・確定キー・確定+送信キー・ショートカットキー の順に並んでいない")
         XCTAssertEqual(Set(keyYPositions).count, keyYPositions.count)
         for identifier in ["settings.panelScreenPicker", "settings.fontName"] {
             XCTAssertFalse(element(in: app, identifier: identifier).exists, identifier)

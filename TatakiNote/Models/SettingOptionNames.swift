@@ -78,11 +78,11 @@ extension SettingsSection {
         case .general:
             String(localized: "一般")
         case .keys:
-            String(localized: "キー")
+            String(localized: "開き方とキー")
         case .panel:
             String(localized: "パネル")
         case .appInfo:
-            String(localized: "アプリ情報")
+            String(localized: "情報")
         }
     }
 
