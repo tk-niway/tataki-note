@@ -72,9 +72,8 @@ final class SettingsWindowUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-5
     @MainActor
-    func testAC5_rightPaddingScenario() throws {
+    func testRightPaddingScenario() throws {
         let app = XCUIApplication()
         launch(app)
 
@@ -197,9 +196,9 @@ final class SettingsWindowUITests: XCTestCase {
         app.terminate()
     }
 
-    // AC-4
+    // AC-8
     @MainActor
-    func testAC4_quitButton() throws {
+    func testAC8_quitButton() throws {
         let app = XCUIApplication()
         launch(app)
         XCTAssertTrue(waitUntil { self.isMenuBarIconShown(in: app) })
@@ -319,7 +318,7 @@ final class SettingsWindowUITests: XCTestCase {
     private let sidebarPanelID = "settings.sidebar.panel"
     private let sidebarAppInfoID = "settings.sidebar.appInfo"
     private let quitID = "settings.quit"
-    private let settingsDetailTrailingPadding: CGFloat = 36
+    private let settingsDetailTrailingPadding: CGFloat = 28
     private let themePickerID = "settings.themePicker"
     private let launchAtLoginToggleID = "settings.launchAtLoginToggle"
     private let hideMenuBarIconToggleID = "settings.hideMenuBarIconToggle"
@@ -344,15 +343,7 @@ final class SettingsWindowUITests: XCTestCase {
 
     @MainActor
     private func isSidebarItemSelected(_ identifier: String, in app: XCUIApplication) -> Bool {
-        if element(in: app, identifier: identifier).isSelected {
-            return true
-        }
-        let containers = [
-            app.outlineRows.containing(.any, identifier: identifier).firstMatch,
-            app.tableRows.containing(.any, identifier: identifier).firstMatch,
-            app.cells.containing(.any, identifier: identifier).firstMatch,
-        ]
-        return containers.contains { $0.exists && $0.isSelected }
+        element(in: app, identifier: identifier).isSelected
     }
 
     @MainActor

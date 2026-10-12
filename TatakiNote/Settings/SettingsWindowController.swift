@@ -54,7 +54,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     private func makeWindow() -> NSWindow {
-        AppWindow.make(
+        let window = AppWindow.make(
             title: String(localized: "TatakiNote の設定"),
             identifier: "settings",
             styleMask: [.titled, .closable, .fullSizeContentView],
@@ -70,5 +70,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 onQuit: { NSApp.terminate(nil) }
             )
         )
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        return window
     }
 }
