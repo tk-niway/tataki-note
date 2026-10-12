@@ -40,6 +40,7 @@ struct KeySettingsView: View {
                     }
                     .labelsHidden()
                     .accessibilityIdentifier("settings.hotkeyRecorder")
+                    .recorderFeedback(keySettings.hotkeyFeedback)
                 }
             }
         }
@@ -93,28 +94,28 @@ struct KeySettingsView: View {
     }
 
     private func shortcutRecorderRow(
-        title: LocalizedStringKey,
+        title: String.LocalizationValue,
         role: PanelShortcutRole,
         recorderID: String,
         rejectionID: String
     ) -> some View {
-        RecorderRow(
-            title: title,
+        let titleText = String(localized: title)
+        return RecorderRow(
+            title: LocalizedStringKey(titleText),
             description: role.settingDescription,
             rejectionMessage: keySettings.rejectionMessage(for: role),
             rejectionIdentifier: rejectionID
         ) {
             PanelShortcutRecorder(
-                displayText: keySettings.displayText(for: role),
-                isRecording: keySettings.recordingRole == role,
-                isRecordingNow: { keySettings.recordingRole == role },
+                display: keySettings.recorderDisplay(for: role),
+                feedback: keySettings.feedback[role],
                 onBeginRecording: { keySettings.beginRecording(role) },
                 onRecord: { keySettings.record($0, for: role) },
                 onClear: { keySettings.clear(role) },
                 onEndRecording: { keySettings.endRecording(role) },
-                identifier: recorderID
+                identifier: recorderID,
+                accessibilityLabel: titleText
             )
-            .frame(width: 160, height: 22)
         }
     }
 }
