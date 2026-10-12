@@ -7,6 +7,13 @@ struct EditorShortcut: Identifiable, Equatable {
     let action: String
 }
 
+/// 分類ごとにまとめたショートカットキー。
+struct EditorShortcutGroup: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let shortcuts: [EditorShortcut]
+}
+
 /// ショートカットキーの一覧。
 enum EditorShortcuts {
     /// 「ショートカットキー」の一覧の下に出す説明文。
@@ -30,4 +37,33 @@ enum EditorShortcuts {
         EditorShortcut(id: "toggleSidebar", keys: "⌘B", action: String(localized: "サイドバーを開く・閉じる")),
         EditorShortcut(id: "openSettings", keys: "⌘,", action: String(localized: "設定を開く(パネルは閉じる)")),
     ]
+
+    /// 「行の操作」「コピーと貼り付け」「下書き」「表示」の4つの分類。
+    static let groups: [EditorShortcutGroup] = [
+        EditorShortcutGroup(
+            id: "line",
+            title: String(localized: "行の操作"),
+            shortcuts: shortcuts(withIDs: ["moveLine", "duplicateLine", "selectLine", "selectWord"])
+        ),
+        EditorShortcutGroup(
+            id: "clipboard",
+            title: String(localized: "コピーと貼り付け"),
+            shortcuts: shortcuts(withIDs: ["copyLine", "cutLine", "pasteLine"])
+        ),
+        EditorShortcutGroup(
+            id: "drafts",
+            title: String(localized: "下書き"),
+            shortcuts: shortcuts(withIDs: ["saveDraft", "newDraft", "searchDrafts"])
+        ),
+        EditorShortcutGroup(
+            id: "view",
+            title: String(localized: "表示"),
+            shortcuts: shortcuts(withIDs: ["toggleSidebar", "openSettings"])
+        ),
+    ]
+
+    private static func shortcuts(withIDs ids: [String]) -> [EditorShortcut] {
+        let candidates = all + panelCommands
+        return ids.compactMap { id in candidates.first { $0.id == id } }
+    }
 }

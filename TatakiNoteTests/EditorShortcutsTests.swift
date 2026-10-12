@@ -35,6 +35,28 @@ struct EditorShortcutsTests {
         #expect(EditorShortcuts.all.allSatisfy { !["⌘K", "⌘S", "⌘N", "⌘B", "⌘,"].contains($0.keys) })
     }
 
+    @Test("AC-20: パネルの中で使えるキーは「行の操作」「コピーと貼り付け」「下書き」「表示」の4つに分かれ、今の一覧の12行がちょうど1回ずつ、今のキーと文言のまま入る")
+    func groupsCoverEveryShortcutExactlyOnce() {
+        let groups = EditorShortcuts.groups
+
+        #expect(groups.map(\.title) == ["行の操作", "コピーと貼り付け", "下書き", "表示"])
+        #expect(groups.map { $0.shortcuts.map(\.id) } == [
+            ["moveLine", "duplicateLine", "selectLine", "selectWord"],
+            ["copyLine", "cutLine", "pasteLine"],
+            ["saveDraft", "newDraft", "searchDrafts"],
+            ["toggleSidebar", "openSettings"],
+        ])
+
+        let grouped = groups.flatMap(\.shortcuts)
+        let source = EditorShortcuts.all + EditorShortcuts.panelCommands
+        #expect(grouped.count == 12)
+        #expect(Set(grouped.map(\.id)) == Set(source.map(\.id)))
+        #expect(Set(groups.map(\.id)).count == 4)
+        for shortcut in grouped {
+            #expect(source.contains(shortcut), "\(shortcut.id)")
+        }
+    }
+
     @Test("AC-8: 「ショートカットキー」の説明文は、割り当ては変えられないことと、確定のキーは同じ「開き方とキー」の「確定+挿入キー」「確定+送信キー」で確かめられることを書き、「一般」「エディタ設定」を書かない")
     func settingDescriptionPointsToKeysInSameSection() {
         let description = EditorShortcuts.settingDescription
