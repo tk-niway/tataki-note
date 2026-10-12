@@ -223,8 +223,10 @@ final class SettingsUITests: XCTestCase {
         openPanelFromMenu(in: app)
         let textView = app.textViews["promptPanel.textView"]
         XCTAssertTrue(textView.waitForExistence(timeout: timeout))
+        app.typeText("abc")
         app.typeKey(.return, modifierFlags: [.command, .shift])
         XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
+        app.dismissPermissionGuideIfPresent()
     }
 
     @MainActor

@@ -1,8 +1,8 @@
 import Observation
 
-/// 確定したときに、パネルを閉じた後に行うこと。
+/// 確定したときに行うこと。
 enum CommitPlan: Equatable {
-    case dismissOnly
+    case emptyText
     case permissionDenied
     case noTarget
     case insert(text: String, target: InsertionTarget)
@@ -59,8 +59,7 @@ enum PanelDismissal: Equatable {
 
     func prepareCommit(isAccessibilityTrusted: Bool) -> CommitPlan {
         if text.isEmpty {
-            dismiss(as: .committed)
-            return .dismissOnly
+            return .emptyText
         }
         if !isAccessibilityTrusted {
             dismiss(as: .committed)

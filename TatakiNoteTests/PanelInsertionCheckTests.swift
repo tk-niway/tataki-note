@@ -388,8 +388,8 @@ struct PanelInsertionCheckTests {
         }
     }
 
-    @Test("AC-18: 文章が空の確定は、挿入先があってもなくても位置を読まずにパネルが閉じる")
-    func emptyTextCommitClosesPanel() async throws {
+    @Test("文章が空の確定は、挿入先があってもなくても位置を読まず、パネルは閉じない")
+    func emptyTextCommitKeepsPanelOpen() async throws {
         for target in [other, nil] as [InsertionTarget?] {
             try await withFixture(target: target) { fixture in
                 fixture.controller.open()
@@ -397,7 +397,7 @@ struct PanelInsertionCheckTests {
 
                 fixture.controller.commit()
 
-                #expect(fixture.model.isPresented == false)
+                #expect(fixture.model.isPresented)
                 #expect(fixture.probe.frameRequests.count == framesBefore)
                 #expect(fixture.inserter.calls.isEmpty)
                 #expect(fixture.model.noTargetAlertCount == 0)

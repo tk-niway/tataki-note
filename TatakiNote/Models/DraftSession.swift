@@ -79,9 +79,14 @@ struct DraftSaveEvent: Equatable {
         return !panel.text.isEmpty
     }
 
-    /// 保存のアイコンを押せるか。
+    /// 保存できる本文があるか。
     var isSaveAvailable: Bool {
         !panel.text.isEmpty
+    }
+
+    /// 保存のアイコンを押せるか。確認の重ね表示が出ている間だけ押せない。
+    var isSaveButtonEnabled: Bool {
+        pendingSwitch == nil
     }
 
     /// 新規作成のアイコンを押せるか。

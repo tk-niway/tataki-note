@@ -578,7 +578,7 @@ struct DraftSessionTests {
         let plan = fixture.commit()
         fixture.session.finishCommit(plan, outcome: .inserted)
 
-        #expect(plan == .dismissOnly)
+        #expect(plan == .emptyText)
         #expect(fixture.library.history.isEmpty)
     }
 

@@ -130,7 +130,7 @@ struct PanelTitleBar: View {
         }
         .buttonStyle(PanelIconButtonStyle())
         .focusable(false)
-        .disabled(!(session?.isSaveAvailable ?? false) || session?.pendingSwitch != nil)
+        .disabled(!(session?.isSaveButtonEnabled ?? false))
         .help("下書きに保存(⌘S)")
         .accessibilityLabel("下書きに保存")
         .accessibilityIdentifier("promptPanel.saveDraftButton")

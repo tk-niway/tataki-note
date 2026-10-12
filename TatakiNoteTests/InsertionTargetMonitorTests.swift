@@ -639,7 +639,9 @@ struct InsertionTargetMonitorTests {
         f.focus(Fixture.fieldA, frame: Fixture.frameA, in: Fixture.editor)
         f.open(Fixture.editor)
 
+        f.model.text = "abc"
         _ = f.model.prepareCommit(isAccessibilityTrusted: true)
+        #expect(!f.model.isPresented)
         await f.settle()
 
         #expect(f.monitor.outline.rect == nil)

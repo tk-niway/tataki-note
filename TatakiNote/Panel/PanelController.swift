@@ -19,6 +19,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let library: DraftLibrary
     private let targetMonitor: InsertionTargetMonitor
     private let outlineController: InsertionTargetOutlineController
+    private let shaker: PanelShaking
 
     let session: DraftSession
     let sidebarModel: SidebarModel
@@ -80,6 +81,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         library: DraftLibrary = DraftLibrary(store: .inMemory),
         saveAnimation: SaveAnimationModel = SaveAnimationModel(),
         animator: PanelFrameAnimating = AppKitPanelFrameAnimator(),
+        shaker: PanelShaking = PanelShaker(),
         hideApplication: @escaping () -> Void = { NSApp.hide(nil) },
         makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil,
         isKeyboardNavigationEnabled: @escaping () -> Bool = { NSApplication.shared.isFullKeyboardAccessEnabled }
@@ -89,6 +91,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.panel = panel
         self.settings = settings
         self.animator = animator
+        self.shaker = shaker
         self.hideApplication = hideApplication
         self.targetTracker = targetTracker
         self.permission = permission
@@ -332,7 +335,18 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     private func prepareToClose() {
+        stopPanelEffects()
         session.resolvePendingSwitch(.cancel)
+    }
+
+    private func stopPanelEffects() {
+        shaker.stop(panel)
+    }
+
+    private func shakePanel() {
+        finishSidebarSlide()
+        guard PanelShake.canStart(motionPhase: motion.phase) else { return }
+        shaker.shake(panel)
     }
 
     func toggle() {
@@ -377,7 +391,11 @@ final class PanelController: NSObject, NSWindowDelegate {
             sidebarModel.openForSearch()
             return true
         case .saveDraft:
-            session.saveCurrent()
+            if session.isSaveAvailable {
+                session.saveCurrent()
+            } else {
+                shakePanel()
+            }
             return true
         case .newDraft:
             requestNewScratch()
@@ -428,7 +446,11 @@ final class PanelController: NSObject, NSWindowDelegate {
     func saveDraftFromButton() {
         guard session.pendingSwitch == nil else { return }
         Self.commitMarkedText(in: panel)
-        session.saveCurrent()
+        if session.isSaveAvailable {
+            session.saveCurrent()
+        } else {
+            shakePanel()
+        }
         model.requestFocus()
     }
 
@@ -454,6 +476,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// サイドバーを開閉する。パネルが開いていれば、窓の枠をサイドバーの幅だけ変える。アニメーションがオンなら滑らせて変える。
     func setSidebarOpen(_ isOpen: Bool) {
+        shaker.stop(panel)
         finishSidebarSlide()
         let wasOpen = sidebarModel.isOpen
         guard isOpen != wasOpen else { return }
@@ -560,6 +583,11 @@ final class PanelController: NSObject, NSWindowDelegate {
             model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
         }
         if plan == .noTarget { return }
+        if plan == .emptyText {
+            shakePanel()
+            return
+        }
+        stopPanelEffects()
         hidePanel()
         library.flush()
         if case .insert(let text, let target) = plan {
