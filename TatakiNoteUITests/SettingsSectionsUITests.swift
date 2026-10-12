@@ -14,10 +14,10 @@ final class SettingsSectionsUITests: XCTestCase {
     }
 
     // AC-4
-    // AC-5
+    // AC-19
     // AC-6
     @MainActor
-    func testAC4_AC5_AC6_sectionContents() throws {
+    func testAC4_AC19_AC6_sectionContents() throws {
         let app = XCUIApplication()
         launch(app)
         openSettingsFromMenu(in: app)
@@ -41,12 +41,13 @@ final class SettingsSectionsUITests: XCTestCase {
         }
         XCTAssertFalse(app.descendants(matching: .any)["パネルを開く・閉じる"].firstMatch.exists)
 
-        // AC-5
+        // AC-19
         element(in: app, identifier: "settings.sidebar.keys").click()
         XCTAssertTrue(element(in: app, identifier: "settings.commitKeyRecorder").waitForExistence(timeout: timeout))
         let hotkey = hotkeyRecorder(in: app)
         XCTAssertTrue(hotkey.exists)
         let keysOrder = [
+            "settings.autoShowModePicker",
             "settings.commitKeyRecorder",
             "settings.commitAndSendKeyRecorder",
             "settings.shortcutList",
@@ -56,7 +57,7 @@ final class SettingsSectionsUITests: XCTestCase {
         }
         let keyFrames = [hotkey] + keysOrder.map { element(in: app, identifier: $0) }
         let keyYPositions = keyFrames.map(\.frame.minY)
-        XCTAssertEqual(keyYPositions, keyYPositions.sorted(), "「開き方とキー」の項目が上から ホットキー・確定キー・確定+送信キー・ショートカットキー の順に並んでいない")
+        XCTAssertEqual(keyYPositions, keyYPositions.sorted(), "「開き方とキー」の項目が上から ホットキー・自動表示・確定キー・確定+送信キー・ショートカットキー の順に並んでいない")
         XCTAssertEqual(Set(keyYPositions).count, keyYPositions.count)
         for identifier in ["settings.panelScreenPicker", "settings.fontName"] {
             XCTAssertFalse(element(in: app, identifier: identifier).exists, identifier)

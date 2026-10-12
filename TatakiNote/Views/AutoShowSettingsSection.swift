@@ -15,7 +15,7 @@ struct AutoShowSettingsSection: View {
     }
 
     var body: some View {
-        SettingsGroup(title: "自動で開く", badge: "インサートのみ") {
+        SettingsGroup(title: "自動で開く", badge: "インサートのみ", identifier: "settings.group.autoShow") {
             InsertOnlyGate(group: .autoShow, isNoteMode: settings.isNoteMode, onSwitchToInsert: onSwitchToInsert) {
                 SettingsCard {
                     modeRow

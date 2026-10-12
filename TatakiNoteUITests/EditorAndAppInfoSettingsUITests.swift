@@ -179,9 +179,9 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertTrue(fontPanel.waitForNonExistence(timeout: timeout), "設定ウィンドウを閉じてもフォントパネルが残る")
     }
 
-    // AC-7
+    // AC-30
     @MainActor
-    func testAC7_shortcutList() throws {
+    func testAC30_shortcutList() throws {
         let app = XCUIApplication()
         launch(app)
         openKeySettings(in: app)

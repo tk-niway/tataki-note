@@ -23,6 +23,7 @@ struct PanelShortcutRecorder: NSViewRepresentable {
         field.onRecord = onRecord
         field.onClear = onClear
         field.onEndRecording = onEndRecording
+        field.isEnabled = context.environment.isEnabled
         field.updateDisplay(text: displayText, isRecording: isRecordingNow())
     }
 }
@@ -77,6 +78,7 @@ final class PanelShortcutRecorderField: NSSearchField, NSSearchFieldDelegate {
     }
 
     override func mouseDown(with event: NSEvent) {
+        guard isEnabled else { return }
         let location = convert(event.locationInWindow, from: nil)
         if let cell = cell as? PanelShortcutRecorderCell, cell.cancelButtonRect(forBounds: bounds).contains(location) {
             onClear?()
@@ -86,6 +88,7 @@ final class PanelShortcutRecorderField: NSSearchField, NSSearchFieldDelegate {
     }
 
     override func accessibilityPerformPress() -> Bool {
+        guard isEnabled else { return false }
         beginRecordingKeys()
         return true
     }

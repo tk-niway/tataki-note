@@ -21,9 +21,9 @@ final class NoteModeSettingsUITests: XCTestCase {
         UserDefaults(suiteName: settingsSuiteName)?.removePersistentDomain(forName: settingsSuiteName)
     }
 
-    // AC-19
+    // AC-7
     @MainActor
-    func testAC19_appModeToggleIsInEverySectionAndSwitchesImmediately() throws {
+    func testAC7_appModeToggleIsInEverySectionAndSwitchesImmediately() throws {
         let app = try launchApp(seed: nil)
         openSettingsFromMenu(in: app)
 
@@ -33,31 +33,46 @@ final class NoteModeSettingsUITests: XCTestCase {
         }
 
         element(in: app, identifier: "settings.sidebar.keys").click()
-        XCTAssertTrue(element(in: app, identifier: "settings.commitKeyRecorder").waitForExistence(timeout: timeout))
+        let commitRecorder = element(in: app, identifier: "settings.commitKeyRecorder")
+        let banner = element(in: app, identifier: "settings.noteModeBanner.insertAndSend")
+        XCTAssertTrue(commitRecorder.waitForExistence(timeout: timeout))
+        XCTAssertFalse(banner.exists)
         selectMode(.note, in: app)
-        XCTAssertTrue(element(in: app, identifier: "settings.commitKeyRecorder").waitForNonExistence(timeout: timeout))
+        XCTAssertTrue(banner.waitForExistence(timeout: timeout))
+        XCTAssertTrue(waitUntil { !commitRecorder.isEnabled })
         XCTAssertTrue(element(in: app, identifier: toggleID).exists)
 
         closeSettings(in: app)
     }
 
-    // AC-20
+    // AC-27
     @MainActor
-    func testAC20_noteModeHidesCommitKeyRecorders() throws {
+    func testAC27_noteModeDimsCommitKeyRecorders() throws {
         let app = try launchApp(seed: ["appMode": "note"])
         openSettingsFromMenu(in: app)
         element(in: app, identifier: "settings.sidebar.keys").click()
 
-        XCTAssertTrue(element(in: app, identifier: "settings.hotkeyRecorder").waitForExistence(timeout: timeout))
+        let hotkey = element(in: app, identifier: "settings.hotkeyRecorder")
+        let commitRecorder = element(in: app, identifier: "settings.commitKeyRecorder")
+        let commitAndSendRecorder = element(in: app, identifier: "settings.commitAndSendKeyRecorder")
+        let banner = element(in: app, identifier: "settings.noteModeBanner.insertAndSend")
+        let switchToInsert = element(in: app, identifier: "settings.noteModeBanner.insertAndSend.switchToInsert")
+        XCTAssertTrue(hotkey.waitForExistence(timeout: timeout))
+        app.revealInSettings(commitRecorder)
+        XCTAssertTrue(commitAndSendRecorder.exists)
+        XCTAssertTrue(banner.exists)
+        XCTAssertTrue(switchToInsert.exists)
+        XCTAssertFalse(commitRecorder.isEnabled)
+        XCTAssertFalse(commitAndSendRecorder.isEnabled)
+        commitRecorder.click()
+        XCTAssertNotEqual(commitRecorder.placeholderValue, "ショートカットを押す")
+        XCTAssertTrue(hotkey.isEnabled)
         XCTAssertTrue(element(in: app, identifier: "settings.shortcutList").exists)
-        XCTAssertFalse(element(in: app, identifier: "settings.commitKeyRecorder").exists)
-        XCTAssertFalse(element(in: app, identifier: "settings.commitAndSendKeyRecorder").exists)
 
-        selectMode(.insert, in: app)
-        XCTAssertTrue(element(in: app, identifier: "settings.commitKeyRecorder").waitForExistence(timeout: timeout))
-        XCTAssertTrue(element(in: app, identifier: "settings.commitAndSendKeyRecorder").exists)
-        XCTAssertTrue(element(in: app, identifier: "settings.hotkeyRecorder").exists)
-        XCTAssertTrue(element(in: app, identifier: "settings.shortcutList").exists)
+        switchToInsert.click()
+        XCTAssertTrue(banner.waitForNonExistence(timeout: timeout))
+        XCTAssertTrue(waitUntil { commitRecorder.isEnabled && commitAndSendRecorder.isEnabled })
+        XCTAssertTrue(hotkey.isEnabled)
 
         closeSettings(in: app)
     }

@@ -15,6 +15,7 @@ struct SettingsGroup<Content: View>: View {
                 Text(title)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.secondary)
+                    .accessibilityIdentifier(partIdentifier("title"))
                 if let badge {
                     Text(badge)
                         .font(.system(size: 10, weight: .semibold))
@@ -22,6 +23,7 @@ struct SettingsGroup<Content: View>: View {
                         .padding(.horizontal, 6)
                         .padding(.vertical, 1)
                         .background(Capsule().fill(Color.accentColor.opacity(0.17)))
+                        .accessibilityIdentifier(partIdentifier("badge"))
                 }
                 Spacer(minLength: 8)
                 if let note {
@@ -39,6 +41,10 @@ struct SettingsGroup<Content: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .modifier(OptionalIdentifier(identifier: identifier))
+    }
+
+    private func partIdentifier(_ part: String) -> String {
+        identifier.map { "\($0).\(part)" } ?? ""
     }
 }
 

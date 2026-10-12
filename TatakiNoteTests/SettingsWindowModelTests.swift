@@ -25,7 +25,7 @@ struct SettingsWindowModelTests {
         #expect(SettingsSection.general.id == .general)
     }
 
-    @Test("サイドバーと案内のボタンが通る selectAppMode は、確定キーが両方未登録なら注入したホットキー以外の初期値を登録してインサートモードにする")
+    @Test("AC-28: 案内の「インサートに切り替える →」とサイドバーの「インサート」が通る selectAppMode(_:in:) は、確定キーが両方未登録なら注入したホットキー以外の初期値を登録してインサートモードにする")
     func selectAppModeRegistersDefaultKeysThroughInjectedHotkey() throws {
         let name = UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: name))
