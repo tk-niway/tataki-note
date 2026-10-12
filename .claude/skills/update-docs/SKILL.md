@@ -1,6 +1,6 @@
 ---
 name: update-docs
-description: Updates the TatakiNote user guide (docs/README.md and docs/features/*.md) so it matches the app after a change. Use it when a change alters anything a user can see or do — screens, menus, shortcuts, settings, behaviour — and when preparing a release, to catch what earlier changes left out or made untrue: "docs を直して", "利用者ガイドを更新して", "リリース前に docs を見直して", "update the docs". Do not use it for developer documentation (CONTRIBUTING.md, RELEASING.md, CLAUDE.md) or for release notes.
+description: Updates the TatakiNote user guide (docs/README.md and docs/features/*.md) so it matches the app after a change. Use it when a change alters anything a user can see or do — screens, menus, shortcuts, settings, behaviour — and when preparing a release, to catch what earlier changes left out or made untrue: "docs を直して", "利用者ガイドを更新して", "リリース前に docs を見直して", "update the docs". Do not use it for developer documentation (CLAUDE.md) or for release notes.
 ---
 
 # 利用者ガイドを直す
