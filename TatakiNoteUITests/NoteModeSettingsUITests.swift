@@ -65,7 +65,7 @@ final class NoteModeSettingsUITests: XCTestCase {
         XCTAssertFalse(commitRecorder.isEnabled)
         XCTAssertFalse(commitAndSendRecorder.isEnabled)
         commitRecorder.click()
-        XCTAssertNotEqual(commitRecorder.placeholderValue, "ショートカットを押す")
+        XCTAssertNotEqual(commitRecorder.value as? String, "ショートカットを押す")
         XCTAssertTrue(hotkey.isEnabled)
         XCTAssertTrue(element(in: app, identifier: "settings.shortcutList").exists)
 
