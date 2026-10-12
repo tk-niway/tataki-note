@@ -92,7 +92,6 @@ struct PanelView: View {
                 showsInsertionTarget: !settings.isNoteMode,
                 noTargetAlertCount: model.noTargetAlertCount,
                 session: session,
-                saveAnimation: saveAnimation,
                 isSidebarOpen: isSidebarOpen,
                 onClose: onClose,
                 onToggleSidebar: onToggleSidebar,
@@ -114,6 +113,7 @@ struct PanelView: View {
         let content = statusBarContent
         let isConfirming = session?.pendingSwitch != nil
         return VStack(spacing: 0) {
+            Color.clear.frame(height: PanelMetrics.titleBarHeight)
             PromptTextEditor(
                 text: $model.text,
                 focusRequest: model.focusRequest,
@@ -139,7 +139,7 @@ struct PanelView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .textBackgroundColor).ignoresSafeArea())
+        .background(Color(nsColor: .textBackgroundColor))
         .accessibilityHidden(isConfirming)
         .overlay {
             if let session, session.pendingSwitch != nil {
@@ -150,8 +150,10 @@ struct PanelView: View {
                         session.resolvePendingSwitch(choice)
                     }
                 }
+                .padding(.top, PanelMetrics.titleBarHeight)
             }
         }
+        .ignoresSafeArea(edges: .top)
     }
 
     private var statusBarContent: PanelStatusBarContent {

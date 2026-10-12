@@ -11,11 +11,11 @@ struct PanelMetricsTests {
         #expect(PanelSizing().baseSize == CGSize(width: 520, height: 340))
     }
 
-    @Test("パネルの入力欄の余白は 11×4 で、上の帯は 28 のまま")
-    func metricsKeepPreviousValues() {
-        #expect(PanelMetrics.titleBarHeight == 28)
+    @Test("AC-2: 上の帯は 38pt で、上の帯 + 入力欄 262 + 下の帯 40 が既定の高さ 340 になる。入力欄の余白は 11×4 のまま")
+    func titleBarHeightAndEditorInset() {
+        #expect(PanelMetrics.titleBarHeight == 38)
         #expect(PanelMetrics.textContainerInset == NSSize(width: 11, height: 4))
-        #expect(PanelMetrics.titleBarHeight + 272 + PanelMetrics.statusBarHeight == PanelMetrics.defaultSize.height)
+        #expect(PanelMetrics.titleBarHeight + 262 + PanelMetrics.statusBarHeight == PanelMetrics.defaultSize.height)
     }
 
     @Test("AC-14: 最小の大きさは 320×160、既定の大きさの上限は 4000×4000 で、既定の大きさの範囲は幅 320〜4000・高さ 160〜4000")

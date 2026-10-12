@@ -56,23 +56,30 @@ struct SidebarView: View {
         return Button {
             model.tab = tab
         } label: {
-            Image(systemName: tab.systemImageName)
-                .font(.system(size: 13))
-                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color(nsColor: .controlBackgroundColor))
-                            .shadow(color: .black.opacity(0.15), radius: 1, y: 0.5)
-                    }
+            HStack(spacing: 5) {
+                Text(verbatim: tab.title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                Text(verbatim: String(model.count(of: tab)))
+                    .font(.system(size: 10.5))
+                    .monospacedDigit()
+                    .foregroundStyle(.tertiary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                        .shadow(color: .black.opacity(0.15), radius: 1, y: 0.5)
                 }
-                .contentShape(Rectangle())
+            }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .focusable(false)
         .help(tab.title)
         .accessibilityLabel(tab.title)
+        .accessibilityValue("\(model.count(of: tab)) 件")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("sidebar.tab.\(tab.rawValue)")
     }
@@ -255,10 +262,15 @@ struct SidebarView: View {
     private var footer: some View {
         HStack(spacing: 0) {
             Button(action: onOpenSettings) {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 14))
-                    .frame(width: 20, height: 20)
-                    .contentShape(Rectangle())
+                HStack(spacing: 5) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 14))
+                    Text("設定")
+                        .font(.system(size: 12))
+                }
+                .padding(.vertical, 3)
+                .padding(.horizontal, 6)
+                .contentShape(Rectangle())
             }
             .buttonStyle(PanelIconButtonStyle())
             .focusable(false)
