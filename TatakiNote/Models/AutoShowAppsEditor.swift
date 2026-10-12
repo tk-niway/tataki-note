@@ -28,8 +28,6 @@ struct AutoShowAppRow: Equatable, Identifiable {
 /// 設定画面の「選んだアプリのみ」の一覧の状態と操作。
 @Observable
 final class AutoShowAppsEditor {
-    var selection: String?
-
     private(set) var runningApps: [AutoShowApp] = []
 
     private let settings: AppSettings
@@ -70,16 +68,12 @@ final class AutoShowAppsEditor {
         }
     }
 
-    var isEditable: Bool {
+    var canEdit: Bool {
         settings.autoShowMode == .selectedApps
     }
 
     var candidates: [AutoShowApp] {
         Self.candidates(running: runningApps, selected: settings.autoShowApps, ownBundleIdentifier: ownBundleIdentifier)
-    }
-
-    var canRemove: Bool {
-        isEditable && AutoShowApp.contains(settings.autoShowApps, bundleIdentifier: selection)
     }
 
     func rows() -> [AutoShowAppRow] {
@@ -101,10 +95,9 @@ final class AutoShowAppsEditor {
         settings.autoShowApps = AutoShowApp.normalized(settings.autoShowApps + [app])
     }
 
-    func removeSelected() {
-        guard canRemove, let selection else { return }
-        settings.autoShowApps.removeAll { $0.bundleIdentifier == selection }
-        self.selection = nil
+    func remove(bundleIdentifier: String) {
+        guard canEdit, AutoShowApp.contains(settings.autoShowApps, bundleIdentifier: bundleIdentifier) else { return }
+        settings.autoShowApps.removeAll { $0.bundleIdentifier == bundleIdentifier }
     }
 
     @discardableResult

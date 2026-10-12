@@ -24,14 +24,14 @@ final class SettingsSectionsUITests: XCTestCase {
 
         // AC-4
         let generalOrder = [
-            "settings.autoShowModePicker",
-            "settings.autoShowAppList",
             "settings.themePicker",
             "settings.launchAtLoginToggle",
             "settings.hideMenuBarIconToggle",
         ]
         assertAppearInOrder(generalOrder, in: app)
         for identifier in [
+            "settings.autoShowModePicker",
+            "settings.autoShowAppList",
             "settings.hotkeyRecorder",
             "settings.commitKeyRecorder",
             "settings.commitAndSendKeyRecorder",

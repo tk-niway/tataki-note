@@ -85,7 +85,11 @@ struct SettingsView: View {
         case .general:
             GeneralSettingsView(settings: settings, launchAtLogin: launchAtLogin, history: historyModel)
         case .keys:
-            KeySettingsView(keySettings: keySettingsModel, isNoteMode: settings.isNoteMode)
+            KeySettingsView(
+                settings: settings,
+                keySettings: keySettingsModel,
+                onSwitchToInsert: { model.selectAppMode(.insert, in: settings) }
+            )
         case .panel:
             PanelSettingsView(
                 settings: settings,

@@ -3,10 +3,23 @@ import SwiftUI
 
 /// 設定画面の「開き方とキー」。
 struct KeySettingsView: View {
+    let settings: AppSettings
     @Bindable var keySettings: PanelKeySettingsModel
-    let isNoteMode: Bool
+    let onSwitchToInsert: () -> Void
+
+    private var isNoteMode: Bool { settings.isNoteMode }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            hotkeyForm
+            AutoShowSettingsSection(settings: settings, onSwitchToInsert: onSwitchToInsert)
+                .padding(.bottom, 12)
+            keysForm
+        }
+        .settingsDetailPadding()
+    }
+
+    private var hotkeyForm: some View {
         Form {
             LabeledContent("パネルを開く・閉じる") {
                 VStack(alignment: .leading, spacing: 6) {
@@ -22,7 +35,12 @@ struct KeySettingsView: View {
                 }
             }
             .padding(.bottom, 12)
+        }
+        .formStyle(.columns)
+    }
 
+    private var keysForm: some View {
+        Form {
             if !isNoteMode {
                 LabeledContent("確定+挿入キー") {
                     VStack(alignment: .leading, spacing: 6) {
@@ -66,7 +84,6 @@ struct KeySettingsView: View {
             }
         }
         .formStyle(.columns)
-        .settingsDetailPadding()
     }
 
     private func shortcutRow(_ shortcut: EditorShortcut, identifier: String) -> some View {

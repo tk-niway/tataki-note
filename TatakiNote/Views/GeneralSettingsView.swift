@@ -8,8 +8,6 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
-            AutoShowSettingsSection(settings: settings)
-
             LabeledContent("テーマ") {
                 VStack(alignment: .leading, spacing: 6) {
                     Picker("テーマ", selection: $settings.theme) {
@@ -24,7 +22,6 @@ struct GeneralSettingsView: View {
                     SettingDescription(text: "「システム」は、Mac の外観モード(ライト・ダーク)に合わせます。メニューバーのメニューは、どれを選んでも Mac の外観モードのままです。")
                 }
             }
-            .padding(.top, 12)
             .padding(.bottom, 12)
 
             LabeledContent("起動") {
