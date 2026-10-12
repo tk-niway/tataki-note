@@ -7,6 +7,8 @@ struct PanelView: View {
     let settings: AppSettings
     let onKeyInput: (PanelKeyInput) -> Bool
     let onClose: () -> Void
+    let onCommit: () -> Void
+    let onCommitAndSend: () -> Void
     let session: DraftSession?
     let sidebarModel: SidebarModel?
     let saveAnimation: SaveAnimationModel?
@@ -22,6 +24,8 @@ struct PanelView: View {
         settings: AppSettings,
         onKeyInput: @escaping (PanelKeyInput) -> Bool,
         onClose: @escaping () -> Void,
+        onCommit: @escaping () -> Void = {},
+        onCommitAndSend: @escaping () -> Void = {},
         session: DraftSession? = nil,
         sidebarModel: SidebarModel? = nil,
         saveAnimation: SaveAnimationModel? = nil,
@@ -36,6 +40,8 @@ struct PanelView: View {
         self.settings = settings
         self.onKeyInput = onKeyInput
         self.onClose = onClose
+        self.onCommit = onCommit
+        self.onCommitAndSend = onCommitAndSend
         self.session = session
         self.sidebarModel = sidebarModel
         self.saveAnimation = saveAnimation
@@ -129,7 +135,7 @@ struct PanelView: View {
                 }
             if !content.isEmpty {
                 Divider()
-                PanelStatusBar(content: content)
+                PanelStatusBar(content: content, onCommit: onCommit, onCommitAndSend: onCommitAndSend)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

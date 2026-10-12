@@ -4,14 +4,18 @@ import Testing
 
 @MainActor
 struct PanelMetricsTests {
-    @Test("AC-12: パネルの寸法は今までの値(初期の大きさ 520×340、タイトルバー 28、帯 28、入力欄の余白 11×4)")
-    func metricsKeepPreviousValues() {
+    @Test("AC-1: 下の帯は 40pt で、パネルの既定の大きさは 520×340 のまま")
+    func statusBarHeightAndDefaultSize() {
+        #expect(PanelMetrics.statusBarHeight == 40)
         #expect(PanelMetrics.defaultSize == CGSize(width: 520, height: 340))
-        #expect(PanelMetrics.titleBarHeight == 28)
-        #expect(PanelMetrics.statusBarHeight == 28)
-        #expect(PanelMetrics.textContainerInset == NSSize(width: 11, height: 4))
-        #expect(PanelMetrics.titleBarHeight + 284 + PanelMetrics.statusBarHeight == PanelMetrics.defaultSize.height)
         #expect(PanelSizing().baseSize == CGSize(width: 520, height: 340))
+    }
+
+    @Test("パネルの入力欄の余白は 11×4 で、上の帯は 28 のまま")
+    func metricsKeepPreviousValues() {
+        #expect(PanelMetrics.titleBarHeight == 28)
+        #expect(PanelMetrics.textContainerInset == NSSize(width: 11, height: 4))
+        #expect(PanelMetrics.titleBarHeight + 272 + PanelMetrics.statusBarHeight == PanelMetrics.defaultSize.height)
     }
 
     @Test("AC-14: 最小の大きさは 320×160、既定の大きさの上限は 4000×4000 で、既定の大きさの範囲は幅 320〜4000・高さ 160〜4000")

@@ -132,6 +132,8 @@ final class PanelController: NSObject, NSWindowDelegate {
                 settings: settings,
                 onKeyInput: { [weak self] in self?.handleKey($0) ?? false },
                 onClose: { [weak self] in self?.closeFromButton() },
+                onCommit: { [weak self] in self?.commitFromButton(shouldSendAfterInsert: false) },
+                onCommitAndSend: { [weak self] in self?.commitFromButton(shouldSendAfterInsert: true) },
                 session: session,
                 sidebarModel: sidebarModel,
                 saveAnimation: saveAnimation,
@@ -452,6 +454,13 @@ final class PanelController: NSObject, NSWindowDelegate {
             shakePanel()
         }
         model.requestFocus()
+    }
+
+    /// 下の帯の「挿入」「送信」のボタン。確認中とノートモードでは何もしない。変換中の文字を確定してから確定する。
+    func commitFromButton(shouldSendAfterInsert: Bool) {
+        guard session.pendingSwitch == nil, !settings.isNoteMode else { return }
+        Self.commitMarkedText(in: panel)
+        commit(shouldSendAfterInsert: shouldSendAfterInsert)
     }
 
     /// 確認の重ね表示のボタン。変換中の文字を確定してから答えを反映する。
