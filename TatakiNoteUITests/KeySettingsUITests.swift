@@ -39,7 +39,7 @@ final class KeySettingsUITests: XCTestCase {
             XCTAssertTrue(element(in: app, identifier: identifier).waitForExistence(timeout: timeout), identifier)
         }
         let ys = groupIdentifiers.map { element(in: app, identifier: $0).frame.minY }
-        XCTAssertEqual(ys, ys.sorted(), "「開き方とキー」のまとまりが上から \(groupTitles) の順に並んでいない")
+        XCTAssertEqual(ys, ys.sorted(), "「ホットキーとキー操作」のまとまりが上から \(groupTitles) の順に並んでいない")
         XCTAssertEqual(Set(ys).count, ys.count)
         for (identifier, title) in zip(groupIdentifiers, groupTitles) {
             XCTAssertEqual(text(of: element(in: app, identifier: "\(identifier).title")), title, identifier)

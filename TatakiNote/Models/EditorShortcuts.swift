@@ -1,6 +1,6 @@
 import Foundation
 
-/// パネルの入力欄で使えるショートカットキーの1行(「開き方とキー」の一覧に出す)。
+/// パネルの入力欄で使えるショートカットキーの1行(「ホットキーとキー操作」の一覧に出す)。
 struct EditorShortcut: Identifiable, Equatable {
     let id: String
     let keys: String

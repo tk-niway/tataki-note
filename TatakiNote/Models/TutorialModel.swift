@@ -46,7 +46,7 @@ enum TutorialNextStepIntroduction: CaseIterable {
     var parts: [TutorialTextPart] {
         switch self {
         case .hotkeyChange:
-            [.text(String(localized: "設定の「開き方とキー」の「パネルを開く・閉じる」で変えられます。"))]
+            [.text(String(localized: "設定の「ホットキーとキー操作」の「パネルを開く・閉じる」で変えられます。"))]
         case .draftKept:
             [.text(String(localized: "esc でパネルを閉じても、書いた文章はパネルに残ります。次に開くと続きから書けます。"))]
         case .settingsAccess:
@@ -254,7 +254,7 @@ enum TutorialNextStepIntroduction: CaseIterable {
     var openPanelInstructionParts: [TutorialTextPart] {
         guard let hotkeyText else {
             return [
-                .text(String(localized: "ホットキーが設定されていません。設定の「開き方とキー」で設定するか、メニューバーの TatakiNote のアイコン")),
+                .text(String(localized: "ホットキーが設定されていません。設定の「ホットキーとキー操作」で設定するか、メニューバーの TatakiNote のアイコン")),
                 .menuBarIcon,
                 .text(String(localized: "の「パネルを開く」で開きます。"))
             ]
@@ -297,7 +297,7 @@ enum TutorialNextStepIntroduction: CaseIterable {
         if let commitKeyText {
             return String(localized: "パネルで \(commitKeyText) を押すと、書いた文章が練習用のチャットの入力欄に入ります。内容を確かめてから ↩ を押して送信しましょう。")
         }
-        return String(localized: "確定+挿入キーも確定+送信キーも登録されていません。設定の「開き方とキー」で登録してください。")
+        return String(localized: "確定+挿入キーも確定+送信キーも登録されていません。設定の「ホットキーとキー操作」で登録してください。")
     }
 
     /// ホットキーの表示を今の設定から読み直す。

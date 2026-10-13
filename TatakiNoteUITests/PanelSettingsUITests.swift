@@ -46,26 +46,6 @@ final class PanelSettingsUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-39
-    @MainActor
-    func testAC39_previewFollowsFontSize() throws {
-        let app = launchApp()
-        openPanelSettings(in: app)
-
-        let preview = element(in: app, identifier: "settings.panelPreview")
-        XCTAssertTrue(preview.waitForExistence(timeout: timeout))
-        XCTAssertTrue(text(of: preview).contains("14 pt"), text(of: preview))
-
-        let stepper = element(in: app, identifier: "settings.fontSizeStepper")
-        XCTAssertTrue(stepper.waitForExistence(timeout: timeout))
-        let up = stepper.elementType == .stepper ? stepper.incrementArrows.firstMatch : stepper.steppers.firstMatch.incrementArrows.firstMatch
-        app.revealInSettings(up)
-        up.click()
-        XCTAssertTrue(waitUntil { self.text(of: preview).contains("15 pt") }, text(of: preview))
-
-        closeSettings(in: app)
-    }
-
     // AC-41
     @MainActor
     func testAC41_statusItemOutlineAndAnimationSwitches() throws {

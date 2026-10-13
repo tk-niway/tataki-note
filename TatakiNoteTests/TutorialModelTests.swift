@@ -488,12 +488,12 @@ struct TutorialModelTests {
         }
     }
 
-    @Test("AC-2: ホットキーが未設定なら、設定の「開き方とキー」とメニューバーで開くよう案内し、設定の「キー」「一般」とは書かない")
+    @Test("AC-2: ホットキーが未設定なら、設定の「ホットキーとキー操作」とメニューバーで開くよう案内し、設定の「キー」「一般」とは書かない")
     func openPanelInstructionWithoutHotkey() throws {
         try withModel(hotkey: .some(nil)) { model, _, _ in
             #expect(model.hotkeyText == nil)
             #expect(model.openPanelInstruction.contains("ホットキーが設定されていません"))
-            #expect(model.openPanelInstruction.contains("設定の「開き方とキー」"))
+            #expect(model.openPanelInstruction.contains("設定の「ホットキーとキー操作」"))
             #expect(!model.openPanelInstruction.contains("設定の「キー」"))
             #expect(!model.openPanelInstruction.contains("設定の「一般」"))
             #expect(model.openPanelInstruction.contains("パネルを開く"))
@@ -503,7 +503,7 @@ struct TutorialModelTests {
     @Test("AC-9: ホットキーがあるときの手順1の文には、設定の場所の案内が出ない")
     func openPanelInstructionWithHotkeyHasNoSettingsGuidance() throws {
         try withModel { model, _, _ in
-            #expect(!model.openPanelInstruction.contains("設定の「開き方とキー」"))
+            #expect(!model.openPanelInstruction.contains("設定の「ホットキーとキー操作」"))
             #expect(!model.openPanelInstruction.contains("設定の「キー」"))
             #expect(!model.openPanelInstruction.contains("設定の「一般」"))
         }
@@ -540,7 +540,7 @@ struct TutorialModelTests {
             #expect(model.commitAndSendKeyText == PanelShortcut.commandReturn.displayText)
             #expect(text.contains(PanelShortcut.commandReturn.displayText))
             #expect(!text.contains(PanelShortcut.commandShiftReturn.displayText))
-            #expect(!text.contains("設定の「開き方とキー」"))
+            #expect(!text.contains("設定の「ホットキーとキー操作」"))
             #expect(!text.contains("設定の「キー」"))
             #expect(!text.contains("設定の「一般」"))
         }
@@ -557,13 +557,13 @@ struct TutorialModelTests {
             #expect(model.commitKeyText == PanelShortcut.commandShiftReturn.displayText)
             #expect(text.contains(PanelShortcut.commandShiftReturn.displayText))
             #expect(text.contains("↩"))
-            #expect(!text.contains("設定の「開き方とキー」"))
+            #expect(!text.contains("設定の「ホットキーとキー操作」"))
             #expect(!text.contains("設定の「キー」"))
             #expect(!text.contains("設定の「一般」"))
         }
     }
 
-    @Test("AC-2, AC-17: どちらも無いときだけ、設定の「開き方とキー」で登録するよう示し、設定の「キー」「一般」とは書かない")
+    @Test("AC-2, AC-17: どちらも無いときだけ、設定の「ホットキーとキー操作」で登録するよう示し、設定の「キー」「一般」とは書かない")
     func sendInstructionWithoutKeys() throws {
         try withModel { model, settings, _ in
             settings.commitKey = nil
@@ -573,7 +573,7 @@ struct TutorialModelTests {
 
             #expect(model.commitKeyText == nil)
             #expect(model.commitAndSendKeyText == nil)
-            #expect(text == "確定+挿入キーも確定+送信キーも登録されていません。設定の「開き方とキー」で登録してください。")
+            #expect(text == "確定+挿入キーも確定+送信キーも登録されていません。設定の「ホットキーとキー操作」で登録してください。")
             #expect(!text.contains("設定の「キー」"))
             #expect(!text.contains("設定の「一般」"))
         }
@@ -636,15 +636,15 @@ struct TutorialModelTests {
         #expect(!(card.heading + card.text).contains("下書き"))
     }
 
-    @Test("AC-2: 「ホットキーの変更」の紹介は、設定の「開き方とキー」の「パネルを開く・閉じる」を案内し、設定の「キー」「一般」とは書かない")
+    @Test("AC-2: 「ホットキーの変更」の紹介は、設定の「ホットキーとキー操作」の「パネルを開く・閉じる」を案内し、設定の「キー」「一般」とは書かない")
     func hotkeyChangeIntroductionPointsToKeySettings() {
         let text = TutorialNextStepIntroduction.hotkeyChange.text
 
-        #expect(text.contains("設定の「開き方とキー」"))
+        #expect(text.contains("設定の「ホットキーとキー操作」"))
         #expect(text.contains("パネルを開く・閉じる"))
         #expect(!text.contains("設定の「キー」"))
         #expect(!text.contains("設定の「一般」"))
-        #expect(!TutorialNextStepIntroduction.draftKept.text.contains("設定の「開き方とキー」"))
+        #expect(!TutorialNextStepIntroduction.draftKept.text.contains("設定の「ホットキーとキー操作」"))
     }
 
     // MARK: - 開き直し(AC-20)

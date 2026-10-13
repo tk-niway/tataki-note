@@ -36,7 +36,7 @@ struct TutorialSettingsAccessTests {
         #expect(TutorialNextStepIntroduction.allCases == [.hotkeyChange, .draftKept, .settingsAccess])
         #expect(TutorialNextStepIntroduction.settingsAccess.heading == "設定の開き方")
         #expect(TutorialNextStepIntroduction.hotkeyChange.heading == "ホットキーの変更")
-        #expect(TutorialNextStepIntroduction.hotkeyChange.text == "設定の「開き方とキー」の「パネルを開く・閉じる」で変えられます。")
+        #expect(TutorialNextStepIntroduction.hotkeyChange.text == "設定の「ホットキーとキー操作」の「パネルを開く・閉じる」で変えられます。")
         #expect(TutorialNextStepIntroduction.draftKept.heading == "書きかけ")
         #expect(TutorialNextStepIntroduction.draftKept.text == "esc でパネルを閉じても、書いた文章はパネルに残ります。次に開くと続きから書けます。")
     }
@@ -76,7 +76,7 @@ struct TutorialSettingsAccessTests {
 
             #expect(iconCount(parts) == 1)
             #expect(textBeforeIcon(parts)?.hasSuffix("メニューバーの TatakiNote のアイコン") == true)
-            #expect(parts.plainText.contains("設定の「開き方とキー」"))
+            #expect(parts.plainText.contains("設定の「ホットキーとキー操作」"))
             #expect(!parts.plainText.contains("設定の「キー」"))
             #expect(parts.plainText.contains("パネルを開く"))
             #expect(model.openPanelInstruction == parts.plainText)

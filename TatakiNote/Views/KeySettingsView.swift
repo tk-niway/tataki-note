@@ -1,7 +1,7 @@
 import KeyboardShortcuts
 import SwiftUI
 
-/// 設定画面の「開き方とキー」。
+/// 設定画面の「ホットキーとキー操作」。
 struct KeySettingsView: View {
     let settings: AppSettings
     @Bindable var keySettings: PanelKeySettingsModel

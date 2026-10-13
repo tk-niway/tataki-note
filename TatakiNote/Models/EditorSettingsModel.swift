@@ -41,21 +41,6 @@ enum StatusItemNote: Equatable {
         return String(localized: "\(percent)%")
     }
 
-    /// プレビューの文字に使う、今の書体と大きさのフォント。
-    var previewFont: NSFont {
-        settings.panelFont
-    }
-
-    /// プレビューの箱の不透明度(範囲で丸めた透明度)。
-    var previewOpacity: Double {
-        PanelTextStyle.clampedOpacity(settings.panelOpacity)
-    }
-
-    /// プレビューの読み上げの値(フォント名・文字サイズ・透明度)。
-    var previewAccessibilityValue: String {
-        "\(fontDisplayName)・\(fontSizeText)・\(opacityPercentText)"
-    }
-
     /// フォント名を描くフォント。システムフォントのときはシステムフォント、書体を選んでいるときはその書体(12pt)。
     var fontNameFont: NSFont {
         guard let font = settings.resolvedPanelFont else { return .systemFont(ofSize: Self.fontNameSize) }

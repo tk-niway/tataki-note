@@ -10,7 +10,7 @@ struct PanelSettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             screenGroup
-            appearanceGroup
+            fontAndOpacityGroup
             defaultSizeGroup
             statusItemsGroup
             outlineGroup
@@ -52,21 +52,14 @@ struct PanelSettingsView: View {
         }
     }
 
-    // MARK: - 文字と見た目
+    // MARK: - フォントと透明度
 
-    private var appearanceGroup: some View {
-        SettingsGroup(title: "文字と見た目", identifier: "settings.group.textAppearance") {
-            VStack(alignment: .leading, spacing: 8) {
-                PanelTextPreview(
-                    font: model.previewFont,
-                    opacity: model.previewOpacity,
-                    accessibilityValue: model.previewAccessibilityValue
-                )
-                SettingsCard {
-                    fontRow
-                    fontSizeRow
-                    opacityRow
-                }
+    private var fontAndOpacityGroup: some View {
+        SettingsGroup(title: "フォントと透明度", identifier: "settings.group.fontAndOpacity") {
+            SettingsCard {
+                fontRow
+                fontSizeRow
+                opacityRow
             }
         }
     }
