@@ -29,8 +29,23 @@ struct DraftSaveEvent: Equatable {
         case overwritten(UUID)
     }
 
+    /// どの操作で保存したか。
+    enum Origin: Equatable {
+        /// ⌘S・保存ボタン。
+        case saveCommand
+        /// 保存していない文章の確認の「保存」。
+        case confirmation
+    }
+
     let sequence: Int
     let kind: Kind
+    let origin: Origin
+
+    init(sequence: Int, kind: Kind, origin: Origin = .saveCommand) {
+        self.sequence = sequence
+        self.kind = kind
+        self.origin = origin
+    }
 }
 
 /// パネルの文章と、下書き・履歴との結びつき。
@@ -79,9 +94,14 @@ struct DraftSaveEvent: Equatable {
         return !panel.text.isEmpty
     }
 
-    /// 保存のアイコンを押せるか。
+    /// 保存できる本文があるか。
     var isSaveAvailable: Bool {
         !panel.text.isEmpty
+    }
+
+    /// 保存のアイコンを押せるか。確認の重ね表示が出ている間だけ押せない。
+    var isSaveButtonEnabled: Bool {
+        pendingSwitch == nil
     }
 
     /// 新規作成のアイコンを押せるか。
@@ -125,7 +145,7 @@ struct DraftSaveEvent: Equatable {
         case .save:
             if let draft = library.addDraft(text: panel.text) {
                 document = .savedDraft(draft.id)
-                emitSaveEvent(.created(draft.id))
+                emitSaveEvent(.created(draft.id), origin: .confirmation)
             }
             library.flush()
             perform(target)
@@ -256,8 +276,8 @@ struct DraftSaveEvent: Equatable {
         panel.requestFocus()
     }
 
-    private func emitSaveEvent(_ kind: DraftSaveEvent.Kind) {
+    private func emitSaveEvent(_ kind: DraftSaveEvent.Kind, origin: DraftSaveEvent.Origin = .saveCommand) {
         saveEventSequence += 1
-        lastSaveEvent = DraftSaveEvent(sequence: saveEventSequence, kind: kind)
+        lastSaveEvent = DraftSaveEvent(sequence: saveEventSequence, kind: kind, origin: origin)
     }
 }

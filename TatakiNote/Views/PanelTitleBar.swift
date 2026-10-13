@@ -7,12 +7,12 @@ struct PanelTitleBar: View {
     let noTargetAlertCount: Int
     let session: DraftSession?
     let isSidebarOpen: Bool
+    let saveArrival: SaveArrival
     let onClose: () -> Void
     let onToggleSidebar: () -> Void
     let onNewDraft: () -> Void
     let onSaveDraft: () -> Void
     let appIcon: @MainActor (InsertionTarget) -> NSImage
-    let saveAnimation: SaveAnimationModel?
     let showsInsertionTarget: Bool
 
     init(
@@ -20,8 +20,8 @@ struct PanelTitleBar: View {
         showsInsertionTarget: Bool = true,
         noTargetAlertCount: Int = 0,
         session: DraftSession? = nil,
-        saveAnimation: SaveAnimationModel? = nil,
         isSidebarOpen: Bool = false,
+        saveArrival: SaveArrival = SaveArrival(),
         onClose: @escaping () -> Void,
         onToggleSidebar: @escaping () -> Void = {},
         onNewDraft: @escaping () -> Void = {},
@@ -32,8 +32,8 @@ struct PanelTitleBar: View {
         self.showsInsertionTarget = showsInsertionTarget
         self.noTargetAlertCount = noTargetAlertCount
         self.session = session
-        self.saveAnimation = saveAnimation
         self.isSidebarOpen = isSidebarOpen
+        self.saveArrival = saveArrival
         self.onClose = onClose
         self.onToggleSidebar = onToggleSidebar
         self.onNewDraft = onNewDraft
@@ -41,7 +41,9 @@ struct PanelTitleBar: View {
         self.appIcon = appIcon
     }
 
-    private static let hitSize: CGFloat = 20
+    private static let closeHitSize: CGFloat = 20
+    private static let closeDiameter: CGFloat = 16
+    private static let buttonSize = CGSize(width: 26, height: 22)
     private static let iconSize: CGFloat = 14
 
     var body: some View {
@@ -68,9 +70,10 @@ struct PanelTitleBar: View {
 
     private var closeButton: some View {
         Button(action: onClose) {
-            Image(systemName: "xmark.circle.fill")
-                .font(.system(size: Self.iconSize))
-                .frame(width: Self.hitSize, height: Self.hitSize)
+            Image(systemName: "xmark")
+                .font(.system(size: 10, weight: .bold))
+                .frame(width: Self.closeDiameter, height: Self.closeDiameter)
+                .frame(width: Self.closeHitSize, height: Self.closeHitSize)
                 .contentShape(Rectangle())
         }
         .buttonStyle(CloseButtonStyle())
@@ -83,16 +86,8 @@ struct PanelTitleBar: View {
     private var sidebarToggleButton: some View {
         Button(action: onToggleSidebar) {
             iconLabel("sidebar.left")
-                .keyframeAnimator(initialValue: 1.0, trigger: saveAnimation?.absorbCount ?? 0) { content, scale in
-                    content.scaleEffect(scale)
-                } keyframes: { _ in
-                    KeyframeTrack {
-                        LinearKeyframe(1.0, duration: 0.001)
-                        CubicKeyframe(1.2, duration: SaveAnimationModel.absorbingDuration.seconds / 2)
-                        CubicKeyframe(1.0, duration: SaveAnimationModel.absorbingDuration.seconds / 2)
-                    }
-                }
-                .anchorPreference(key: SidebarToggleAnchorKey.self, value: .bounds) { $0 }
+                .saveFlightAnchor(.sidebarToggle)
+                .saveArrivalBounce(for: .sidebarToggle, arrival: saveArrival)
         }
         .buttonStyle(PanelIconButtonStyle())
         .focusable(false)
@@ -115,22 +110,12 @@ struct PanelTitleBar: View {
     }
 
     private var saveDraftButton: some View {
-        let isConfirming = saveAnimation?.isShowingSaveConfirmation ?? false
-        return Button(action: onSaveDraft) {
-            ZStack {
-                iconLabel("square.and.arrow.down")
-                    .opacity(isConfirming ? 0 : 1)
-                Image(systemName: "checkmark")
-                    .font(.system(size: Self.iconSize, weight: .semibold))
-                    .foregroundStyle(.green)
-                    .frame(width: Self.hitSize, height: Self.hitSize)
-                    .opacity(isConfirming ? 1 : 0)
-            }
-            .animation(.easeInOut(duration: 0.1), value: isConfirming)
+        Button(action: onSaveDraft) {
+            iconLabel("square.and.arrow.down")
         }
         .buttonStyle(PanelIconButtonStyle())
         .focusable(false)
-        .disabled(!(session?.isSaveAvailable ?? false) || session?.pendingSwitch != nil)
+        .disabled(!(session?.isSaveButtonEnabled ?? false))
         .help("下書きに保存(⌘S)")
         .accessibilityLabel("下書きに保存")
         .accessibilityIdentifier("promptPanel.saveDraftButton")
@@ -139,7 +124,7 @@ struct PanelTitleBar: View {
     private func iconLabel(_ systemName: String) -> some View {
         Image(systemName: systemName)
             .font(.system(size: Self.iconSize))
-            .frame(width: Self.hitSize, height: Self.hitSize)
+            .frame(width: Self.buttonSize.width, height: Self.buttonSize.height)
             .contentShape(Rectangle())
     }
 
@@ -148,26 +133,46 @@ struct PanelTitleBar: View {
     private struct CloseButtonStyle: ButtonStyle {
         @State private var isHovering = false
 
+        private static let hoverFill = Color(red: 1, green: 0.373, blue: 0.341)
+        private static let hoverMark = Color(red: 0.302, green: 0, blue: 0)
+
         func makeBody(configuration: Configuration) -> some View {
-            configuration.label
-                .foregroundStyle(configuration.isPressed ? .primary : (isHovering ? .secondary : .tertiary))
+            let isActive = isHovering || configuration.isPressed
+            return configuration.label
+                .foregroundStyle(isActive ? Self.hoverMark : Color.secondary)
+                .background {
+                    Circle()
+                        .fill(isActive ? Self.hoverFill : Color.primary.opacity(0.18))
+                        .frame(width: PanelTitleBar.closeDiameter, height: PanelTitleBar.closeDiameter)
+                }
                 .onHover { isHovering = $0 }
         }
     }
-
 }
 
-/// パネルのアイコンのボタンの見た目。押している間だけ濃くする。
+/// パネルのアイコンのボタンの見た目。ホバーで薄い背景を敷き、押している間は濃くする。
 struct PanelIconButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovering = false
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(foreground(isPressed: configuration.isPressed))
+            .background {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.primary.opacity(backgroundOpacity(isPressed: configuration.isPressed)))
+            }
+            .onHover { isHovering = $0 }
     }
 
     private func foreground(isPressed: Bool) -> HierarchicalShapeStyle {
         if !isEnabled { return .tertiary }
         return isPressed ? .primary : .secondary
+    }
+
+    private func backgroundOpacity(isPressed: Bool) -> Double {
+        guard isEnabled else { return 0 }
+        if isPressed { return 0.24 }
+        return isHovering ? 0.14 : 0
     }
 }

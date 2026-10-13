@@ -91,13 +91,13 @@ struct PanelModelTests {
         #expect(model.isPresented == false)
     }
 
-    @Test("AC-6: 文章が空なら、閉じるだけ")
-    func commitEmptyTextDismissesOnly() {
+    @Test("文章が空なら、閉じずに空の確定になる")
+    func commitEmptyTextKeepsPanelOpen() {
         let model = PanelModel()
         model.present(target: textEdit)
 
-        #expect(model.prepareCommit(isAccessibilityTrusted: true) == .dismissOnly)
-        #expect(model.isPresented == false)
+        #expect(model.prepareCommit(isAccessibilityTrusted: true) == .emptyText)
+        #expect(model.isPresented)
         #expect(model.text.isEmpty)
     }
 
@@ -129,7 +129,7 @@ struct PanelModelTests {
         #expect(model.noTargetAlertCount == 2)
     }
 
-    @Test("AC-18: 挿入先なしでも、許可が無ければ閉じて文章は残り、文章が空なら閉じる。どちらも合図は出ない")
+    @Test("挿入先なしでも、許可が無ければ閉じて文章は残り、文章が空なら閉じない。どちらも合図は出ない")
     func commitWithoutTargetStillClosesForPermissionAndEmptyText() {
         let denied = PanelModel()
         denied.present(target: nil)
@@ -141,8 +141,8 @@ struct PanelModelTests {
 
         let empty = PanelModel()
         empty.present(target: nil)
-        #expect(empty.prepareCommit(isAccessibilityTrusted: true) == .dismissOnly)
-        #expect(empty.isPresented == false)
+        #expect(empty.prepareCommit(isAccessibilityTrusted: true) == .emptyText)
+        #expect(empty.isPresented)
         #expect(empty.noTargetAlertCount == 0)
     }
 
@@ -158,12 +158,12 @@ struct PanelModelTests {
         #expect(model.lastDismissal == .cancelled)
     }
 
-    @Test("AC-1: prepareCommit で閉じると、空・許可なし・挿入のどれでも「確定した」。挿入先なしは閉じない")
+    @Test("prepareCommit で閉じると、許可なし・挿入のどちらでも「確定した」。空・挿入先なしは閉じない")
     func commitRecordsCommittedForEveryPlan() {
         let empty = PanelModel()
         empty.present(target: textEdit)
-        #expect(empty.prepareCommit(isAccessibilityTrusted: true) == .dismissOnly)
-        #expect(empty.lastDismissal == .committed)
+        #expect(empty.prepareCommit(isAccessibilityTrusted: true) == .emptyText)
+        #expect(empty.lastDismissal == nil)
 
         let denied = PanelModel()
         denied.present(target: textEdit)
@@ -199,6 +199,7 @@ struct PanelModelTests {
         #expect(model.lastDismissal == .cancelled)
 
         model.present(target: textEdit)
+        model.text = "hello"
         _ = model.prepareCommit(isAccessibilityTrusted: true)
         #expect(model.lastDismissal == .committed)
     }

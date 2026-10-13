@@ -4,11 +4,14 @@ import SwiftUI
 /// パネルの左側に出す、下書きと履歴の一覧。
 struct SidebarView: View {
     @Bindable var model: SidebarModel
-    var highlightedDraftID: UUID?
+    var glowingDraftID: UUID?
+    var saveArrival = SaveArrival()
     var onOpenSettings: () -> Void = {}
 
     @State private var isSearchFocused = false
     @FocusState private var isListFocused: Bool
+    @State private var glowingRowID: UUID?
+    @State private var glowGeneration = 0
 
     private static let rowCornerRadius: CGFloat = 5
 
@@ -33,6 +36,22 @@ struct SidebarView: View {
         .frame(width: SidebarLayout.width)
         .frame(maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
+        .onChange(of: glowingDraftID) { _, newValue in
+            guard let newValue else { return }
+            startGlow(on: newValue)
+        }
+    }
+
+    private func startGlow(on id: UUID) {
+        glowGeneration += 1
+        let generation = glowGeneration
+        glowingRowID = id
+        Task {
+            try? await Task.sleep(for: SavedRowHighlight.duration)
+            if generation == glowGeneration {
+                glowingRowID = nil
+            }
+        }
     }
 
     // MARK: - 切り替えと検索
@@ -56,23 +75,32 @@ struct SidebarView: View {
         return Button {
             model.tab = tab
         } label: {
-            Image(systemName: tab.systemImageName)
-                .font(.system(size: 13))
-                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color(nsColor: .controlBackgroundColor))
-                            .shadow(color: .black.opacity(0.15), radius: 1, y: 0.5)
-                    }
+            HStack(spacing: 5) {
+                Text(verbatim: tab.title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                Text(verbatim: String(model.count(of: tab)))
+                    .font(.system(size: 10.5))
+                    .monospacedDigit()
+                    .foregroundStyle(.tertiary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                        .shadow(color: .black.opacity(0.15), radius: 1, y: 0.5)
                 }
-                .contentShape(Rectangle())
+            }
+            .contentShape(Rectangle())
+            .saveArrivalBounce(for: tab == .drafts ? .draftsTab : nil, arrival: saveArrival)
         }
         .buttonStyle(.plain)
         .focusable(false)
+        .modifier(DraftsTabAnchor(isDraftsTab: tab == .drafts))
         .help(tab.title)
         .accessibilityLabel(tab.title)
+        .accessibilityValue("\(model.count(of: tab)) 件")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("sidebar.tab.\(tab.rawValue)")
     }
@@ -165,25 +193,32 @@ struct SidebarView: View {
         let foreground: Color = isHighlighted ? .white : .primary
         let secondaryForeground: Color = isHighlighted ? .white.opacity(0.85) : .secondary
         return HStack(spacing: 6) {
-            if row.kind == .draft {
-                Circle()
-                    .fill(isHighlighted ? Color.white : Color.accentColor)
-                    .frame(width: 6, height: 6)
-                    .opacity(row.isShownInPanel ? 1 : 0)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                if let detail = row.detail {
-                    Text(verbatim: detail)
-                        .font(.system(size: 11))
-                        .foregroundStyle(secondaryForeground)
-                        .lineLimit(1)
+            HStack(spacing: 6) {
+                if row.kind == .draft {
+                    Circle()
+                        .fill(isHighlighted ? Color.white : Color.accentColor)
+                        .frame(width: 6, height: 6)
+                        .opacity(row.isShownInPanel ? 1 : 0)
                 }
-                Text(verbatim: row.title)
-                    .font(.system(size: 13, weight: row.isShownInPanel ? .medium : .regular))
-                    .foregroundStyle(titleStyle(for: row, isHighlighted: isHighlighted, foreground: foreground))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                VStack(alignment: .leading, spacing: 2) {
+                    if let detail = row.detail {
+                        Text(verbatim: detail)
+                            .font(.system(size: 11))
+                            .foregroundStyle(secondaryForeground)
+                            .lineLimit(1)
+                    }
+                    Text(verbatim: row.title)
+                        .font(.system(size: 13, weight: row.isShownInPanel ? .medium : .regular))
+                        .foregroundStyle(titleStyle(for: row, isHighlighted: isHighlighted, foreground: foreground))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
             }
+            .saveArrivalBounce(
+                for: row.kind == .draft ? .draftRow(row.id) : nil,
+                arrival: saveArrival,
+                anchor: .leading
+            )
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 8)
@@ -193,11 +228,13 @@ struct SidebarView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: Self.rowCornerRadius)
                     .fill(rowBackground(isSelected: isSelected, isEmphasized: isEmphasized))
-                if row.id == highlightedDraftID {
+                if row.id == glowingRowID {
                     SavedRowHighlight(cornerRadius: Self.rowCornerRadius)
+                        .id(glowGeneration)
                 }
             }
         }
+        .modifier(DraftRowAnchor(rowID: row.kind == .draft ? row.id : nil))
         .contentShape(Rectangle())
         .onTapGesture {
             model.activate(row.id)
@@ -255,10 +292,15 @@ struct SidebarView: View {
     private var footer: some View {
         HStack(spacing: 0) {
             Button(action: onOpenSettings) {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 14))
-                    .frame(width: 20, height: 20)
-                    .contentShape(Rectangle())
+                HStack(spacing: 5) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 14))
+                    Text("設定")
+                        .font(.system(size: 12))
+                }
+                .padding(.vertical, 3)
+                .padding(.horizontal, 6)
+                .contentShape(Rectangle())
             }
             .buttonStyle(PanelIconButtonStyle())
             .focusable(false)
@@ -307,17 +349,42 @@ struct SidebarView: View {
     }
 }
 
+private struct DraftsTabAnchor: ViewModifier {
+    let isDraftsTab: Bool
+
+    func body(content: Content) -> some View {
+        if isDraftsTab {
+            content.saveFlightAnchor(.draftsTab)
+        } else {
+            content
+        }
+    }
+}
+
+private struct DraftRowAnchor: ViewModifier {
+    let rowID: UUID?
+
+    func body(content: Content) -> some View {
+        if let rowID {
+            content.saveFlightAnchor(.draftRow(rowID))
+        } else {
+            content
+        }
+    }
+}
+
 private struct SavedRowHighlight: View {
     let cornerRadius: CGFloat
 
-    @Environment(\.colorScheme) private var colorScheme
     @State private var isFaded = false
+
+    static let duration: Duration = .milliseconds(1100)
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius)
-            .fill(Color.yellow.opacity(isFaded ? 0 : (colorScheme == .dark ? 0.25 : 0.45)))
+            .fill(Color.accentColor.opacity(isFaded ? 0 : 0.22))
             .onAppear {
-                withAnimation(.linear(duration: SaveAnimationModel.highlightDuration.seconds)) {
+                withAnimation(.linear(duration: Self.duration.seconds)) {
                     isFaded = true
                 }
             }

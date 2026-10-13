@@ -43,6 +43,10 @@ final class PromptPanelCommitUITests: XCTestCase {
         app.typeKey(.delete, modifierFlags: [])
         XCTAssertEqual(textView.promptPanelText, "")
         app.typeKey(.return, modifierFlags: [.command])
+        XCTAssertFalse(textView.waitForNonExistence(timeout: 1))
+        XCTAssertTrue(textView.exists)
+
+        app.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
     }
 

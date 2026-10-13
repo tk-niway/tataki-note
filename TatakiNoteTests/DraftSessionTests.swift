@@ -65,6 +65,7 @@ struct DraftSessionTests {
         #expect(fixture.panel.text == "hello\nworld")
         #expect(fixture.session.document == .savedDraft(draft.id))
         #expect(fixture.session.lastSaveEvent?.kind == .created(draft.id))
+        #expect(fixture.session.lastSaveEvent?.origin == .saveCommand)
     }
 
     @Test("AC-11: 履歴から読み込んだ文章も ⌘S で下書きになる")
@@ -105,6 +106,7 @@ struct DraftSessionTests {
         #expect(fixture.library.drafts.count == 1)
         let secondEvent = try #require(fixture.session.lastSaveEvent)
         #expect(secondEvent.kind == .overwritten(id))
+        #expect(secondEvent.origin == .saveCommand)
         #expect(secondEvent.sequence > firstEvent.sequence)
     }
 
@@ -219,6 +221,7 @@ struct DraftSessionTests {
         #expect(fixture.library.drafts.count == 1)
         #expect(draft.text == "unsaved")
         #expect(fixture.session.lastSaveEvent?.kind == .created(draft.id))
+        #expect(fixture.session.lastSaveEvent?.origin == .confirmation)
         #expect(fixture.session.pendingSwitch == nil)
         #expect(fixture.panel.text == "")
         #expect(fixture.session.document == .scratch)
@@ -578,7 +581,7 @@ struct DraftSessionTests {
         let plan = fixture.commit()
         fixture.session.finishCommit(plan, outcome: .inserted)
 
-        #expect(plan == .dismissOnly)
+        #expect(plan == .emptyText)
         #expect(fixture.library.history.isEmpty)
     }
 

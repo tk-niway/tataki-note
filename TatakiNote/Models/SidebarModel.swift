@@ -117,6 +117,14 @@ struct SidebarRow: Equatable, Identifiable {
 
     // MARK: - 一覧
 
+    /// 切り替えに出す件数。検索の絞り込みに関係なく、その側の全件の数。
+    func count(of tab: SidebarTab) -> Int {
+        switch tab {
+        case .drafts: library.drafts.count
+        case .history: library.history.count
+        }
+    }
+
     /// 表示中の側を `query` で絞った行。
     var rows: [SidebarRow] {
         let needle = trimmedQuery

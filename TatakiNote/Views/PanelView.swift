@@ -7,6 +7,8 @@ struct PanelView: View {
     let settings: AppSettings
     let onKeyInput: (PanelKeyInput) -> Bool
     let onClose: () -> Void
+    let onCommit: () -> Void
+    let onCommitAndSend: () -> Void
     let session: DraftSession?
     let sidebarModel: SidebarModel?
     let saveAnimation: SaveAnimationModel?
@@ -22,6 +24,8 @@ struct PanelView: View {
         settings: AppSettings,
         onKeyInput: @escaping (PanelKeyInput) -> Bool,
         onClose: @escaping () -> Void,
+        onCommit: @escaping () -> Void = {},
+        onCommitAndSend: @escaping () -> Void = {},
         session: DraftSession? = nil,
         sidebarModel: SidebarModel? = nil,
         saveAnimation: SaveAnimationModel? = nil,
@@ -36,6 +40,8 @@ struct PanelView: View {
         self.settings = settings
         self.onKeyInput = onKeyInput
         self.onClose = onClose
+        self.onCommit = onCommit
+        self.onCommitAndSend = onCommitAndSend
         self.session = session
         self.sidebarModel = sidebarModel
         self.saveAnimation = saveAnimation
@@ -58,11 +64,13 @@ struct PanelView: View {
     var body: some View {
         let isSidebarOpen = sidebarModel?.isOpen ?? false
         let slidingBodyWidth = sidebarModel?.slidingBodyWidth
+        let arrival = saveArrival
         HStack(spacing: 0) {
             if let sidebarModel, isSidebarOpen {
                 SidebarView(
                     model: sidebarModel,
-                    highlightedDraftID: saveAnimation?.highlightedDraftID,
+                    glowingDraftID: saveAnimation?.glowingDraftID,
+                    saveArrival: arrival,
                     onOpenSettings: onOpenSettings
                 )
                     .frame(
@@ -86,8 +94,8 @@ struct PanelView: View {
                 showsInsertionTarget: !settings.isNoteMode,
                 noTargetAlertCount: model.noTargetAlertCount,
                 session: session,
-                saveAnimation: saveAnimation,
                 isSidebarOpen: isSidebarOpen,
+                saveArrival: arrival,
                 onClose: onClose,
                 onToggleSidebar: onToggleSidebar,
                 onNewDraft: onNewDraft,
@@ -96,11 +104,34 @@ struct PanelView: View {
             )
             .ignoresSafeArea(edges: .top)
         }
-        .overlayPreferenceValue(SidebarToggleAnchorKey.self) { anchor in
+        .overlayPreferenceValue(SaveFlightAnchorKey.self) { anchors in
             if let saveAnimation {
-                SaveAnimationOverlay(model: saveAnimation, toggleAnchor: anchor)
+                SaveAnimationOverlay(
+                    model: saveAnimation,
+                    anchors: anchors,
+                    bodyLeadingInset: bodyLeadingInset(isSidebarOpen: isSidebarOpen, slidingBodyWidth: slidingBodyWidth)
+                )
             }
         }
+    }
+
+    private var saveArrival: SaveArrival {
+        guard let saveAnimation else { return SaveArrival() }
+        var destination: SaveFlightDestination?
+        if case .arrived(let flight) = saveAnimation.phase {
+            destination = flight.destination
+        }
+        return SaveArrival(count: saveAnimation.arrivalCount, destination: destination)
+    }
+
+    private func bodyLeadingInset(isSidebarOpen: Bool, slidingBodyWidth: CGFloat?) -> CGFloat {
+        guard isSidebarOpen, slidingBodyWidth == nil else { return 0 }
+        return SidebarLayout.width + 1
+    }
+
+    private var saveToastBottomInset: CGFloat {
+        let bandHeight = statusBarContent.isEmpty ? 0 : PanelMetrics.statusBarHeight + 1
+        return bandHeight + 12
     }
 
     private var bodyColumn: some View {
@@ -108,6 +139,7 @@ struct PanelView: View {
         let content = statusBarContent
         let isConfirming = session?.pendingSwitch != nil
         return VStack(spacing: 0) {
+            Color.clear.frame(height: PanelMetrics.titleBarHeight)
             PromptTextEditor(
                 text: $model.text,
                 focusRequest: model.focusRequest,
@@ -129,12 +161,22 @@ struct PanelView: View {
                 }
             if !content.isEmpty {
                 Divider()
-                PanelStatusBar(content: content)
+                PanelStatusBar(content: content, onCommit: onCommit, onCommitAndSend: onCommitAndSend)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .textBackgroundColor).ignoresSafeArea())
+        .background(Color(nsColor: .textBackgroundColor))
         .accessibilityHidden(isConfirming)
+        .overlay(alignment: .bottomTrailing) {
+            if let saveAnimation, let message = saveAnimation.toastMessage {
+                PanelToastView(message: message)
+                    .id(saveAnimation.arrivalCount)
+                    .padding(.trailing, 16)
+                    .padding(.bottom, saveToastBottomInset)
+                    .allowsHitTesting(false)
+                    .accessibilityIdentifier("promptPanel.saveToast")
+            }
+        }
         .overlay {
             if let session, session.pendingSwitch != nil {
                 PanelConfirmationOverlay(focusedChoice: session.confirmationFocus) { choice in
@@ -144,8 +186,10 @@ struct PanelView: View {
                         session.resolvePendingSwitch(choice)
                     }
                 }
+                .padding(.top, PanelMetrics.titleBarHeight)
             }
         }
+        .ignoresSafeArea(edges: .top)
     }
 
     private var statusBarContent: PanelStatusBarContent {

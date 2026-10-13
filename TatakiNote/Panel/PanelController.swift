@@ -19,6 +19,8 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let library: DraftLibrary
     private let targetMonitor: InsertionTargetMonitor
     private let outlineController: InsertionTargetOutlineController
+    private let shaker: PanelShaking
+    private let toast: InsertionToastPresenting
 
     let session: DraftSession
     let sidebarModel: SidebarModel
@@ -80,6 +82,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         library: DraftLibrary = DraftLibrary(store: .inMemory),
         saveAnimation: SaveAnimationModel = SaveAnimationModel(),
         animator: PanelFrameAnimating = AppKitPanelFrameAnimator(),
+        shaker: PanelShaking = PanelShaker(),
+        toast: InsertionToastPresenting = InsertionToastController(),
         hideApplication: @escaping () -> Void = { NSApp.hide(nil) },
         makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil,
         isKeyboardNavigationEnabled: @escaping () -> Bool = { NSApplication.shared.isFullKeyboardAccessEnabled }
@@ -89,6 +93,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.panel = panel
         self.settings = settings
         self.animator = animator
+        self.shaker = shaker
+        self.toast = toast
         self.hideApplication = hideApplication
         self.targetTracker = targetTracker
         self.permission = permission
@@ -129,6 +135,8 @@ final class PanelController: NSObject, NSWindowDelegate {
                 settings: settings,
                 onKeyInput: { [weak self] in self?.handleKey($0) ?? false },
                 onClose: { [weak self] in self?.closeFromButton() },
+                onCommit: { [weak self] in self?.commitFromButton(shouldSendAfterInsert: false) },
+                onCommitAndSend: { [weak self] in self?.commitFromButton(shouldSendAfterInsert: true) },
                 session: session,
                 sidebarModel: sidebarModel,
                 saveAnimation: saveAnimation,
@@ -181,13 +189,36 @@ final class PanelController: NSObject, NSWindowDelegate {
             onChange: { [weak self] in
                 guard let self else { return false }
                 if let event = self.session.lastSaveEvent {
-                    let animation = self.saveAnimation
-                    let isSidebarOpen = self.sidebarModel.isOpen
-                    Task { await animation.play(event, isSidebarOpen: isSidebarOpen) }
+                    self.playSaveAnimation(for: event)
                 }
                 return true
             }
         )
+    }
+
+    private func playSaveAnimation(for event: DraftSaveEvent) {
+        guard model.isPresented else { return }
+        let id: UUID
+        switch event.kind {
+        case .created(let savedID), .overwritten(let savedID):
+            id = savedID
+        }
+        if SaveFlightDestination.shouldSwitchToDrafts(
+            origin: event.origin,
+            isSidebarOpen: sidebarModel.isOpen,
+            tab: sidebarModel.tab
+        ) {
+            sidebarModel.tab = .drafts
+        }
+        let text = library.draft(id: id)?.text ?? model.text
+        let destination = SaveFlightDestination.resolve(
+            savedDraftID: id,
+            isSidebarOpen: sidebarModel.isOpen,
+            isShowingDrafts: sidebarModel.tab == .drafts,
+            visibleDraftIDs: sidebarModel.rows.map(\.id)
+        )
+        let animation = saveAnimation
+        Task { await animation.play(text: text, destination: destination) }
     }
 
     private func configureSidebarModel() {
@@ -233,6 +264,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func open(observedFocus: ObservedFocus? = nil) {
+        toast.dismiss()
         let isNoteMode = settings.isNoteMode
         let app = isTargetLookupDisabled ? nil : (targetOverride?() ?? targetTracker.currentTarget())
         settings.refreshKeyDisplayTexts()
@@ -332,7 +364,19 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     private func prepareToClose() {
+        stopPanelEffects()
         session.resolvePendingSwitch(.cancel)
+    }
+
+    private func stopPanelEffects() {
+        shaker.stop(panel)
+        saveAnimation.cancel()
+    }
+
+    private func shakePanel() {
+        finishSidebarSlide()
+        guard PanelShake.canStart(motionPhase: motion.phase) else { return }
+        shaker.shake(panel)
     }
 
     func toggle() {
@@ -377,7 +421,11 @@ final class PanelController: NSObject, NSWindowDelegate {
             sidebarModel.openForSearch()
             return true
         case .saveDraft:
-            session.saveCurrent()
+            if session.isSaveAvailable {
+                session.saveCurrent()
+            } else {
+                shakePanel()
+            }
             return true
         case .newDraft:
             requestNewScratch()
@@ -428,8 +476,19 @@ final class PanelController: NSObject, NSWindowDelegate {
     func saveDraftFromButton() {
         guard session.pendingSwitch == nil else { return }
         Self.commitMarkedText(in: panel)
-        session.saveCurrent()
+        if session.isSaveAvailable {
+            session.saveCurrent()
+        } else {
+            shakePanel()
+        }
         model.requestFocus()
+    }
+
+    /// 下の帯の「挿入」「送信」のボタン。確認中とノートモードでは何もしない。変換中の文字を確定してから確定する。
+    func commitFromButton(shouldSendAfterInsert: Bool) {
+        guard session.pendingSwitch == nil, !settings.isNoteMode else { return }
+        Self.commitMarkedText(in: panel)
+        commit(shouldSendAfterInsert: shouldSendAfterInsert)
     }
 
     /// 確認の重ね表示のボタン。変換中の文字を確定してから答えを反映する。
@@ -454,6 +513,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// サイドバーを開閉する。パネルが開いていれば、窓の枠をサイドバーの幅だけ変える。アニメーションがオンなら滑らせて変える。
     func setSidebarOpen(_ isOpen: Bool) {
+        shaker.stop(panel)
         finishSidebarSlide()
         let wasOpen = sidebarModel.isOpen
         guard isOpen != wasOpen else { return }
@@ -560,6 +620,13 @@ final class PanelController: NSObject, NSWindowDelegate {
             model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
         }
         if plan == .noTarget { return }
+        if plan == .emptyText {
+            shakePanel()
+            return
+        }
+        stopPanelEffects()
+        finishSidebarSlide()
+        let frameBeforeClosing = motion.phase == .opening ? (restingFrame ?? panel.frame) : panel.frame
         hidePanel()
         library.flush()
         if case .insert(let text, let target) = plan {
@@ -569,6 +636,12 @@ final class PanelController: NSObject, NSWindowDelegate {
             let outcome = await performer.perform(plan, shouldSendAfterInsert: shouldSendAfterInsert)
             self?.sizing.handleCommitOutcome(outcome)
             self?.session.finishCommit(plan, outcome: outcome)
+            if outcome == .inserted, case .insert(_, let target) = plan {
+                self?.toast.show(
+                    InsertionToast.message(appName: target.localizedName, didSend: shouldSendAfterInsert),
+                    around: frameBeforeClosing
+                )
+            }
             if case .insert(let text, _) = plan,
                outcome == .notInserted,
                !model.isPresented,

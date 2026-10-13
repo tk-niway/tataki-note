@@ -31,6 +31,11 @@ struct InsertionTargetView: View {
                 Image(nsImage: appIcon(badge.target))
                     .resizable()
                     .frame(width: Self.iconSize, height: Self.iconSize)
+                    .padding(2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(Color.primary.opacity(0.14))
+                    )
                     .contentShape(Rectangle())
                     .onHover { isHovering = $0 }
             }

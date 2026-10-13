@@ -50,7 +50,7 @@ struct CommitPerformerTests {
         #expect(model.text.isEmpty)
     }
 
-    @Test("AC-6: 文章が空なら、挿入・許可の要求のどちらも起きない")
+    @Test("文章が空なら、閉じず、挿入・許可の要求のどちらも起きない")
     func emptyTextDoesNothing() async {
         let model = PanelModel()
         model.present(target: textEdit)
@@ -60,7 +60,7 @@ struct CommitPerformerTests {
 
         await performer.perform(model.prepareCommit(isAccessibilityTrusted: permission.isTrusted))
 
-        #expect(model.isPresented == false)
+        #expect(model.isPresented)
         #expect(inserter.calls.isEmpty)
         #expect(permission.promptRequestCount == 0)
     }
@@ -205,7 +205,7 @@ struct CommitPerformerTests {
                 target: textEdit,
                 text: "",
                 insertionResult: .inserted,
-                isExpectedPlan: { $0 == .dismissOnly },
+                isExpectedPlan: { $0 == .emptyText },
                 expectedInsertCount: 0,
                 expectedTextAfter: ""
             ),
@@ -290,7 +290,7 @@ struct CommitPerformerTests {
         }
     }
 
-    @Test("AC-12: 文章が空のまま確定+送信しても、挿入も送信も・許可の要求も起きない")
+    @Test("文章が空のまま確定+送信しても、閉じず、挿入も送信も・許可の要求も起きない")
     func emptyTextWithSendDoesNothing() async {
         let model = PanelModel()
         model.present(target: textEdit)
@@ -301,10 +301,10 @@ struct CommitPerformerTests {
         performer.onPermissionDenied = { guideOpenCount += 1 }
 
         let plan = model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
-        #expect(plan == .dismissOnly)
+        #expect(plan == .emptyText)
         await performer.perform(plan, shouldSendAfterInsert: true)
 
-        #expect(model.isPresented == false)
+        #expect(model.isPresented)
         #expect(inserter.calls.isEmpty)
         #expect(permission.promptRequestCount == 0)
         #expect(guideOpenCount == 0)

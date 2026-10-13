@@ -390,6 +390,52 @@ struct SidebarModelTests {
         #expect(text.contains(":") || text.contains("時"))
     }
 
+    // MARK: - 切り替えの件数
+
+    @Test("AC-18: 切り替えの件数は、その側の全件の数。表示中の側に関係なく両方を返す")
+    func countsEachSide() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        try fixture.addDraft("one")
+        try fixture.addDraft("two")
+        fixture.addHistory("old")
+
+        #expect(fixture.model.count(of: .drafts) == 2)
+        #expect(fixture.model.count(of: .history) == 1)
+        fixture.model.tab = .history
+        #expect(fixture.model.count(of: .drafts) == 2)
+        #expect(fixture.model.count(of: .history) == 1)
+    }
+
+    @Test("AC-18: 検索で絞っても件数は変わらない")
+    func countsIgnoreQuery() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        try fixture.addDraft("apple")
+        try fixture.addDraft("banana")
+        fixture.addHistory("apple pie")
+
+        fixture.model.query = "apple"
+
+        #expect(fixture.model.rows.count == 1)
+        #expect(fixture.model.count(of: .drafts) == 2)
+        #expect(fixture.model.count(of: .history) == 1)
+    }
+
+    @Test("AC-18: 何も無ければ件数は 0。増えたり消したりすると追従する")
+    func countsFollowLibrary() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        #expect(fixture.model.count(of: .drafts) == 0)
+        #expect(fixture.model.count(of: .history) == 0)
+
+        let id = try fixture.addDraft("one")
+        #expect(fixture.model.count(of: .drafts) == 1)
+
+        fixture.model.requestDelete(id)
+        #expect(fixture.model.count(of: .drafts) == 0)
+    }
+
     // MARK: - 空の説明
 
     @Test("AC-25: 下書きが 0 件なら「⌘S で今の文章を取っておけます」、履歴が 0 件なら「挿入した文章がここに残ります(最新 50 件)」")

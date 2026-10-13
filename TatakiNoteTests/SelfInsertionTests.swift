@@ -229,7 +229,9 @@ struct SelfInsertionTests {
             controller.targetOverride = { own }
             controller.open()
             controller.commit()
+            #expect(controller.model.isPresented)
 
+            controller.close()
             controller.model.present(target: nil)
             controller.model.text = "text"
             controller.commit()
