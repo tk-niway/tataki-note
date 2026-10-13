@@ -68,7 +68,7 @@ struct PanelView: View {
             if let sidebarModel, isSidebarOpen {
                 SidebarView(
                     model: sidebarModel,
-                    highlightedDraftID: saveAnimation?.highlightedDraftID,
+                    glowingDraftID: saveAnimation?.glowingDraftID,
                     onOpenSettings: onOpenSettings
                 )
                     .frame(

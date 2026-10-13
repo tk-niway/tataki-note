@@ -2,11 +2,61 @@ import Foundation
 import Observation
 import SwiftUI
 
-/// 保存のアニメーションの段。
+/// 保存した本文の写しが飛び込む先。
+enum SaveFlightDestination: Hashable {
+    case sidebarToggle
+    case draftRow(UUID)
+    case draftsTab
+}
+
+extension SaveFlightDestination {
+    /// サイドバーが閉じていれば開閉ボタン、開いて下書きを出していて保存した下書きの行が一覧に出ていればその行、それ以外は「下書き」の切り替え。
+    static func resolve(
+        savedDraftID: UUID,
+        isSidebarOpen: Bool,
+        isShowingDrafts: Bool,
+        visibleDraftIDs: [UUID]
+    ) -> SaveFlightDestination {
+        guard isSidebarOpen else { return .sidebarToggle }
+        if isShowingDrafts, visibleDraftIDs.contains(savedDraftID) {
+            return .draftRow(savedDraftID)
+        }
+        return .draftsTab
+    }
+
+    /// 保存の前にサイドバーを下書きに切り替えるか。⌘S・保存ボタンの保存で、サイドバーが開いて履歴を出しているときだけ。
+    static func shouldSwitchToDrafts(origin: DraftSaveEvent.Origin, isSidebarOpen: Bool, tab: SidebarTab) -> Bool {
+        origin == .saveCommand && isSidebarOpen && tab == .history
+    }
+}
+
+/// 1 回の保存の演出。
+struct SaveFlight: Equatable {
+    let id: Int
+    let text: String
+    let destination: SaveFlightDestination
+}
+
+/// 保存の演出の段。
 enum SaveAnimationPhase: Equatable {
     case idle
-    case flying
-    case absorbing
+    case flying(SaveFlight)
+    case arrived(SaveFlight)
+}
+
+/// 着いた所に散らす粒の置き方。
+enum SaveBurst {
+    static let particleCount = 14
+    static let minimumDistance: CGFloat = 22
+    static let maximumDistance: CGFloat = 52
+
+    /// i 番目の粒の向き(ラジアン)と飛ぶ距離(22〜52pt)。
+    static func particle(at index: Int) -> (angle: Double, distance: CGFloat) {
+        let angle = Double(index) / Double(particleCount) * 2 * .pi
+        let step = (index * 5) % particleCount
+        let fraction = CGFloat(step) / CGFloat(particleCount - 1)
+        return (angle, minimumDistance + (maximumDistance - minimumDistance) * fraction)
+    }
 }
 
 extension Duration {
@@ -17,21 +67,21 @@ extension Duration {
     }
 }
 
-/// 保存のアニメーションの進み方。
+/// 保存の演出の進み方。
 @Observable final class SaveAnimationModel {
-    static let flyingDuration: Duration = .milliseconds(500)
-    static let absorbingDuration: Duration = .milliseconds(250)
-    static let highlightDuration: Duration = .milliseconds(700)
-    static let saveConfirmationDuration: Duration = .milliseconds(700)
-    static let maximumTotal: Duration = .milliseconds(800)
-
-    static let savedAnnouncement = "保存しました"
+    static let flyingDuration: Duration = .milliseconds(680)
+    static let arrivalDuration: Duration = .milliseconds(720)
+    static let toastDuration: Duration = .milliseconds(1900)
+    static let savedMessage = "下書きに保存しました"
 
     private(set) var phase: SaveAnimationPhase = .idle
-    private(set) var highlightedDraftID: UUID?
-    private(set) var isShowingSaveConfirmation = false
+    /// 着いたときに 1 つ進む。着いた所が弾むきっかけ。
+    private(set) var arrivalCount = 0
+    /// 着いて光っている下書きの行。
+    private(set) var glowingDraftID: UUID?
+    /// パネルの中に出しているトーストの文。出していなければ nil。
+    private(set) var toastMessage: String?
     private(set) var playCount = 0
-    private(set) var absorbCount = 0
 
     @ObservationIgnored private let sleep: (Duration) async -> Void
     @ObservationIgnored private let announce: (String) -> Void
@@ -44,40 +94,37 @@ extension Duration {
         self.announce = announce
     }
 
-    /// 保存の知らせに合わせて動きを進める。新しい知らせが来たら前の動きは打ち切る。
-    func play(_ event: DraftSaveEvent, isSidebarOpen: Bool) async {
+    /// 本文の写しを destination へ飛ばし、着いたら弾ませてトーストを出す。新しい保存が来たら前の演出を打ち切る。
+    func play(text: String, destination: SaveFlightDestination) async {
         playCount += 1
         let generation = playCount
-        reset()
-        switch event.kind {
-        case .created(let id):
-            if isSidebarOpen {
-                highlightedDraftID = id
-                await sleep(Self.highlightDuration)
-                guard generation == playCount else { return }
-                highlightedDraftID = nil
-            } else {
-                phase = .flying
-                await sleep(Self.flyingDuration)
-                guard generation == playCount else { return }
-                phase = .absorbing
-                absorbCount += 1
-                await sleep(Self.absorbingDuration)
-                guard generation == playCount else { return }
-                phase = .idle
-            }
-        case .overwritten:
-            isShowingSaveConfirmation = true
-            announce(Self.savedAnnouncement)
-            await sleep(Self.saveConfirmationDuration)
-            guard generation == playCount else { return }
-            isShowingSaveConfirmation = false
+        glowingDraftID = nil
+        toastMessage = nil
+        let flight = SaveFlight(id: generation, text: text, destination: destination)
+        phase = .flying(flight)
+        await sleep(Self.flyingDuration)
+        guard generation == playCount else { return }
+        phase = .arrived(flight)
+        arrivalCount += 1
+        if case .draftRow(let id) = destination {
+            glowingDraftID = id
         }
+        toastMessage = Self.savedMessage
+        announce(Self.savedMessage)
+        await sleep(Self.arrivalDuration)
+        guard generation == playCount else { return }
+        phase = .idle
+        glowingDraftID = nil
+        await sleep(Self.toastDuration - Self.arrivalDuration)
+        guard generation == playCount else { return }
+        toastMessage = nil
     }
 
-    private func reset() {
+    /// 演出とトーストをすぐ止める。
+    func cancel() {
+        playCount += 1
         phase = .idle
-        highlightedDraftID = nil
-        isShowingSaveConfirmation = false
+        glowingDraftID = nil
+        toastMessage = nil
     }
 }

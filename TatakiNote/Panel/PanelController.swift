@@ -189,13 +189,36 @@ final class PanelController: NSObject, NSWindowDelegate {
             onChange: { [weak self] in
                 guard let self else { return false }
                 if let event = self.session.lastSaveEvent {
-                    let animation = self.saveAnimation
-                    let isSidebarOpen = self.sidebarModel.isOpen
-                    Task { await animation.play(event, isSidebarOpen: isSidebarOpen) }
+                    self.playSaveAnimation(for: event)
                 }
                 return true
             }
         )
+    }
+
+    private func playSaveAnimation(for event: DraftSaveEvent) {
+        guard model.isPresented else { return }
+        let id: UUID
+        switch event.kind {
+        case .created(let savedID), .overwritten(let savedID):
+            id = savedID
+        }
+        if SaveFlightDestination.shouldSwitchToDrafts(
+            origin: event.origin,
+            isSidebarOpen: sidebarModel.isOpen,
+            tab: sidebarModel.tab
+        ) {
+            sidebarModel.tab = .drafts
+        }
+        let text = library.draft(id: id)?.text ?? model.text
+        let destination = SaveFlightDestination.resolve(
+            savedDraftID: id,
+            isSidebarOpen: sidebarModel.isOpen,
+            isShowingDrafts: sidebarModel.tab == .drafts,
+            visibleDraftIDs: sidebarModel.rows.map(\.id)
+        )
+        let animation = saveAnimation
+        Task { await animation.play(text: text, destination: destination) }
     }
 
     private func configureSidebarModel() {
@@ -347,6 +370,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private func stopPanelEffects() {
         shaker.stop(panel)
+        saveAnimation.cancel()
     }
 
     private func shakePanel() {

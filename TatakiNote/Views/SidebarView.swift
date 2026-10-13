@@ -4,7 +4,7 @@ import SwiftUI
 /// パネルの左側に出す、下書きと履歴の一覧。
 struct SidebarView: View {
     @Bindable var model: SidebarModel
-    var highlightedDraftID: UUID?
+    var glowingDraftID: UUID?
     var onOpenSettings: () -> Void = {}
 
     @State private var isSearchFocused = false
@@ -200,7 +200,7 @@ struct SidebarView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: Self.rowCornerRadius)
                     .fill(rowBackground(isSelected: isSelected, isEmphasized: isEmphasized))
-                if row.id == highlightedDraftID {
+                if row.id == glowingDraftID {
                     SavedRowHighlight(cornerRadius: Self.rowCornerRadius)
                 }
             }
@@ -329,7 +329,7 @@ private struct SavedRowHighlight: View {
         RoundedRectangle(cornerRadius: cornerRadius)
             .fill(Color.yellow.opacity(isFaded ? 0 : (colorScheme == .dark ? 0.25 : 0.45)))
             .onAppear {
-                withAnimation(.linear(duration: SaveAnimationModel.highlightDuration.seconds)) {
+                withAnimation(.linear(duration: SaveAnimationModel.arrivalDuration.seconds)) {
                     isFaded = true
                 }
             }

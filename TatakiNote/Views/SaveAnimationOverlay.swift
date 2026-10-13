@@ -16,19 +16,33 @@ struct SaveAnimationOverlay: View {
 
     var body: some View {
         GeometryReader { proxy in
-            if model.phase != .idle, let toggleAnchor {
+            if let toggleAnchor, let flight = toggleFlight {
                 let target = proxy[toggleAnchor]
                 FlyingDocumentIcon(
                     start: CGPoint(x: proxy.size.width / 2, y: proxy.size.height / 2),
                     end: CGPoint(x: target.midX, y: target.midY),
-                    isAbsorbing: model.phase == .absorbing
+                    isAbsorbing: isArrived
                 )
-                .id(model.playCount)
+                .id(flight.id)
             }
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+
+    private var toggleFlight: SaveFlight? {
+        switch model.phase {
+        case .idle:
+            nil
+        case .flying(let flight), .arrived(let flight):
+            flight.destination == .sidebarToggle ? flight : nil
+        }
+    }
+
+    private var isArrived: Bool {
+        if case .arrived = model.phase { return true }
+        return false
     }
 }
 
@@ -43,7 +57,7 @@ private struct FlyingDocumentIcon: View {
         FlightPosition(progress: progress, start: start, end: end)
             .scaleEffect(isAbsorbing ? 0.5 : 1)
             .opacity(isAbsorbing ? 0 : 1)
-            .animation(.easeOut(duration: SaveAnimationModel.absorbingDuration.seconds), value: isAbsorbing)
+            .animation(.easeOut(duration: SaveAnimationModel.arrivalDuration.seconds), value: isAbsorbing)
             .onAppear {
                 withAnimation(.easeIn(duration: SaveAnimationModel.flyingDuration.seconds)) {
                     progress = 1
