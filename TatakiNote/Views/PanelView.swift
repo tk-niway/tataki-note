@@ -64,11 +64,13 @@ struct PanelView: View {
     var body: some View {
         let isSidebarOpen = sidebarModel?.isOpen ?? false
         let slidingBodyWidth = sidebarModel?.slidingBodyWidth
+        let arrival = saveArrival
         HStack(spacing: 0) {
             if let sidebarModel, isSidebarOpen {
                 SidebarView(
                     model: sidebarModel,
                     glowingDraftID: saveAnimation?.glowingDraftID,
+                    saveArrival: arrival,
                     onOpenSettings: onOpenSettings
                 )
                     .frame(
@@ -93,6 +95,7 @@ struct PanelView: View {
                 noTargetAlertCount: model.noTargetAlertCount,
                 session: session,
                 isSidebarOpen: isSidebarOpen,
+                saveArrival: arrival,
                 onClose: onClose,
                 onToggleSidebar: onToggleSidebar,
                 onNewDraft: onNewDraft,
@@ -101,11 +104,34 @@ struct PanelView: View {
             )
             .ignoresSafeArea(edges: .top)
         }
-        .overlayPreferenceValue(SidebarToggleAnchorKey.self) { anchor in
+        .overlayPreferenceValue(SaveFlightAnchorKey.self) { anchors in
             if let saveAnimation {
-                SaveAnimationOverlay(model: saveAnimation, toggleAnchor: anchor)
+                SaveAnimationOverlay(
+                    model: saveAnimation,
+                    anchors: anchors,
+                    bodyLeadingInset: bodyLeadingInset(isSidebarOpen: isSidebarOpen, slidingBodyWidth: slidingBodyWidth)
+                )
             }
         }
+    }
+
+    private var saveArrival: SaveArrival {
+        guard let saveAnimation else { return SaveArrival() }
+        var destination: SaveFlightDestination?
+        if case .arrived(let flight) = saveAnimation.phase {
+            destination = flight.destination
+        }
+        return SaveArrival(count: saveAnimation.arrivalCount, destination: destination)
+    }
+
+    private func bodyLeadingInset(isSidebarOpen: Bool, slidingBodyWidth: CGFloat?) -> CGFloat {
+        guard isSidebarOpen, slidingBodyWidth == nil else { return 0 }
+        return SidebarLayout.width + 1
+    }
+
+    private var saveToastBottomInset: CGFloat {
+        let bandHeight = statusBarContent.isEmpty ? 0 : PanelMetrics.statusBarHeight + 1
+        return bandHeight + 12
     }
 
     private var bodyColumn: some View {
@@ -141,6 +167,16 @@ struct PanelView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor))
         .accessibilityHidden(isConfirming)
+        .overlay(alignment: .bottomTrailing) {
+            if let saveAnimation, let message = saveAnimation.toastMessage {
+                PanelToastView(message: message)
+                    .id(saveAnimation.arrivalCount)
+                    .padding(.trailing, 16)
+                    .padding(.bottom, saveToastBottomInset)
+                    .allowsHitTesting(false)
+                    .accessibilityIdentifier("promptPanel.saveToast")
+            }
+        }
         .overlay {
             if let session, session.pendingSwitch != nil {
                 PanelConfirmationOverlay(focusedChoice: session.confirmationFocus) { choice in

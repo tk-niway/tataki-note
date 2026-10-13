@@ -7,6 +7,7 @@ struct PanelTitleBar: View {
     let noTargetAlertCount: Int
     let session: DraftSession?
     let isSidebarOpen: Bool
+    let saveArrival: SaveArrival
     let onClose: () -> Void
     let onToggleSidebar: () -> Void
     let onNewDraft: () -> Void
@@ -20,6 +21,7 @@ struct PanelTitleBar: View {
         noTargetAlertCount: Int = 0,
         session: DraftSession? = nil,
         isSidebarOpen: Bool = false,
+        saveArrival: SaveArrival = SaveArrival(),
         onClose: @escaping () -> Void,
         onToggleSidebar: @escaping () -> Void = {},
         onNewDraft: @escaping () -> Void = {},
@@ -31,6 +33,7 @@ struct PanelTitleBar: View {
         self.noTargetAlertCount = noTargetAlertCount
         self.session = session
         self.isSidebarOpen = isSidebarOpen
+        self.saveArrival = saveArrival
         self.onClose = onClose
         self.onToggleSidebar = onToggleSidebar
         self.onNewDraft = onNewDraft
@@ -83,7 +86,8 @@ struct PanelTitleBar: View {
     private var sidebarToggleButton: some View {
         Button(action: onToggleSidebar) {
             iconLabel("sidebar.left")
-                .anchorPreference(key: SidebarToggleAnchorKey.self, value: .bounds) { $0 }
+                .saveFlightAnchor(.sidebarToggle)
+                .saveArrivalBounce(for: .sidebarToggle, arrival: saveArrival)
         }
         .buttonStyle(PanelIconButtonStyle())
         .focusable(false)
