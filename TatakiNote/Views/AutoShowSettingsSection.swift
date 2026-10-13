@@ -28,7 +28,7 @@ struct AutoShowSettingsSection: View {
     private var modeRow: some View {
         SettingsRow(
             title: "自動表示",
-            description: "入力欄を選んだだけでパネルを開きます。ホットキーは今までどおり使えます。"
+            description: SettingsHelpText.autoShowMode
         ) {
             Picker("自動表示", selection: $settings.autoShowMode) {
                 ForEach(AutoShowMode.allCases, id: \.self) { mode in
@@ -48,7 +48,7 @@ struct AutoShowSettingsSection: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("対象のアプリ")
                         .font(.system(size: 13, weight: .medium))
-                    SettingDescription(text: "「＋ 追加」で起動中のアプリから追加します。起動していないアプリは「その他…」から選べます。")
+                    SettingDescription(SettingsHelpText.autoShowApps)
                 }
                 FlowLayout(spacing: 6) {
                     ForEach(editor.rows()) { row in

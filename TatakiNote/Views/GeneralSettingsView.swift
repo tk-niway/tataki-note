@@ -29,10 +29,7 @@ struct GeneralSettingsView: View {
     }
 
     private var themeRow: some View {
-        SettingsRow(
-            title: "テーマ",
-            description: "「システム」は、Mac の外観モード(ライト・ダーク)に合わせます。メニューバーのメニューは、どれを選んでも Mac の外観モードのままです。"
-        ) {
+        SettingsRow(title: "テーマ") {
             Picker("テーマ", selection: $settings.theme) {
                 ForEach(AppTheme.allCases, id: \.self) { theme in
                     Text(theme.displayName).tag(theme)
@@ -47,10 +44,7 @@ struct GeneralSettingsView: View {
 
     private var launchAtLoginRow: some View {
         VStack(spacing: 0) {
-            SettingsRow(
-                title: "ログイン時に起動",
-                description: "オンにすると、Mac にログインしたときに TatakiNote が起動します。システム設定の「ログイン項目」で外したときは、ここもオフになります。"
-            ) {
+            SettingsRow(title: "ログイン時に起動") {
                 Toggle("ログイン時に起動", isOn: launchAtLoginBinding)
                     .toggleStyle(.switch)
                     .labelsHidden()
@@ -76,7 +70,7 @@ struct GeneralSettingsView: View {
     private var hideMenuBarIconRow: some View {
         SettingsRow(
             title: "メニューバーのアイコンを隠す",
-            description: "隠している間は、TatakiNote をもう一度開く(Finder・Spotlight など)と、この設定画面が開きます。ホットキーと自動表示は今までどおり使えます。終了するときは、左下の「TatakiNote を終了」を押します。"
+            description: SettingsHelpText.hideMenuBarIcon
         ) {
             Toggle("メニューバーのアイコンを隠す", isOn: $settings.hidesMenuBarIcon)
                 .toggleStyle(.switch)
@@ -146,7 +140,7 @@ private struct HistoryRow: View {
                 .accessibilityLabel(Self.warningText)
                 .accessibilityIdentifier("settings.clearHistoryWarning")
         } else {
-            SettingDescription("挿入した文章は、最新 \(DraftLibrary.historyLimit) 件までこの Mac に残ります。")
+            SettingDescription(SettingsHelpText.historyKept(limit: DraftLibrary.historyLimit))
         }
     }
 

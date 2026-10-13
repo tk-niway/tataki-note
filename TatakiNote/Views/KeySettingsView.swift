@@ -31,7 +31,7 @@ struct KeySettingsView: View {
             SettingsCard {
                 RecorderRow(
                     title: "パネルを開く・閉じる",
-                    description: "どのアプリを使っているときでも、このキーでパネルを開く・閉じるを切り替えます。",
+                    description: SettingsHelpText.hotkey,
                     rejectionMessage: keySettings.hotkeyRejectionMessage,
                     rejectionIdentifier: "settings.hotkeyRejection"
                 ) {
@@ -50,7 +50,7 @@ struct KeySettingsView: View {
         SettingsGroup(
             title: "挿入と送信",
             badge: "インサートのみ",
-            footer: "記録ボックスをクリックして、新しい組み合わせを押します。esc で取り消します。",
+            footer: SettingsHelpText.insertAndSendFooter,
             identifier: "settings.group.insertAndSend"
         ) {
             InsertOnlyGate(group: .insertAndSend, isNoteMode: isNoteMode, onSwitchToInsert: onSwitchToInsert) {

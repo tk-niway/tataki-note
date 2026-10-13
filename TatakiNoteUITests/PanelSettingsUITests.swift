@@ -17,8 +17,9 @@ final class PanelSettingsUITests: XCTestCase {
     }
 
     // AC-36
+    // AC-15
     @MainActor
-    func testAC36_panelScreenTilesSelectAndDescribe() throws {
+    func testAC36_AC15_panelScreenTilesSelectWithoutDescription() throws {
         let app = launchApp()
         openPanelSettings(in: app)
 
@@ -33,15 +34,15 @@ final class PanelSettingsUITests: XCTestCase {
         XCTAssertEqual(tiles.map(\.label), ["入力欄の近く", "挿入先のウィンドウがある画面", "マウスの近く", "メインの画面"])
 
         let description = element(in: app, identifier: "settings.panelScreenDescription")
+        // AC-15
+        XCTAssertFalse(description.exists)
         XCTAssertTrue(tiles[0].isSelected)
         XCTAssertEqual(tiles.filter(\.isSelected).count, 1)
-        XCTAssertTrue(text(of: description).contains("入力欄の位置が分からないとき"), text(of: description))
 
         tiles[2].click()
         XCTAssertTrue(waitUntil { tiles[2].isSelected })
         XCTAssertEqual(tiles.filter(\.isSelected).count, 1)
-        XCTAssertTrue(waitUntil { self.text(of: description).contains("マウスポインタ") }, text(of: description))
-        XCTAssertFalse(text(of: description).contains("入力欄の位置が分からないとき"))
+        XCTAssertFalse(description.exists)
 
         closeSettings(in: app)
     }

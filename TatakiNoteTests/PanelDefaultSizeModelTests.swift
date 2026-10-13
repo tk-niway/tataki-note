@@ -98,7 +98,7 @@ struct PanelDefaultSizeModelTests {
         #expect(!PanelDefaultSizeModel.heldSizeDescription.contains("文章で伸びた高さ"))
     }
 
-    // MARK: - 今のパネルの大きさを既定にする
+    // MARK: - 今のパネルサイズを既定にする
 
     @Test("AC-14: パネルが大きさを保っていなければ押せず、呼んでも既定の大きさは変わらない")
     func cannotUseWhenPanelHoldsNoSize() throws {

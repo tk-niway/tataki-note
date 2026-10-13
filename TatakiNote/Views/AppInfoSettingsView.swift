@@ -42,7 +42,7 @@ struct AppInfoSettingsView: View {
         VStack(spacing: 0) {
             SettingsRow(
                 title: "アクセシビリティの許可",
-                description: "TatakiNote が文章を入力欄に挿入するには許可が必要です。"
+                description: SettingsHelpText.accessibilityPermission
             ) {
                 PermissionBadge(isGranted: model.permissionStatus.isTrusted, text: model.permissionBadgeText)
             }

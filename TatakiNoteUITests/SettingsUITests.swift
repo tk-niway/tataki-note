@@ -153,8 +153,9 @@ final class SettingsUITests: XCTestCase {
     }
 
     // AC-36
+    // AC-15
     @MainActor
-    func testAC36_panelScreenTilesOrderAndChangeScenario() throws {
+    func testAC36_AC15_panelScreenTilesOrderAndChangeScenario() throws {
         let app = XCUIApplication()
         launch(app)
 
@@ -177,8 +178,8 @@ final class SettingsUITests: XCTestCase {
         }
 
         let description = element(in: app, identifier: panelScreenDescriptionID)
-        XCTAssertTrue(description.exists)
-        XCTAssertTrue(text(of: description).contains("入力欄の位置が分からないとき"), text(of: description))
+        // AC-15
+        XCTAssertFalse(description.exists)
         XCTAssertTrue(tiles[0].isSelected)
         XCTAssertFalse(tiles[2].isSelected)
 
@@ -187,7 +188,7 @@ final class SettingsUITests: XCTestCase {
         XCTAssertFalse(tiles[0].isSelected)
         XCTAssertFalse(tiles[1].isSelected)
         XCTAssertFalse(tiles[3].isSelected)
-        XCTAssertTrue(waitUntil { self.text(of: description).contains("マウスポインタ") }, text(of: description))
+        XCTAssertFalse(description.exists)
 
         closeSettings(in: app)
     }

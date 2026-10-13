@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 import Observation
 
-/// 設定画面の「パネルの既定の大きさ」の状態(幅と高さの値と、2つのボタン)。
+/// 設定画面の「パネルのサイズ」の状態(幅と高さの値と、2つのボタン)。
 @Observable final class PanelDefaultSizeModel {
     static let initialSize: CGSize = PanelMetrics.defaultSize
     static let widthRange: ClosedRange<Int> = integerRange(PanelMetrics.defaultWidthRange)
