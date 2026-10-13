@@ -196,17 +196,18 @@ struct PanelShortcutRulesTests {
         #expect(rejection == .usedByHotkey)
     }
 
-    @Test("AC-3, AC-5: 確定+挿入キーの説明文は、初期値が ⇧⌘↩ と伝える全文になる")
+    @Test("AC-4: 確定+挿入キーの説明文は、初期値が ⇧⌘↩ と伝える全文になる")
     func commitDescriptionStatesNewDefault() {
-        #expect(PanelShortcutRole.commit.settingDescription == "パネルでこのキーを押すと、書いた文章を元のアプリに挿入します(送信はしません)。修飾キー(⌘・⌥・⌃・⇧)と組み合わせたキーを登録できます。登録していない Enter は改行になります。初期値は ⇧⌘↩ です。登録していないときは、確定+送信キーでだけ挿入します。")
+        #expect(PanelShortcutRole.commit.settingDescription == "書いた文章を元のアプリに挿入します(送信はしません)。初期値は ⇧⌘↩ です。")
     }
 
-    @Test("AC-3, AC-5: 確定+送信キーの説明文は、初期値が ⌘↩ と伝え、確定+挿入キーを使うよう勧める全文になる")
-    func commitAndSendDescriptionDoesNotAskToRegisterCommitKey() {
-        #expect(PanelShortcutRole.commitAndSend.settingDescription == "パネルでこのキーを押すと、書いた文章を挿入したあと、挿入先で Enter を送って送信します。初期値は ⌘↩ です。送信は取り消せないので、送信せずに挿入したいときは確定+挿入キーを使ってください。")
+    @Test("AC-4, AC-5: 確定+送信キーの説明文は、初期値が ⌘↩ と伝え、送信は取り消せないことを残す全文になる")
+    func commitAndSendDescriptionKeepsIrreversibleNote() {
+        #expect(PanelShortcutRole.commitAndSend.settingDescription == "挿入したあと Enter を送って送信します。送信は取り消せません。初期値は ⌘↩ です。")
+        #expect(PanelShortcutRole.commitAndSend.settingDescription.contains("送信は取り消せません"))
     }
 
-    @Test("AC-3: 説明文の初期値は役割の初期値の定数から出し、渡したキーに従って変わる(登録なしは「登録なし」)")
+    @Test("AC-4: 説明文の初期値は役割の初期値の定数から出し、渡したキーに従って変わる(登録なしは「登録なし」)")
     func descriptionFollowsInitialKey() {
         #expect(PanelShortcutRole.commit.initialKey == PanelShortcut.defaultCommitKey)
         #expect(PanelShortcutRole.commitAndSend.initialKey == PanelShortcut.defaultCommitAndSendKey)

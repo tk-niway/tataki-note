@@ -26,7 +26,7 @@ import Observation
 
     /// 「チュートリアル」の行に出す説明文。
     static var tutorialDescription: String {
-        String(localized: "練習用のチャットで、パネルで書いて送るまでを試します。")
+        String(localized: "練習用のチャットで、書いて送るまでを試します。")
     }
 
     var versionText: String {

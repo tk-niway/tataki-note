@@ -15,28 +15,6 @@ extension PanelScreen {
         }
     }
 
-    /// 選択肢ごとの説明。
-    var optionDescription: String {
-        switch self {
-        case .nearFocusedField:
-            String(localized: "挿入先のアプリで選ばれている入力欄の近くに出します。入力欄の位置が分からないときは、挿入先のウィンドウがある画面の中央に出します。")
-        case .targetWindow:
-            String(localized: "挿入先のウィンドウがある画面の中央に出します。挿入先のウィンドウが分からないときは、マウスのある画面に出します。")
-        case .mouse:
-            String(localized: "マウスポインタのすぐ下に出します。")
-        case .main:
-            String(localized: "システム設定の「ディスプレイ」でメインディスプレイにしている画面の中央に出します。")
-        }
-    }
-
-    /// 選択肢の説明の前に付ける、共通の一文。
-    static let settingLead = String(localized: "パネルを新しく開くときに出す位置です。")
-
-    /// 選んでいる選択肢について出す説明文。
-    static func settingDescription(selected: PanelScreen) -> String {
-        settingLead + selected.optionDescription
-    }
-
     /// 選べるか(ノートモードの「入力欄の近く」だけ選べない)。
     func isSelectable(isNoteMode: Bool) -> Bool {
         !(isNoteMode && self == .nearFocusedField)
