@@ -37,6 +37,21 @@ import Observation
         return String(localized: "\(versionPart) (\(buildPart))")
     }
 
+    /// アイコンを叩いたときに飛ばす言葉を、叩く順に並べたもの。
+    static let tapWords = ["トン", "タン", "カタッ", "ターン!"]
+
+    /// 叩いた回数(0 始まり)に対する言葉。4 つを順に繰り返し、負の数は 0 として扱う。
+    static func tapWord(at index: Int) -> String {
+        tapWords[max(index, 0) % tapWords.count]
+    }
+
+    /// アクセシビリティの許可の状態を示すバッジの文言。
+    var permissionBadgeText: String {
+        permissionStatus.isTrusted
+            ? String(localized: "許可されています")
+            : String(localized: "許可されていません")
+    }
+
     func watchPermission(interval: Duration = .seconds(1)) async {
         await permissionStatus.watch(interval: interval)
     }

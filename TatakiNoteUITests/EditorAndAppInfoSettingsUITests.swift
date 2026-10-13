@@ -201,37 +201,77 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-8
-    // AC-9
+    // AC-43
+    // AC-45
     @MainActor
-    func testAC8_AC9_appInfoUntrusted() throws {
+    func testAC43_AC45_appInfoUntrusted() throws {
         let app = XCUIApplication()
         launch(app, permission: AccessibilityOverride.untrusted)
         openAppInfoSettings(in: app)
 
-        // AC-8
+        // AC-43
+        let icon = element(in: app, identifier: appInfoIconID)
+        XCTAssertTrue(icon.exists)
+        XCTAssertTrue(icon.isHittable)
+        XCTAssertEqual(icon.label, "TatakiNote")
         let version = text(of: element(in: app, identifier: appInfoVersionID))
         XCTAssertTrue(version.contains { $0.isNumber }, version)
         XCTAssertFalse(version.contains("不明"), version)
 
-        // AC-9
-        XCTAssertTrue(element(in: app, identifier: appInfoPermissionStatusID).exists)
+        // AC-45
+        let badge = element(in: app, identifier: appInfoPermissionStatusID)
+        XCTAssertTrue(badge.exists)
+        XCTAssertEqual(badge.label, "許可されていません")
         XCTAssertTrue(element(in: app, identifier: appInfoPermissionStepsID).exists)
         XCTAssertTrue(element(in: app, identifier: appInfoOpenSystemSettingsID).exists)
         closeSettings(in: app)
     }
 
-    // AC-9
+    // AC-45
     @MainActor
-    func testAC9_appInfoTrusted() throws {
+    func testAC45_appInfoTrusted() throws {
         let app = XCUIApplication()
         launch(app)
         openAppInfoSettings(in: app)
 
-        XCTAssertTrue(element(in: app, identifier: appInfoPermissionStatusID).exists)
+        let badge = element(in: app, identifier: appInfoPermissionStatusID)
+        XCTAssertTrue(badge.exists)
+        XCTAssertEqual(badge.label, "許可されています")
         XCTAssertFalse(element(in: app, identifier: appInfoPermissionStepsID).exists)
         XCTAssertFalse(element(in: app, identifier: appInfoOpenSystemSettingsID).exists)
         closeSettings(in: app)
+    }
+
+    // AC-43
+    @MainActor
+    func testAC43_tappingIconKeepsAppInfoShown() throws {
+        let app = XCUIApplication()
+        launch(app)
+        openAppInfoSettings(in: app)
+
+        let icon = element(in: app, identifier: appInfoIconID)
+        XCTAssertTrue(icon.waitForExistence(timeout: timeout))
+        for _ in 0..<5 {
+            icon.click()
+        }
+        XCTAssertTrue(icon.exists)
+        XCTAssertTrue(element(in: app, identifier: appInfoVersionID).exists)
+        closeSettings(in: app)
+    }
+
+    // AC-46
+    @MainActor
+    func testAC46_openTutorialFromAppInfo() throws {
+        let app = XCUIApplication()
+        launch(app)
+        openAppInfoSettings(in: app)
+
+        let tutorialWindow = app.windows["tutorial"]
+        XCTAssertFalse(tutorialWindow.exists)
+        let openTutorial = element(in: app, identifier: appInfoOpenTutorialID)
+        app.revealInSettings(openTutorial)
+        openTutorial.click()
+        XCTAssertTrue(tutorialWindow.waitForExistence(timeout: timeout), "チュートリアルの窓が開かない")
     }
 
     // AC-12
@@ -359,6 +399,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     private let useCurrentPanelSizeID = "settings.useCurrentPanelSize"
     private let resetPanelDefaultSizeID = "settings.resetPanelDefaultSize"
     private let shortcutListID = "settings.shortcutList"
+    private let appInfoIconID = "settings.appInfo.icon"
     private let appInfoVersionID = "settings.appInfo.version"
     private let appInfoPermissionStatusID = "settings.appInfo.permissionStatus"
     private let appInfoPermissionStepsID = "settings.appInfo.permissionSteps"
