@@ -13,7 +13,7 @@ struct AppInfoModelTests {
 
     // MARK: - バージョン
 
-    @Test("AC-8: バージョン番号とビルド番号を Info.plist の値から読み、無い・空・文字列でないなら読めない(nil)")
+    @Test("AC-43: バージョン番号とビルド番号を Info.plist の値から読み、無い・空・文字列でないなら読めない(nil)")
     func readsVersionAndBuild() {
         let model = makeModel(["CFBundleShortVersionString": "1.2", "CFBundleVersion": "34"])
         #expect(model.version == "1.2")
@@ -32,7 +32,7 @@ struct AppInfoModelTests {
         #expect(numbers.build == nil)
     }
 
-    @Test("AC-8: 表示は「版 (ビルド)」で、読めない側は「不明」、両方読めなければ「不明」だけ")
+    @Test("AC-43: 表示は「版 (ビルド)」で、読めない側は「不明」、両方読めなければ「不明」だけ")
     func versionText() {
         let unknown = String(localized: "不明")
 
@@ -40,6 +40,52 @@ struct AppInfoModelTests {
         #expect(makeModel(["CFBundleVersion": "34"]).versionText == "\(unknown) (34)")
         #expect(makeModel(["CFBundleShortVersionString": "1.2"]).versionText == "1.2 (\(unknown))")
         #expect(makeModel([:]).versionText == unknown)
+    }
+
+    // MARK: - 叩いたときの言葉
+
+    @Test("AC-44: 叩くたびに「トン」「タン」「カタッ」「ターン!」の順で選ばれ、5回目から「トン」に戻る")
+    func tapWordsCycleInOrder() {
+        #expect(AppInfoModel.tapWords == ["トン", "タン", "カタッ", "ターン!"])
+        let words = (0..<9).map { AppInfoModel.tapWord(at: $0) }
+        #expect(words == ["トン", "タン", "カタッ", "ターン!", "トン", "タン", "カタッ", "ターン!", "トン"])
+    }
+
+    @Test("AC-44: 叩いた回数が負なら先頭の「トン」として扱う")
+    func negativeTapIndexIsTreatedAsZero() {
+        #expect(AppInfoModel.tapWord(at: -1) == "トン")
+        #expect(AppInfoModel.tapWord(at: -100) == "トン")
+    }
+
+    // MARK: - 許可のバッジ
+
+    @Test("AC-45: 許可があれば「許可されています」、無ければ「許可されていません」のバッジの文言")
+    func permissionBadgeText() {
+        let trusted = AppInfoModel(
+            infoDictionary: [:],
+            permissionStatus: PermissionGuideModel(permission: PermissionStub(isTrusted: true))
+        )
+        let untrusted = AppInfoModel(
+            infoDictionary: [:],
+            permissionStatus: PermissionGuideModel(permission: PermissionStub(isTrusted: false))
+        )
+        #expect(trusted.permissionBadgeText == "許可されています")
+        #expect(untrusted.permissionBadgeText == "許可されていません")
+    }
+
+    @Test("AC-45: 表示している間に許可が変わると、バッジの文言も変わる")
+    func permissionBadgeTextFollowsPermission() {
+        let permission = PermissionStub(isTrusted: false)
+        let model = AppInfoModel(
+            infoDictionary: [:],
+            permissionStatus: PermissionGuideModel(permission: permission)
+        )
+        #expect(model.permissionBadgeText == "許可されていません")
+
+        permission.isTrusted = true
+        model.permissionStatus.refresh()
+
+        #expect(model.permissionBadgeText == "許可されています")
     }
 
     // MARK: - 許可の状態

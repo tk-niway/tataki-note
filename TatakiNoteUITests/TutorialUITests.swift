@@ -72,7 +72,7 @@ final class TutorialUITests: XCTestCase {
         XCTAssertTrue(notice.waitForExistence(timeout: timeout))
         let noticeText = [notice.label, notice.value as? String ?? ""].joined(separator: " ")
         XCTAssertTrue(noticeText.contains("「設定」"), "スキップの案内に「設定」が出ない: \(noticeText)")
-        XCTAssertTrue(noticeText.contains("「アプリ情報」"), "スキップの案内に「アプリ情報」が出ない: \(noticeText)")
+        XCTAssertTrue(noticeText.contains("「情報」"), "スキップの案内に「情報」が出ない: \(noticeText)")
 
         let close = app.buttons["tutorial.skipNotice.close"]
         XCTAssertTrue(close.exists)

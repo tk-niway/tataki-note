@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// 設定画面の「アプリ情報」の状態(バージョン・アクセシビリティの許可の状態)。
+/// 設定画面の「情報」の状態(バージョン・アクセシビリティの許可の状態)。
 @Observable final class AppInfoModel {
     let version: String?
     let build: String?
@@ -35,6 +35,21 @@ import Observation
         let versionPart = version ?? unknown
         let buildPart = build ?? unknown
         return String(localized: "\(versionPart) (\(buildPart))")
+    }
+
+    /// アイコンを叩いたときに飛ばす言葉を、叩く順に並べたもの。
+    static let tapWords = ["トン", "タン", "カタッ", "ターン!"]
+
+    /// 叩いた回数(0 始まり)に対する言葉。4 つを順に繰り返し、負の数は 0 として扱う。
+    static func tapWord(at index: Int) -> String {
+        tapWords[max(index, 0) % tapWords.count]
+    }
+
+    /// アクセシビリティの許可の状態を示すバッジの文言。
+    var permissionBadgeText: String {
+        permissionStatus.isTrusted
+            ? String(localized: "許可されています")
+            : String(localized: "許可されていません")
     }
 
     func watchPermission(interval: Duration = .seconds(1)) async {

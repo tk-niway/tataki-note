@@ -81,6 +81,14 @@ struct PermissionGuideFirstLaunchTests {
         #expect(controller.windowShouldClose(window) == false)
     }
 
+    @Test("AC-2: チュートリアルの案内文は、設定の「情報」を指し、「アプリ情報」とは書かない")
+    func tutorialNoteNamesInfoSection() {
+        let text = PermissionGuideModel.tutorialNoteText
+
+        #expect(text.contains("設定の「情報」"))
+        #expect(!text.contains("アプリ情報"))
+    }
+
     @Test("AC-6: 窓の styleMask は、閉じてよいときだけ .closable を含む")
     func styleMaskFollowsClosability() {
         #expect(PermissionGuideWindowController.styleMask(allowsClosing: true) == [.titled, .closable])

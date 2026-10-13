@@ -88,7 +88,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         let adjustedOpacity = text(of: opacityValue)
         XCTAssertTrue(adjustedOpacity.hasSuffix("%"), adjustedOpacity)
 
-        // AC-6
+        // AC-41
         let characterCount = element(in: app, identifier: statusItemID("characterCount"))
         app.revealInSettings(characterCount)
         XCTAssertTrue(isChecked(characterCount))
@@ -120,9 +120,9 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-1
+    // AC-40
     @MainActor
-    func testAC1_fontControls() throws {
+    func testAC40_fontControls() throws {
         let app = XCUIApplication()
         launch(app)
         openPanelSettings(in: app)
@@ -142,9 +142,9 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-6
+    // AC-40
     @MainActor
-    func testAC6_resetFontToSystem() throws {
+    func testAC40_resetFontToSystem() throws {
         let app = XCUIApplication()
         launch(app, seed: ["panelFontName": "Menlo-Regular"])
         openPanelSettings(in: app)
@@ -179,9 +179,9 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertTrue(fontPanel.waitForNonExistence(timeout: timeout), "設定ウィンドウを閉じてもフォントパネルが残る")
     }
 
-    // AC-7
+    // AC-30
     @MainActor
-    func testAC7_shortcutList() throws {
+    func testAC30_shortcutList() throws {
         let app = XCUIApplication()
         launch(app)
         openKeySettings(in: app)
@@ -201,37 +201,77 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-8
-    // AC-9
+    // AC-43
+    // AC-45
     @MainActor
-    func testAC8_AC9_appInfoUntrusted() throws {
+    func testAC43_AC45_appInfoUntrusted() throws {
         let app = XCUIApplication()
         launch(app, permission: AccessibilityOverride.untrusted)
         openAppInfoSettings(in: app)
 
-        // AC-8
+        // AC-43
+        let icon = element(in: app, identifier: appInfoIconID)
+        XCTAssertTrue(icon.exists)
+        XCTAssertTrue(icon.isHittable)
+        XCTAssertEqual(icon.label, "TatakiNote")
         let version = text(of: element(in: app, identifier: appInfoVersionID))
         XCTAssertTrue(version.contains { $0.isNumber }, version)
         XCTAssertFalse(version.contains("不明"), version)
 
-        // AC-9
-        XCTAssertTrue(element(in: app, identifier: appInfoPermissionStatusID).exists)
+        // AC-45
+        let badge = element(in: app, identifier: appInfoPermissionStatusID)
+        XCTAssertTrue(badge.exists)
+        XCTAssertEqual(badge.label, "許可されていません")
         XCTAssertTrue(element(in: app, identifier: appInfoPermissionStepsID).exists)
         XCTAssertTrue(element(in: app, identifier: appInfoOpenSystemSettingsID).exists)
         closeSettings(in: app)
     }
 
-    // AC-9
+    // AC-45
     @MainActor
-    func testAC9_appInfoTrusted() throws {
+    func testAC45_appInfoTrusted() throws {
         let app = XCUIApplication()
         launch(app)
         openAppInfoSettings(in: app)
 
-        XCTAssertTrue(element(in: app, identifier: appInfoPermissionStatusID).exists)
+        let badge = element(in: app, identifier: appInfoPermissionStatusID)
+        XCTAssertTrue(badge.exists)
+        XCTAssertEqual(badge.label, "許可されています")
         XCTAssertFalse(element(in: app, identifier: appInfoPermissionStepsID).exists)
         XCTAssertFalse(element(in: app, identifier: appInfoOpenSystemSettingsID).exists)
         closeSettings(in: app)
+    }
+
+    // AC-43
+    @MainActor
+    func testAC43_tappingIconKeepsAppInfoShown() throws {
+        let app = XCUIApplication()
+        launch(app)
+        openAppInfoSettings(in: app)
+
+        let icon = element(in: app, identifier: appInfoIconID)
+        XCTAssertTrue(icon.waitForExistence(timeout: timeout))
+        for _ in 0..<5 {
+            icon.click()
+        }
+        XCTAssertTrue(icon.exists)
+        XCTAssertTrue(element(in: app, identifier: appInfoVersionID).exists)
+        closeSettings(in: app)
+    }
+
+    // AC-46
+    @MainActor
+    func testAC46_openTutorialFromAppInfo() throws {
+        let app = XCUIApplication()
+        launch(app)
+        openAppInfoSettings(in: app)
+
+        let tutorialWindow = app.windows["tutorial"]
+        XCTAssertFalse(tutorialWindow.exists)
+        let openTutorial = element(in: app, identifier: appInfoOpenTutorialID)
+        app.revealInSettings(openTutorial)
+        openTutorial.click()
+        XCTAssertTrue(tutorialWindow.waitForExistence(timeout: timeout), "チュートリアルの窓が開かない")
     }
 
     // AC-12
@@ -262,20 +302,31 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-14
-    // AC-15
+    // AC-42
     @MainActor
-    func testAC14_AC15_useCurrentPanelSizeAndReset() throws {
+    func testAC42_useCurrentPanelSizeAndReset() throws {
         let app = XCUIApplication()
         launch(app)
         openPanelSettings(in: app)
 
-        // AC-14
+        // AC-42
+        let widthField = element(in: app, identifier: widthFieldID)
+        let heightField = element(in: app, identifier: heightFieldID)
+        let widthUp = incrementArrow(ofStepper: widthStepperID, in: app)
+        app.revealInSettings(widthUp)
+        XCTAssertTrue(waitUntil { widthField.value as? String == "520" })
+        widthUp.click()
+        XCTAssertTrue(waitUntil { widthField.value as? String == "530" }, "幅が 10 増えない(\(String(describing: widthField.value)))")
+        let heightUp = incrementArrow(ofStepper: heightStepperID, in: app)
+        app.revealInSettings(heightUp)
+        XCTAssertTrue(waitUntil { heightField.value as? String == "340" })
+        heightUp.click()
+        XCTAssertTrue(waitUntil { heightField.value as? String == "350" }, "高さが 10 増えない(\(String(describing: heightField.value)))")
+
         let useCurrent = element(in: app, identifier: useCurrentPanelSizeID)
         app.revealInSettings(useCurrent)
         XCTAssertFalse(useCurrent.isEnabled)
 
-        // AC-14
         let panel = openPanel(in: app)
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         XCTAssertFalse(useCurrent.isEnabled, "パネルを開いただけで押せる")
@@ -287,18 +338,14 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertNotEqual(dragged.height, sizeBeforeDrag.height, accuracy: 1, "ドラッグで高さが変わらない")
         closePanel(in: app)
 
-        // AC-14
         XCTAssertTrue(waitUntil { useCurrent.isEnabled }, "ドラッグした後も押せない")
         app.revealInSettings(useCurrent)
         useCurrent.click()
-        let widthField = element(in: app, identifier: widthFieldID)
-        let heightField = element(in: app, identifier: heightFieldID)
         XCTAssertTrue(waitUntil { self.number(in: widthField).map { abs($0 - dragged.width) <= 1 } ?? false },
                       "幅がドラッグした大きさにならない(\(String(describing: widthField.value)) / \(dragged.width))")
         XCTAssertTrue(waitUntil { self.number(in: heightField).map { abs($0 - dragged.height) <= 1 } ?? false },
                       "高さがドラッグした大きさにならない(\(String(describing: heightField.value)) / \(dragged.height))")
 
-        // AC-15
         let reset = element(in: app, identifier: resetPanelDefaultSizeID)
         app.revealInSettings(reset)
         reset.click()
@@ -348,9 +395,11 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     private let widthFieldID = "settings.panelDefaultWidthField"
     private let heightFieldID = "settings.panelDefaultHeightField"
     private let widthStepperID = "settings.panelDefaultWidthStepper"
+    private let heightStepperID = "settings.panelDefaultHeightStepper"
     private let useCurrentPanelSizeID = "settings.useCurrentPanelSize"
     private let resetPanelDefaultSizeID = "settings.resetPanelDefaultSize"
     private let shortcutListID = "settings.shortcutList"
+    private let appInfoIconID = "settings.appInfo.icon"
     private let appInfoVersionID = "settings.appInfo.version"
     private let appInfoPermissionStatusID = "settings.appInfo.permissionStatus"
     private let appInfoPermissionStepsID = "settings.appInfo.permissionSteps"

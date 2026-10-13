@@ -21,9 +21,9 @@ final class NoteModeSettingsUITests: XCTestCase {
         UserDefaults(suiteName: settingsSuiteName)?.removePersistentDomain(forName: settingsSuiteName)
     }
 
-    // AC-19
+    // AC-7
     @MainActor
-    func testAC19_appModeToggleIsInEverySectionAndSwitchesImmediately() throws {
+    func testAC7_appModeToggleIsInEverySectionAndSwitchesImmediately() throws {
         let app = try launchApp(seed: nil)
         openSettingsFromMenu(in: app)
 
@@ -33,105 +33,142 @@ final class NoteModeSettingsUITests: XCTestCase {
         }
 
         element(in: app, identifier: "settings.sidebar.keys").click()
-        XCTAssertTrue(element(in: app, identifier: "settings.commitKeyRecorder").waitForExistence(timeout: timeout))
+        let commitRecorder = element(in: app, identifier: "settings.commitKeyRecorder")
+        let banner = element(in: app, identifier: "settings.noteModeBanner.insertAndSend")
+        XCTAssertTrue(commitRecorder.waitForExistence(timeout: timeout))
+        XCTAssertFalse(banner.exists)
         selectMode(.note, in: app)
-        XCTAssertTrue(element(in: app, identifier: "settings.commitKeyRecorder").waitForNonExistence(timeout: timeout))
+        XCTAssertTrue(banner.waitForExistence(timeout: timeout))
+        XCTAssertTrue(waitUntil { !commitRecorder.isEnabled })
         XCTAssertTrue(element(in: app, identifier: toggleID).exists)
 
         closeSettings(in: app)
     }
 
-    // AC-20
+    // AC-27
     @MainActor
-    func testAC20_noteModeHidesCommitKeyRecorders() throws {
+    func testAC27_noteModeDimsCommitKeyRecorders() throws {
         let app = try launchApp(seed: ["appMode": "note"])
         openSettingsFromMenu(in: app)
         element(in: app, identifier: "settings.sidebar.keys").click()
 
-        XCTAssertTrue(element(in: app, identifier: "settings.hotkeyRecorder").waitForExistence(timeout: timeout))
+        let hotkey = element(in: app, identifier: "settings.hotkeyRecorder")
+        let commitRecorder = element(in: app, identifier: "settings.commitKeyRecorder")
+        let commitAndSendRecorder = element(in: app, identifier: "settings.commitAndSendKeyRecorder")
+        let banner = element(in: app, identifier: "settings.noteModeBanner.insertAndSend")
+        let switchToInsert = element(in: app, identifier: "settings.noteModeBanner.insertAndSend.switchToInsert")
+        XCTAssertTrue(hotkey.waitForExistence(timeout: timeout))
+        app.revealInSettings(commitRecorder)
+        XCTAssertTrue(commitAndSendRecorder.exists)
+        XCTAssertTrue(banner.exists)
+        XCTAssertTrue(switchToInsert.exists)
+        XCTAssertFalse(commitRecorder.isEnabled)
+        XCTAssertFalse(commitAndSendRecorder.isEnabled)
+        commitRecorder.click()
+        XCTAssertNotEqual(commitRecorder.value as? String, "ショートカットを押す")
+        XCTAssertTrue(hotkey.isEnabled)
         XCTAssertTrue(element(in: app, identifier: "settings.shortcutList").exists)
-        XCTAssertFalse(element(in: app, identifier: "settings.commitKeyRecorder").exists)
-        XCTAssertFalse(element(in: app, identifier: "settings.commitAndSendKeyRecorder").exists)
 
-        selectMode(.insert, in: app)
-        XCTAssertTrue(element(in: app, identifier: "settings.commitKeyRecorder").waitForExistence(timeout: timeout))
-        XCTAssertTrue(element(in: app, identifier: "settings.commitAndSendKeyRecorder").exists)
-        XCTAssertTrue(element(in: app, identifier: "settings.hotkeyRecorder").exists)
-        XCTAssertTrue(element(in: app, identifier: "settings.shortcutList").exists)
+        switchToInsert.click()
+        XCTAssertTrue(banner.waitForNonExistence(timeout: timeout))
+        XCTAssertTrue(waitUntil { commitRecorder.isEnabled && commitAndSendRecorder.isEnabled })
+        XCTAssertTrue(hotkey.isEnabled)
 
         closeSettings(in: app)
     }
 
-    // AC-21
-    // AC-23
+    // AC-38
+    // AC-41
     @MainActor
-    func testAC21_AC23_noteModeDisablesNearFocusedFieldAndOutline() throws {
+    func testAC38_AC41_noteModeDisablesNearFocusedFieldTileAndOutline() throws {
         let app = try launchApp(seed: ["appMode": "note"])
         openSettingsFromMenu(in: app)
         element(in: app, identifier: "settings.sidebar.panel").click()
 
-        // AC-21
-        let picker = element(in: app, identifier: "settings.panelScreenPicker")
-        XCTAssertTrue(picker.waitForExistence(timeout: timeout))
-        let nearFocusedField = picker.radioButtons["入力欄の近く"]
-        let mouse = picker.radioButtons["マウスの近く"]
+        // AC-38
+        let nearFocusedField = element(in: app, identifier: "settings.panelScreen.nearFocusedField")
+        let mouse = element(in: app, identifier: "settings.panelScreen.mouse")
+        let main = element(in: app, identifier: "settings.panelScreen.main")
+        let reason = element(in: app, identifier: "settings.noteModeReason.nearFocusedField")
         XCTAssertTrue(nearFocusedField.waitForExistence(timeout: timeout))
         XCTAssertTrue(mouse.exists)
         XCTAssertFalse(nearFocusedField.isEnabled)
         XCTAssertTrue(mouse.isEnabled)
-        XCTAssertTrue(element(in: app, identifier: "settings.noteModeReason.nearFocusedField").exists)
-        XCTAssertTrue(isChecked(mouse))
-        XCTAssertFalse(isChecked(nearFocusedField))
+        XCTAssertTrue(reason.exists)
+        XCTAssertTrue(mouse.isSelected)
+        XCTAssertFalse(nearFocusedField.isSelected)
 
-        // AC-23
+        nearFocusedField.click()
+        XCTAssertTrue(mouse.isSelected)
+        XCTAssertFalse(nearFocusedField.isSelected)
+
+        // AC-41
         let outline = element(in: app, identifier: "settings.insertionTargetOutlineToggle")
+        let outlineReason = element(in: app, identifier: "settings.noteModeReason.insertionTargetOutline")
         app.revealInSettings(outline)
         XCTAssertFalse(outline.isEnabled)
-        XCTAssertTrue(element(in: app, identifier: "settings.noteModeReason.insertionTargetOutline").exists)
+        XCTAssertTrue(outlineReason.exists)
         XCTAssertTrue(element(in: app, identifier: "settings.statusItemNote.commit").exists)
         XCTAssertTrue(element(in: app, identifier: "settings.statusItemNote.lineBreak").exists)
 
+        // AC-38
         selectMode(.insert, in: app)
-        XCTAssertTrue(element(in: app, identifier: "settings.noteModeReason.insertionTargetOutline").waitForNonExistence(timeout: timeout))
-        XCTAssertTrue(element(in: app, identifier: "settings.noteModeReason.nearFocusedField").waitForNonExistence(timeout: timeout))
+        XCTAssertTrue(outlineReason.waitForNonExistence(timeout: timeout))
         XCTAssertTrue(outline.isEnabled)
+        app.revealInSettings(nearFocusedField)
+        XCTAssertTrue(reason.waitForNonExistence(timeout: timeout))
         XCTAssertTrue(nearFocusedField.isEnabled)
-        XCTAssertTrue(waitUntil { self.isChecked(nearFocusedField) })
-        XCTAssertFalse(isChecked(mouse))
+        XCTAssertTrue(waitUntil { nearFocusedField.isSelected })
+        XCTAssertFalse(mouse.isSelected)
+
+        selectMode(.note, in: app)
+        XCTAssertTrue(reason.waitForExistence(timeout: timeout))
+        main.click()
+        XCTAssertTrue(waitUntil { main.isSelected })
+        XCTAssertFalse(mouse.isSelected)
+        XCTAssertFalse(nearFocusedField.isEnabled)
+        XCTAssertTrue(reason.exists)
 
         closeSettings(in: app)
     }
 
-    // AC-22
+    // AC-26
     @MainActor
-    func testAC22_noteModeDisablesAutoShow() throws {
+    func testAC26_noteModeDisablesAutoShow() throws {
         let app = try launchApp(seed: ["appMode": "note", "autoShowMode": "selectedApps"])
         openSettingsFromMenu(in: app)
-        element(in: app, identifier: "settings.sidebar.general").click()
+        element(in: app, identifier: "settings.sidebar.keys").click()
 
         let picker = element(in: app, identifier: "settings.autoShowModePicker")
-        let list = element(in: app, identifier: "settings.autoShowAppList")
         let addButton = element(in: app, identifier: "settings.autoShowAppAdd")
-        let removeButton = element(in: app, identifier: "settings.autoShowAppRemove")
+        let banner = element(in: app, identifier: "settings.noteModeBanner.autoShow")
+        let switchToInsert = element(in: app, identifier: "settings.noteModeBanner.autoShow.switchToInsert")
+        let segmentNames = ["オフ", "全アプリ", "選んだアプリのみ"]
         XCTAssertTrue(picker.waitForExistence(timeout: timeout))
-        XCTAssertTrue(list.exists)
+        app.revealInSettings(picker)
+        XCTAssertTrue(banner.exists)
+        XCTAssertTrue(switchToInsert.exists)
         XCTAssertTrue(addButton.exists)
-        XCTAssertFalse(app.radioButtons["オフ"].isEnabled)
-        XCTAssertFalse(app.radioButtons["全アプリ"].isEnabled)
-        XCTAssertFalse(app.radioButtons["選んだアプリのみ"].isEnabled)
+        for name in segmentNames {
+            XCTAssertFalse(segment(name, in: picker).isEnabled, name)
+        }
         XCTAssertFalse(addButton.isEnabled)
-        XCTAssertFalse(removeButton.isEnabled)
-        XCTAssertTrue(element(in: app, identifier: "settings.noteModeReason.autoShow").exists)
 
-        selectMode(.insert, in: app)
-        XCTAssertTrue(element(in: app, identifier: "settings.noteModeReason.autoShow").waitForNonExistence(timeout: timeout))
+        switchToInsert.click()
+        XCTAssertTrue(banner.waitForNonExistence(timeout: timeout))
+        XCTAssertTrue(switchToInsert.waitForNonExistence(timeout: timeout))
         XCTAssertTrue(waitUntil { addButton.isEnabled })
-        XCTAssertTrue(app.radioButtons["オフ"].isEnabled)
-        XCTAssertTrue(app.radioButtons["全アプリ"].isEnabled)
-        XCTAssertTrue(app.radioButtons["選んだアプリのみ"].isEnabled)
-        XCTAssertFalse(removeButton.isEnabled)
+        for name in segmentNames {
+            XCTAssertTrue(segment(name, in: picker).isEnabled, name)
+        }
 
         closeSettings(in: app)
+    }
+
+    @MainActor
+    private func segment(_ name: String, in picker: XCUIElement) -> XCUIElement {
+        let predicate = NSPredicate(format: "label == %@ OR title == %@", name, name)
+        return picker.descendants(matching: .any).matching(predicate).firstMatch
     }
 
     // MARK: - モードのトグル
