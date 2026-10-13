@@ -175,7 +175,7 @@ struct PanelOpenPlacementTests {
         )
 
         let sizing = PanelSizing()
-        sizing.beginOpening(defaultSize: CGSize(width: 520, height: 340))
+        sizing.beginOpening(defaultSize: CGSize(width: 520, height: 340), hasText: true)
         sizing.userDidResize(from: CGSize(width: 520, height: 340), to: CGSize(width: 1100, height: 700))
         let smallScreen = ScreenGeometry(
             frame: CGRect(x: 0, y: 0, width: 1024, height: 768),

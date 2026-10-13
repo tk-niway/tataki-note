@@ -11,7 +11,7 @@ struct PanelSizingTests {
 
     private func openedSizing(defaultSize: CGSize = CGSize(width: 520, height: 340)) -> PanelSizing {
         let sizing = PanelSizing()
-        sizing.beginOpening(defaultSize: defaultSize)
+        sizing.beginOpening(defaultSize: defaultSize, hasText: true)
         return sizing
     }
 
@@ -145,7 +145,7 @@ struct PanelSizingTests {
         let sizing = PanelSizing()
         #expect(sizing.heldSize == nil)
 
-        sizing.beginOpening(defaultSize: CGSize(width: 600, height: 400))
+        sizing.beginOpening(defaultSize: CGSize(width: 600, height: 400), hasText: true)
 
         #expect(sizing.baseSize == CGSize(width: 600, height: 400))
         #expect(sizing.heldSize == nil)
@@ -154,14 +154,14 @@ struct PanelSizingTests {
     @Test("AC-17, AC-18: 保っていなければ(大きさの変わらないドラッグだけも含む)、設定を変えて開き直すと新しい既定の大きさ")
     func newDefaultSizeAppliesWhenNothingIsHeld() {
         let sizing = PanelSizing()
-        sizing.beginOpening(defaultSize: CGSize(width: 600, height: 400))
-        sizing.beginOpening(defaultSize: CGSize(width: 800, height: 500))
+        sizing.beginOpening(defaultSize: CGSize(width: 600, height: 400), hasText: true)
+        sizing.beginOpening(defaultSize: CGSize(width: 800, height: 500), hasText: true)
         #expect(sizing.baseSize == CGSize(width: 800, height: 500))
 
         let draggedWithoutChange = PanelSizing()
-        draggedWithoutChange.beginOpening(defaultSize: CGSize(width: 600, height: 400))
+        draggedWithoutChange.beginOpening(defaultSize: CGSize(width: 600, height: 400), hasText: true)
         draggedWithoutChange.userDidResize(from: CGSize(width: 600, height: 400), to: CGSize(width: 600, height: 400))
-        draggedWithoutChange.beginOpening(defaultSize: CGSize(width: 800, height: 500))
+        draggedWithoutChange.beginOpening(defaultSize: CGSize(width: 800, height: 500), hasText: true)
         #expect(draggedWithoutChange.baseSize == CGSize(width: 800, height: 500))
         #expect(draggedWithoutChange.heldSize == nil)
     }
@@ -169,29 +169,77 @@ struct PanelSizingTests {
     @Test("AC-7, AC-17, AC-18: 保っている間は設定を変えても挿入するまでその大きさで開き、挿入の後は変えた後の既定の大きさ")
     func heldSizeWinsUntilInserted() {
         let sizing = PanelSizing()
-        sizing.beginOpening(defaultSize: CGSize(width: 600, height: 400))
+        sizing.beginOpening(defaultSize: CGSize(width: 600, height: 400), hasText: true)
         sizing.userDidResize(from: CGSize(width: 600, height: 400), to: CGSize(width: 700, height: 450))
 
         let changes = countHeldSizeChanges(of: sizing)
-        sizing.beginOpening(defaultSize: CGSize(width: 800, height: 500))
+        sizing.beginOpening(defaultSize: CGSize(width: 800, height: 500), hasText: true)
         #expect(sizing.baseSize == CGSize(width: 700, height: 450))
         #expect(sizing.heldSize == CGSize(width: 700, height: 450))
         #expect(changes.withLock { $0 } == 0)
 
         sizing.handleCommitOutcome(.inserted)
         #expect(sizing.heldSize == nil)
-        sizing.beginOpening(defaultSize: CGSize(width: 800, height: 500))
+        sizing.beginOpening(defaultSize: CGSize(width: 800, height: 500), hasText: true)
         #expect(sizing.baseSize == CGSize(width: 800, height: 500))
     }
 
     @Test("AC-17: 開いている間は、次に開く(beginOpening)まで開いたときの既定の大きさを使い続ける")
     func openedDefaultSizeStaysWhileOpen() {
         let sizing = PanelSizing()
-        sizing.beginOpening(defaultSize: CGSize(width: 600, height: 400))
+        sizing.beginOpening(defaultSize: CGSize(width: 600, height: 400), hasText: true)
 
         sizing.handleCommitOutcome(.notInserted)
         #expect(sizing.openedDefaultSize == CGSize(width: 600, height: 400))
         #expect(sizing.baseSize == CGSize(width: 600, height: 400))
+    }
+
+    // MARK: - 本文の有無
+
+    @Test("AC-7: 保っている間に本文ありで開くと保ち、本文なしで開くと捨てて既定の大きさになり、その後に本文ありで開いても既定の大きさ")
+    func emptyTextDropsHeldSize() {
+        let sizing = openedSizing()
+        sizing.userDidResize(from: defaultSize, to: CGSize(width: 700, height: 600))
+
+        sizing.beginOpening(defaultSize: defaultSize, hasText: true)
+        #expect(sizing.heldSize == CGSize(width: 700, height: 600))
+        #expect(sizing.openingSize(in: visible) == CGSize(width: 700, height: 600))
+
+        sizing.beginOpening(defaultSize: defaultSize, hasText: false)
+        #expect(sizing.heldSize == nil)
+        #expect(sizing.baseSize == defaultSize)
+        #expect(sizing.openingSize(in: visible) == defaultSize)
+
+        sizing.beginOpening(defaultSize: defaultSize, hasText: true)
+        #expect(sizing.heldSize == nil)
+        #expect(sizing.baseSize == defaultSize)
+    }
+
+    @Test("AC-7: 保っていないときに本文なしで開いても観測している側に知らせず、保っているときに捨てると1回知らせる")
+    func emptyTextNotifiesOnlyWhenHeldSizeIsDropped() {
+        let sizing = openedSizing()
+        let unheldChanges = countHeldSizeChanges(of: sizing)
+        sizing.beginOpening(defaultSize: defaultSize, hasText: false)
+        #expect(sizing.heldSize == nil)
+        #expect(unheldChanges.withLock { $0 } == 0)
+
+        sizing.userDidResize(from: defaultSize, to: CGSize(width: 700, height: 600))
+        let heldChanges = countHeldSizeChanges(of: sizing)
+        sizing.beginOpening(defaultSize: defaultSize, hasText: false)
+        #expect(sizing.heldSize == nil)
+        #expect(heldChanges.withLock { $0 } == 1)
+    }
+
+    @Test("AC-8: 本文ありで開くときは、保っている大きさをそのまま保ち、観測している側に知らせない")
+    func textKeepsHeldSizeWithoutNotifying() {
+        let sizing = openedSizing()
+        sizing.userDidResize(from: defaultSize, to: CGSize(width: 700, height: 600))
+        let changes = countHeldSizeChanges(of: sizing)
+
+        sizing.beginOpening(defaultSize: CGSize(width: 800, height: 500), hasText: true)
+
+        #expect(sizing.heldSize == CGSize(width: 700, height: 600))
+        #expect(changes.withLock { $0 } == 0)
     }
 
     @Test("AC-18: 保っている大きさがドラッグで変わると、観測している側に知らせる")

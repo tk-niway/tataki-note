@@ -285,7 +285,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         model.present(target: wasPresented ? app : start?.target)
         if !wasPresented {
             stopMotion()
-            sizing.beginOpening(defaultSize: settings.panelDefaultSize)
+            sizing.beginOpening(defaultSize: settings.panelDefaultSize, hasText: !model.text.isEmpty)
             let queriesAccessibility = !isNoteMode && Self.shouldQueryAccessibility(
                 of: app,
                 ownProcessIdentifier: ownProcessIdentifier

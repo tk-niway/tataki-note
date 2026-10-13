@@ -94,10 +94,40 @@ final class PanelSizeUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(panel.frame.height, 160 - 0.5, "最小の高さより小さくなった")
         let draggedSize = panel.frame.size
 
+        app.typeText("abc")
+        XCTAssertTrue(waitUntil { app.textViews["promptPanel.textView"].promptPanelText == "abc" }, "打った文字が入力欄に入らない")
+
         // AC-6
         closePanel(in: app)
         let reopened = openPanel(in: app)
         assertSize(reopened.frame.size, equals: draggedSize)
+        clearText(in: app)
+        closePanel(in: app)
+    }
+
+    // AC-7
+    @MainActor
+    func testAC7_emptyPanelOpensAtDefaultSize() throws {
+        let app = makeApp()
+        app.launch()
+
+        let panel = openPanel(in: app)
+        assertSize(panel.frame.size, equals: defaultSize)
+        dragBottomRightCorner(of: panel, by: CGVector(dx: -100, dy: -80))
+        XCTAssertLessThan(panel.frame.width, defaultSize.width - tolerance, "左へドラッグしても幅が小さくならない")
+        XCTAssertLessThan(panel.frame.height, defaultSize.height - tolerance, "上へドラッグしても高さが小さくならない")
+
+        closePanel(in: app)
+        let reopened = openPanel(in: app)
+        assertSize(reopened.frame.size, equals: defaultSize, "空のパネルが既定の大きさで開かない")
+
+        app.typeText("abc")
+        XCTAssertTrue(waitUntil { app.textViews["promptPanel.textView"].promptPanelText == "abc" }, "打った文字が入力欄に入らない")
+        closePanel(in: app)
+        let reopenedWithText = openPanel(in: app)
+        assertSize(reopenedWithText.frame.size, equals: defaultSize, "捨てた大きさが文章を入れると戻ってしまう")
+
+        clearText(in: app)
         closePanel(in: app)
     }
 
@@ -122,9 +152,13 @@ final class PanelSizeUITests: XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         assertSize(panel.frame.size, equals: draggedSize, "文章を消すとドラッグした大きさが変わってしまう")
 
+        app.typeText("x")
+        XCTAssertTrue(waitUntil { app.textViews["promptPanel.textView"].promptPanelText == "x" }, "打った文字が入力欄に入らない")
+
         closePanel(in: app)
         let reopened = openPanel(in: app)
         assertSize(reopened.frame.size, equals: draggedSize, "閉じて開き直すとドラッグした大きさが保たれない")
+        clearText(in: app)
         closePanel(in: app)
     }
 
@@ -198,6 +232,15 @@ final class PanelSizeUITests: XCTestCase {
         app.typeKey("a", modifierFlags: [.command])
         app.typeKey(.delete, modifierFlags: [])
         XCTAssertEqual(app.textViews["promptPanel.textView"].promptPanelText, "")
+    }
+
+    @MainActor
+    private func waitUntil(_ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return condition()
     }
 
     @MainActor

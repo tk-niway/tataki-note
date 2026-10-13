@@ -142,6 +142,28 @@ struct PanelDefaultSizeModelTests {
         #expect(!model.canUseCurrentPanelSize)
     }
 
+    @Test("AC-10: ドラッグで決めた大きさがあるときだけ押せ、空のパネルを開くと押せなくなり、本文があるパネルを開いても押せたまま")
+    func canUseOnlyWhileDraggedSizeIsHeld() throws {
+        let suite = UUID().uuidString
+        defer { removeSuite(suite) }
+        let sizing = PanelSizing()
+        let defaultSize = CGSize(width: 520, height: 340)
+        sizing.beginOpening(defaultSize: defaultSize, hasText: true)
+        let model = PanelDefaultSizeModel(settings: try makeSettings(suite: suite), currentPanelSize: { sizing.heldSize })
+        #expect(!model.canUseCurrentPanelSize)
+
+        sizing.userDidResize(from: defaultSize, to: CGSize(width: 700, height: 500))
+        #expect(model.canUseCurrentPanelSize)
+
+        sizing.beginOpening(defaultSize: defaultSize, hasText: true)
+        #expect(model.canUseCurrentPanelSize)
+
+        let afterOpeningEmpty = countCanUseChanges(of: model)
+        sizing.beginOpening(defaultSize: defaultSize, hasText: false)
+        #expect(!model.canUseCurrentPanelSize)
+        #expect(afterOpeningEmpty.withLock { $0 } == 1)
+    }
+
     // MARK: - 初期値に戻す
 
     @Test("AC-15: 「初期値に戻す」で 520×340 に戻り、起動し直しても 520×340")

@@ -566,6 +566,7 @@ struct PanelMotionControllerTests {
             panel.setFrame(dragged, display: false)
             controller.windowDidEndLiveResize(Notification(name: NSWindow.didEndLiveResizeNotification))
             let heldSize = try #require(controller.heldPanelSize)
+            controller.model.text = "abc"
 
             controller.close()
             #expect(controller.heldPanelSize == heldSize)

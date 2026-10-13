@@ -11,8 +11,12 @@ import Observation
 
     var baseSize: CGSize { heldSize ?? openedDefaultSize }
 
-    func beginOpening(defaultSize: CGSize) {
+    /// 開き始めに、設定の既定の大きさを入れる。本文が空なら、ドラッグで決めた大きさを捨てる。
+    func beginOpening(defaultSize: CGSize, hasText: Bool) {
         openedDefaultSize = defaultSize
+        if !hasText, heldSize != nil {
+            heldSize = nil
+        }
     }
 
     func userDidResize(from startSize: CGSize, to endSize: CGSize) {
