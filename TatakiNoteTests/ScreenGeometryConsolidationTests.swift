@@ -55,11 +55,11 @@ struct ScreenGeometryConsolidationTests {
     @Test("AC-4: PanelSizing.openingSize は基準の大きさを可視領域に詰める")
     func openingSizeUsesFittedSize() {
         let sizing = PanelSizing()
-        sizing.beginOpening(defaultSize: CGSize(width: 1500, height: 900))
+        sizing.beginOpening(defaultSize: CGSize(width: 1500, height: 900), hasText: true)
         #expect(sizing.openingSize(in: visible) == CGSize(width: 1000, height: 800))
         #expect(sizing.openingSize(in: visible) == PanelPlacement.fittedSize(sizing.baseSize, in: visible))
 
-        sizing.beginOpening(defaultSize: CGSize(width: 500, height: 400))
+        sizing.beginOpening(defaultSize: CGSize(width: 500, height: 400), hasText: true)
         #expect(sizing.openingSize(in: visible) == CGSize(width: 500, height: 400))
     }
 

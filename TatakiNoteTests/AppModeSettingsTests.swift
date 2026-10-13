@@ -329,7 +329,7 @@ struct AppModeSettingsTests {
 
     // MARK: - AC-25
 
-    @Test("AC-25: 「ショートカットキー」の説明文は、インサートモードでは今の文、ノートモードでは確定キーの項目を指さない文")
+    @Test("AC-5: 「ショートカットキー」の説明文は、インサートモードでは今の文、ノートモードでは確定キーの項目を指さず「割り当ては変えられません」を残す文")
     func shortcutSettingDescriptionFollowsMode() {
         #expect(EditorShortcuts.settingDescription(isNoteMode: false) == EditorShortcuts.settingDescription)
 
@@ -339,6 +339,19 @@ struct AppModeSettingsTests {
         #expect(!note.contains("確定+挿入キー"))
         #expect(!note.contains("確定+送信キー"))
         #expect(!note.contains("確定"))
+        #expect(note.contains("割り当ては変えられません"))
+    }
+
+    @Test("AC-4: 「ショートカットキー」の説明文は、インサートモードもノートモードも決めた全文")
+    func shortcutSettingDescriptionsAreExact() {
+        #expect(EditorShortcuts.settingDescription(isNoteMode: false) == "割り当ては変えられません。確定のキーは上の「確定+挿入キー」「確定+送信キー」で確かめられます。")
+        #expect(EditorShortcuts.settingDescription(isNoteMode: true) == "割り当ては変えられません。")
+    }
+
+    @Test("AC-4: ノートモードで押せなくする項目の理由の一文は、決めた全文")
+    func restrictionReasonsAreExact() {
+        #expect(NoteModeRestriction.nearFocusedField.reason == "ノートモードでは選べません。その間は「マウスの近く」に出します。")
+        #expect(NoteModeRestriction.insertionTargetOutline.reason == "ノートモードでは枠線は出ません。")
     }
 
     @Test("AC-5: ノートモードで押せなくする項目の理由の一文は、どれも「ノートモード」を含む")

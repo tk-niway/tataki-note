@@ -98,7 +98,7 @@ enum PracticeChatReply {
             if let commitAndSendKey {
                 batch = String(localized: "\(commitAndSendKey) を使うと、入れるのと送るのを一度にできます。")
             } else {
-                batch = String(localized: "設定の「開き方とキー」で確定+送信キーを登録すると、入れるのと送るのを一度にできます。")
+                batch = String(localized: "設定の「ホットキーとキー操作」で確定+送信キーを登録すると、入れるのと送るのを一度にできます。")
             }
             return String(localized: "送信できました。") + batch
                 + String(localized: "パネルの中では、Enter を変換の確定や改行に使えます。")

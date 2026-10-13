@@ -20,7 +20,6 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let targetMonitor: InsertionTargetMonitor
     private let outlineController: InsertionTargetOutlineController
     private let shaker: PanelShaking
-    private let toast: InsertionToastPresenting
 
     let session: DraftSession
     let sidebarModel: SidebarModel
@@ -83,7 +82,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         saveAnimation: SaveAnimationModel = SaveAnimationModel(),
         animator: PanelFrameAnimating = AppKitPanelFrameAnimator(),
         shaker: PanelShaking = PanelShaker(),
-        toast: InsertionToastPresenting = InsertionToastController(),
         hideApplication: @escaping () -> Void = { NSApp.hide(nil) },
         makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil,
         isKeyboardNavigationEnabled: @escaping () -> Bool = { NSApplication.shared.isFullKeyboardAccessEnabled }
@@ -94,7 +92,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.settings = settings
         self.animator = animator
         self.shaker = shaker
-        self.toast = toast
         self.hideApplication = hideApplication
         self.targetTracker = targetTracker
         self.permission = permission
@@ -264,7 +261,6 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func open(observedFocus: ObservedFocus? = nil) {
-        toast.dismiss()
         let isNoteMode = settings.isNoteMode
         let app = isTargetLookupDisabled ? nil : (targetOverride?() ?? targetTracker.currentTarget())
         settings.refreshKeyDisplayTexts()
@@ -285,7 +281,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         model.present(target: wasPresented ? app : start?.target)
         if !wasPresented {
             stopMotion()
-            sizing.beginOpening(defaultSize: settings.panelDefaultSize)
+            sizing.beginOpening(defaultSize: settings.panelDefaultSize, hasText: !model.text.isEmpty)
             let queriesAccessibility = !isNoteMode && Self.shouldQueryAccessibility(
                 of: app,
                 ownProcessIdentifier: ownProcessIdentifier
@@ -626,7 +622,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
         stopPanelEffects()
         finishSidebarSlide()
-        let frameBeforeClosing = motion.phase == .opening ? (restingFrame ?? panel.frame) : panel.frame
         hidePanel()
         library.flush()
         if case .insert(let text, let target) = plan {
@@ -636,12 +631,6 @@ final class PanelController: NSObject, NSWindowDelegate {
             let outcome = await performer.perform(plan, shouldSendAfterInsert: shouldSendAfterInsert)
             self?.sizing.handleCommitOutcome(outcome)
             self?.session.finishCommit(plan, outcome: outcome)
-            if outcome == .inserted, case .insert(_, let target) = plan {
-                self?.toast.show(
-                    InsertionToast.message(appName: target.localizedName, didSend: shouldSendAfterInsert),
-                    around: frameBeforeClosing
-                )
-            }
             if case .insert(let text, _) = plan,
                outcome == .notInserted,
                !model.isPresented,

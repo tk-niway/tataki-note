@@ -14,7 +14,7 @@ extension PanelShortcutRole {
         }
     }
 
-    /// 設定の「開き方とキー」で記録ボックスの下に出す説明文。
+    /// 設定の「ホットキーとキー操作」で記録ボックスの下に出す説明文。
     var settingDescription: String {
         settingDescription(initialKey: initialKey)
     }
@@ -24,9 +24,9 @@ extension PanelShortcutRole {
         let initialKeyText = initialKey?.displayText ?? String(localized: "登録なし")
         switch self {
         case .commit:
-            return String(localized: "パネルでこのキーを押すと、書いた文章を元のアプリに挿入します(送信はしません)。修飾キー(⌘・⌥・⌃・⇧)と組み合わせたキーを登録できます。登録していない Enter は改行になります。初期値は \(initialKeyText) です。登録していないときは、確定+送信キーでだけ挿入します。")
+            return String(localized: "書いた文章を元のアプリに挿入します(送信はしません)。初期値は \(initialKeyText) です。")
         case .commitAndSend:
-            return String(localized: "パネルでこのキーを押すと、書いた文章を挿入したあと、挿入先で Enter を送って送信します。初期値は \(initialKeyText) です。送信は取り消せないので、送信せずに挿入したいときは確定+挿入キーを使ってください。")
+            return String(localized: "挿入したあと Enter を送って送信します。送信は取り消せません。初期値は \(initialKeyText) です。")
         }
     }
 }

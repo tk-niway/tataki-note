@@ -166,81 +166,9 @@ struct EditorSettingsModelTests {
         #expect(relaunched.opacityPercentText == "70%")
     }
 
-    @Test("AC-8: 「文字サイズ」の説明文は、範囲の定数から出した全文になり、渡した範囲に従って変わる")
-    func fontSizeDescriptionFollowsRange() {
-        #expect(EditorSettingsModel.fontSizeDescription == "10〜32 pt の間で選べます。")
-        #expect(EditorSettingsModel.fontSizeDescription(range: 12...40) == "12〜40 pt の間で選べます。")
-    }
-
-    @Test("AC-8: 「透明度」の説明文は、範囲の定数から出した全文になり、渡した範囲に従って変わる")
-    func opacityDescriptionFollowsRange() {
-        #expect(EditorSettingsModel.opacityDescription == "パネル全体(背景と文字)の透け具合です。100% で透けません。40% より下にはできません。")
-        #expect(
-            EditorSettingsModel.opacityDescription(range: 0.25...0.9)
-                == "パネル全体(背景と文字)の透け具合です。90% で透けません。25% より下にはできません。"
-        )
-    }
-
-    // MARK: - プレビュー
-
-    @Test("AC-39: プレビューのフォントは今の書体と文字サイズに追従し、変えるとその場で変わる")
-    func previewFontFollowsSettings() throws {
-        let suite = UUID().uuidString
-        defer { removeSuite(suite) }
-        let settings = try makeSettings(suite: suite)
-        let model = EditorSettingsModel(settings: settings)
-
-        #expect(model.previewFont.fontName == NSFont.systemFont(ofSize: 14).fontName)
-        #expect(model.previewFont.pointSize == 14)
-
-        settings.panelFontSize = 20
-        #expect(model.previewFont.pointSize == 20)
-
-        let menlo = try #require(NSFont(name: "Menlo-Regular", size: 20))
-        settings.selectPanelFont(menlo)
-        #expect(model.previewFont.fontName == "Menlo-Regular")
-        #expect(model.previewFont.pointSize == 20)
-
-        settings.panelFontSize = 11
-        #expect(model.previewFont.fontName == "Menlo-Regular")
-        #expect(model.previewFont.pointSize == 11)
-
-        settings.resetPanelFontToSystem()
-        #expect(model.previewFont.fontName == NSFont.systemFont(ofSize: 11).fontName)
-    }
-
-    @Test("AC-39: プレビューの不透明度は透明度に追従し、範囲で丸めた値になる")
-    func previewOpacityFollowsSettings() throws {
-        let suite = UUID().uuidString
-        defer { removeSuite(suite) }
-        let settings = try makeSettings(suite: suite)
-        let model = EditorSettingsModel(settings: settings)
-
-        #expect(model.previewOpacity == 1.0)
-        settings.panelOpacity = 0.7
-        #expect(model.previewOpacity == 0.7)
-        settings.panelOpacity = 0.1
-        #expect(model.previewOpacity == PanelTextStyle.opacityRange.lowerBound)
-        settings.panelOpacity = 3
-        #expect(model.previewOpacity == PanelTextStyle.opacityRange.upperBound)
-    }
-
-    @Test("AC-39: プレビューの読み上げの値は「フォント名・文字サイズ・透明度」で、設定を変えると変わる")
-    func previewAccessibilityValueFollowsSettings() throws {
-        let suite = UUID().uuidString
-        defer { removeSuite(suite) }
-        let settings = try makeSettings(suite: suite)
-        let model = EditorSettingsModel(settings: settings)
-
-        #expect(model.previewAccessibilityValue == "システムフォント・14 pt・100%")
-
-        settings.panelFontSize = 15
-        settings.panelOpacity = 0.75
-        #expect(model.previewAccessibilityValue == "システムフォント・15 pt・75%")
-
-        let menlo = try #require(NSFont(name: "Menlo-Regular", size: 15))
-        settings.selectPanelFont(menlo)
-        #expect(model.previewAccessibilityValue == "\(menlo.displayName ?? menlo.fontName)・15 pt・75%")
+    @Test("AC-4: 「透明度」の説明文は「パネル背景の透明度」")
+    func opacityDescriptionIsPanelBackgroundOpacity() {
+        #expect(EditorSettingsModel.opacityDescription == "パネル背景の透明度")
     }
 
     // MARK: - フォント名の表示

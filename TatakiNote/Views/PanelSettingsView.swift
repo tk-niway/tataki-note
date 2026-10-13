@@ -10,7 +10,7 @@ struct PanelSettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             screenGroup
-            appearanceGroup
+            fontAndOpacityGroup
             defaultSizeGroup
             statusItemsGroup
             outlineGroup
@@ -38,12 +38,6 @@ struct PanelSettingsView: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("パネルを出す位置")
                 .accessibilityIdentifier("settings.panelScreenPicker")
-                let description = PanelScreen.settingDescription(selected: settings.effectivePanelScreen)
-                SettingDescription(description)
-                    .padding(.horizontal, 4)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(description)
-                    .accessibilityIdentifier("settings.panelScreenDescription")
                 if settings.isNoteMode {
                     NoteModeReason(restriction: .nearFocusedField, identifier: "settings.noteModeReason.nearFocusedField")
                         .padding(.horizontal, 4)
@@ -52,21 +46,14 @@ struct PanelSettingsView: View {
         }
     }
 
-    // MARK: - 文字と見た目
+    // MARK: - フォントと透明度
 
-    private var appearanceGroup: some View {
-        SettingsGroup(title: "文字と見た目", identifier: "settings.group.textAppearance") {
-            VStack(alignment: .leading, spacing: 8) {
-                PanelTextPreview(
-                    font: model.previewFont,
-                    opacity: model.previewOpacity,
-                    accessibilityValue: model.previewAccessibilityValue
-                )
-                SettingsCard {
-                    fontRow
-                    fontSizeRow
-                    opacityRow
-                }
+    private var fontAndOpacityGroup: some View {
+        SettingsGroup(title: "フォントと透明度", identifier: "settings.group.fontAndOpacity") {
+            SettingsCard {
+                fontRow
+                fontSizeRow
+                opacityRow
             }
         }
     }
@@ -82,7 +69,6 @@ struct PanelSettingsView: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("settings.fontName")
-                    SettingDescription(text: "パネルの入力欄の文字に使います。フォントパネルで選んだフォントと太さが、すぐに使われます。フォントパネルで変えた大きさは「文字サイズ」にも入ります。")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Button("システムフォントに戻す") {
@@ -99,7 +85,7 @@ struct PanelSettingsView: View {
     }
 
     private var fontSizeRow: some View {
-        SettingsRow(title: "文字サイズ", description: EditorSettingsModel.fontSizeDescription) {
+        SettingsRow(title: "文字サイズ") {
             HStack(spacing: 6) {
                 Text(verbatim: model.fontSizeText)
                     .monospacedDigit()
@@ -131,12 +117,12 @@ struct PanelSettingsView: View {
         }
     }
 
-    // MARK: - パネルの既定の大きさ
+    // MARK: - パネルのサイズ
 
     private var defaultSizeGroup: some View {
-        SettingsGroup(title: "パネルの既定の大きさ", identifier: "settings.group.panelDefaultSize") {
+        SettingsGroup(title: "パネルのサイズ", identifier: "settings.group.panelDefaultSize") {
             SettingsCard {
-                SettingsRow(title: "幅 × 高さ", description: PanelDefaultSizeModel.rangeDescription) {
+                SettingsRow(title: "幅 × 高さ") {
                     HStack(spacing: 12) {
                         PanelDefaultLengthField(
                             label: "幅",
@@ -161,30 +147,26 @@ struct PanelSettingsView: View {
 
     private var heldSizeRow: some View {
         PanelSettingsRowContainer {
-            VStack(alignment: .leading, spacing: 9) {
-                SettingDescription(PanelDefaultSizeModel.heldSizeDescription)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                HStack(spacing: 8) {
-                    Spacer(minLength: 0)
-                    Button {
-                        panelDefaultSize.useCurrentPanelSize()
-                    } label: {
-                        Text("今のパネルの大きさを既定にする")
-                            .font(.system(size: 12.5, weight: .bold))
-                            .foregroundStyle(Color.accentColor)
-                            .padding(.horizontal, 11)
-                            .padding(.vertical, 4)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.17)))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!panelDefaultSize.canUseCurrentPanelSize)
-                    .opacity(panelDefaultSize.canUseCurrentPanelSize ? 1 : 0.4)
-                    .accessibilityIdentifier("settings.useCurrentPanelSize")
-                    Button("初期値に戻す") {
-                        panelDefaultSize.resetToInitial()
-                    }
-                    .accessibilityIdentifier("settings.resetPanelDefaultSize")
+            HStack(spacing: 8) {
+                Spacer(minLength: 0)
+                Button {
+                    panelDefaultSize.useCurrentPanelSize()
+                } label: {
+                    Text("今のパネルサイズを既定にする")
+                        .font(.system(size: 12.5, weight: .bold))
+                        .foregroundStyle(Color.accentColor)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 4)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.17)))
                 }
+                .buttonStyle(.plain)
+                .disabled(!panelDefaultSize.canUseCurrentPanelSize)
+                .opacity(panelDefaultSize.canUseCurrentPanelSize ? 1 : 0.4)
+                .accessibilityIdentifier("settings.useCurrentPanelSize")
+                Button("初期値に戻す") {
+                    panelDefaultSize.resetToInitial()
+                }
+                .accessibilityIdentifier("settings.resetPanelDefaultSize")
             }
         }
     }
@@ -194,7 +176,7 @@ struct PanelSettingsView: View {
     private var statusItemsGroup: some View {
         SettingsGroup(
             title: "帯に出す項目",
-            footer: String(localized: "パネルの下の帯に出す項目です。すべて外すと帯ごと消え、そのぶん入力欄が広がります。"),
+            footer: SettingsHelpText.statusItemsFooter,
             identifier: "settings.group.statusItems"
         ) {
             SettingsCard {
@@ -236,7 +218,7 @@ struct PanelSettingsView: View {
                 VStack(spacing: 0) {
                     SettingsRow(
                         title: "挿入先の入力欄を枠線で囲む",
-                        description: "パネルを開いている間、文章が入る入力欄を枠線で囲みます。オフにしても、タイトルバーの挿入先の表示と「挿入先なし」の表示、確定したときの動きは変わりません。"
+                        description: SettingsHelpText.insertionTargetOutline
                     ) {
                         Toggle("挿入先の入力欄を枠線で囲む", isOn: $settings.isInsertionTargetOutlineShown)
                             .toggleStyle(.switch)

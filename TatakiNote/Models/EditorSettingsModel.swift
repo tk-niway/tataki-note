@@ -41,21 +41,6 @@ enum StatusItemNote: Equatable {
         return String(localized: "\(percent)%")
     }
 
-    /// プレビューの文字に使う、今の書体と大きさのフォント。
-    var previewFont: NSFont {
-        settings.panelFont
-    }
-
-    /// プレビューの箱の不透明度(範囲で丸めた透明度)。
-    var previewOpacity: Double {
-        PanelTextStyle.clampedOpacity(settings.panelOpacity)
-    }
-
-    /// プレビューの読み上げの値(フォント名・文字サイズ・透明度)。
-    var previewAccessibilityValue: String {
-        "\(fontDisplayName)・\(fontSizeText)・\(opacityPercentText)"
-    }
-
     /// フォント名を描くフォント。システムフォントのときはシステムフォント、書体を選んでいるときはその書体(12pt)。
     var fontNameFont: NSFont {
         guard let font = settings.resolvedPanelFont else { return .systemFont(ofSize: Self.fontNameSize) }
@@ -64,28 +49,9 @@ enum StatusItemNote: Equatable {
 
     static let fontNameSize: CGFloat = 12
 
-    /// 「文字サイズ」の下に出す説明文。
-    static var fontSizeDescription: String {
-        fontSizeDescription(range: PanelTextStyle.fontSizeRange)
-    }
-
-    /// 範囲を指定して作る、「文字サイズ」の説明文。
-    static func fontSizeDescription(range: ClosedRange<Double>) -> String {
-        let lower = String(Int(range.lowerBound.rounded()))
-        let upper = String(Int(range.upperBound.rounded()))
-        return String(localized: "\(lower)〜\(upper) pt の間で選べます。")
-    }
-
     /// 「透明度」の下に出す説明文。
     static var opacityDescription: String {
-        opacityDescription(range: PanelTextStyle.opacityRange)
-    }
-
-    /// 範囲を指定して作る、「透明度」の説明文。
-    static func opacityDescription(range: ClosedRange<Double>) -> String {
-        let upper = String(Int((range.upperBound * 100).rounded()))
-        let lower = String(Int((range.lowerBound * 100).rounded()))
-        return String(localized: "パネル全体(背景と文字)の透け具合です。\(upper)% で透けません。\(lower)% より下にはできません。")
+        String(localized: "パネル背景の透明度")
     }
 
     func isStatusItemVisible(_ item: PanelStatusItem) -> Bool {

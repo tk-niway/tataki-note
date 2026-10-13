@@ -57,7 +57,7 @@ struct EditorShortcutsTests {
         }
     }
 
-    @Test("AC-8: 「ショートカットキー」の説明文は、割り当ては変えられないことと、確定のキーは同じ「開き方とキー」の「確定+挿入キー」「確定+送信キー」で確かめられることを書き、「一般」「エディタ設定」を書かない")
+    @Test("AC-5: 「ショートカットキー」の説明文は、割り当ては変えられないことと、確定のキーは「確定+挿入キー」「確定+送信キー」で確かめられることを書き、「一般」「エディタ設定」を書かない")
     func settingDescriptionPointsToKeysInSameSection() {
         let description = EditorShortcuts.settingDescription
 

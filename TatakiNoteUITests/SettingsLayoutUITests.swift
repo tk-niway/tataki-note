@@ -11,7 +11,7 @@ final class SettingsLayoutUITests: XCTestCase {
         "settings.sidebar.panel",
         "settings.sidebar.appInfo",
     ]
-    private let sidebarTitles = ["一般", "開き方とキー", "パネル", "情報"]
+    private let sidebarTitles = ["一般", "ホットキーとキー操作", "パネル", "情報"]
     private let scrollViewID = "settings.detailScrollView"
     private let detailTitleID = "settings.detailTitle"
     private let toggleID = "settings.appModeToggle"
@@ -38,12 +38,13 @@ final class SettingsLayoutUITests: XCTestCase {
             XCTAssertTrue(button.waitForExistence(timeout: timeout))
         }
         let ys = buttons.map(\.frame.minY)
-        XCTAssertEqual(ys, ys.sorted(), "サイドバーの種類が上から「一般」「開き方とキー」「パネル」「情報」の順に並んでいない")
+        XCTAssertEqual(ys, ys.sorted(), "サイドバーの種類が上から「一般」「ホットキーとキー操作」「パネル」「情報」の順に並んでいない")
         XCTAssertEqual(Set(ys).count, ys.count)
 
         XCTAssertTrue(waitUntil { self.detailTitle(in: app) == "一般" })
         XCTAssertTrue(buttons[0].isSelected)
 
+        // AC-1
         for index in [2, 1, 3, 0] {
             buttons[index].click()
             XCTAssertTrue(waitUntil { buttons[index].isSelected }, "\(sidebarTitles[index]) が選択中に見えない")
@@ -72,7 +73,7 @@ final class SettingsLayoutUITests: XCTestCase {
         XCTAssertTrue(hotkey.waitForExistence(timeout: timeout))
         XCTAssertTrue(waitUntil { self.isVisible(hotkey, in: scrollView) })
         scrollToBottom(scrollView)
-        XCTAssertFalse(isVisible(hotkey, in: scrollView), "下までスクロールしたのに「開き方とキー」の先頭の部品が見えたまま")
+        XCTAssertFalse(isVisible(hotkey, in: scrollView), "下までスクロールしたのに「ホットキーとキー操作」の先頭の部品が見えたまま")
 
         panel.click()
         let screenPicker = element(in: app, identifier: "settings.panelScreenPicker")
@@ -82,7 +83,7 @@ final class SettingsLayoutUITests: XCTestCase {
         XCTAssertFalse(isVisible(screenPicker, in: scrollView), "下までスクロールしたのに「パネル」の先頭の部品が見えたまま")
 
         keys.click()
-        XCTAssertTrue(waitUntil { self.isVisible(element(in: app, identifier: "settings.hotkeyRecorder"), in: scrollView) }, "「開き方とキー」が先頭から出ない")
+        XCTAssertTrue(waitUntil { self.isVisible(element(in: app, identifier: "settings.hotkeyRecorder"), in: scrollView) }, "「ホットキーとキー操作」が先頭から出ない")
 
         closeSettings(in: app)
     }

@@ -57,10 +57,11 @@ struct AppInfoTutorialTests {
         #expect(!text.contains("練習用の入力欄"))
     }
 
-    @Test("AC-25: 設定の「情報」の説明文は、練習用のチャットで書いて送るまでをたどる形")
+    @Test("AC-4: 設定の「情報」の説明文は、練習用のチャットで書いて送るまでをたどる決めた全文")
     func tutorialDescriptionPointsToPracticeChat() {
         let text = AppInfoModel.tutorialDescription
 
+        #expect(text == "練習用のチャットで、書いて送るまでを試します。")
         #expect(text.contains("練習用のチャット"))
         #expect(text.contains("送る"))
         #expect(!text.contains("練習用の入力欄"))

@@ -15,9 +15,9 @@ enum NoteModeRestriction: CaseIterable, Sendable {
     var reason: String {
         switch self {
         case .nearFocusedField:
-            String(localized: "ノートモードでは選べません。「入力欄の近く」を選んでいたときは、ノートモードの間は「マウスの近く」に出し、インサートモードに戻すと「入力欄の近く」に戻ります。")
+            String(localized: "ノートモードでは選べません。その間は「マウスの近く」に出します。")
         case .insertionTargetOutline:
-            String(localized: "ノートモードでは挿入先を調べないため、枠線は出ません。")
+            String(localized: "ノートモードでは枠線は出ません。")
         }
     }
 }
