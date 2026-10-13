@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 操作の結果を知らせる、丸いカプセルのトースト。
+/// 保存の結果を知らせる、丸いカプセルのトースト。
 struct PanelToastView: View {
     let message: String
 
@@ -42,7 +42,7 @@ struct PanelToastView: View {
             }
         }
         .task {
-            try? await Task.sleep(for: InsertionToast.duration - .milliseconds(200))
+            try? await Task.sleep(for: SaveAnimationModel.toastDuration - .milliseconds(200))
             withAnimation(.easeIn(duration: Self.transitionSeconds)) {
                 stage = .leaving
             }

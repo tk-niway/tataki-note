@@ -95,7 +95,7 @@ struct SaveAnimationModelTests {
 
     // MARK: - 演出の進み方
 
-    @Test("AC-15: 飛ぶ→着く→終わる、の順に進み、待ちは 680・720・1180ms。着いたときに弾みが 1 つ進み、行が光り、トーストを出して読み上げる")
+    @Test("AC-12: 飛ぶ→着く→終わる、の順に進み、待ちは 680・720・1180ms。着いたときに弾みが 1 つ進み、行が光り、トーストを出して読み上げる")
     func playSequence() async {
         let recorder = Recorder()
         let id = UUID()
@@ -108,6 +108,7 @@ struct SaveAnimationModelTests {
         #expect(recorder.glowingIDs == [nil, id, nil])
         #expect(recorder.toasts == [nil, SaveAnimationModel.savedMessage, SaveAnimationModel.savedMessage])
         #expect(SaveAnimationModel.savedMessage == "下書きに保存しました")
+        #expect(SaveAnimationModel.toastDuration == .milliseconds(1900))
         #expect(recorder.announcements == [SaveAnimationModel.savedMessage])
         #expect(recorder.model.arrivalCount == 1)
         #expect(recorder.model.phase == .idle)
@@ -213,7 +214,6 @@ struct SaveAnimationPanelWiringTests {
                 ownProcessIdentifier: SaveAnimationModelTests.ownPid,
                 library: library,
                 saveAnimation: recorder.model,
-                toast: InsertionToastSpy(),
                 makeTargetMonitor: InsertionTargetMonitor.testFactory(
                     probe: probe,
                     ownProcessIdentifier: SaveAnimationModelTests.ownPid
