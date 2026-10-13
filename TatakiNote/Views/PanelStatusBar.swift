@@ -140,6 +140,7 @@ private struct Keycap: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
+        let palette = StatusKeycapPalette.palette(isDark: colorScheme == .dark)
         Text(verbatim: text)
             .font(.system(size: 10.5, weight: .semibold))
             .foregroundStyle(.secondary)
@@ -149,13 +150,13 @@ private struct Keycap: View {
             .background {
                 ZStack {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.primary.opacity(0.22))
+                        .fill(Color.primary.opacity(palette.shadowOpacity))
                         .offset(y: 1.5)
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(colorScheme == .dark ? Color(white: 0.29) : Color.white)
+                        .fill(Color(white: palette.faceWhite))
                 }
             }
-            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.primary.opacity(0.15), lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.primary.opacity(palette.edgeOpacity), lineWidth: 0.5))
             .fixedSize()
     }
 }
