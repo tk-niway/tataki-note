@@ -77,42 +77,57 @@ final class NoteModeSettingsUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-21
-    // AC-23
+    // AC-38
+    // AC-41
     @MainActor
-    func testAC21_AC23_noteModeDisablesNearFocusedFieldAndOutline() throws {
+    func testAC38_AC41_noteModeDisablesNearFocusedFieldTileAndOutline() throws {
         let app = try launchApp(seed: ["appMode": "note"])
         openSettingsFromMenu(in: app)
         element(in: app, identifier: "settings.sidebar.panel").click()
 
-        // AC-21
-        let picker = element(in: app, identifier: "settings.panelScreenPicker")
-        XCTAssertTrue(picker.waitForExistence(timeout: timeout))
-        let nearFocusedField = picker.radioButtons["入力欄の近く"]
-        let mouse = picker.radioButtons["マウスの近く"]
+        // AC-38
+        let nearFocusedField = element(in: app, identifier: "settings.panelScreen.nearFocusedField")
+        let mouse = element(in: app, identifier: "settings.panelScreen.mouse")
+        let main = element(in: app, identifier: "settings.panelScreen.main")
+        let reason = element(in: app, identifier: "settings.noteModeReason.nearFocusedField")
         XCTAssertTrue(nearFocusedField.waitForExistence(timeout: timeout))
         XCTAssertTrue(mouse.exists)
         XCTAssertFalse(nearFocusedField.isEnabled)
         XCTAssertTrue(mouse.isEnabled)
-        XCTAssertTrue(element(in: app, identifier: "settings.noteModeReason.nearFocusedField").exists)
-        XCTAssertTrue(isChecked(mouse))
-        XCTAssertFalse(isChecked(nearFocusedField))
+        XCTAssertTrue(reason.exists)
+        XCTAssertTrue(mouse.isSelected)
+        XCTAssertFalse(nearFocusedField.isSelected)
 
-        // AC-23
+        nearFocusedField.click()
+        XCTAssertTrue(mouse.isSelected)
+        XCTAssertFalse(nearFocusedField.isSelected)
+
+        // AC-41
         let outline = element(in: app, identifier: "settings.insertionTargetOutlineToggle")
+        let outlineReason = element(in: app, identifier: "settings.noteModeReason.insertionTargetOutline")
         app.revealInSettings(outline)
         XCTAssertFalse(outline.isEnabled)
-        XCTAssertTrue(element(in: app, identifier: "settings.noteModeReason.insertionTargetOutline").exists)
+        XCTAssertTrue(outlineReason.exists)
         XCTAssertTrue(element(in: app, identifier: "settings.statusItemNote.commit").exists)
         XCTAssertTrue(element(in: app, identifier: "settings.statusItemNote.lineBreak").exists)
 
+        // AC-38
         selectMode(.insert, in: app)
-        XCTAssertTrue(element(in: app, identifier: "settings.noteModeReason.insertionTargetOutline").waitForNonExistence(timeout: timeout))
-        XCTAssertTrue(element(in: app, identifier: "settings.noteModeReason.nearFocusedField").waitForNonExistence(timeout: timeout))
+        XCTAssertTrue(outlineReason.waitForNonExistence(timeout: timeout))
         XCTAssertTrue(outline.isEnabled)
+        app.revealInSettings(nearFocusedField)
+        XCTAssertTrue(reason.waitForNonExistence(timeout: timeout))
         XCTAssertTrue(nearFocusedField.isEnabled)
-        XCTAssertTrue(waitUntil { self.isChecked(nearFocusedField) })
-        XCTAssertFalse(isChecked(mouse))
+        XCTAssertTrue(waitUntil { nearFocusedField.isSelected })
+        XCTAssertFalse(mouse.isSelected)
+
+        selectMode(.note, in: app)
+        XCTAssertTrue(reason.waitForExistence(timeout: timeout))
+        main.click()
+        XCTAssertTrue(waitUntil { main.isSelected })
+        XCTAssertFalse(mouse.isSelected)
+        XCTAssertFalse(nearFocusedField.isEnabled)
+        XCTAssertTrue(reason.exists)
 
         closeSettings(in: app)
     }

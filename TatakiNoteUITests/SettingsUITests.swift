@@ -152,10 +152,9 @@ final class SettingsUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-6
-    // AC-32
+    // AC-36
     @MainActor
-    func testAC6_AC32_panelScreenDefaultOrderAndChangeScenario() throws {
+    func testAC36_panelScreenTilesOrderAndChangeScenario() throws {
         let app = XCUIApplication()
         launch(app)
 
@@ -163,28 +162,32 @@ final class SettingsUITests: XCTestCase {
         let panelScreenPicker = element(in: app, identifier: panelScreenPickerID)
         XCTAssertTrue(panelScreenPicker.waitForExistence(timeout: timeout))
 
-        // AC-32
-        let titlesInOrder = ["入力欄の近く", "挿入先のウィンドウがある画面", "マウスの近く", "メインの画面"]
-        let nearFocusedField = radio("入力欄の近く", inPicker: panelScreenPickerID, in: app)
-        XCTAssertTrue(nearFocusedField.waitForExistence(timeout: timeout))
-        XCTAssertEqual(panelScreenPicker.radioButtons.count, titlesInOrder.count)
-        let radiosInOrder = titlesInOrder.map { radio($0, inPicker: panelScreenPickerID, in: app) }
-        for (title, element) in zip(titlesInOrder, radiosInOrder) {
-            XCTAssertTrue(element.exists, title)
+        let screens = ["nearFocusedField", "targetWindow", "mouse", "main"]
+        let tiles = screens.map { element(in: app, identifier: "settings.panelScreen.\($0)") }
+        XCTAssertTrue(tiles[0].waitForExistence(timeout: timeout))
+        for (screen, tile) in zip(screens, tiles) {
+            XCTAssertTrue(tile.exists, screen)
         }
-        let yPositions = radiosInOrder.map(\.frame.minY)
-        XCTAssertEqual(yPositions, yPositions.sorted(), "選択肢が上から \(titlesInOrder) の順に並んでいない")
+        let xPositions = tiles.map(\.frame.minX)
+        XCTAssertEqual(xPositions, xPositions.sorted(), "タイルが左から \(screens) の順に並んでいない")
+        XCTAssertEqual(Set(xPositions).count, xPositions.count)
+        let titles = ["入力欄の近く", "挿入先のウィンドウがある画面", "マウスの近く", "メインの画面"]
+        for (title, tile) in zip(titles, tiles) {
+            XCTAssertEqual(tile.label, title)
+        }
 
-        // AC-6
-        XCTAssertTrue(isChecked(nearFocusedField))
-        let mouseScreen = radio("マウスの近く", inPicker: panelScreenPickerID, in: app)
-        XCTAssertFalse(isChecked(mouseScreen))
+        let description = element(in: app, identifier: panelScreenDescriptionID)
+        XCTAssertTrue(description.exists)
+        XCTAssertTrue(text(of: description).contains("入力欄の位置が分からないとき"), text(of: description))
+        XCTAssertTrue(tiles[0].isSelected)
+        XCTAssertFalse(tiles[2].isSelected)
 
-        mouseScreen.click()
-        XCTAssertTrue(isChecked(mouseScreen))
-        XCTAssertFalse(isChecked(nearFocusedField))
-        XCTAssertFalse(isChecked(radio("挿入先のウィンドウがある画面", inPicker: panelScreenPickerID, in: app)))
-        XCTAssertFalse(isChecked(radio("メインの画面", inPicker: panelScreenPickerID, in: app)))
+        tiles[2].click()
+        XCTAssertTrue(waitUntil { tiles[2].isSelected })
+        XCTAssertFalse(tiles[0].isSelected)
+        XCTAssertFalse(tiles[1].isSelected)
+        XCTAssertFalse(tiles[3].isSelected)
+        XCTAssertTrue(waitUntil { self.text(of: description).contains("マウスポインタ") }, text(of: description))
 
         closeSettings(in: app)
     }
@@ -269,6 +272,7 @@ final class SettingsUITests: XCTestCase {
     private let commitAndSendKeyRecorderID = "settings.commitAndSendKeyRecorder"
     private let commitKeyRejectionID = "settings.commitKeyRejection"
     private let panelScreenPickerID = "settings.panelScreenPicker"
+    private let panelScreenDescriptionID = "settings.panelScreenDescription"
     private let sidebarGeneralID = "settings.sidebar.general"
     private let sidebarKeysID = "settings.sidebar.keys"
     private let sidebarPanelID = "settings.sidebar.panel"
@@ -284,11 +288,6 @@ final class SettingsUITests: XCTestCase {
     @MainActor
     private func isRecording(_ element: XCUIElement) -> Bool {
         element.value as? String == recordingValue
-    }
-
-    @MainActor
-    private func radio(_ title: String, inPicker identifier: String, in app: XCUIApplication) -> XCUIElement {
-        element(in: app, identifier: identifier).radioButtons[title]
     }
 
     @MainActor
@@ -320,14 +319,6 @@ final class SettingsUITests: XCTestCase {
             format: "identifier != %@ AND identifier != %@", commitKeyRecorderID, commitAndSendKeyRecorderID
         )
         return app.searchFields.matching(notCommitRecorders).firstMatch
-    }
-
-    @MainActor
-    private func isChecked(_ radioButton: XCUIElement) -> Bool {
-        if let value = radioButton.value as? NSNumber {
-            return value.boolValue
-        }
-        return radioButton.isSelected
     }
 
     @MainActor

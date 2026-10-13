@@ -88,7 +88,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         let adjustedOpacity = text(of: opacityValue)
         XCTAssertTrue(adjustedOpacity.hasSuffix("%"), adjustedOpacity)
 
-        // AC-6
+        // AC-41
         let characterCount = element(in: app, identifier: statusItemID("characterCount"))
         app.revealInSettings(characterCount)
         XCTAssertTrue(isChecked(characterCount))
@@ -120,9 +120,9 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-1
+    // AC-40
     @MainActor
-    func testAC1_fontControls() throws {
+    func testAC40_fontControls() throws {
         let app = XCUIApplication()
         launch(app)
         openPanelSettings(in: app)
@@ -142,9 +142,9 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-6
+    // AC-40
     @MainActor
-    func testAC6_resetFontToSystem() throws {
+    func testAC40_resetFontToSystem() throws {
         let app = XCUIApplication()
         launch(app, seed: ["panelFontName": "Menlo-Regular"])
         openPanelSettings(in: app)
@@ -262,20 +262,31 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-14
-    // AC-15
+    // AC-42
     @MainActor
-    func testAC14_AC15_useCurrentPanelSizeAndReset() throws {
+    func testAC42_useCurrentPanelSizeAndReset() throws {
         let app = XCUIApplication()
         launch(app)
         openPanelSettings(in: app)
 
-        // AC-14
+        // AC-42
+        let widthField = element(in: app, identifier: widthFieldID)
+        let heightField = element(in: app, identifier: heightFieldID)
+        let widthUp = incrementArrow(ofStepper: widthStepperID, in: app)
+        app.revealInSettings(widthUp)
+        XCTAssertTrue(waitUntil { widthField.value as? String == "520" })
+        widthUp.click()
+        XCTAssertTrue(waitUntil { widthField.value as? String == "530" }, "幅が 10 増えない(\(String(describing: widthField.value)))")
+        let heightUp = incrementArrow(ofStepper: heightStepperID, in: app)
+        app.revealInSettings(heightUp)
+        XCTAssertTrue(waitUntil { heightField.value as? String == "340" })
+        heightUp.click()
+        XCTAssertTrue(waitUntil { heightField.value as? String == "350" }, "高さが 10 増えない(\(String(describing: heightField.value)))")
+
         let useCurrent = element(in: app, identifier: useCurrentPanelSizeID)
         app.revealInSettings(useCurrent)
         XCTAssertFalse(useCurrent.isEnabled)
 
-        // AC-14
         let panel = openPanel(in: app)
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         XCTAssertFalse(useCurrent.isEnabled, "パネルを開いただけで押せる")
@@ -287,18 +298,14 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertNotEqual(dragged.height, sizeBeforeDrag.height, accuracy: 1, "ドラッグで高さが変わらない")
         closePanel(in: app)
 
-        // AC-14
         XCTAssertTrue(waitUntil { useCurrent.isEnabled }, "ドラッグした後も押せない")
         app.revealInSettings(useCurrent)
         useCurrent.click()
-        let widthField = element(in: app, identifier: widthFieldID)
-        let heightField = element(in: app, identifier: heightFieldID)
         XCTAssertTrue(waitUntil { self.number(in: widthField).map { abs($0 - dragged.width) <= 1 } ?? false },
                       "幅がドラッグした大きさにならない(\(String(describing: widthField.value)) / \(dragged.width))")
         XCTAssertTrue(waitUntil { self.number(in: heightField).map { abs($0 - dragged.height) <= 1 } ?? false },
                       "高さがドラッグした大きさにならない(\(String(describing: heightField.value)) / \(dragged.height))")
 
-        // AC-15
         let reset = element(in: app, identifier: resetPanelDefaultSizeID)
         app.revealInSettings(reset)
         reset.click()
@@ -348,6 +355,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     private let widthFieldID = "settings.panelDefaultWidthField"
     private let heightFieldID = "settings.panelDefaultHeightField"
     private let widthStepperID = "settings.panelDefaultWidthStepper"
+    private let heightStepperID = "settings.panelDefaultHeightStepper"
     private let useCurrentPanelSizeID = "settings.useCurrentPanelSize"
     private let resetPanelDefaultSizeID = "settings.resetPanelDefaultSize"
     private let shortcutListID = "settings.shortcutList"

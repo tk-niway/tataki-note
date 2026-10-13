@@ -69,6 +69,7 @@ final class SettingsSectionsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, identifier: "settings.panelScreenPicker").waitForExistence(timeout: timeout))
         let panelOrder = [
             "settings.panelScreenPicker",
+            "settings.panelPreview",
             "settings.fontName",
             "settings.fontSizeStepper",
             "settings.opacitySlider",
