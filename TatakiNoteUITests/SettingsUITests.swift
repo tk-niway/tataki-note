@@ -221,7 +221,7 @@ final class SettingsUITests: XCTestCase {
     }
 
     @MainActor
-    func testAC41_clearHistoryAsksForConfirmation() throws {
+    func testAC14_clearHistoryAsksForConfirmationInTheRow() throws {
         let dataDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("TatakiNoteUITests-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: dataDirectory) }
@@ -237,20 +237,20 @@ final class SettingsUITests: XCTestCase {
         launch(app)
 
         openSettingsFromMenu(in: app)
-        // AC-41
+        // AC-14
         let clearButton = element(in: app, identifier: "settings.clearHistory")
         app.revealInSettings(clearButton)
         XCTAssertTrue(clearButton.isEnabled)
 
         clearButton.click()
-        let alert = app.sheets.firstMatch
-        XCTAssertTrue(alert.waitForExistence(timeout: timeout))
-        XCTAssertTrue(alert.staticTexts["挿入の履歴をすべて削除しますか?"].exists)
-        XCTAssertTrue(alert.buttons["すべて削除"].exists)
+        let cancelButton = element(in: app, identifier: "settings.clearHistoryCancel")
+        XCTAssertTrue(cancelButton.waitForExistence(timeout: timeout))
+        XCTAssertTrue(element(in: app, identifier: "settings.clearHistoryConfirm").exists)
+        XCTAssertFalse(app.sheets.firstMatch.exists)
 
-        alert.buttons["キャンセル"].click()
-        XCTAssertTrue(alert.waitForNonExistence(timeout: timeout))
-        XCTAssertTrue(clearButton.isEnabled)
+        cancelButton.click()
+        XCTAssertTrue(cancelButton.waitForNonExistence(timeout: timeout))
+        XCTAssertTrue(waitUntil { self.element(in: app, identifier: "settings.clearHistory").isEnabled })
 
         closeSettings(in: app)
     }

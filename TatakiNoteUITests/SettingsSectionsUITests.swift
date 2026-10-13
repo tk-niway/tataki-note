@@ -22,11 +22,12 @@ final class SettingsSectionsUITests: XCTestCase {
         launch(app)
         openSettingsFromMenu(in: app)
 
-        // AC-4
+        // AC-10
         let generalOrder = [
             "settings.themePicker",
             "settings.launchAtLoginToggle",
             "settings.hideMenuBarIconToggle",
+            "settings.clearHistory",
         ]
         assertAppearInOrder(generalOrder, in: app)
         for identifier in [

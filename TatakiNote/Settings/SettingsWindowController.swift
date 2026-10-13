@@ -4,6 +4,7 @@ import SwiftUI
 /// 設定画面のウィンドウ。
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     let model = SettingsWindowModel()
+    let history: HistorySettingsModel
 
     private let settings: AppSettings
     private let launchAtLogin: LaunchAtLoginModel
@@ -26,6 +27,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         self.appInfo = appInfo
         self.panelDefaultSize = panelDefaultSize
         self.library = library
+        self.history = HistorySettingsModel(library: library)
         super.init()
     }
 
@@ -50,6 +52,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         model.prepareForOpen()
+        history.resetPhase()
         fontPanel.close()
     }
 
@@ -66,6 +69,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 appInfo: appInfo,
                 panelDefaultSize: panelDefaultSize,
                 library: library,
+                history: history,
                 onShowFontPanel: { [weak self] in self?.fontPanel.show() },
                 onQuit: { NSApp.terminate(nil) }
             )

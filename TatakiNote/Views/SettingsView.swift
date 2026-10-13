@@ -29,6 +29,7 @@ struct SettingsView: View {
         appInfo: AppInfoModel,
         panelDefaultSize: PanelDefaultSizeModel,
         library: DraftLibrary = DraftLibrary(store: .inMemory),
+        history: HistorySettingsModel? = nil,
         onShowFontPanel: @escaping () -> Void,
         onQuit: @escaping () -> Void
     ) {
@@ -41,7 +42,7 @@ struct SettingsView: View {
         self.onQuit = onQuit
         _editorModel = State(initialValue: EditorSettingsModel(settings: settings))
         _keySettingsModel = State(initialValue: PanelKeySettingsModel(settings: settings))
-        _historyModel = State(initialValue: HistorySettingsModel(library: library))
+        _historyModel = State(initialValue: history ?? HistorySettingsModel(library: library))
     }
 
     var body: some View {
@@ -77,6 +78,9 @@ struct SettingsView: View {
         .frame(width: Self.windowSize.width, height: Self.windowSize.height, alignment: .leading)
         .ignoresSafeArea(edges: .top)
         .windowStyle(theme: settings.theme)
+        .onChange(of: model.selectedSection) {
+            historyModel.resetPhase()
+        }
     }
 
     @ViewBuilder

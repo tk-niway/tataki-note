@@ -43,9 +43,9 @@ final class SettingsWindowUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-5
+    // AC-11
     @MainActor
-    func testAC5_themeScenario() throws {
+    func testAC11_themeScenario() throws {
         let app = XCUIApplication()
         launch(app)
 
@@ -53,13 +53,12 @@ final class SettingsWindowUITests: XCTestCase {
         let themePicker = element(in: app, identifier: themePickerID)
         app.revealInSettings(themePicker)
 
-        let system = radio("システム", inPicker: themePickerID, in: app)
-        let light = radio("ライト", inPicker: themePickerID, in: app)
-        let dark = radio("ダーク", inPicker: themePickerID, in: app)
+        let system = segment("システム", in: themePicker)
+        let light = segment("ライト", in: themePicker)
+        let dark = segment("ダーク", in: themePicker)
         XCTAssertTrue(system.waitForExistence(timeout: timeout))
         XCTAssertTrue(light.exists)
         XCTAssertTrue(dark.exists)
-        XCTAssertEqual(themePicker.radioButtons.count, 3)
         XCTAssertTrue(isChecked(system))
         XCTAssertFalse(isChecked(light))
         XCTAssertFalse(isChecked(dark))
@@ -130,9 +129,9 @@ final class SettingsWindowUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-7
+    // AC-12
     @MainActor
-    func testAC7_launchAtLoginScenario() throws {
+    func testAC12_launchAtLoginScenario() throws {
         let app = XCUIApplication()
         launch(app)
 
@@ -156,10 +155,9 @@ final class SettingsWindowUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-9
-    // AC-11
+    // AC-12
     @MainActor
-    func testAC9_AC11_hideMenuBarIconScenario() throws {
+    func testAC12_hideMenuBarIconScenario() throws {
         let app = XCUIApplication()
         launch(app)
 
@@ -187,7 +185,6 @@ final class SettingsWindowUITests: XCTestCase {
         element(in: app, identifier: quitID).click()
         XCTAssertTrue(app.wait(for: .notRunning, timeout: timeout))
 
-        // AC-11
         launch(app, dismissingPermissionGuide: false)
         XCTAssertTrue(element(in: app, identifier: "permissionGuide.status").waitForExistence(timeout: timeout))
         app.dismissPermissionGuideIfPresent()
@@ -329,8 +326,9 @@ final class SettingsWindowUITests: XCTestCase {
     }
 
     @MainActor
-    private func radio(_ title: String, inPicker identifier: String, in app: XCUIApplication) -> XCUIElement {
-        element(in: app, identifier: identifier).radioButtons[title]
+    private func segment(_ name: String, in picker: XCUIElement) -> XCUIElement {
+        let predicate = NSPredicate(format: "label == %@ OR title == %@", name, name)
+        return picker.descendants(matching: .any).matching(predicate).firstMatch
     }
 
     @MainActor
