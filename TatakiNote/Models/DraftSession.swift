@@ -31,12 +31,24 @@ struct DraftSaveEvent: Equatable {
     private(set) var document: PanelDocument = .scratch
     private(set) var lastSaveEvent: DraftSaveEvent?
 
+    /// 切り替えで書きかけを履歴へ移した回数。
+    private(set) var archivedScratchCount = 0
+
     @ObservationIgnored private let panel: PanelModel
     @ObservationIgnored private let library: DraftLibrary
     @ObservationIgnored private let ownProcessIdentifier: pid_t
     @ObservationIgnored private var isReplacingText = false
     @ObservationIgnored private var saveEventSequence = 0
-    @ObservationIgnored private var insertingDocument: (document: PanelDocument, text: String)?
+    @ObservationIgnored private var scratchSourceText: String?
+    @ObservationIgnored private var viewedHistoryText: String?
+    @ObservationIgnored private var insertingDocument: InsertingDocument?
+
+    private struct InsertingDocument {
+        let document: PanelDocument
+        let text: String
+        let scratchSourceText: String?
+        let viewedHistoryText: String?
+    }
 
     init(
         panel: PanelModel,
@@ -49,6 +61,11 @@ struct DraftSaveEvent: Equatable {
         panel.onTextChange = { [weak self] text in
             self?.panelTextDidChange(text)
         }
+    }
+
+    /// 空白と改行だけの文字列か。
+    static func isBlank(_ text: String) -> Bool {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     /// 保存できる本文があるか。
@@ -70,6 +87,8 @@ struct DraftSaveEvent: Equatable {
         case .scratch, .fromHistory:
             guard let draft = library.addDraft(text: panel.text) else { return }
             document = .savedDraft(draft.id)
+            scratchSourceText = nil
+            viewedHistoryText = nil
             emitSaveEvent(.created(draft.id))
         case .savedDraft(let id):
             library.flush()
@@ -79,11 +98,19 @@ struct DraftSaveEvent: Equatable {
 
     // MARK: - 切り替え
 
-    /// 別の文章へすぐ切り替える。
+    /// 別の文章へすぐ切り替える。書きかけがあれば、切り替える前に挿入していない履歴へ移す。
     func request(_ target: DocumentSwitch) {
         guard !isCurrent(target), let text = targetText(target) else { return }
         library.flush()
+        if archiveScratchIfNeeded() {
+            archivedScratchCount += 1
+        }
         perform(target, text: text)
+    }
+
+    /// 終了の前に、書きかけがあれば挿入していない履歴へ移す。
+    func prepareForTermination() {
+        _ = archiveScratchIfNeeded()
     }
 
     // MARK: - 削除
@@ -93,6 +120,7 @@ struct DraftSaveEvent: Equatable {
         library.deleteDraft(id: id)
         if document == .savedDraft(id) {
             document = .scratch
+            scratchSourceText = nil
         }
     }
 
@@ -111,8 +139,15 @@ struct DraftSaveEvent: Equatable {
         if case .savedDraft = documentBefore {
             library.flush()
         }
-        insertingDocument = (document: documentBefore, text: text)
+        insertingDocument = InsertingDocument(
+            document: documentBefore,
+            text: text,
+            scratchSourceText: scratchSourceText,
+            viewedHistoryText: viewedHistoryText
+        )
         document = .scratch
+        scratchSourceText = nil
+        viewedHistoryText = nil
         return plan
     }
 
@@ -134,8 +169,9 @@ struct DraftSaveEvent: Equatable {
                 }
             case .fromHistory:
                 document = inserting.document
+                viewedHistoryText = inserting.viewedHistoryText
             case .scratch:
-                break
+                scratchSourceText = inserting.scratchSourceText
             }
         }
     }
@@ -143,8 +179,25 @@ struct DraftSaveEvent: Equatable {
     // MARK: - 内部
 
     private func panelTextDidChange(_ text: String) {
-        guard !isReplacingText, case .savedDraft(let id) = document else { return }
-        library.updateDraft(id: id, text: text)
+        guard !isReplacingText else { return }
+        switch document {
+        case .savedDraft(let id):
+            library.updateDraft(id: id, text: text)
+        case .fromHistory:
+            document = .scratch
+            scratchSourceText = viewedHistoryText
+            viewedHistoryText = nil
+        case .scratch:
+            break
+        }
+    }
+
+    private func archiveScratchIfNeeded() -> Bool {
+        guard document == .scratch,
+              !Self.isBlank(panel.text),
+              panel.text != scratchSourceText else { return false }
+        library.recordUnsentText(panel.text)
+        return true
     }
 
     private func replacingText<Result>(_ body: () -> Result) -> Result {
@@ -175,11 +228,15 @@ struct DraftSaveEvent: Equatable {
             switch target {
             case .newScratch:
                 document = .scratch
+                viewedHistoryText = nil
             case .draft(let id):
                 document = .savedDraft(id)
+                viewedHistoryText = nil
             case .history(let id):
                 document = .fromHistory(id)
+                viewedHistoryText = text
             }
+            scratchSourceText = nil
             panel.text = text
         }
     }

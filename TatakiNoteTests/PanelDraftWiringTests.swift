@@ -213,8 +213,8 @@ struct PanelDraftWiringTests {
         #expect(fixture.reloadedLibrary().draft(id: draft.id)?.text == "two")
     }
 
-    @Test("AC-34: アプリを終了するとき(flushDrafts)、書き換え途中の下書きが保存先に書き出される")
-    func flushDraftsWritesPendingDraft() throws {
+    @Test("AC-34: アプリを終了するとき(prepareForTermination)、書き換え途中の下書きが保存先に書き出される")
+    func prepareForTerminationWritesPendingDraft() throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
         let draft = try fixture.addDraft("one")
@@ -223,7 +223,7 @@ struct PanelDraftWiringTests {
         fixture.model.text = "two"
         #expect(fixture.reloadedLibrary().draft(id: draft.id)?.text == "one")
 
-        fixture.controller.flushDrafts()
+        fixture.controller.prepareForTermination()
 
         #expect(fixture.reloadedLibrary().draft(id: draft.id)?.text == "two")
     }

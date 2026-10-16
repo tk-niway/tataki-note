@@ -440,6 +440,7 @@ struct DraftSessionTests {
         fixture.session.deleteDraft(id: id)
 
         #expect(fixture.library.drafts.isEmpty)
+        #expect(fixture.library.history.isEmpty)
         #expect(fixture.panel.text == "shown")
         #expect(fixture.session.document == .scratch)
         fixture.panel.text = "shown, edited"
@@ -466,7 +467,7 @@ struct DraftSessionTests {
 
     // MARK: - 履歴の読み込み
 
-    @Test("AC-19: 履歴を選ぶと、その文章の写しがパネルに入り、保存していない文章の扱いになる")
+    @Test("AC-19: 履歴を選ぶと、その文章の写しがパネルに入り、見ているだけでは履歴に足さない")
     func loadingHistoryCopiesTextIntoPanel() {
         let fixture = Fixture()
         fixture.library.recordInsertion(text: "past text", appName: "Notes", bundleIdentifier: nil)
@@ -476,6 +477,8 @@ struct DraftSessionTests {
 
         #expect(fixture.panel.text == "past text")
         #expect(fixture.session.document == .fromHistory(id))
+        fixture.session.request(.newScratch)
+        #expect(fixture.library.history.count == 1)
     }
 
     @Test("AC-19: 読み込んだ文章をパネルで書き換えても履歴は変わらず、⌘S で下書きにできる")

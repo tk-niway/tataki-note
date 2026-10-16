@@ -331,8 +331,9 @@ final class PanelController: NSObject, NSWindowDelegate {
         library.flush()
     }
 
-    /// 遅らせている下書きの書き出しを今行う。
-    func flushDrafts() {
+    /// 終了の前に、書きかけを履歴へ移し、遅らせている下書きの書き出しを今行う。
+    func prepareForTermination() {
+        session.prepareForTermination()
         library.flush()
     }
 
