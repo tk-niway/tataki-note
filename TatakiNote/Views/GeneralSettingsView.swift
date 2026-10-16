@@ -140,7 +140,7 @@ private struct HistoryRow: View {
                 .accessibilityLabel(Self.warningText)
                 .accessibilityIdentifier("settings.clearHistoryWarning")
         } else {
-            SettingDescription(SettingsHelpText.historyKept(limit: DraftLibrary.historyLimit))
+            SettingDescription(SettingsHelpText.historyKept(limit: HistoryLimit.defaultValue))
         }
     }
 

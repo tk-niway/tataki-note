@@ -132,7 +132,7 @@ struct HistorySettingsModelTests {
 
     @Test("AC-16: 件数の減り方は、どの件数でも前より小さくなり続けて 0 で終わる")
     func countdownStepsAlwaysDecreaseToZero() {
-        for count in 1...DraftLibrary.historyLimit {
+        for count in 1...HistoryLimit.range.upperBound {
             let steps = HistorySettingsModel.countdownSteps(from: count)
 
             #expect(steps.last == 0, "\(count)")

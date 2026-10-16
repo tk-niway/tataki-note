@@ -438,14 +438,14 @@ struct SidebarModelTests {
 
     // MARK: - 空の説明
 
-    @Test("AC-25: 下書きが 0 件なら「⌘S で今の文章を取っておけます」、履歴が 0 件なら「挿入した文章がここに残ります(最新 50 件)」")
+    @Test("AC-25: 下書きが 0 件なら「⌘S で今の文章を取っておけます」、履歴が 0 件なら「挿入した文章がここに残ります(最新 200 件)」")
     func emptyMessagesPerSide() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
 
         #expect(fixture.model.emptyMessage == "⌘S で今の文章を取っておけます")
         fixture.model.tab = .history
-        #expect(fixture.model.emptyMessage == "挿入した文章がここに残ります(最新 50 件)")
+        #expect(fixture.model.emptyMessage == "挿入した文章がここに残ります(最新 200 件)")
 
         fixture.addHistory("x")
         #expect(fixture.model.emptyMessage == nil)

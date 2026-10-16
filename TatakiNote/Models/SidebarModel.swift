@@ -175,7 +175,7 @@ struct SidebarRow: Equatable, Identifiable {
         }
         switch tab {
         case .drafts: return "⌘S で今の文章を取っておけます"
-        case .history: return "挿入した文章がここに残ります(最新 \(DraftLibrary.historyLimit) 件)"
+        case .history: return "挿入した文章がここに残ります(最新 \(library.historyLimit) 件)"
         }
     }
 
