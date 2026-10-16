@@ -8,13 +8,6 @@ enum KeyCode {
     static let space: UInt16 = 49
 }
 
-/// 確認を出している間の、選んでいるボタンを動かす・押すキー。
-enum ConfirmationFocusKey: Equatable {
-    case next
-    case previous
-    case pressFocused
-}
-
 /// 入力欄に届いたキーの値。
 struct PanelKeyInput: Equatable {
     var keyCode: UInt16
@@ -59,33 +52,17 @@ enum PanelKeyResolver {
         return .passThrough
     }
 
-    /// 保存していない文章の切り替えの確認を出している間のキーが選ぶ操作。当てはまらなければ `nil`。
-    static func confirmationChoice(for input: PanelKeyInput) -> UnsavedTextChoice? {
+    /// 入力欄の外(一覧・検索欄)で押されたキーに対する確定の操作。確定・確定+送信でなければ `nil`。
+    static func actionOutsideEditor(
+        for input: PanelKeyInput,
+        commitKey: PanelShortcut?,
+        commitAndSendKey: PanelShortcut?
+    ) -> PanelKeyAction? {
         guard !input.hasMarkedText else { return nil }
-        let modifiers = input.modifiers.intersection(PanelShortcut.relevantModifiers)
-        if modifiers.isEmpty {
-            if isReturn(input) { return .save }
-            if input.keyCode == KeyCode.escape { return .cancel }
-        }
-        if modifiers == [.command], input.characters == "d" {
-            return .discard
-        }
-        return nil
-    }
-
-    /// 確認を出している間のキーが、選んでいるボタンを動かす・押すものなら、その意味。当てはまらなければ `nil`。
-    static func confirmationFocusKey(for input: PanelKeyInput) -> ConfirmationFocusKey? {
-        guard !input.hasMarkedText else { return nil }
-        let modifiers = input.modifiers.intersection(PanelShortcut.relevantModifiers)
-        switch input.keyCode {
-        case KeyCode.tab:
-            if modifiers.isEmpty { return .next }
-            if modifiers == [.shift] { return .previous }
-            return nil
-        case KeyCode.space:
-            return modifiers.isEmpty ? .pressFocused : nil
-        default:
-            return nil
+        let resolved = action(for: input, commitKey: commitKey, commitAndSendKey: commitAndSendKey)
+        switch resolved {
+        case .commit, .commitAndSend: return resolved
+        default: return nil
         }
     }
 
@@ -99,10 +76,6 @@ enum PanelKeyResolver {
         case ",": return .openSettings
         default: return nil
         }
-    }
-
-    private static func isReturn(_ input: PanelKeyInput) -> Bool {
-        input.keyCode == KeyCode.returnKey || input.keyCode == KeyCode.keypadEnter
     }
 
     static func insertsNewlineExplicitly(for input: PanelKeyInput) -> Bool {

@@ -160,8 +160,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let webContentExposer = WebContentExposer()
 
-    let library = DraftLibrary(
-        store: DraftLibraryStore(directory: AppLaunchContext.dataDirectory(environment: ProcessInfo.processInfo.environment))
+    private(set) lazy var library = DraftLibrary(
+        store: DraftLibraryStore(directory: AppLaunchContext.dataDirectory(environment: ProcessInfo.processInfo.environment)),
+        historyLimit: settings.historyLimit
     )
 
     private(set) lazy var panelController: PanelController = {
@@ -245,7 +246,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        panelController.flushDrafts()
+        panelController.prepareForTermination()
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

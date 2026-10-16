@@ -10,7 +10,7 @@ struct SettingsHelpTextTests {
     @Test("AC-4: 「履歴」の説明文は残す件数を含む短い文")
     func historyKept() {
         #expect(SettingsHelpText.historyKept(limit: 50) == "最新 50 件までこの Mac に残ります。")
-        #expect(SettingsHelpText.historyKept(limit: DraftLibrary.historyLimit) == "最新 \(DraftLibrary.historyLimit) 件までこの Mac に残ります。")
+        #expect(SettingsHelpText.historyKept(limit: HistoryLimit.defaultValue) == "最新 \(HistoryLimit.defaultValue) 件までこの Mac に残ります。")
     }
 
     @Test("AC-4: ホットキー・自動表示・対象のアプリの説明文は短い文")

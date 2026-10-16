@@ -82,15 +82,12 @@ struct SaveAnimationModelTests {
         #expect(distances.count > 1)
     }
 
-    @Test("AC-14: 保存の前に下書きへ切り替えるのは、⌘S・保存ボタンで、開いていて履歴を出しているときだけ")
+    @Test("AC-14: 保存の前に下書きへ切り替えるのは、開いていて履歴を出しているときだけ")
     func switchToDraftsBoundaries() {
-        #expect(SaveFlightDestination.shouldSwitchToDrafts(origin: .saveCommand, isSidebarOpen: true, tab: .history))
-        #expect(!SaveFlightDestination.shouldSwitchToDrafts(origin: .saveCommand, isSidebarOpen: true, tab: .drafts))
-        #expect(!SaveFlightDestination.shouldSwitchToDrafts(origin: .saveCommand, isSidebarOpen: false, tab: .history))
-        #expect(!SaveFlightDestination.shouldSwitchToDrafts(origin: .saveCommand, isSidebarOpen: false, tab: .drafts))
-        #expect(!SaveFlightDestination.shouldSwitchToDrafts(origin: .confirmation, isSidebarOpen: true, tab: .history))
-        #expect(!SaveFlightDestination.shouldSwitchToDrafts(origin: .confirmation, isSidebarOpen: true, tab: .drafts))
-        #expect(!SaveFlightDestination.shouldSwitchToDrafts(origin: .confirmation, isSidebarOpen: false, tab: .history))
+        #expect(SaveFlightDestination.shouldSwitchToDrafts(isSidebarOpen: true, tab: .history))
+        #expect(!SaveFlightDestination.shouldSwitchToDrafts(isSidebarOpen: true, tab: .drafts))
+        #expect(!SaveFlightDestination.shouldSwitchToDrafts(isSidebarOpen: false, tab: .history))
+        #expect(!SaveFlightDestination.shouldSwitchToDrafts(isSidebarOpen: false, tab: .drafts))
     }
 
     // MARK: - 演出の進み方
@@ -303,9 +300,11 @@ struct SaveAnimationPanelWiringTests {
 
         fixture.controller.model.text = "memo edited"
         fixture.pressSave()
-        try await fixture.waitForSleeps(6)
+        try await fixture.waitForSleeps(5)
 
         let flights = fixture.recorder.flyingFlights
+        #expect(fixture.recorder.model.toastMessage == nil)
+        #expect(fixture.recorder.toasts.dropFirst(3).allSatisfy { $0 == nil })
         #expect(flights.count == 2)
         #expect(flights.last?.destination == .sidebarToggle)
         #expect(flights.last?.text == "memo edited")
@@ -343,51 +342,6 @@ struct SaveAnimationPanelWiringTests {
         #expect(fixture.controller.sidebarModel.tab == .drafts)
         let flight = try #require(fixture.recorder.flyingFlights.first)
         #expect(flight.destination == .draftRow(draftID))
-    }
-
-    @Test("AC-21: 保存していない文章の確認で「保存」を選んでも、履歴のタブのまま。写しは「下書き」の切り替えへ飛び、パネルは履歴の文章になる")
-    func confirmationSaveKeepsHistoryTab() async throws {
-        let fixture = try PanelFixture(isSidebarOpen: true, tab: .history)
-        defer { fixture.cleanup() }
-        fixture.library.recordInsertion(text: "old", appName: "Safari", bundleIdentifier: nil)
-        let historyID = try #require(fixture.library.history.first?.id)
-        fixture.controller.model.text = "draft"
-
-        fixture.controller.session.request(.history(historyID))
-        #expect(fixture.controller.session.pendingSwitch == .history(historyID))
-        fixture.controller.session.resolvePendingSwitch(.save)
-        try await fixture.waitForSleeps(3)
-
-        let event = try #require(fixture.controller.session.lastSaveEvent)
-        #expect(event.origin == .confirmation)
-        #expect(fixture.controller.sidebarModel.tab == .history)
-        #expect(fixture.controller.model.text == "old")
-        #expect(fixture.library.drafts.map(\.text) == ["draft"])
-        let flight = try #require(fixture.recorder.flyingFlights.first)
-        #expect(flight.destination == .draftsTab)
-        #expect(flight.text == "draft")
-    }
-
-    @Test("AC-21: ⌘S・保存ボタンの保存の知らせは saveCommand、確認の「保存」の知らせは confirmation")
-    func saveEventOrigins() throws {
-        let fixture = try PanelFixture(isSidebarOpen: false)
-        defer { fixture.cleanup() }
-        fixture.controller.model.text = "memo"
-        fixture.pressSave()
-        #expect(fixture.controller.session.lastSaveEvent?.origin == .saveCommand)
-
-        fixture.controller.session.request(.newScratch)
-        fixture.controller.model.text = "second"
-        fixture.controller.saveDraftFromButton()
-        #expect(fixture.controller.session.lastSaveEvent?.origin == .saveCommand)
-
-        fixture.library.recordInsertion(text: "old", appName: "Safari", bundleIdentifier: nil)
-        let historyID = try #require(fixture.library.history.first?.id)
-        fixture.controller.session.request(.newScratch)
-        fixture.controller.model.text = "unsaved"
-        fixture.controller.session.request(.history(historyID))
-        fixture.controller.session.resolvePendingSwitch(.save)
-        #expect(fixture.controller.session.lastSaveEvent?.origin == .confirmation)
     }
 
     // MARK: - 止まる条件

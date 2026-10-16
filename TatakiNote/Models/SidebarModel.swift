@@ -23,15 +23,6 @@ enum SidebarTab: String, CaseIterable {
     }
 }
 
-/// 検索欄・一覧で受けるキー。
-enum SidebarKey: Equatable {
-    case up
-    case down
-    case returnKey
-    case escape
-    case deleteBackward
-}
-
 /// 一覧の1行。
 struct SidebarRow: Equatable, Identifiable {
     enum Kind: Equatable {
@@ -52,15 +43,11 @@ struct SidebarRow: Equatable, Identifiable {
     static let untitledDraftTitle = "(空の下書き)"
     static let unknownAppName = "不明なアプリ"
 
-    /// 検索欄の文字。変えると選択を先頭の行に置き直す。
-    var query: String = "" {
-        didSet {
-            guard query != oldValue else { return }
-            selectedID = nil
-        }
-    }
+    /// 検索欄の文字。
+    var query: String = ""
 
     private(set) var searchFocusRequest = 0
+    private(set) var listFocusRequest = 0
     /// サイドバーが滑って開閉している間、本文の部分に保つ幅。動いていなければ nil。
     var slidingBodyWidth: CGFloat?
     private(set) var bodyFocusRequest = 0
@@ -71,8 +58,11 @@ struct SidebarRow: Equatable, Identifiable {
     /// クリックで文章を変える操作の前に呼ぶ処理。
     @ObservationIgnored var beforeUserAction: () -> Void = {}
 
-    private var selectedID: UUID?
+    /// 一覧の esc で呼ぶ、パネルを閉じる処理。
+    @ObservationIgnored var closePanel: () -> Void = {}
+
     @ObservationIgnored private var handledSearchFocusRequest = 0
+    @ObservationIgnored private var handledListFocusRequest = 0
 
     @ObservationIgnored private let settings: AppSettings
     @ObservationIgnored private let library: DraftLibrary
@@ -105,13 +95,12 @@ struct SidebarRow: Equatable, Identifiable {
         settings.isSidebarOpen = isOpen
     }
 
-    /// 表示中の側。変えると選択を先頭の行に置き直す。
+    /// 表示中の側。
     var tab: SidebarTab {
         get { settings.sidebarTab }
         set {
             guard newValue != settings.sidebarTab else { return }
             settings.sidebarTab = newValue
-            selectedID = nil
         }
     }
 
@@ -151,20 +140,20 @@ struct SidebarRow: Equatable, Identifiable {
                         id: entry.id,
                         kind: .history,
                         title: DraftListing.firstLine(of: entry.text) ?? "",
-                        detail: "\(dateFormatter(entry.insertedAt)) · \(entry.appName ?? Self.unknownAppName)",
-                        isShownInPanel: false
+                        detail: historyDetail(of: entry),
+                        isShownInPanel: session.document == .fromHistory(entry.id)
                     )
                 }
         }
     }
 
-    /// 選んでいる行。一覧に無ければ先頭の行。
+    /// ハイライトしている行。パネルに出ている行。無ければ、検索語があるときだけ先頭の行。
     var selection: UUID? {
         let current = rows
-        if let selectedID, current.contains(where: { $0.id == selectedID }) {
-            return selectedID
+        if let shown = current.first(where: \.isShownInPanel) {
+            return shown.id
         }
-        return current.first?.id
+        return trimmedQuery.isEmpty ? nil : current.first?.id
     }
 
     /// 一覧が空のときの説明。
@@ -175,7 +164,7 @@ struct SidebarRow: Equatable, Identifiable {
         }
         switch tab {
         case .drafts: return "⌘S で今の文章を取っておけます"
-        case .history: return "挿入した文章がここに残ります(最新 \(DraftLibrary.historyLimit) 件)"
+        case .history: return "挿入した文章がここに残ります(最新 \(library.historyLimit) 件)"
         }
     }
 
@@ -221,19 +210,25 @@ struct SidebarRow: Equatable, Identifiable {
         handledSearchFocusRequest = searchFocusRequest
     }
 
-    /// 選択を上下に動かす。端で止まる。
-    func moveSelection(by offset: Int) {
-        let current = rows
-        guard !current.isEmpty else { return }
-        let currentIndex = current.firstIndex { $0.id == selection } ?? 0
-        let nextIndex = min(max(currentIndex + offset, 0), current.count - 1)
-        selectedID = current[nextIndex].id
+    /// 一覧へのフォーカスの要求がまだ当たっていないか。
+    var hasPendingListFocus: Bool {
+        listFocusRequest != handledListFocusRequest
     }
 
-    /// 行を選ぶ。一覧に無い行は無視する。
-    func select(_ id: UUID) {
-        guard rows.contains(where: { $0.id == id }) else { return }
-        selectedID = id
+    /// 一覧へフォーカスを移すよう求める。
+    func focusList() {
+        listFocusRequest += 1
+    }
+
+    /// 一覧へのフォーカスの要求を当てたと記録する。
+    func markListFocusHandled() {
+        handledListFocusRequest = listFocusRequest
+    }
+
+    /// 当たっていない一覧・検索欄へのフォーカスの要求を、当てたことにする。
+    func discardPendingFocusRequests() {
+        handledSearchFocusRequest = searchFocusRequest
+        handledListFocusRequest = listFocusRequest
     }
 
     /// 本文へフォーカスを戻すよう求める。
@@ -241,49 +236,63 @@ struct SidebarRow: Equatable, Identifiable {
         bodyFocusRequest += 1
     }
 
-    // MARK: - 呼び出し
+    // MARK: - 選択と呼び出し
 
-    /// 選んでいる行を呼び出す。
-    func activateSelection() {
-        beforeUserAction()
-        guard let id = selection else { return }
-        performActivation(of: id)
+    /// ハイライトを上下に動かし、動いた先の行の中身をパネルに出す。端で止まる。
+    func moveSelection(by offset: Int) {
+        let current = rows
+        guard !current.isEmpty else { return }
+        let targetIndex: Int
+        if let selection, let index = current.firstIndex(where: { $0.id == selection }) {
+            targetIndex = min(max(index + offset, 0), current.count - 1)
+        } else {
+            targetIndex = 0
+        }
+        load(current[targetIndex])
     }
 
-    /// 行を選んで呼び出す。
-    func activate(_ id: UUID) {
+    /// 行をクリックしたときの操作。中身をパネルに出して、一覧にフォーカスを置く。
+    func show(_ id: UUID) {
         beforeUserAction()
-        performActivation(of: id)
-    }
-
-    private func performActivation(of id: UUID) {
         guard let row = rows.first(where: { $0.id == id }) else { return }
-        selectedID = id
-        switch row.kind {
-        case .draft: session.request(.draft(id))
-        case .history: session.request(.history(id))
+        load(row)
+        focusList()
+    }
+
+    /// ハイライトしている行がパネルに出ていなければ出して、本文へフォーカスを移す。
+    func confirmSelection() {
+        beforeUserAction()
+        if let id = selection, let row = rows.first(where: { $0.id == id }), !row.isShownInPanel {
+            load(row)
         }
         returnToBody()
     }
 
-    // MARK: - 削除
-
-    /// 右クリックのメニューの削除の項目を押せるか。
-    var isDeleteAvailable: Bool {
-        session.pendingSwitch == nil
+    /// 表示する側を反対にする。
+    func switchTab() {
+        tab = tab == .drafts ? .history : .drafts
     }
+
+    private func load(_ row: SidebarRow) {
+        switch row.kind {
+        case .draft: session.request(.draft(row.id))
+        case .history: session.request(.history(row.id))
+        }
+    }
+
+    // MARK: - 削除
 
     /// 行をすぐ消す。
     func requestDelete(_ id: UUID) {
         beforeUserAction()
-        guard isDeleteAvailable, let row = rows.first(where: { $0.id == id }) else { return }
+        guard let row = rows.first(where: { $0.id == id }) else { return }
         switch row.kind {
         case .draft: session.deleteDraft(id: id)
         case .history: session.deleteHistoryEntry(id: id)
         }
     }
 
-    /// 選んでいる行の削除を求める。
+    /// ハイライトしている行をすぐ消す。ハイライトが無ければ何もしない。
     func deleteSelection() {
         guard let id = selection else { return }
         requestDelete(id)
@@ -292,38 +301,41 @@ struct SidebarRow: Equatable, Identifiable {
     // MARK: - キー
 
     /// 検索欄・一覧で押したキーを処理する。処理した(または飲み込んだ)なら `true`。
-    func handleKey(_ key: SidebarKey, modifiers: NSEvent.ModifierFlags, hasMarkedText: Bool) -> Bool {
-        if hasMarkedText { return false }
-        let relevant = modifiers.intersection(PanelShortcut.relevantModifiers)
-        switch key {
-        case .up:
-            guard relevant.isEmpty else { return false }
-            moveSelection(by: -1)
-            return true
-        case .down:
-            guard relevant.isEmpty else { return false }
-            moveSelection(by: 1)
-            return true
-        case .returnKey:
-            if relevant.isEmpty {
-                activateSelection()
-            }
-            return true
-        case .escape:
-            guard relevant.isEmpty else { return false }
-            returnToBody()
-            return true
-        case .deleteBackward:
-            guard relevant == [.command] else { return false }
-            deleteSelection()
-            return true
+    func handleKey(
+        _ key: SidebarKey,
+        source: SidebarKeySource,
+        modifiers: NSEvent.ModifierFlags,
+        hasMarkedText: Bool
+    ) -> Bool {
+        let action = SidebarKeyResolver.action(
+            for: key,
+            source: source,
+            modifiers: modifiers,
+            hasMarkedText: hasMarkedText
+        )
+        switch action {
+        case .moveSelection(let offset): moveSelection(by: offset)
+        case .confirmSelection: confirmSelection()
+        case .returnToBody: returnToBody()
+        case .closePanel: closePanel()
+        case .switchTab: switchTab()
+        case .deleteSelection: deleteSelection()
+        case .swallow: break
+        case .passThrough: return false
         }
+        return true
     }
 
     // MARK: - 内部
 
     private var trimmedQuery: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func historyDetail(of entry: HistoryEntry) -> String {
+        let date = dateFormatter(entry.insertedAt)
+        guard entry.isInserted else { return date }
+        return "\(date) · \(entry.appName ?? Self.unknownAppName)"
     }
 
     private func matches(_ text: String, _ needle: String) -> Bool {

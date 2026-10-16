@@ -26,6 +26,7 @@ struct SettingsStore {
         static let panelAnimationEnabled = "panelAnimationEnabled"
         static let insertionTargetOutlineShown = "insertionTargetOutlineShown"
         static let appMode = "appMode"
+        static let historyLimit = "historyLimit"
     }
 
     let defaults: UserDefaults
@@ -242,6 +243,22 @@ struct SettingsStore {
 
     func saveSidebarTab(_ tab: SidebarTab) {
         saveStringEnum(tab, forKey: Key.sidebarTab)
+    }
+
+    // MARK: - 履歴の上限
+
+    /// 履歴に残す件数の上限を読む。数値でない・無い・有限でない値は初期値、範囲外は端に丸める。
+    func loadHistoryLimit() -> Int {
+        guard let value = number(forKey: Key.historyLimit)?.doubleValue, value.isFinite else {
+            return HistoryLimit.defaultValue
+        }
+        let lower = Double(HistoryLimit.range.lowerBound)
+        let upper = Double(HistoryLimit.range.upperBound)
+        return Int(min(max(value, lower), upper))
+    }
+
+    func saveHistoryLimit(_ limit: Int) {
+        defaults.set(HistoryLimit.clamped(limit), forKey: Key.historyLimit)
     }
 
     // MARK: - パネルの既定の大きさ

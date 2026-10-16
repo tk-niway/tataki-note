@@ -37,8 +37,26 @@ final class PromptPanel: NSPanel {
     /// ⌘H を受け取る処理。true を返すと標準の「隠す」には渡さない。
     var onHideKey: (() -> Bool)?
 
+    /// 入力欄の外(一覧・検索欄)で押されたキーを受け取る処理。処理したら `true` を返す。
+    var onKeyDownOutsideEditor: ((PanelKeyInput) -> Bool)?
+
     override var canBecomeKey: Bool { acceptsKey }
     override var canBecomeMain: Bool { false }
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown,
+           !(firstResponder is PromptTextView),
+           let handler = onKeyDownOutsideEditor {
+            let input = PanelKeyInput(
+                keyCode: event.keyCode,
+                modifiers: event.modifierFlags.intersection(.deviceIndependentFlagsMask),
+                hasMarkedText: Self.firstResponderHasMarkedText(firstResponder),
+                characters: event.charactersIgnoringModifiers?.lowercased() ?? ""
+            )
+            if handler(input) { return }
+        }
+        super.sendEvent(event)
+    }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if event.type == .keyDown,

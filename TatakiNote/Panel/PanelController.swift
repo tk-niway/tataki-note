@@ -83,8 +83,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         animator: PanelFrameAnimating = AppKitPanelFrameAnimator(),
         shaker: PanelShaking = PanelShaker(),
         hideApplication: @escaping () -> Void = { NSApp.hide(nil) },
-        makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil,
-        isKeyboardNavigationEnabled: @escaping () -> Bool = { NSApplication.shared.isFullKeyboardAccessEnabled }
+        makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil
     ) {
         let panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
         self.model = model
@@ -118,8 +117,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         let session = DraftSession(
             panel: model,
             library: library,
-            ownProcessIdentifier: ownProcessIdentifier,
-            isKeyboardNavigationEnabled: isKeyboardNavigationEnabled
+            ownProcessIdentifier: ownProcessIdentifier
         )
         self.session = session
         self.sidebarModel = SidebarModel(settings: settings, library: library, session: session)
@@ -140,7 +138,6 @@ final class PanelController: NSObject, NSWindowDelegate {
                 onToggleSidebar: { [weak self] in self?.toggleSidebarFromButton() },
                 onNewDraft: { [weak self] in self?.newDraftFromButton() },
                 onSaveDraft: { [weak self] in self?.saveDraftFromButton() },
-                onResolveConfirmation: { [weak self] in self?.resolveConfirmationFromButton($0) },
                 onOpenSettings: { [weak self] in self?.openSettings() }
             )
         )
@@ -150,10 +147,12 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.delegate = self
         panel.onKeyEquivalent = { [weak self] in self?.handleKey($0) ?? false }
         panel.onHideKey = { [weak self] in self?.handleHideKey() ?? false }
+        panel.onKeyDownOutsideEditor = { [weak self] in self?.handleKeyOutsideEditor($0) ?? false }
         applyMinimumSize()
         configureSidebarModel()
         observeBodyFocusRequests()
         observeSaveEvents()
+        observeArchivedScratch()
         observeAppMode()
         targetMonitor.onFieldAdopted = { [weak self] in self?.returnInputToPanel() }
     }
@@ -201,7 +200,6 @@ final class PanelController: NSObject, NSWindowDelegate {
             id = savedID
         }
         if SaveFlightDestination.shouldSwitchToDrafts(
-            origin: event.origin,
             isSidebarOpen: sidebarModel.isOpen,
             tab: sidebarModel.tab
         ) {
@@ -215,7 +213,25 @@ final class PanelController: NSObject, NSWindowDelegate {
             visibleDraftIDs: sidebarModel.rows.map(\.id)
         )
         let animation = saveAnimation
-        Task { await animation.play(text: text, destination: destination) }
+        let showsToast = event.showsToast
+        Task { await animation.play(text: text, destination: destination, showsToast: showsToast) }
+    }
+
+    private func observeArchivedScratch() {
+        observeRepeatedly(
+            tracking: { [weak self] in _ = self?.session.archivedScratchCount },
+            onChange: { [weak self] in
+                guard let self else { return false }
+                self.showArchivedToast()
+                return true
+            }
+        )
+    }
+
+    private func showArchivedToast() {
+        guard model.isPresented else { return }
+        let animation = saveAnimation
+        Task { await animation.showToast(SaveAnimationModel.archivedMessage) }
     }
 
     private func configureSidebarModel() {
@@ -228,6 +244,7 @@ final class PanelController: NSObject, NSWindowDelegate {
                 Self.commitMarkedText(in: panel)
             }
         }
+        sidebarModel.closePanel = { [weak self] in self?.close() }
     }
 
     private func observeBodyFocusRequests() {
@@ -280,6 +297,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
         model.present(target: wasPresented ? app : start?.target)
         if !wasPresented {
+            sidebarModel.discardPendingFocusRequests()
             stopMotion()
             sizing.beginOpening(defaultSize: settings.panelDefaultSize, hasText: !model.text.isEmpty)
             let queriesAccessibility = !isNoteMode && Self.shouldQueryAccessibility(
@@ -335,8 +353,9 @@ final class PanelController: NSObject, NSWindowDelegate {
         library.flush()
     }
 
-    /// 遅らせている下書きの書き出しを今行う。
-    func flushDrafts() {
+    /// 終了の前に、書きかけを履歴へ移し、遅らせている下書きの書き出しを今行う。
+    func prepareForTermination() {
+        session.prepareForTermination()
         library.flush()
     }
 
@@ -361,7 +380,6 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private func prepareToClose() {
         stopPanelEffects()
-        session.resolvePendingSwitch(.cancel)
     }
 
     private func stopPanelEffects() {
@@ -393,9 +411,6 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func handleKey(_ input: PanelKeyInput) -> Bool {
-        if session.pendingSwitch != nil {
-            return handleConfirmationKey(input)
-        }
         switch PanelKeyResolver.action(
             for: input,
             commitKey: settings.isNoteMode ? nil : settings.commitKey,
@@ -427,8 +442,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             requestNewScratch()
             return true
         case .toggleSidebar:
-            setSidebarOpen(!sidebarModel.isOpen)
-            model.requestFocus()
+            toggleSidebarAndMoveFocus()
             return true
         case .openSettings:
             openSettings()
@@ -438,39 +452,21 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
     }
 
-    private func handleConfirmationKey(_ input: PanelKeyInput) -> Bool {
-        guard !input.hasMarkedText else { return false }
-        if let choice = PanelKeyResolver.confirmationChoice(for: input) {
-            session.resolvePendingSwitch(choice)
-        } else if let key = PanelKeyResolver.confirmationFocusKey(for: input) {
-            switch key {
-            case .next: session.moveConfirmationFocus(by: 1)
-            case .previous: session.moveConfirmationFocus(by: -1)
-            case .pressFocused: session.resolveFocusedConfirmation()
-            }
-        }
-        return true
-    }
-
     // MARK: - クリックの操作
 
     /// タイトルバーの新規作成のアイコン。変換中の文字を確定してから新しい書きかけにする。
     func newDraftFromButton() {
-        guard session.pendingSwitch == nil else { return }
         Self.commitMarkedText(in: panel)
         requestNewScratch()
     }
 
     private func requestNewScratch() {
         session.request(.newScratch)
-        if session.pendingSwitch != nil {
-            model.requestFocus()
-        }
+        model.requestFocus()
     }
 
     /// タイトルバーの保存のアイコン。変換中の文字を確定してから下書きに保存する。
     func saveDraftFromButton() {
-        guard session.pendingSwitch == nil else { return }
         Self.commitMarkedText(in: panel)
         if session.isSaveAvailable {
             session.saveCurrent()
@@ -480,17 +476,11 @@ final class PanelController: NSObject, NSWindowDelegate {
         model.requestFocus()
     }
 
-    /// 下の帯の「挿入」「送信」のボタン。確認中とノートモードでは何もしない。変換中の文字を確定してから確定する。
+    /// 下の帯の「挿入」「送信」のボタン。ノートモードでは何もしない。変換中の文字を確定してから確定する。
     func commitFromButton(shouldSendAfterInsert: Bool) {
-        guard session.pendingSwitch == nil, !settings.isNoteMode else { return }
+        guard !settings.isNoteMode else { return }
         Self.commitMarkedText(in: panel)
         commit(shouldSendAfterInsert: shouldSendAfterInsert)
-    }
-
-    /// 確認の重ね表示のボタン。変換中の文字を確定してから答えを反映する。
-    func resolveConfirmationFromButton(_ choice: UnsavedTextChoice) {
-        Self.commitMarkedText(in: panel)
-        session.resolvePendingSwitch(choice)
     }
 
     /// サイドバーの歯車のボタンと ⌘,。パネルを閉じて(書いた文章は残る)、設定を開く処理を呼ぶ。
@@ -501,8 +491,35 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// タイトルバーのサイドバーの開閉ボタン。
     func toggleSidebarFromButton() {
-        setSidebarOpen(!sidebarModel.isOpen)
-        model.requestFocus()
+        toggleSidebarAndMoveFocus()
+    }
+
+    private func toggleSidebarAndMoveFocus() {
+        let shouldOpen = !sidebarModel.isOpen
+        setSidebarOpen(shouldOpen)
+        if shouldOpen {
+            sidebarModel.focusList()
+        } else {
+            model.requestFocus()
+        }
+    }
+
+    /// 一覧・検索欄にフォーカスがあるときに押されたキーを処理する。確定・確定+送信なら実行して `true` を返す。
+    func handleKeyOutsideEditor(_ input: PanelKeyInput) -> Bool {
+        switch PanelKeyResolver.actionOutsideEditor(
+            for: input,
+            commitKey: settings.isNoteMode ? nil : settings.commitKey,
+            commitAndSendKey: settings.isNoteMode ? nil : settings.commitAndSendKey
+        ) {
+        case .commit:
+            commit(shouldSendAfterInsert: false)
+            return true
+        case .commitAndSend:
+            commit(shouldSendAfterInsert: true)
+            return true
+        default:
+            return false
+        }
     }
 
     // MARK: - サイドバー

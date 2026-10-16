@@ -146,6 +146,17 @@ import Observation
         didSet { store.saveSidebarTab(sidebarTab) }
     }
 
+    /// 履歴に残す件数の上限。
+    var historyLimit: Int {
+        didSet {
+            let clamped = HistoryLimit.clamped(historyLimit)
+            if clamped != historyLimit {
+                historyLimit = clamped
+            }
+            store.saveHistoryLimit(historyLimit)
+        }
+    }
+
     /// 今のモード。`selectAppMode(_:hotkey:)` で変える。
     private(set) var appMode: AppMode {
         didSet { store.saveAppMode(appMode) }
@@ -184,6 +195,7 @@ import Observation
         self.hasShownFirstLaunchTutorial = store.loadHasShownFirstLaunchTutorial()
         self.isSidebarOpen = store.loadSidebarIsOpen()
         self.sidebarTab = store.loadSidebarTab()
+        self.historyLimit = store.loadHistoryLimit()
         self.commitKeyDisplayText = commitKey?.displayText
         self.commitAndSendKeyDisplayText = commitAndSendKey?.displayText
     }

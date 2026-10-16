@@ -28,6 +28,7 @@ final class SaveAnimationUITests: PanelDraftsUITestCase {
         element(in: app, identifier: "sidebar.tab.history").click()
         XCTAssertTrue(row(in: app, containing: "old").waitForExistence(timeout: timeout), "履歴の行が出ない")
 
+        textView(in: app).click()
         app.typeText("abc")
         pressCommand("s", in: app)
 

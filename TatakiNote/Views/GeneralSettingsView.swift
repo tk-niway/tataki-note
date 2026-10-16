@@ -22,6 +22,7 @@ struct GeneralSettingsView: View {
             SettingsGroup(title: "履歴", identifier: "settings.group.history") {
                 SettingsCard {
                     HistoryRow(history: history)
+                    HistoryLimitRow(history: history)
                 }
             }
         }
@@ -140,7 +141,7 @@ private struct HistoryRow: View {
                 .accessibilityLabel(Self.warningText)
                 .accessibilityIdentifier("settings.clearHistoryWarning")
         } else {
-            SettingDescription(SettingsHelpText.historyKept(limit: DraftLibrary.historyLimit))
+            SettingDescription(SettingsHelpText.historyKept(limit: history.historyLimit))
         }
     }
 
@@ -205,6 +206,88 @@ private struct HistoryRow: View {
         }
         displayedCount = nil
         animated { finishedSequence = sequence }
+    }
+}
+
+private struct HistoryLimitRow: View {
+    let history: HistorySettingsModel
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        SettingsRow {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("残す件数")
+                        .font(.system(size: 13, weight: .medium))
+                    if let pending = history.pendingLimit {
+                        let warning = SettingsHelpText.historyLimitWarning(
+                            limit: pending.limit,
+                            removedCount: pending.removedCount
+                        )
+                        SettingDescription(warning)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(warning)
+                            .accessibilityIdentifier("settings.historyLimitWarning")
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                trailing
+            }
+            .animation(reduceMotion ? nil : popAnimation, value: history.pendingLimit)
+        }
+    }
+
+    @ViewBuilder
+    private var trailing: some View {
+        if history.pendingLimit != nil {
+            HStack(spacing: 6) {
+                Button("キャンセル") {
+                    animated { history.cancelHistoryLimit() }
+                }
+                .keyboardShortcut(.cancelAction)
+                .accessibilityIdentifier("settings.historyLimitCancel")
+                Button("変更する") {
+                    animated { history.confirmHistoryLimit() }
+                }
+                .buttonStyle(DestructiveButtonStyle())
+                .keyboardShortcut(.defaultAction)
+                .accessibilityIdentifier("settings.historyLimitConfirm")
+            }
+            .transition(.scale.combined(with: .opacity))
+        } else {
+            HStack(spacing: 6) {
+                TextField("残す件数", value: limitBinding, format: .number.grouping(.never))
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .monospacedDigit()
+                    .frame(width: 56)
+                    .id(history.limitFieldResetCount)
+                    .accessibilityIdentifier("settings.historyLimitField")
+                Stepper(value: limitBinding, in: HistoryLimit.range, step: 10) {
+                    Text("残す件数")
+                }
+                .labelsHidden()
+                .accessibilityIdentifier("settings.historyLimitStepper")
+                Text("件")
+            }
+            .fixedSize()
+        }
+    }
+
+    private var limitBinding: Binding<Int> {
+        Binding(
+            get: { history.historyLimit },
+            set: { history.requestHistoryLimit($0) }
+        )
+    }
+
+    private var popAnimation: Animation {
+        .spring(duration: 0.3, bounce: 0.4)
+    }
+
+    private func animated(_ change: () -> Void) {
+        withAnimation(reduceMotion ? nil : popAnimation, change)
     }
 }
 

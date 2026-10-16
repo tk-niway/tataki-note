@@ -12,6 +12,11 @@ enum SettingsHelpText {
         String(localized: "最新 \(limit) 件までこの Mac に残ります。")
     }
 
+    /// 履歴の上限を縮めるときの警告文。
+    static func historyLimitWarning(limit: Int, removedCount: Int) -> String {
+        String(localized: "\(limit) 件にすると、古い履歴が \(removedCount) 件消えます。この操作は元に戻せません。")
+    }
+
     /// 「パネルを開く・閉じる」の下の説明文。
     static let hotkey = String(localized: "どのアプリからでも、このキーでパネルを開く・閉じるを切り替えます。")
 

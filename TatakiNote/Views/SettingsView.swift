@@ -42,7 +42,7 @@ struct SettingsView: View {
         self.onQuit = onQuit
         _editorModel = State(initialValue: EditorSettingsModel(settings: settings))
         _keySettingsModel = State(initialValue: PanelKeySettingsModel(settings: settings))
-        _historyModel = State(initialValue: history ?? HistorySettingsModel(library: library))
+        _historyModel = State(initialValue: history ?? HistorySettingsModel(library: library, settings: settings))
     }
 
     var body: some View {

@@ -15,7 +15,6 @@ struct PanelView: View {
     let onToggleSidebar: () -> Void
     let onNewDraft: () -> Void
     let onSaveDraft: () -> Void
-    let onResolveConfirmation: ((UnsavedTextChoice) -> Void)?
     let onOpenSettings: () -> Void
     let appIcon: @MainActor (InsertionTarget) -> NSImage
 
@@ -32,7 +31,6 @@ struct PanelView: View {
         onToggleSidebar: @escaping () -> Void = {},
         onNewDraft: @escaping () -> Void = {},
         onSaveDraft: @escaping () -> Void = {},
-        onResolveConfirmation: ((UnsavedTextChoice) -> Void)? = nil,
         onOpenSettings: @escaping () -> Void = {},
         appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = { InsertionTargetBadge.systemIcon(for: $0) }
     ) {
@@ -48,7 +46,6 @@ struct PanelView: View {
         self.onToggleSidebar = onToggleSidebar
         self.onNewDraft = onNewDraft
         self.onSaveDraft = onSaveDraft
-        self.onResolveConfirmation = onResolveConfirmation
         self.onOpenSettings = onOpenSettings
         self.appIcon = appIcon
     }
@@ -137,7 +134,6 @@ struct PanelView: View {
     private var bodyColumn: some View {
         let font = settings.panelFont
         let content = statusBarContent
-        let isConfirming = session?.pendingSwitch != nil
         return VStack(spacing: 0) {
             Color.clear.frame(height: PanelMetrics.titleBarHeight)
             PromptTextEditor(
@@ -166,27 +162,13 @@ struct PanelView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor))
-        .accessibilityHidden(isConfirming)
-        .overlay(alignment: .bottomTrailing) {
+        .overlay(alignment: .bottom) {
             if let saveAnimation, let message = saveAnimation.toastMessage {
                 PanelToastView(message: message)
-                    .id(saveAnimation.arrivalCount)
-                    .padding(.trailing, 16)
+                    .id(saveAnimation.toastCount)
                     .padding(.bottom, saveToastBottomInset)
                     .allowsHitTesting(false)
                     .accessibilityIdentifier("promptPanel.saveToast")
-            }
-        }
-        .overlay {
-            if let session, session.pendingSwitch != nil {
-                PanelConfirmationOverlay(focusedChoice: session.confirmationFocus) { choice in
-                    if let onResolveConfirmation {
-                        onResolveConfirmation(choice)
-                    } else {
-                        session.resolvePendingSwitch(choice)
-                    }
-                }
-                .padding(.top, PanelMetrics.titleBarHeight)
             }
         }
         .ignoresSafeArea(edges: .top)
