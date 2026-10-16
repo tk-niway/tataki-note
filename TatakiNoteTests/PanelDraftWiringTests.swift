@@ -413,7 +413,7 @@ struct PanelDraftWiringTests {
         markText("にほんご", in: textView)
         #expect(textView.hasMarkedText())
 
-        fixture.sidebarModel.activate(bravo.id)
+        fixture.sidebarModel.show(bravo.id)
 
         #expect(fixture.library.draft(id: alpha.id)?.text == "Alphaにほんご")
         #expect(fixture.model.text == "Bravo")

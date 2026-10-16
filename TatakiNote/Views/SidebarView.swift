@@ -113,7 +113,12 @@ struct SidebarView: View {
             onFocusHandled: { model.markSearchFocusHandled() },
             onFocusChange: { isSearchFocused = $0 },
             onKey: { key, modifiers, hasMarkedText in
-                model.handleKey(key, modifiers: modifiers, hasMarkedText: hasMarkedText || model.markedTextProbe())
+                model.handleKey(
+                    key,
+                    source: .searchField,
+                    modifiers: modifiers,
+                    hasMarkedText: hasMarkedText || model.markedTextProbe()
+                )
             }
         )
         .frame(height: 22)
@@ -237,7 +242,7 @@ struct SidebarView: View {
         .modifier(DraftRowAnchor(rowID: row.kind == .draft ? row.id : nil))
         .contentShape(Rectangle())
         .onTapGesture {
-            model.activate(row.id)
+            model.show(row.id)
         }
         .contextMenu {
             Button("削除") {
@@ -318,24 +323,18 @@ struct SidebarView: View {
     // MARK: - キー
 
     private func handleListKeyPress(_ press: KeyPress) -> KeyPress.Result {
-        guard let key = Self.sidebarKey(for: press.key) else { return .ignored }
+        guard let key = SidebarKeyResolver.key(for: press.key) else { return .ignored }
+        var modifiers = Self.modifierFlags(for: press.modifiers)
+        if press.key == SidebarKeyResolver.backTab {
+            modifiers.insert(.shift)
+        }
         let handled = model.handleKey(
             key,
-            modifiers: Self.modifierFlags(for: press.modifiers),
+            source: .list,
+            modifiers: modifiers,
             hasMarkedText: model.markedTextProbe()
         )
         return handled ? .handled : .ignored
-    }
-
-    private static func sidebarKey(for key: KeyEquivalent) -> SidebarKey? {
-        switch key {
-        case .upArrow: .up
-        case .downArrow: .down
-        case .return: .returnKey
-        case .escape: .escape
-        case .delete: .deleteBackward
-        default: nil
-        }
     }
 
     private static func modifierFlags(for modifiers: EventModifiers) -> NSEvent.ModifierFlags {
