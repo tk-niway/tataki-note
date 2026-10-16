@@ -153,7 +153,7 @@ struct SidebarView: View {
     @ViewBuilder
     private var listArea: some View {
         let rows = model.rows
-        Group {
+        ZStack {
             if rows.isEmpty {
                 emptyState
             } else {
