@@ -152,6 +152,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         configureSidebarModel()
         observeBodyFocusRequests()
         observeSaveEvents()
+        observeArchivedScratch()
         observeAppMode()
         targetMonitor.onFieldAdopted = { [weak self] in self?.returnInputToPanel() }
     }
@@ -212,7 +213,25 @@ final class PanelController: NSObject, NSWindowDelegate {
             visibleDraftIDs: sidebarModel.rows.map(\.id)
         )
         let animation = saveAnimation
-        Task { await animation.play(text: text, destination: destination) }
+        let showsToast = event.showsToast
+        Task { await animation.play(text: text, destination: destination, showsToast: showsToast) }
+    }
+
+    private func observeArchivedScratch() {
+        observeRepeatedly(
+            tracking: { [weak self] in _ = self?.session.archivedScratchCount },
+            onChange: { [weak self] in
+                guard let self else { return false }
+                self.showArchivedToast()
+                return true
+            }
+        )
+    }
+
+    private func showArchivedToast() {
+        guard model.isPresented else { return }
+        let animation = saveAnimation
+        Task { await animation.showToast(SaveAnimationModel.archivedMessage) }
     }
 
     private func configureSidebarModel() {

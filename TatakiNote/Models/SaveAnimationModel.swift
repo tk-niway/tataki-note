@@ -73,6 +73,7 @@ extension Duration {
     static let arrivalDuration: Duration = .milliseconds(720)
     static let toastDuration: Duration = .milliseconds(1900)
     static let savedMessage = "下書きに保存しました"
+    static let archivedMessage = "書きかけを履歴に残しました"
 
     private(set) var phase: SaveAnimationPhase = .idle
     /// 着いたときに 1 つ進む。着いた所が弾むきっかけ。
@@ -81,6 +82,8 @@ extension Duration {
     private(set) var glowingDraftID: UUID?
     /// パネルの中に出しているトーストの文。出していなければ nil。
     private(set) var toastMessage: String?
+    /// トーストを出すたびに 1 つ進む。
+    private(set) var toastCount = 0
     private(set) var playCount = 0
 
     @ObservationIgnored private let sleep: (Duration) async -> Void
@@ -94,8 +97,8 @@ extension Duration {
         self.announce = announce
     }
 
-    /// 本文の写しを destination へ飛ばし、着いたら弾ませてトーストを出す。新しい保存が来たら前の演出を打ち切る。
-    func play(text: String, destination: SaveFlightDestination) async {
+    /// 本文の写しを destination へ飛ばし、着いたら弾ませる。showsToast なら、トーストも出す。新しい保存が来たら前の演出を打ち切る。
+    func play(text: String, destination: SaveFlightDestination, showsToast: Bool = true) async {
         playCount += 1
         let generation = playCount
         glowingDraftID = nil
@@ -109,22 +112,42 @@ extension Duration {
         if case .draftRow(let id) = destination {
             glowingDraftID = id
         }
-        toastMessage = Self.savedMessage
-        announce(Self.savedMessage)
+        let toast = showsToast ? presentToast(Self.savedMessage) : nil
         await sleep(Self.arrivalDuration)
         guard generation == playCount else { return }
         phase = .idle
         glowingDraftID = nil
+        guard let toast else { return }
         await sleep(Self.toastDuration - Self.arrivalDuration)
         guard generation == playCount else { return }
-        toastMessage = nil
+        dismissToast(numbered: toast)
+    }
+
+    /// 写しの動きとは別に、トーストだけを出して読み上げ、一定時間で消す。
+    func showToast(_ message: String) async {
+        let toast = presentToast(message)
+        await sleep(Self.toastDuration)
+        dismissToast(numbered: toast)
     }
 
     /// 演出とトーストをすぐ止める。
     func cancel() {
         playCount += 1
+        toastCount += 1
         phase = .idle
         glowingDraftID = nil
+        toastMessage = nil
+    }
+
+    private func presentToast(_ message: String) -> Int {
+        toastCount += 1
+        toastMessage = message
+        announce(message)
+        return toastCount
+    }
+
+    private func dismissToast(numbered number: Int) {
+        guard toastCount == number else { return }
         toastMessage = nil
     }
 }

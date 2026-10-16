@@ -162,11 +162,10 @@ struct PanelView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor))
-        .overlay(alignment: .bottomTrailing) {
+        .overlay(alignment: .bottom) {
             if let saveAnimation, let message = saveAnimation.toastMessage {
                 PanelToastView(message: message)
-                    .id(saveAnimation.arrivalCount)
-                    .padding(.trailing, 16)
+                    .id(saveAnimation.toastCount)
                     .padding(.bottom, saveToastBottomInset)
                     .allowsHitTesting(false)
                     .accessibilityIdentifier("promptPanel.saveToast")

@@ -18,6 +18,40 @@ final class SidebarKeyboardUITests: PanelDraftsUITestCase {
         XCTAssertTrue(waitUntil { body.promptPanelText == "xyz" }, "⌘N の後に入力欄へ打てない")
     }
 
+    // AC-15
+    @MainActor
+    func testAC15_archivingScratchShowsToastThatDisappears() throws {
+        let app = try launchApp()
+        _ = openPanel(in: app)
+        let body = textView(in: app)
+
+        app.typeText("abc")
+        XCTAssertTrue(waitUntil { body.promptPanelText == "abc" })
+        pressCommand("n", in: app)
+
+        let toast = element(in: app, identifier: "promptPanel.saveToast")
+        XCTAssertTrue(toast.waitForExistence(timeout: 2), "書きかけを履歴に残したトーストが出ない")
+        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty }, "⌘N で本文が空にならない")
+        XCTAssertTrue(toast.waitForNonExistence(timeout: 5), "トーストが消えない")
+    }
+
+    // AC-32
+    @MainActor
+    func testAC32_toastIsCenteredInBodyColumn() throws {
+        let app = try launchApp()
+        let panel = openPanel(in: app)
+
+        app.typeText("abc")
+        let saveButton = app.buttons["promptPanel.saveDraftButton"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: timeout))
+        XCTAssertTrue(waitUntil { saveButton.isEnabled })
+        saveButton.click()
+
+        let toast = element(in: app, identifier: "promptPanel.saveToast")
+        XCTAssertTrue(toast.waitForExistence(timeout: 2), "保存のトーストが出ない")
+        XCTAssertLessThanOrEqual(abs(toast.frame.midX - panel.frame.midX), 4, "トーストが入力欄の中央に出ていない")
+    }
+
     // AC-18
     // AC-19
     // AC-22

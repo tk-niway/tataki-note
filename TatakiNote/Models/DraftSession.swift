@@ -24,6 +24,14 @@ struct DraftSaveEvent: Equatable {
 
     let sequence: Int
     let kind: Kind
+
+    /// 保存のトーストを出す知らせか。新しく下書きにしたときだけ。
+    var showsToast: Bool {
+        switch kind {
+        case .created: true
+        case .overwritten: false
+        }
+    }
 }
 
 /// パネルの文章と、下書き・履歴との結びつき。

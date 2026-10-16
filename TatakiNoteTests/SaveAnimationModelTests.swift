@@ -300,9 +300,11 @@ struct SaveAnimationPanelWiringTests {
 
         fixture.controller.model.text = "memo edited"
         fixture.pressSave()
-        try await fixture.waitForSleeps(6)
+        try await fixture.waitForSleeps(5)
 
         let flights = fixture.recorder.flyingFlights
+        #expect(fixture.recorder.model.toastMessage == nil)
+        #expect(fixture.recorder.toasts.dropFirst(3).allSatisfy { $0 == nil })
         #expect(flights.count == 2)
         #expect(flights.last?.destination == .sidebarToggle)
         #expect(flights.last?.text == "memo edited")
