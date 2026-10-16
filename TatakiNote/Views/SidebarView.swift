@@ -161,6 +161,23 @@ struct SidebarView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .focusable()
+        .focusEffectDisabled()
+        .focused($isListFocused)
+        .onKeyPress(phases: [.down, .repeat]) { press in
+            handleListKeyPress(press)
+        }
+        .onAppear { applyPendingListFocus() }
+        .onChange(of: model.listFocusRequest) { _, _ in applyPendingListFocus() }
+    }
+
+    private func applyPendingListFocus() {
+        guard model.hasPendingListFocus else { return }
+        DispatchQueue.main.async {
+            guard model.hasPendingListFocus else { return }
+            isListFocused = true
+            model.markListFocusHandled()
+        }
     }
 
     private func list(_ rows: [SidebarRow]) -> some View {
@@ -183,12 +200,6 @@ struct SidebarView: View {
                 guard let newValue else { return }
                 proxy.scrollTo(newValue)
             }
-        }
-        .focusable()
-        .focusEffectDisabled()
-        .focused($isListFocused)
-        .onKeyPress(phases: [.down, .repeat]) { press in
-            handleListKeyPress(press)
         }
         .accessibilityIdentifier("sidebar.list")
     }

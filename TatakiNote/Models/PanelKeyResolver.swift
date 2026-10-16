@@ -52,6 +52,20 @@ enum PanelKeyResolver {
         return .passThrough
     }
 
+    /// 入力欄の外(一覧・検索欄)で押されたキーに対する確定の操作。確定・確定+送信でなければ `nil`。
+    static func actionOutsideEditor(
+        for input: PanelKeyInput,
+        commitKey: PanelShortcut?,
+        commitAndSendKey: PanelShortcut?
+    ) -> PanelKeyAction? {
+        guard !input.hasMarkedText else { return nil }
+        let resolved = action(for: input, commitKey: commitKey, commitAndSendKey: commitAndSendKey)
+        switch resolved {
+        case .commit, .commitAndSend: return resolved
+        default: return nil
+        }
+    }
+
     private static func panelCommandAction(for input: PanelKeyInput) -> PanelKeyAction? {
         guard input.modifiers.intersection(PanelShortcut.relevantModifiers) == [.command] else { return nil }
         switch input.characters {

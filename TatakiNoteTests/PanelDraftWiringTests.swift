@@ -136,7 +136,7 @@ struct PanelDraftWiringTests {
 
     // MARK: - ボタンとキー
 
-    @Test("⌘B を押すたびにサイドバーが開閉し、開閉は設定に残り、本文へフォーカスを戻す")
+    @Test("⌘B を押すたびにサイドバーが開閉し、開閉は設定に残り、開くと一覧へ・閉じると本文へフォーカスを求める")
     func sidebarToggleKeyOpensAndClosesSidebar() throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
@@ -147,11 +147,13 @@ struct PanelDraftWiringTests {
 
         #expect(onKeyEquivalent(Self.key("b", keyCode: 11, modifiers: [.command])))
         #expect(fixture.sidebarModel.isOpen)
-        #expect(fixture.model.focusRequest > before)
+        #expect(fixture.sidebarModel.hasPendingListFocus)
+        #expect(fixture.model.focusRequest == before)
         #expect(fixture.settings.isSidebarOpen)
 
         #expect(onKeyEquivalent(Self.key("b", keyCode: 11, modifiers: [.command])))
         #expect(!fixture.sidebarModel.isOpen)
+        #expect(fixture.model.focusRequest > before)
         #expect(!fixture.settings.isSidebarOpen)
     }
 
@@ -178,9 +180,9 @@ struct PanelDraftWiringTests {
         #expect(fixture.model.text == "typed")
     }
 
-    @Test("AC-33: 開閉ボタンと保存のアイコンを押すと、本文へフォーカスを戻す")
+    @Test("AC-33: 開閉ボタンで閉じるときと保存のアイコンを押したときは、本文へフォーカスを戻す")
     func sidebarToggleAndSaveButtonsReturnFocusToBody() throws {
-        let fixture = try Fixture()
+        let fixture = try Fixture(isSidebarOpen: true)
         defer { fixture.cleanup() }
         fixture.model.present(target: nil)
         fixture.model.text = "typed"

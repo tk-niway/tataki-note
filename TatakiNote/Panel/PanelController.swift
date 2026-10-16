@@ -147,6 +147,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.delegate = self
         panel.onKeyEquivalent = { [weak self] in self?.handleKey($0) ?? false }
         panel.onHideKey = { [weak self] in self?.handleHideKey() ?? false }
+        panel.onKeyDownOutsideEditor = { [weak self] in self?.handleKeyOutsideEditor($0) ?? false }
         applyMinimumSize()
         configureSidebarModel()
         observeBodyFocusRequests()
@@ -224,6 +225,7 @@ final class PanelController: NSObject, NSWindowDelegate {
                 Self.commitMarkedText(in: panel)
             }
         }
+        sidebarModel.closePanel = { [weak self] in self?.close() }
     }
 
     private func observeBodyFocusRequests() {
@@ -276,6 +278,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
         model.present(target: wasPresented ? app : start?.target)
         if !wasPresented {
+            sidebarModel.discardPendingFocusRequests()
             stopMotion()
             sizing.beginOpening(defaultSize: settings.panelDefaultSize, hasText: !model.text.isEmpty)
             let queriesAccessibility = !isNoteMode && Self.shouldQueryAccessibility(
@@ -420,8 +423,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             requestNewScratch()
             return true
         case .toggleSidebar:
-            setSidebarOpen(!sidebarModel.isOpen)
-            model.requestFocus()
+            toggleSidebarAndMoveFocus()
             return true
         case .openSettings:
             openSettings()
@@ -470,8 +472,35 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// タイトルバーのサイドバーの開閉ボタン。
     func toggleSidebarFromButton() {
-        setSidebarOpen(!sidebarModel.isOpen)
-        model.requestFocus()
+        toggleSidebarAndMoveFocus()
+    }
+
+    private func toggleSidebarAndMoveFocus() {
+        let shouldOpen = !sidebarModel.isOpen
+        setSidebarOpen(shouldOpen)
+        if shouldOpen {
+            sidebarModel.focusList()
+        } else {
+            model.requestFocus()
+        }
+    }
+
+    /// 一覧・検索欄にフォーカスがあるときに押されたキーを処理する。確定・確定+送信なら実行して `true` を返す。
+    func handleKeyOutsideEditor(_ input: PanelKeyInput) -> Bool {
+        switch PanelKeyResolver.actionOutsideEditor(
+            for: input,
+            commitKey: settings.isNoteMode ? nil : settings.commitKey,
+            commitAndSendKey: settings.isNoteMode ? nil : settings.commitAndSendKey
+        ) {
+        case .commit:
+            commit(shouldSendAfterInsert: false)
+            return true
+        case .commitAndSend:
+            commit(shouldSendAfterInsert: true)
+            return true
+        default:
+            return false
+        }
     }
 
     // MARK: - サイドバー
