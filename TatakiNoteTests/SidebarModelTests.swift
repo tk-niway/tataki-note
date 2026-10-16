@@ -537,32 +537,6 @@ struct SidebarModelTests {
         #expect(fixture.model.selection == newer)
     }
 
-    @Test("AC-5: 保存していない文章の切り替えの確認中は、削除の項目は押せず、requestDelete も ⌘⌫ も受けない(下書きも履歴も消えない)")
-    func deletionIsUnavailableWhileSwitchConfirmationIsShown() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanUp() }
-        let draft = try fixture.addDraft("saved")
-        let entry = fixture.addHistory("history")
-        fixture.panel.text = "unsaved"
-        #expect(fixture.model.isDeleteAvailable)
-
-        fixture.session.request(.draft(draft))
-        #expect(fixture.session.pendingSwitch == .draft(draft))
-        #expect(!fixture.model.isDeleteAvailable)
-
-        fixture.model.requestDelete(draft)
-        #expect(fixture.library.drafts.map(\.id) == [draft])
-        #expect(fixture.press(.deleteBackward, [.command]))
-        #expect(fixture.library.drafts.map(\.id) == [draft])
-
-        fixture.model.tab = .history
-        fixture.model.requestDelete(entry)
-        #expect(fixture.library.history.map(\.id) == [entry])
-
-        fixture.session.resolvePendingSwitch(.cancel)
-        #expect(fixture.model.isDeleteAvailable)
-    }
-
     @Test("AC-26: activate・activateSelection・requestDelete は、文章を変える前に beforeUserAction を呼ぶ")
     func userActionsCallBeforeUserActionFirst() throws {
         let fixture = try Fixture()

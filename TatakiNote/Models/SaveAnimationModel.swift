@@ -24,9 +24,9 @@ extension SaveFlightDestination {
         return .draftsTab
     }
 
-    /// 保存の前にサイドバーを下書きに切り替えるか。⌘S・保存ボタンの保存で、サイドバーが開いて履歴を出しているときだけ。
-    static func shouldSwitchToDrafts(origin: DraftSaveEvent.Origin, isSidebarOpen: Bool, tab: SidebarTab) -> Bool {
-        origin == .saveCommand && isSidebarOpen && tab == .history
+    /// 保存の前にサイドバーを下書きに切り替えるか。保存で、サイドバーが開いて履歴を出しているときだけ。
+    static func shouldSwitchToDrafts(isSidebarOpen: Bool, tab: SidebarTab) -> Bool {
+        isSidebarOpen && tab == .history
     }
 }
 

@@ -146,24 +146,6 @@ struct PanelCommitButtonTests {
         }
     }
 
-    @Test("AC-6: 確認の重ね表示が出ている間は、ボタンを押しても何もしない", arguments: [false, true])
-    func buttonDoesNothingWhileConfirming(shouldSend: Bool) async throws {
-        try await withFixture { fixture in
-            fixture.controller.open()
-            fixture.model.text = "hello"
-            fixture.session.request(.newScratch)
-            #expect(fixture.session.pendingSwitch == .newScratch)
-
-            fixture.controller.commitFromButton(shouldSendAfterInsert: shouldSend)
-
-            #expect(fixture.model.isPresented)
-            #expect(fixture.model.text == "hello")
-            #expect(fixture.session.pendingSwitch == .newScratch)
-            #expect(fixture.inserter.calls.isEmpty)
-            #expect(fixture.shaker.shakeCount == 0)
-        }
-    }
-
     @Test("AC-6: ノートモードでは、ボタンを押しても何もしない", arguments: [false, true])
     func buttonDoesNothingInNoteMode(shouldSend: Bool) async throws {
         try await withFixture(isNoteMode: true) { fixture in

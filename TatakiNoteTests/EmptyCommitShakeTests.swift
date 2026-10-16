@@ -211,29 +211,6 @@ struct EmptyCommitShakeTests {
         }
     }
 
-    @Test("AC-4: 保存ボタンは本文が空でも押せ、確認の重ね表示が出ている間だけ押せない")
-    func saveButtonIsEnabledExceptWhileConfirming() async throws {
-        try await withFixture { fixture in
-            fixture.controller.open()
-            #expect(fixture.model.text.isEmpty)
-            #expect(fixture.session.isSaveButtonEnabled)
-
-            fixture.model.text = "abc"
-            #expect(fixture.session.isSaveButtonEnabled)
-
-            fixture.session.request(.newScratch)
-            #expect(fixture.session.pendingSwitch == .newScratch)
-            #expect(!fixture.session.isSaveButtonEnabled)
-
-            fixture.controller.saveDraftFromButton()
-            #expect(fixture.library.drafts.isEmpty)
-            #expect(fixture.shaker.shakeCount == 0)
-
-            fixture.session.resolvePendingSwitch(.cancel)
-            #expect(fixture.session.isSaveButtonEnabled)
-        }
-    }
-
     // MARK: - 揺れの開始と後始末
 
     @Test("AC-20: 開く動きの途中の空の確定・空の保存は揺れず、パネルは開いたまま。動きが終われば揺れる")

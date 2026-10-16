@@ -243,7 +243,6 @@ struct SidebarView: View {
             Button("削除") {
                 model.requestDelete(row.id)
             }
-            .disabled(!model.isDeleteAvailable)
             .accessibilityIdentifier("sidebar.row.deleteMenuItem")
         }
         .accessibilityElement(children: .ignore)

@@ -75,71 +75,6 @@ final class DraftsSidebarUITests: PanelDraftsUITestCase {
         XCTAssertTrue(body.waitForNonExistence(timeout: timeout), "本文で esc を押してもパネルが閉じない")
     }
 
-    // AC-32
-    @MainActor
-    func testAC32_commandNAsksBeforeDiscardingUnsavedText() throws {
-        let app = try launchApp()
-        _ = openPanel(in: app)
-        let body = textView(in: app)
-
-        app.typeText("abc")
-        pressCommand("n", in: app)
-        let confirmation = element(in: app, identifier: "promptPanel.confirmation")
-        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout), "確認が出ない")
-        app.buttons["promptPanel.confirmation.cancel"].click()
-        XCTAssertTrue(confirmation.waitForNonExistence(timeout: timeout))
-        XCTAssertEqual(body.promptPanelText, "abc", "キャンセルで文章が残らない")
-
-        pressCommand("n", in: app)
-        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout))
-        app.buttons["promptPanel.confirmation.discard"].click()
-        XCTAssertTrue(confirmation.waitForNonExistence(timeout: timeout))
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty }, "保存しないで本文が空にならない")
-
-        app.typeText("xyz")
-        pressCommand("n", in: app)
-        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout))
-        app.buttons["promptPanel.confirmation.save"].click()
-        XCTAssertTrue(confirmation.waitForNonExistence(timeout: timeout))
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty })
-
-        openSidebar(in: app)
-        XCTAssertTrue(row(in: app, containing: "xyz").waitForExistence(timeout: timeout), "保存で下書きの一覧に増えない")
-    }
-
-    // AC-12
-    @MainActor
-    func testAC12_confirmationAnswersToShortcutKeys() throws {
-        let app = try launchApp()
-        _ = openPanel(in: app)
-        let body = textView(in: app)
-        let confirmation = element(in: app, identifier: "promptPanel.confirmation")
-
-        app.typeText("abc")
-        pressCommand("n", in: app)
-        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout), "確認が出ない")
-        app.typeKey("d", modifierFlags: [.command])
-        XCTAssertTrue(confirmation.waitForNonExistence(timeout: timeout), "⌘D で確認が消えない")
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty }, "⌘D の保存しないで本文が空にならない")
-
-        app.typeText("xyz")
-        pressCommand("n", in: app)
-        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout))
-        app.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(confirmation.waitForNonExistence(timeout: timeout), "esc で確認が消えない")
-        XCTAssertTrue(body.exists, "esc でパネルが閉じた")
-        XCTAssertEqual(body.promptPanelText, "xyz", "esc のキャンセルで文章が残らない")
-
-        pressCommand("n", in: app)
-        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout))
-        app.typeKey(.return, modifierFlags: [])
-        XCTAssertTrue(confirmation.waitForNonExistence(timeout: timeout), "↩ で確認が消えない")
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty }, "↩ の保存で本文が空にならない")
-
-        openSidebar(in: app)
-        XCTAssertTrue(row(in: app, containing: "xyz").waitForExistence(timeout: timeout), "↩ の保存で下書きの一覧に増えない")
-    }
-
     // AC-36
     @MainActor
     func testAC36_savedDraftShowsRowAndRightClickDeletes() throws {
@@ -157,10 +92,7 @@ final class DraftsSidebarUITests: PanelDraftsUITestCase {
         XCTAssertTrue(waitUntil { body.promptPanelText == "history one" }, "履歴の行を選んでも本文に入らない")
 
         pressCommand("n", in: app)
-        let confirmation = element(in: app, identifier: "promptPanel.confirmation")
-        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout))
-        app.buttons["promptPanel.confirmation.discard"].click()
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty })
+        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty }, "⌘N で本文が空にならない")
 
         app.typeText("draft one")
         pressCommand("s", in: app)

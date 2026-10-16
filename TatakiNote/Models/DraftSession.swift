@@ -15,13 +15,6 @@ enum DocumentSwitch: Equatable {
     case history(UUID)
 }
 
-/// 保存していない文章の確認での選び方。
-enum UnsavedTextChoice {
-    case save
-    case discard
-    case cancel
-}
-
 /// 保存の知らせ。
 struct DraftSaveEvent: Equatable {
     enum Kind: Equatable {
@@ -29,46 +22,18 @@ struct DraftSaveEvent: Equatable {
         case overwritten(UUID)
     }
 
-    /// どの操作で保存したか。
-    enum Origin: Equatable {
-        /// ⌘S・保存ボタン。
-        case saveCommand
-        /// 保存していない文章の確認の「保存」。
-        case confirmation
-    }
-
     let sequence: Int
     let kind: Kind
-    let origin: Origin
-
-    init(sequence: Int, kind: Kind, origin: Origin = .saveCommand) {
-        self.sequence = sequence
-        self.kind = kind
-        self.origin = origin
-    }
 }
 
 /// パネルの文章と、下書き・履歴との結びつき。
 @Observable final class DraftSession {
     private(set) var document: PanelDocument = .scratch
-    private(set) var pendingSwitch: DocumentSwitch? {
-        didSet {
-            guard pendingSwitch != oldValue else { return }
-            confirmationFocus = pendingSwitch == nil ? nil : (isKeyboardNavigationEnabled() ? .save : nil)
-        }
-    }
     private(set) var lastSaveEvent: DraftSaveEvent?
-
-    /// 確認で、キーボードで選んでいるボタン。確認が無いときと、キーボードナビゲーションがオフのときは nil。
-    private(set) var confirmationFocus: UnsavedTextChoice?
-
-    /// 確認のボタンの、Tab で進む順。
-    static let confirmationFocusOrder: [UnsavedTextChoice] = [.discard, .cancel, .save]
 
     @ObservationIgnored private let panel: PanelModel
     @ObservationIgnored private let library: DraftLibrary
     @ObservationIgnored private let ownProcessIdentifier: pid_t
-    @ObservationIgnored private let isKeyboardNavigationEnabled: () -> Bool
     @ObservationIgnored private var isReplacingText = false
     @ObservationIgnored private var saveEventSequence = 0
     @ObservationIgnored private var insertingDocument: (document: PanelDocument, text: String)?
@@ -76,32 +41,19 @@ struct DraftSaveEvent: Equatable {
     init(
         panel: PanelModel,
         library: DraftLibrary,
-        ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier,
-        isKeyboardNavigationEnabled: @escaping () -> Bool = { false }
+        ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier
     ) {
         self.panel = panel
         self.library = library
         self.ownProcessIdentifier = ownProcessIdentifier
-        self.isKeyboardNavigationEnabled = isKeyboardNavigationEnabled
         panel.onTextChange = { [weak self] text in
             self?.panelTextDidChange(text)
         }
     }
 
-    /// 保存していない文章がパネルにあるか。
-    var hasUnsavedText: Bool {
-        if case .savedDraft = document { return false }
-        return !panel.text.isEmpty
-    }
-
     /// 保存できる本文があるか。
     var isSaveAvailable: Bool {
         !panel.text.isEmpty
-    }
-
-    /// 保存のアイコンを押せるか。確認の重ね表示が出ている間だけ押せない。
-    var isSaveButtonEnabled: Bool {
-        pendingSwitch == nil
     }
 
     /// 新規作成のアイコンを押せるか。
@@ -127,48 +79,11 @@ struct DraftSaveEvent: Equatable {
 
     // MARK: - 切り替え
 
-    /// 別の文章への切り替えを求める。保存していない文章があれば確認を立てる。
+    /// 別の文章へすぐ切り替える。
     func request(_ target: DocumentSwitch) {
-        guard !isCurrent(target), exists(target) else { return }
-        if hasUnsavedText {
-            pendingSwitch = target
-            return
-        }
+        guard !isCurrent(target), let text = targetText(target) else { return }
         library.flush()
-        perform(target)
-    }
-
-    /// 切り替えの確認への答えを受けて切り替える。
-    func resolvePendingSwitch(_ choice: UnsavedTextChoice) {
-        guard let target = pendingSwitch else { return }
-        switch choice {
-        case .save:
-            if let draft = library.addDraft(text: panel.text) {
-                document = .savedDraft(draft.id)
-                emitSaveEvent(.created(draft.id), origin: .confirmation)
-            }
-            library.flush()
-            perform(target)
-        case .discard:
-            library.flush()
-            perform(target)
-        case .cancel:
-            pendingSwitch = nil
-        }
-    }
-
-    /// 選んでいるボタンを、Tab で進む順に offset だけ動かす。端では反対の端へ回る。選んでいるボタンが無ければ何もしない。
-    func moveConfirmationFocus(by offset: Int) {
-        let order = Self.confirmationFocusOrder
-        guard let focus = confirmationFocus, let index = order.firstIndex(of: focus) else { return }
-        let count = order.count
-        confirmationFocus = order[((index + offset) % count + count) % count]
-    }
-
-    /// 選んでいるボタンで確認に答える。選んでいるボタンが無ければ何もしない。
-    func resolveFocusedConfirmation() {
-        guard let focus = confirmationFocus else { return }
-        resolvePendingSwitch(focus)
+        perform(target, text: text)
     }
 
     // MARK: - 削除
@@ -243,41 +158,34 @@ struct DraftSaveEvent: Equatable {
         switch target {
         case .newScratch: document == .scratch && panel.text.isEmpty
         case .draft(let id): document == .savedDraft(id)
-        case .history: false
+        case .history(let id): document == .fromHistory(id)
         }
     }
 
-    private func exists(_ target: DocumentSwitch) -> Bool {
+    private func targetText(_ target: DocumentSwitch) -> String? {
         switch target {
-        case .newScratch: true
-        case .draft(let id): library.draft(id: id) != nil
-        case .history(let id): library.historyEntry(id: id) != nil
+        case .newScratch: ""
+        case .draft(let id): library.draft(id: id)?.text
+        case .history(let id): library.historyEntry(id: id)?.text
         }
     }
 
-    private func perform(_ target: DocumentSwitch) {
-        pendingSwitch = nil
-        guard exists(target) else { return }
+    private func perform(_ target: DocumentSwitch, text: String) {
         replacingText {
             switch target {
             case .newScratch:
                 document = .scratch
-                panel.text = ""
             case .draft(let id):
-                guard let draft = library.draft(id: id) else { return }
                 document = .savedDraft(id)
-                panel.text = draft.text
             case .history(let id):
-                guard let entry = library.historyEntry(id: id) else { return }
                 document = .fromHistory(id)
-                panel.text = entry.text
             }
+            panel.text = text
         }
-        panel.requestFocus()
     }
 
-    private func emitSaveEvent(_ kind: DraftSaveEvent.Kind, origin: DraftSaveEvent.Origin = .saveCommand) {
+    private func emitSaveEvent(_ kind: DraftSaveEvent.Kind) {
         saveEventSequence += 1
-        lastSaveEvent = DraftSaveEvent(sequence: saveEventSequence, kind: kind, origin: origin)
+        lastSaveEvent = DraftSaveEvent(sequence: saveEventSequence, kind: kind)
     }
 }

@@ -268,15 +268,10 @@ struct SidebarRow: Equatable, Identifiable {
 
     // MARK: - 削除
 
-    /// 右クリックのメニューの削除の項目を押せるか。
-    var isDeleteAvailable: Bool {
-        session.pendingSwitch == nil
-    }
-
     /// 行をすぐ消す。
     func requestDelete(_ id: UUID) {
         beforeUserAction()
-        guard isDeleteAvailable, let row = rows.first(where: { $0.id == id }) else { return }
+        guard let row = rows.first(where: { $0.id == id }) else { return }
         switch row.kind {
         case .draft: session.deleteDraft(id: id)
         case .history: session.deleteHistoryEntry(id: id)

@@ -200,24 +200,6 @@ struct NoteModeTutorialTests {
         #expect(fixture.model.currentStep == .nextSteps)
     }
 
-    @Test("AC-18: 保存していない文章の確認で「保存」を選んでも「次の一歩」に進む")
-    func windowAdvancesWhenConfirmationSaves() async throws {
-        let fixture = try ControllerFixture(mode: .note)
-        defer { fixture.tearDown() }
-        fixture.controller.show()
-        fixture.panelModel.present(target: nil)
-        await yieldUntil { fixture.model.currentStep == .saveDraft }
-        #expect(fixture.model.currentStep == .saveDraft)
-
-        fixture.panelModel.text = "メモ"
-        fixture.session.request(.newScratch)
-        #expect(fixture.session.pendingSwitch == .newScratch)
-        fixture.session.resolvePendingSwitch(.save)
-        await yieldUntil { fixture.model.currentStep == .nextSteps }
-
-        #expect(fixture.model.currentStep == .nextSteps)
-    }
-
     @Test("AC-18: 文章が空で保存されなかったときは進まない")
     func windowDoesNotAdvanceWhenNothingIsSaved() async throws {
         let fixture = try ControllerFixture(mode: .note)

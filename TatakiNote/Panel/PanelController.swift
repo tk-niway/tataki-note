@@ -83,8 +83,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         animator: PanelFrameAnimating = AppKitPanelFrameAnimator(),
         shaker: PanelShaking = PanelShaker(),
         hideApplication: @escaping () -> Void = { NSApp.hide(nil) },
-        makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil,
-        isKeyboardNavigationEnabled: @escaping () -> Bool = { NSApplication.shared.isFullKeyboardAccessEnabled }
+        makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil
     ) {
         let panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
         self.model = model
@@ -118,8 +117,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         let session = DraftSession(
             panel: model,
             library: library,
-            ownProcessIdentifier: ownProcessIdentifier,
-            isKeyboardNavigationEnabled: isKeyboardNavigationEnabled
+            ownProcessIdentifier: ownProcessIdentifier
         )
         self.session = session
         self.sidebarModel = SidebarModel(settings: settings, library: library, session: session)
@@ -140,7 +138,6 @@ final class PanelController: NSObject, NSWindowDelegate {
                 onToggleSidebar: { [weak self] in self?.toggleSidebarFromButton() },
                 onNewDraft: { [weak self] in self?.newDraftFromButton() },
                 onSaveDraft: { [weak self] in self?.saveDraftFromButton() },
-                onResolveConfirmation: { [weak self] in self?.resolveConfirmationFromButton($0) },
                 onOpenSettings: { [weak self] in self?.openSettings() }
             )
         )
@@ -201,7 +198,6 @@ final class PanelController: NSObject, NSWindowDelegate {
             id = savedID
         }
         if SaveFlightDestination.shouldSwitchToDrafts(
-            origin: event.origin,
             isSidebarOpen: sidebarModel.isOpen,
             tab: sidebarModel.tab
         ) {
@@ -361,7 +357,6 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private func prepareToClose() {
         stopPanelEffects()
-        session.resolvePendingSwitch(.cancel)
     }
 
     private func stopPanelEffects() {
@@ -393,9 +388,6 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func handleKey(_ input: PanelKeyInput) -> Bool {
-        if session.pendingSwitch != nil {
-            return handleConfirmationKey(input)
-        }
         switch PanelKeyResolver.action(
             for: input,
             commitKey: settings.isNoteMode ? nil : settings.commitKey,
@@ -438,39 +430,21 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
     }
 
-    private func handleConfirmationKey(_ input: PanelKeyInput) -> Bool {
-        guard !input.hasMarkedText else { return false }
-        if let choice = PanelKeyResolver.confirmationChoice(for: input) {
-            session.resolvePendingSwitch(choice)
-        } else if let key = PanelKeyResolver.confirmationFocusKey(for: input) {
-            switch key {
-            case .next: session.moveConfirmationFocus(by: 1)
-            case .previous: session.moveConfirmationFocus(by: -1)
-            case .pressFocused: session.resolveFocusedConfirmation()
-            }
-        }
-        return true
-    }
-
     // MARK: - クリックの操作
 
     /// タイトルバーの新規作成のアイコン。変換中の文字を確定してから新しい書きかけにする。
     func newDraftFromButton() {
-        guard session.pendingSwitch == nil else { return }
         Self.commitMarkedText(in: panel)
         requestNewScratch()
     }
 
     private func requestNewScratch() {
         session.request(.newScratch)
-        if session.pendingSwitch != nil {
-            model.requestFocus()
-        }
+        model.requestFocus()
     }
 
     /// タイトルバーの保存のアイコン。変換中の文字を確定してから下書きに保存する。
     func saveDraftFromButton() {
-        guard session.pendingSwitch == nil else { return }
         Self.commitMarkedText(in: panel)
         if session.isSaveAvailable {
             session.saveCurrent()
@@ -480,17 +454,11 @@ final class PanelController: NSObject, NSWindowDelegate {
         model.requestFocus()
     }
 
-    /// 下の帯の「挿入」「送信」のボタン。確認中とノートモードでは何もしない。変換中の文字を確定してから確定する。
+    /// 下の帯の「挿入」「送信」のボタン。ノートモードでは何もしない。変換中の文字を確定してから確定する。
     func commitFromButton(shouldSendAfterInsert: Bool) {
-        guard session.pendingSwitch == nil, !settings.isNoteMode else { return }
+        guard !settings.isNoteMode else { return }
         Self.commitMarkedText(in: panel)
         commit(shouldSendAfterInsert: shouldSendAfterInsert)
-    }
-
-    /// 確認の重ね表示のボタン。変換中の文字を確定してから答えを反映する。
-    func resolveConfirmationFromButton(_ choice: UnsavedTextChoice) {
-        Self.commitMarkedText(in: panel)
-        session.resolvePendingSwitch(choice)
     }
 
     /// サイドバーの歯車のボタンと ⌘,。パネルを閉じて(書いた文章は残る)、設定を開く処理を呼ぶ。
