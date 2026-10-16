@@ -12,10 +12,18 @@ struct HistorySettingsModelTests {
         return library
     }
 
+    private func makeModel(library: DraftLibrary) throws -> HistorySettingsModel {
+        let suiteName = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let settings = AppSettings(store: SettingsStore(defaults: defaults))
+        defaults.removePersistentDomain(forName: suiteName)
+        return HistorySettingsModel(library: library, settings: settings)
+    }
+
     @Test("AC-13: 履歴の件数が今の履歴の件数になり、履歴が増えると件数も増える")
-    func historyCountFollowsLibrary() {
+    func historyCountFollowsLibrary() throws {
         let library = makeLibrary(historyCount: 2)
-        let model = HistorySettingsModel(library: library)
+        let model = try makeModel(library: library)
 
         #expect(model.historyCount == 2)
 
@@ -25,8 +33,8 @@ struct HistorySettingsModelTests {
     }
 
     @Test("AC-17: 履歴が 0 件のあいだは消せず、要求しても確認は出ない")
-    func clearIsUnavailableWithoutHistory() {
-        let model = HistorySettingsModel(library: makeLibrary(historyCount: 0))
+    func clearIsUnavailableWithoutHistory() throws {
+        let model = try makeModel(library: makeLibrary(historyCount: 0))
 
         #expect(model.isClearAvailable == false)
         model.requestClear()
@@ -35,9 +43,9 @@ struct HistorySettingsModelTests {
     }
 
     @Test("AC-14: 消す操作をすると確認中になり、まだ履歴は消えない")
-    func requestShowsConfirmationWithoutDeleting() {
+    func requestShowsConfirmationWithoutDeleting() throws {
         let library = makeLibrary(historyCount: 2)
-        let model = HistorySettingsModel(library: library)
+        let model = try makeModel(library: library)
 
         #expect(model.phase == .idle)
         #expect(model.isClearAvailable)
@@ -49,9 +57,9 @@ struct HistorySettingsModelTests {
     }
 
     @Test("AC-14: 確認中に「キャンセル」を選ぶと履歴は残り、待ちに戻る")
-    func cancelKeepsHistory() {
+    func cancelKeepsHistory() throws {
         let library = makeLibrary(historyCount: 3)
-        let model = HistorySettingsModel(library: library)
+        let model = try makeModel(library: library)
 
         model.requestClear()
         model.cancelClear()
@@ -63,9 +71,9 @@ struct HistorySettingsModelTests {
     }
 
     @Test("AC-15: 確認中に「削除する」を選ぶと履歴が空になり、削除の後になって、消せなくなる")
-    func confirmClearsHistory() {
+    func confirmClearsHistory() throws {
         let library = makeLibrary(historyCount: 3)
-        let model = HistorySettingsModel(library: library)
+        let model = try makeModel(library: library)
 
         model.requestClear()
         model.confirmClear()
@@ -86,7 +94,7 @@ struct HistorySettingsModelTests {
         let store = DraftLibraryStore(directory: directory.dataDirectory)
         let library = makeLibrary(historyCount: 2, store: store)
         let draft = try #require(library.addDraft(text: "keep me"))
-        let model = HistorySettingsModel(library: library)
+        let model = try makeModel(library: library)
 
         model.requestClear()
         model.confirmClear()
@@ -97,9 +105,9 @@ struct HistorySettingsModelTests {
     }
 
     @Test("AC-15: 確認中でないときの「削除する」では、履歴は消えず、削除の後にもならない")
-    func confirmWithoutRequestDoesNothing() {
+    func confirmWithoutRequestDoesNothing() throws {
         let library = makeLibrary(historyCount: 1)
-        let model = HistorySettingsModel(library: library)
+        let model = try makeModel(library: library)
 
         model.confirmClear()
 
@@ -109,9 +117,9 @@ struct HistorySettingsModelTests {
     }
 
     @Test("AC-15: 削除の後にもう一度「削除する」が呼ばれても、何も起きない")
-    func confirmTwiceDoesNothingSecondTime() {
+    func confirmTwiceDoesNothingSecondTime() throws {
         let library = makeLibrary(historyCount: 2)
-        let model = HistorySettingsModel(library: library)
+        let model = try makeModel(library: library)
 
         model.requestClear()
         model.confirmClear()
@@ -145,9 +153,9 @@ struct HistorySettingsModelTests {
     }
 
     @Test("AC-18: 確認中に待ちへ戻すと、確認は閉じて履歴は残る")
-    func resetPhaseClosesConfirmationKeepingHistory() {
+    func resetPhaseClosesConfirmationKeepingHistory() throws {
         let library = makeLibrary(historyCount: 2)
-        let model = HistorySettingsModel(library: library)
+        let model = try makeModel(library: library)
 
         model.requestClear()
         model.resetPhase()
@@ -159,9 +167,9 @@ struct HistorySettingsModelTests {
     }
 
     @Test("AC-18: 削除の後に待ちへ戻すと、押せない待ちになる(履歴は空のまま)")
-    func resetPhaseAfterClearReturnsToIdle() {
+    func resetPhaseAfterClearReturnsToIdle() throws {
         let library = makeLibrary(historyCount: 2)
-        let model = HistorySettingsModel(library: library)
+        let model = try makeModel(library: library)
 
         model.requestClear()
         model.confirmClear()
@@ -173,9 +181,9 @@ struct HistorySettingsModelTests {
     }
 
     @Test("AC-18: 削除の後に新しく履歴が入ると、待ちに戻って押せる")
-    func newHistoryAfterClearReturnsToIdle() {
+    func newHistoryAfterClearReturnsToIdle() throws {
         let library = makeLibrary(historyCount: 2)
-        let model = HistorySettingsModel(library: library)
+        let model = try makeModel(library: library)
 
         model.requestClear()
         model.confirmClear()

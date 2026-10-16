@@ -27,7 +27,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         self.appInfo = appInfo
         self.panelDefaultSize = panelDefaultSize
         self.library = library
-        self.history = HistorySettingsModel(library: library)
+        self.history = HistorySettingsModel(library: library, settings: settings)
         super.init()
     }
 
