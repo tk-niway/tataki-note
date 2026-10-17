@@ -106,7 +106,7 @@ struct GeneralSettingsView: View {
 private struct HistoryRow: View {
     let history: HistorySettingsModel
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isAppAnimationReduced) private var reduceMotion
     @State private var finishedSequence = 0
     @State private var displayedCount: Int?
 
@@ -227,7 +227,7 @@ private struct HistoryRow: View {
 private struct HistoryLimitRow: View {
     let history: HistorySettingsModel
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isAppAnimationReduced) private var reduceMotion
 
     var body: some View {
         SettingsRow {

@@ -95,6 +95,8 @@ private struct PracticeChatView: View {
 private struct PracticeChatMessageList: View {
     let messages: [PracticeChatMessage]
 
+    @Environment(\.isAppAnimationReduced) private var reduceMotion
+
     var body: some View {
         GeometryReader { proxy in
             ScrollViewReader { reader in
@@ -109,7 +111,11 @@ private struct PracticeChatMessageList: View {
                 }
                 .onChange(of: messages.count) {
                     guard let last = messages.last else { return }
-                    withAnimation { reader.scrollTo(last.id, anchor: .bottom) }
+                    if reduceMotion {
+                        reader.scrollTo(last.id, anchor: .bottom)
+                    } else {
+                        withAnimation { reader.scrollTo(last.id, anchor: .bottom) }
+                    }
                 }
             }
         }

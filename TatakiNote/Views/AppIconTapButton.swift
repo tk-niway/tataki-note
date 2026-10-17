@@ -3,7 +3,7 @@ import SwiftUI
 
 /// 叩くと弾んで言葉が飛ぶ、アプリのアイコン。
 struct AppIconTapButton: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isAppAnimationReduced) private var reduceMotion
     @State private var tapCount = 0
     @State private var flyingWords: [FlyingWord] = []
 
