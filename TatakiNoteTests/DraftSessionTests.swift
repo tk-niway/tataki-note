@@ -242,7 +242,6 @@ struct DraftSessionTests {
         #expect(fixture.library.draft(id: id)?.text == "send this")
         #expect(fixture.panel.text == "")
         #expect(fixture.session.document == .scratch)
-        #expect(!fixture.session.isNewDraftAvailable)
     }
 
     @Test("AC-15: 挿入のために本文が空になっても、保存した下書きは空で上書きされない")
@@ -510,7 +509,6 @@ struct DraftSessionTests {
 
         #expect(fixture.panel.text == "")
         #expect(fixture.session.document == .scratch)
-        #expect(!fixture.session.isNewDraftAvailable)
         #expect(fixture.library.history.count == 2)
     }
 
@@ -598,27 +596,5 @@ struct DraftSessionTests {
 
         fixture.panel.text = ""
         #expect(!fixture.session.isSaveAvailable)
-    }
-
-    @Test("AC-28: 新規作成のアイコンは、本文が空の新しい書きかけを表示しているときだけ押せない")
-    func newDraftIsUnavailableOnlyForEmptyScratch() throws {
-        let fixture = Fixture()
-        #expect(!fixture.session.isNewDraftAvailable)
-
-        fixture.panel.text = "x"
-        #expect(fixture.session.isNewDraftAvailable)
-
-        fixture.session.saveCurrent()
-        #expect(fixture.session.isNewDraftAvailable)
-
-        fixture.panel.text = ""
-        #expect(fixture.session.isNewDraftAvailable)
-
-        fixture.session.request(.newScratch)
-        #expect(!fixture.session.isNewDraftAvailable)
-
-        fixture.library.recordInsertion(text: "past", appName: nil, bundleIdentifier: nil)
-        fixture.session.request(.history(fixture.library.history[0].id))
-        #expect(fixture.session.isNewDraftAvailable)
     }
 }

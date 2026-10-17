@@ -216,12 +216,12 @@ struct PanelKeySettingsModelTests {
         defer { defaults.removePersistentDomain(forName: name) }
         let model = makeModel(settings: settings)
 
-        #expect(settings.panelStatusItems.contains(.commitAndSend))
+        #expect(settings.panelStatusItems(for: .insert).contains(.commitAndSend))
         model.clear(.commitAndSend)
 
         #expect(model.displayText(for: .commitAndSend) == nil)
         #expect(settings.commitAndSendKey == nil)
-        #expect(!settings.panelStatusItems.contains(.commitAndSend))
+        #expect(!settings.panelStatusItems(for: .insert).contains(.commitAndSend))
     }
 
     @Test("ホットキーの閉包は記録のたびに読む(設定画面を開いている間の変更が次の記録から効く)")
@@ -258,13 +258,13 @@ struct PanelKeySettingsModelTests {
         #expect(model.displayText(for: .commit) == valueBefore)
     }
 
-    @Test("AC-10: 「パネルを開く・閉じる」で ⌘K・⌘S・⌘N・⌘B・⌘, を押すと直前のキーに戻り、理由が出る")
+    @Test("AC-10: 「パネルを開く・閉じる」で ⌘K・⌘S・⌘N・⌘E・⌘B・⌘, を押すと直前のキーに戻り、理由が出る")
     func reservedHotkeyIsRevertedWithMessage() throws {
         let (settings, defaults, name) = try makeSettings()
         defer { defaults.removePersistentDomain(forName: name) }
         let previous = PanelShortcut(keyCode: 49, modifiers: [.option, .shift])
 
-        for (keyCode, label) in [(UInt16(40), "⌘K"), (UInt16(1), "⌘S"), (UInt16(45), "⌘N"), (UInt16(11), "⌘B"), (UInt16(43), "⌘,")] {
+        for (keyCode, label) in [(UInt16(40), "⌘K"), (UInt16(1), "⌘S"), (UInt16(45), "⌘N"), (UInt16(14), "⌘E"), (UInt16(11), "⌘B"), (UInt16(43), "⌘,")] {
             let controller = FakeHotkeyController(hotkey: previous)
             let model = makeModel(settings: settings, controller: controller)
             let reserved = PanelShortcut(keyCode: keyCode, modifiers: [.command])
@@ -584,7 +584,41 @@ struct PanelKeySettingsModelTests {
         #expect(controller.resumeCount == 1)
     }
 
-    @Test("AC-34: ホットキーに ⌘K・⌘S・⌘N・⌘B・⌘, を記録すると直前のキーに戻り、理由と受け付けなかった合図が出る")
+    @Test("AC-10: ホットキーに ⌘E を記録すると直前のキーに戻り、理由は「⌘E はパネルの検索・…(⌘K・⌘S・⌘N・⌘E・⌘B・⌘,)で使っているため、登録できません。」")
+    func commandEHotkeyIsRejectedWithFullMessage() throws {
+        let (settings, defaults, name) = try makeSettings()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let previous = PanelShortcut(keyCode: 49, modifiers: [.option, .shift])
+        let controller = FakeHotkeyController(hotkey: previous)
+        let model = makeModel(settings: settings, controller: controller)
+        let commandE = PanelShortcut(keyCode: 14, modifiers: [.command])
+
+        controller.hotkey = commandE
+        model.hotkeyDidChange(to: commandE)
+
+        #expect(controller.hotkey == previous)
+        #expect(
+            model.hotkeyRejectionMessage
+                == "⌘E はパネルの検索・下書きの保存・新しい書きかけ・モードの切り替え・サイドバーの開閉・設定を開く操作(⌘K・⌘S・⌘N・⌘E・⌘B・⌘,)で使っているため、登録できません。"
+        )
+    }
+
+    @Test("AC-15: 確定キーの最後の1つを消そうとしたときの理由は「…挿入せずに書くときは、パネルで ⌘E を押してノートにしてください。」")
+    func lastKeyClearMessageMentionsToggleKey() throws {
+        let (settings, defaults, name) = try makeSettings()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let model = makeModel(settings: settings)
+
+        model.clear(.commit)
+        model.beginRecording(.commitAndSend)
+        model.clear(.commitAndSend)
+
+        let expected = "確定+挿入キーと確定+送信キーの両方を未登録にはできません。挿入せずに書くときは、パネルで ⌘E を押してノートにしてください。"
+        #expect(PanelKeySettingsModel.lastKeyClearMessage == expected)
+        #expect(model.rejectionMessage(for: .commitAndSend) == expected)
+    }
+
+    @Test("AC-34: ホットキーに ⌘K・⌘S・⌘N・⌘E・⌘B・⌘, を記録すると直前のキーに戻り、理由と受け付けなかった合図が出る")
     func reservedHotkeyEmitsRejectedFeedback() throws {
         let (settings, defaults, name) = try makeSettings()
         defer { defaults.removePersistentDomain(forName: name) }
@@ -595,7 +629,7 @@ struct PanelKeySettingsModelTests {
         #expect(model.hotkeyFeedback == nil)
 
         var lastSequence = 0
-        for (keyCode, label) in [(UInt16(40), "⌘K"), (UInt16(1), "⌘S"), (UInt16(45), "⌘N"), (UInt16(11), "⌘B"), (UInt16(43), "⌘,")] {
+        for (keyCode, label) in [(UInt16(40), "⌘K"), (UInt16(1), "⌘S"), (UInt16(45), "⌘N"), (UInt16(14), "⌘E"), (UInt16(11), "⌘B"), (UInt16(43), "⌘,")] {
             let reserved = PanelShortcut(keyCode: keyCode, modifiers: [.command])
             controller.hotkey = reserved
             model.hotkeyDidChange(to: reserved)

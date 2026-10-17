@@ -3,11 +3,8 @@ import SwiftUI
 
 /// 設定画面の「ホットキーとキー操作」。
 struct KeySettingsView: View {
-    let settings: AppSettings
+    @Bindable var settings: AppSettings
     @Bindable var keySettings: PanelKeySettingsModel
-    let onSwitchToInsert: () -> Void
-
-    private var isNoteMode: Bool { settings.isNoteMode }
 
     private var shortcutGroupRows: [[EditorShortcutGroup]] {
         let groups = EditorShortcuts.groups
@@ -19,7 +16,7 @@ struct KeySettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             hotkeyGroup
-            AutoShowSettingsSection(settings: settings, onSwitchToInsert: onSwitchToInsert)
+            AutoShowSettingsSection(settings: settings)
             insertAndSendGroup
             shortcutsGroup
         }
@@ -49,26 +46,42 @@ struct KeySettingsView: View {
     private var insertAndSendGroup: some View {
         SettingsGroup(
             title: "挿入と送信",
-            badge: "インサートのみ",
             footer: SettingsHelpText.insertAndSendFooter,
             identifier: "settings.group.insertAndSend"
         ) {
-            InsertOnlyGate(group: .insertAndSend, isNoteMode: isNoteMode, onSwitchToInsert: onSwitchToInsert) {
-                SettingsCard {
-                    shortcutRecorderRow(
-                        title: "確定+挿入キー",
-                        role: .commit,
-                        recorderID: "settings.commitKeyRecorder",
-                        rejectionID: "settings.commitKeyRejection"
-                    )
-                    shortcutRecorderRow(
-                        title: "確定+送信キー",
-                        role: .commitAndSend,
-                        recorderID: "settings.commitAndSendKeyRecorder",
-                        rejectionID: "settings.commitAndSendKeyRejection"
-                    )
+            SettingsCard {
+                newDraftModeRow
+                shortcutRecorderRow(
+                    title: "確定+挿入キー",
+                    role: .commit,
+                    recorderID: "settings.commitKeyRecorder",
+                    rejectionID: "settings.commitKeyRejection"
+                )
+                shortcutRecorderRow(
+                    title: "確定+送信キー",
+                    role: .commitAndSend,
+                    recorderID: "settings.commitAndSendKeyRecorder",
+                    rejectionID: "settings.commitAndSendKeyRejection"
+                )
+            }
+        }
+    }
+
+    private var newDraftModeRow: some View {
+        SettingsRow(
+            title: "モード",
+            description: SettingsHelpText.newDraftMode,
+            identifier: "settings.row.newDraftMode"
+        ) {
+            Picker("モード", selection: $settings.newDraftMode) {
+                ForEach(DraftMode.allCases, id: \.self) { mode in
+                    Text(mode.displayName).tag(mode)
                 }
             }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            .accessibilityIdentifier("settings.newDraftModePicker")
         }
     }
 
@@ -76,7 +89,7 @@ struct KeySettingsView: View {
         SettingsGroup(
             title: "パネルの中で使えるキー",
             note: "変更できません",
-            footer: EditorShortcuts.settingDescription(isNoteMode: isNoteMode),
+            footer: EditorShortcuts.settingDescription,
             identifier: "settings.group.shortcuts"
         ) {
             VStack(spacing: 10) {

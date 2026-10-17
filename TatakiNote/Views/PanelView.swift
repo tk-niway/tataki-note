@@ -16,6 +16,7 @@ struct PanelView: View {
     let onNewDraft: () -> Void
     let onSaveDraft: () -> Void
     let onOpenSettings: () -> Void
+    let onSwitchToInsert: () -> Void
     let appIcon: @MainActor (InsertionTarget) -> NSImage
 
     init(
@@ -32,6 +33,7 @@ struct PanelView: View {
         onNewDraft: @escaping () -> Void = {},
         onSaveDraft: @escaping () -> Void = {},
         onOpenSettings: @escaping () -> Void = {},
+        onSwitchToInsert: @escaping () -> Void = {},
         appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = { InsertionTargetBadge.systemIcon(for: $0) }
     ) {
         self.model = model
@@ -47,6 +49,7 @@ struct PanelView: View {
         self.onNewDraft = onNewDraft
         self.onSaveDraft = onSaveDraft
         self.onOpenSettings = onOpenSettings
+        self.onSwitchToInsert = onSwitchToInsert
         self.appIcon = appIcon
     }
 
@@ -88,7 +91,7 @@ struct PanelView: View {
         .overlay(alignment: .top) {
             PanelTitleBar(
                 target: model.target,
-                showsInsertionTarget: !settings.isNoteMode,
+                mode: session?.mode ?? .insert,
                 noTargetAlertCount: model.noTargetAlertCount,
                 session: session,
                 isSidebarOpen: isSidebarOpen,
@@ -97,6 +100,7 @@ struct PanelView: View {
                 onToggleSidebar: onToggleSidebar,
                 onNewDraft: onNewDraft,
                 onSaveDraft: onSaveDraft,
+                onSwitchToInsert: onSwitchToInsert,
                 appIcon: appIcon
             )
             .ignoresSafeArea(edges: .top)
@@ -177,7 +181,7 @@ struct PanelView: View {
     private var statusBarContent: PanelStatusBarContent {
         PanelStatusBarContent(
             text: model.text,
-            items: settings.panelStatusItems,
+            items: settings.panelStatusItems(for: session?.mode ?? .insert),
             commitKeyText: settings.commitKeyDisplayText,
             commitAndSendKeyText: settings.commitAndSendKeyDisplayText
         )

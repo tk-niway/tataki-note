@@ -47,7 +47,7 @@ struct SettingsView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            SettingsSidebar(settings: settings, model: model, onQuit: onQuit)
+            SettingsSidebar(model: model, onQuit: onQuit)
             Divider()
             VStack(spacing: 0) {
                 Text(model.selectedSection.displayName)
@@ -89,11 +89,7 @@ struct SettingsView: View {
         case .general:
             GeneralSettingsView(settings: settings, launchAtLogin: launchAtLogin, history: historyModel)
         case .keys:
-            KeySettingsView(
-                settings: settings,
-                keySettings: keySettingsModel,
-                onSwitchToInsert: { model.selectAppMode(.insert, in: settings) }
-            )
+            KeySettingsView(settings: settings, keySettings: keySettingsModel)
         case .panel:
             PanelSettingsView(
                 settings: settings,

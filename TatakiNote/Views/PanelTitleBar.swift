@@ -12,12 +12,13 @@ struct PanelTitleBar: View {
     let onToggleSidebar: () -> Void
     let onNewDraft: () -> Void
     let onSaveDraft: () -> Void
+    let onSwitchToInsert: () -> Void
     let appIcon: @MainActor (InsertionTarget) -> NSImage
-    let showsInsertionTarget: Bool
+    let mode: DraftMode
 
     init(
         target: InsertionTarget?,
-        showsInsertionTarget: Bool = true,
+        mode: DraftMode = .insert,
         noTargetAlertCount: Int = 0,
         session: DraftSession? = nil,
         isSidebarOpen: Bool = false,
@@ -26,10 +27,11 @@ struct PanelTitleBar: View {
         onToggleSidebar: @escaping () -> Void = {},
         onNewDraft: @escaping () -> Void = {},
         onSaveDraft: @escaping () -> Void = {},
+        onSwitchToInsert: @escaping () -> Void = {},
         appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = InsertionTargetBadge.systemIcon(for:)
     ) {
         self.target = target
-        self.showsInsertionTarget = showsInsertionTarget
+        self.mode = mode
         self.noTargetAlertCount = noTargetAlertCount
         self.session = session
         self.isSidebarOpen = isSidebarOpen
@@ -38,6 +40,7 @@ struct PanelTitleBar: View {
         self.onToggleSidebar = onToggleSidebar
         self.onNewDraft = onNewDraft
         self.onSaveDraft = onSaveDraft
+        self.onSwitchToInsert = onSwitchToInsert
         self.appIcon = appIcon
     }
 
@@ -55,8 +58,12 @@ struct PanelTitleBar: View {
             newDraftButton
             saveDraftButton
                 .padding(.leading, 4)
-            if showsInsertionTarget {
+            switch mode {
+            case .insert:
                 InsertionTargetView(target: target, noTargetAlertCount: noTargetAlertCount, appIcon: appIcon)
+                    .padding(.leading, 10)
+            case .note:
+                noteModeButton
                     .padding(.leading, 10)
             }
         }
@@ -103,7 +110,6 @@ struct PanelTitleBar: View {
         }
         .buttonStyle(PanelIconButtonStyle())
         .focusable(false)
-        .disabled(!(session?.isNewDraftAvailable ?? false))
         .help("新しい書きかけ(⌘N)")
         .accessibilityLabel("新しい書きかけ")
         .accessibilityIdentifier("promptPanel.newDraftButton")
@@ -118,6 +124,22 @@ struct PanelTitleBar: View {
         .help("下書きに保存(⌘S)")
         .accessibilityLabel("下書きに保存")
         .accessibilityIdentifier("promptPanel.saveDraftButton")
+    }
+
+    private var noteModeButton: some View {
+        Button(action: onSwitchToInsert) {
+            Text(DraftMode.note.displayName)
+                .font(.system(size: 11, weight: .medium))
+                .padding(.horizontal, 8)
+                .frame(height: Self.buttonSize.height)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(NoteModeButtonStyle())
+        .focusable(false)
+        .help("インサートに戻す(⌘E)")
+        .accessibilityLabel("ノート")
+        .accessibilityHint("押すとインサートに戻ります")
+        .accessibilityIdentifier("promptPanel.noteModeButton")
     }
 
     private func iconLabel(_ systemName: String) -> some View {
@@ -146,6 +168,25 @@ struct PanelTitleBar: View {
                 }
                 .onHover { isHovering = $0 }
         }
+    }
+}
+
+private struct NoteModeButtonStyle: ButtonStyle {
+    @State private var isHovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(Color.purple)
+            .background {
+                Capsule()
+                    .fill(Color.purple.opacity(fillOpacity(isPressed: configuration.isPressed)))
+            }
+            .onHover { isHovering = $0 }
+    }
+
+    private func fillOpacity(isPressed: Bool) -> Double {
+        if isPressed { return 0.32 }
+        return isHovering ? 0.24 : 0.16
     }
 }
 

@@ -393,36 +393,57 @@ struct AppSettingsTests {
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
 
-        #expect(settings.panelStatusItems == PanelStatusItem.allCases)
+        #expect(settings.panelStatusItems(for: .insert) == PanelStatusItem.allCases)
 
         settings.commitKey = nil
-        #expect(settings.panelStatusItems == [.close, .lineBreak, .commitAndSend, .characterCount, .lineCount])
+        #expect(settings.panelStatusItems(for: .insert) == [.close, .lineBreak, .commitAndSend, .characterCount, .lineCount])
 
         settings.commitKey = .shiftReturn
-        #expect(settings.panelStatusItems == PanelStatusItem.allCases)
+        #expect(settings.panelStatusItems(for: .insert) == PanelStatusItem.allCases)
 
         settings.setPanelStatusItem(.close, isVisible: false)
         #expect(settings.hiddenPanelStatusItems == [.close])
-        #expect(settings.panelStatusItems == [.lineBreak, .commit, .commitAndSend, .characterCount, .lineCount])
+        #expect(settings.panelStatusItems(for: .insert) == [.lineBreak, .commit, .commitAndSend, .characterCount, .lineCount])
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).hiddenPanelStatusItems == [.close])
 
         settings.setPanelStatusItem(.close, isVisible: false)
         #expect(settings.hiddenPanelStatusItems == [.close])
         settings.setPanelStatusItem(.close, isVisible: true)
         #expect(settings.hiddenPanelStatusItems.isEmpty)
-        #expect(settings.panelStatusItems == PanelStatusItem.allCases)
+        #expect(settings.panelStatusItems(for: .insert) == PanelStatusItem.allCases)
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).hiddenPanelStatusItems.isEmpty)
 
         settings.commitAndSendKey = nil
         #expect(settings.hiddenPanelStatusItems.isEmpty)
-        #expect(settings.panelStatusItems == [.close, .lineBreak, .commit, .characterCount, .lineCount])
+        #expect(settings.panelStatusItems(for: .insert) == [.close, .lineBreak, .commit, .characterCount, .lineCount])
 
         for item in PanelStatusItem.allCases {
             settings.setPanelStatusItem(item, isVisible: false)
         }
         #expect(settings.hiddenPanelStatusItems == Set(PanelStatusItem.allCases))
-        #expect(settings.panelStatusItems.isEmpty)
-        #expect(AppSettings(store: SettingsStore(defaults: defaults)).panelStatusItems.isEmpty)
+        #expect(settings.panelStatusItems(for: .insert).isEmpty)
+        #expect(settings.panelStatusItems(for: .note).isEmpty)
+        #expect(AppSettings(store: SettingsStore(defaults: defaults)).panelStatusItems(for: .insert).isEmpty)
+    }
+
+    @Test("AC-16: 帯に出す項目は、ノートの書きかけでは確定+挿入・確定+送信を除き、閉じる・改行・文字数・行数は「帯に出す項目」のオン・オフどおり。インサートでは今と同じ")
+    func panelStatusItemsInNoteDraft() throws {
+        let name = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let settings = AppSettings(store: SettingsStore(defaults: defaults))
+
+        #expect(settings.panelStatusItems(for: .insert) == PanelStatusItem.allCases)
+        #expect(settings.panelStatusItems(for: .note) == [.close, .lineBreak, .characterCount, .lineCount])
+
+        settings.setPanelStatusItem(.lineBreak, isVisible: false)
+        #expect(settings.panelStatusItems(for: .note) == [.close, .characterCount, .lineCount])
+
+        settings.setPanelStatusItem(.lineBreak, isVisible: true)
+        settings.setPanelStatusItem(.characterCount, isVisible: false)
+        #expect(settings.panelStatusItems(for: .note) == [.close, .lineBreak, .lineCount])
+        #expect(settings.panelStatusItems(for: .insert) == [.close, .lineBreak, .commit, .commitAndSend, .lineCount])
+        #expect(settings.commitKey == .commandShiftReturn)
     }
 
     @Test("AC-14: 既定の大きさの幅・高さに代入すると範囲(幅 320〜4000・高さ 160〜4000)に丸めて保存し、NaN・無限大は初期値。panelDefaultSize は幅と高さの組")

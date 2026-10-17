@@ -24,15 +24,18 @@ enum PanelKeyAction: Equatable {
     case openSearch
     case saveDraft
     case newDraft
+    case toggleMode
     case toggleSidebar
     case openSettings
+    case insertNewline
 }
 
 enum PanelKeyResolver {
     static func action(
         for input: PanelKeyInput,
         commitKey: PanelShortcut? = PanelShortcut.defaultCommitKey,
-        commitAndSendKey: PanelShortcut? = PanelShortcut.defaultCommitAndSendKey
+        commitAndSendKey: PanelShortcut? = PanelShortcut.defaultCommitAndSendKey,
+        mode: DraftMode = .insert
     ) -> PanelKeyAction {
         if input.hasMarkedText {
             return .passThrough
@@ -44,21 +47,22 @@ enum PanelKeyResolver {
             return action
         }
         if let commitKey, commitKey.matches(input) {
-            return .commit
+            return mode == .note ? .insertNewline : .commit
         }
         if let commitAndSendKey, commitAndSendKey.matches(input) {
-            return .commitAndSend
+            return mode == .note ? .insertNewline : .commitAndSend
         }
         return .passThrough
     }
 
-    /// 入力欄の外(一覧・検索欄)で押されたキーに対する確定の操作。確定・確定+送信でなければ `nil`。
+    /// 入力欄の外(一覧・検索欄)で押されたキーに対する確定の操作。確定・確定+送信でないとき、またはノートの書きかけでは `nil`。
     static func actionOutsideEditor(
         for input: PanelKeyInput,
         commitKey: PanelShortcut?,
-        commitAndSendKey: PanelShortcut?
+        commitAndSendKey: PanelShortcut?,
+        mode: DraftMode = .insert
     ) -> PanelKeyAction? {
-        guard !input.hasMarkedText else { return nil }
+        guard !input.hasMarkedText, mode == .insert else { return nil }
         let resolved = action(for: input, commitKey: commitKey, commitAndSendKey: commitAndSendKey)
         switch resolved {
         case .commit, .commitAndSend: return resolved
@@ -72,6 +76,7 @@ enum PanelKeyResolver {
         case "k": return .openSearch
         case "s": return .saveDraft
         case "n": return .newDraft
+        case "e": return .toggleMode
         case "b": return .toggleSidebar
         case ",": return .openSettings
         default: return nil

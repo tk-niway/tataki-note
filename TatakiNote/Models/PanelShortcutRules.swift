@@ -58,7 +58,7 @@ enum PanelShortcutRejection: Equatable {
         case .reservedForEditing:
             return String(localized: "\(key) は入力欄の編集ショートカットで使っているため、登録できません。")
         case .reservedForPanelCommands:
-            return String(localized: "\(key) はパネルの検索・下書きの保存・新しい書きかけ・サイドバーの開閉・設定を開く操作(⌘K・⌘S・⌘N・⌘B・⌘,)で使っているため、登録できません。")
+            return String(localized: "\(key) はパネルの検索・下書きの保存・新しい書きかけ・モードの切り替え・サイドバーの開閉・設定を開く操作(⌘K・⌘S・⌘N・⌘E・⌘B・⌘,)で使っているため、登録できません。")
         case .usedByHotkey:
             return String(localized: "\(key) は「パネルを開く・閉じる」で使っているため、登録できません。")
         case .usedByOtherRole(.commitAndSend):

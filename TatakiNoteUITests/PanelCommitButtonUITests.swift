@@ -78,10 +78,10 @@ final class PanelCommitButtonUITests: XCTestCase {
         XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
     }
 
-    // AC-5
+    // AC-16
     @MainActor
-    func testAC5_noteModeHasNoCommitButtons() throws {
-        let app = try launchApp(permission: AccessibilityOverride.trusted, seed: ["appMode": "note"])
+    func testAC16_noteDraftHasNoCommitButtons() throws {
+        let app = try launchApp(permission: AccessibilityOverride.trusted, seed: ["newDraftMode": "note"])
         openPanelFromMenu(in: app)
         XCTAssertTrue(app.textViews["promptPanel.textView"].waitForExistence(timeout: timeout))
         XCTAssertTrue(element(in: app, identifier: "promptPanel.statusBar").waitForExistence(timeout: timeout))

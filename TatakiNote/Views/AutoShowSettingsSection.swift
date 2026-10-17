@@ -5,22 +5,18 @@ import UniformTypeIdentifiers
 /// 設定画面の「自動で開く」のまとまり(自動表示と対象のアプリ)。
 struct AutoShowSettingsSection: View {
     @Bindable var settings: AppSettings
-    let onSwitchToInsert: () -> Void
     @State private var editor: AutoShowAppsEditor
 
-    init(settings: AppSettings, onSwitchToInsert: @escaping () -> Void) {
+    init(settings: AppSettings) {
         self.settings = settings
-        self.onSwitchToInsert = onSwitchToInsert
         _editor = State(initialValue: AutoShowAppsEditor(settings: settings))
     }
 
     var body: some View {
-        SettingsGroup(title: "自動で開く", badge: "インサートのみ", identifier: "settings.group.autoShow") {
-            InsertOnlyGate(group: .autoShow, isNoteMode: settings.isNoteMode, onSwitchToInsert: onSwitchToInsert) {
-                SettingsCard {
-                    modeRow
-                    appsRow
-                }
+        SettingsGroup(title: "自動で開く", identifier: "settings.group.autoShow") {
+            SettingsCard {
+                modeRow
+                appsRow
             }
         }
     }

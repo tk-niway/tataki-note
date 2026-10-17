@@ -28,9 +28,8 @@ final class KeySettingsUITests: XCTestCase {
     }
 
     // AC-19
-    // AC-29
     @MainActor
-    func testAC19_AC29_groupsRecordersAndInsertOnlyBadges() throws {
+    func testAC19_groupsRecordersAndNoBadges() throws {
         let app = try launchApp(seed: nil)
         openKeySettings(in: app)
 
@@ -48,13 +47,7 @@ final class KeySettingsUITests: XCTestCase {
             XCTAssertTrue(element(in: app, identifier: identifier).exists, identifier)
         }
 
-        // AC-29
-        for identifier in ["settings.group.autoShow", "settings.group.insertAndSend"] {
-            let badge = element(in: app, identifier: "\(identifier).badge")
-            XCTAssertTrue(badge.exists, identifier)
-            XCTAssertEqual(text(of: badge), "インサートのみ", identifier)
-        }
-        for identifier in ["settings.group.hotkey", "settings.group.shortcuts"] {
+        for identifier in groupIdentifiers {
             XCTAssertFalse(element(in: app, identifier: "\(identifier).badge").exists, identifier)
         }
 
@@ -74,7 +67,7 @@ final class KeySettingsUITests: XCTestCase {
             XCTAssertEqual(text(of: element(in: app, identifier: "settings.shortcutGroup.\(id).title")), title, id)
         }
         XCTAssertEqual(rowCount(prefix: "settings.shortcut.", in: list), 7)
-        XCTAssertEqual(rowCount(prefix: "settings.panelCommand.", in: list), 5)
+        XCTAssertEqual(rowCount(prefix: "settings.panelCommand.", in: list), 6)
 
         for keys in ["⌥↑", "⌘L", "⌘D", "⌘K", "⌘,"] {
             let row = list.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", keys)).firstMatch
@@ -84,30 +77,6 @@ final class KeySettingsUITests: XCTestCase {
             .matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "⌘D", "単語"))
             .firstMatch
         XCTAssertTrue(wordRow.exists)
-
-        closeSettings(in: app)
-    }
-
-    // AC-28
-    @MainActor
-    func testAC28_switchToInsertFromBannerEnablesRecorders() throws {
-        let app = try launchApp(seed: ["appMode": "note"])
-        openKeySettings(in: app)
-
-        let commitRecorder = element(in: app, identifier: "settings.commitKeyRecorder")
-        let commitAndSendRecorder = element(in: app, identifier: "settings.commitAndSendKeyRecorder")
-        let banner = element(in: app, identifier: "settings.noteModeBanner.insertAndSend")
-        let switchToInsert = element(in: app, identifier: "settings.noteModeBanner.insertAndSend.switchToInsert")
-        app.revealInSettings(commitRecorder)
-        XCTAssertTrue(banner.exists)
-        XCTAssertFalse(commitRecorder.isEnabled)
-        XCTAssertFalse(commitAndSendRecorder.isEnabled)
-        XCTAssertTrue(element(in: app, identifier: "settings.appMode.note").isSelected)
-
-        switchToInsert.click()
-        XCTAssertTrue(banner.waitForNonExistence(timeout: timeout))
-        XCTAssertTrue(waitUntil { commitRecorder.isEnabled && commitAndSendRecorder.isEnabled })
-        XCTAssertTrue(waitUntil { self.element(in: app, identifier: "settings.appMode.insert").isSelected })
 
         closeSettings(in: app)
     }

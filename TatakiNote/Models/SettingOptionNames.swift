@@ -14,20 +14,15 @@ extension PanelScreen {
             String(localized: "入力欄の近く")
         }
     }
-
-    /// 選べるか(ノートモードの「入力欄の近く」だけ選べない)。
-    func isSelectable(isNoteMode: Bool) -> Bool {
-        !(isNoteMode && self == .nearFocusedField)
-    }
 }
 
-extension AppMode {
+extension DraftMode {
     var displayName: String {
         switch self {
         case .insert:
-            String(localized: "インサートモード")
+            String(localized: "インサート")
         case .note:
-            String(localized: "ノートモード")
+            String(localized: "ノート")
         }
     }
 }

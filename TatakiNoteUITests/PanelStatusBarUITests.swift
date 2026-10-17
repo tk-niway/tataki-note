@@ -72,14 +72,14 @@ final class PanelStatusBarUITests: XCTestCase {
         XCTAssertLessThan(characterCountX, lineCountX)
     }
 
-    // AC-7
+    // AC-16
     @MainActor
-    func testAC7_noteModeHidesLineBreakAndCommitHints() throws {
-        let app = try launchApp(seed: ["appMode": "note"])
+    func testAC16_noteDraftHidesCommitHints() throws {
+        let app = try launchApp(seed: ["newDraftMode": "note"])
         _ = openPanel(in: app)
         XCTAssertTrue(statusBar(in: app).waitForExistence(timeout: timeout), "帯が無い")
         assertLabel(statusItem("close", in: app), "esc 閉じる")
-        XCTAssertFalse(statusItem("lineBreak", in: app).exists)
+        assertLabel(statusItem("lineBreak", in: app), "↩ 改行")
         assertLabel(statusItem("characterCount", in: app), "0文字")
         assertLabel(statusItem("lineCount", in: app), "0行")
         XCTAssertFalse(statusItem("commit", in: app).exists)

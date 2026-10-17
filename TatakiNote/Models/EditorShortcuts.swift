@@ -19,14 +19,6 @@ enum EditorShortcuts {
     /// 「ショートカットキー」の一覧の下に出す説明文。
     static let settingDescription = String(localized: "割り当ては変えられません。確定のキーは上の「確定+挿入キー」「確定+送信キー」で確かめられます。")
 
-    /// ノートモードのときの「ショートカットキー」の説明文。
-    static let noteModeSettingDescription = String(localized: "割り当ては変えられません。")
-
-    /// モードに合わせた「ショートカットキー」の説明文。
-    static func settingDescription(isNoteMode: Bool) -> String {
-        isNoteMode ? noteModeSettingDescription : settingDescription
-    }
-
     static let all: [EditorShortcut] = EditorKeyCommand.allCases.compactMap(\.listing)
 
     /// 「ショートカットキー」の一覧で編集キーの後に出す、検索・保存・新規・サイドバーの開閉・設定の行。
@@ -34,6 +26,7 @@ enum EditorShortcuts {
         EditorShortcut(id: "searchDrafts", keys: "⌘K", action: String(localized: "下書きと履歴を検索する(サイドバーを開く)")),
         EditorShortcut(id: "saveDraft", keys: "⌘S", action: String(localized: "下書きに保存する")),
         EditorShortcut(id: "newDraft", keys: "⌘N", action: String(localized: "新しい書きかけにする")),
+        EditorShortcut(id: "toggleMode", keys: "⌘E", action: String(localized: "インサートとノートを切り替える")),
         EditorShortcut(id: "toggleSidebar", keys: "⌘B", action: String(localized: "サイドバーを開く・閉じる")),
         EditorShortcut(id: "openSettings", keys: "⌘,", action: String(localized: "設定を開く(パネルは閉じる)")),
     ]
@@ -53,7 +46,7 @@ enum EditorShortcuts {
         EditorShortcutGroup(
             id: "drafts",
             title: String(localized: "下書き"),
-            shortcuts: shortcuts(withIDs: ["saveDraft", "newDraft", "searchDrafts"])
+            shortcuts: shortcuts(withIDs: ["saveDraft", "newDraft", "toggleMode", "searchDrafts"])
         ),
         EditorShortcutGroup(
             id: "view",

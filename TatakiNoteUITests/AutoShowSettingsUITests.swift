@@ -78,40 +78,6 @@ final class AutoShowSettingsUITests: XCTestCase {
         closeSettings(in: app, picker: modePicker)
     }
 
-    // AC-26
-    @MainActor
-    func testAC26_noteModeDisablesRemoveButtonUntilSwitchedToInsert() throws {
-        let app = XCUIApplication()
-        launch(app)
-        openSettingsFromMenu(in: app)
-        element(in: app, identifier: "settings.sidebar.keys").click()
-        let modePicker = element(in: app, identifier: "settings.autoShowModePicker")
-        XCTAssertTrue(modePicker.waitForExistence(timeout: timeout))
-        app.revealInSettings(modePicker)
-        segment("選んだアプリのみ", in: modePicker).click()
-        let addButton = element(in: app, identifier: "settings.autoShowAppAdd")
-        XCTAssertTrue(waitUntil { addButton.isEnabled })
-        app.revealInSettings(addButton)
-        try addFirstRunningApp(in: app, addButton: addButton)
-        XCTAssertTrue(waitUntil { self.chipCount(in: app) == 1 })
-        XCTAssertTrue(waitUntil { self.removeButton(in: app).isEnabled })
-
-        element(in: app, identifier: "settings.appMode.note").click()
-        let banner = element(in: app, identifier: "settings.noteModeBanner.autoShow")
-        XCTAssertTrue(banner.waitForExistence(timeout: timeout))
-        XCTAssertTrue(waitUntil { !self.removeButton(in: app).isEnabled })
-        XCTAssertFalse(addButton.isEnabled)
-        XCTAssertEqual(chipCount(in: app), 1)
-
-        element(in: app, identifier: "settings.noteModeBanner.autoShow.switchToInsert").click()
-        XCTAssertTrue(banner.waitForNonExistence(timeout: timeout))
-        XCTAssertTrue(waitUntil { self.removeButton(in: app).isEnabled })
-        removeButton(in: app).click()
-        XCTAssertTrue(waitUntil { self.chipCount(in: app) == 0 })
-
-        closeSettings(in: app, picker: modePicker)
-    }
-
     @MainActor
     private func launch(_ app: XCUIApplication) {
         app.launchEnvironment["TATAKINOTE_SETTINGS_SUITE"] = settingsSuiteName

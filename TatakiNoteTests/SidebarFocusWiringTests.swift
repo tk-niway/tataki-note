@@ -231,7 +231,7 @@ struct SidebarFocusWiringTests {
         #expect(!fixture.model.isPresented)
     }
 
-    @Test("AC-26: ノートモードでは入力欄の外の確定キーも確定せず、変換中も確定しない")
+    @Test("AC-14: ノートの書きかけでは入力欄の外の確定キーも確定せず、変換中も確定しない")
     func noteModeAndMarkedTextDoNotCommit() throws {
         let fixture = try Fixture(isSidebarOpen: true)
         defer { fixture.cleanup() }
@@ -243,7 +243,8 @@ struct SidebarFocusWiringTests {
         )
         #expect(!markedText)
 
-        fixture.settings.selectAppMode(.note, hotkey: nil)
+        fixture.controller.session.toggleMode()
+        #expect(fixture.controller.session.mode == .note)
         #expect(!fixture.controller.handleKeyOutsideEditor(Self.commitKey))
         #expect(!fixture.controller.handleKeyOutsideEditor(Self.commitAndSendKey))
 

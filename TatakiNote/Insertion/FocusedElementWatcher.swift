@@ -82,7 +82,6 @@ final class FocusedElementWatcher {
         self.onShow = onShow
 
         observePanelDismissal()
-        observeAppMode()
     }
 
     deinit {
@@ -119,19 +118,6 @@ final class FocusedElementWatcher {
         exposeWebContent(target)
     }
 
-    /// モードの切り替えに合わせて、前面のアプリの見張りを外す。インサートモードなら掛け直す。
-    func applyAppMode() {
-        stopWatching()
-        if settings.isNoteMode {
-            clickSuppression = nil
-            return
-        }
-        guard let target, shouldWatch(target) else { return }
-        watchFocus(of: target)
-        startClickMonitor()
-        exposeWebContent(target)
-    }
-
     func handleFocusChanged() {
         evaluate(trigger: .focusChanged)
     }
@@ -156,7 +142,7 @@ final class FocusedElementWatcher {
 
     private func shouldWatch(_ target: InsertionTarget) -> Bool {
         AutoShowDecision.shouldWatch(
-            mode: settings.effectiveAutoShowMode,
+            mode: settings.autoShowMode,
             selectedApps: settings.autoShowApps,
             isAccessibilityTrusted: permission.isTrusted,
             isOwnApp: target.isOwnApp(ownProcessIdentifier),
@@ -196,7 +182,7 @@ final class FocusedElementWatcher {
         }
 
         let input = AutoShowInput(
-            mode: settings.effectiveAutoShowMode,
+            mode: settings.autoShowMode,
             selectedApps: settings.autoShowApps,
             isAccessibilityTrusted: permission.isTrusted,
             isPanelPresented: panelModel.isPresented,
@@ -238,21 +224,6 @@ final class FocusedElementWatcher {
                 if !self.panelModel.isPresented {
                     self.handlePanelDismissed(self.panelModel.lastDismissal ?? .committed, panelTarget: self.panelModel.target)
                 }
-                return true
-            }
-        )
-    }
-
-    // MARK: - モードの観測
-
-    private func observeAppMode() {
-        observeRepeatedly(
-            tracking: { [weak self] in
-                _ = self?.settings.appMode
-            },
-            onChange: { [weak self] in
-                guard let self else { return false }
-                self.applyAppMode()
                 return true
             }
         )

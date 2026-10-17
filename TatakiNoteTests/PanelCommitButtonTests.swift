@@ -32,9 +32,6 @@ struct PanelCommitButtonTests {
         settings.isPanelAnimationEnabled = false
         settings.commitKey = .commandShiftReturn
         settings.commitAndSendKey = .commandReturn
-        if isNoteMode {
-            settings.selectAppMode(.note, hotkey: nil)
-        }
         let shaker = PanelShakerSpy()
         let inserter = InserterStub(result: .inserted)
         let permission = PermissionStub(isTrusted: true)
@@ -52,6 +49,9 @@ struct PanelCommitButtonTests {
             shaker: shaker,
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )
+        if isNoteMode {
+            controller.session.toggleMode()
+        }
         if hasTarget {
             controller.targetOverride = { own }
         } else {
@@ -146,7 +146,7 @@ struct PanelCommitButtonTests {
         }
     }
 
-    @Test("AC-6: ノートモードでは、ボタンを押しても何もしない", arguments: [false, true])
+    @Test("AC-14: ノートの書きかけでは、帯の「挿入」「送信」のボタンを押しても何もしない", arguments: [false, true])
     func buttonDoesNothingInNoteMode(shouldSend: Bool) async throws {
         try await withFixture(isNoteMode: true) { fixture in
             fixture.controller.open()

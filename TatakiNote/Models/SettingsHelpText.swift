@@ -29,6 +29,11 @@ enum SettingsHelpText {
     /// 「挿入と送信」のまとまりの下の説明文。
     static let insertAndSendFooter = String(localized: "記録ボックスをクリックしてキーを押します。esc で取り消します。")
 
+    /// 「モード」(新しい書きかけを始めるモード)の下の説明文。
+    static let newDraftMode = String(
+        localized: "新しい書きかけ(起動したとき・⌘N で新しくしたとき・挿入したあと)を、このモードで始めます。ノートでは挿入・送信せず、確定のキーは改行になります。今の書きかけのモードは、パネルで ⌘E を押して切り替えられます。"
+    )
+
     /// 「帯に出す項目」のまとまりの下の説明文。
     static let statusItemsFooter = String(localized: "すべて外すと帯ごと消えます。")
 

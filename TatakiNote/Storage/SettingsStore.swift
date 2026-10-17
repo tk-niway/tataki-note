@@ -25,7 +25,7 @@ struct SettingsStore {
         static let sidebarTab = "sidebarTab"
         static let panelAnimationEnabled = "panelAnimationEnabled"
         static let insertionTargetOutlineShown = "insertionTargetOutlineShown"
-        static let appMode = "appMode"
+        static let newDraftMode = "newDraftMode"
         static let historyLimit = "historyLimit"
     }
 
@@ -83,15 +83,12 @@ struct SettingsStore {
 
     // MARK: - モード
 
-    func loadAppMode() -> AppMode {
-        if let stored = loadStringEnum(AppMode.self, forKey: Key.appMode) {
-            return stored
-        }
-        return loadCommitShortcut() == nil && loadCommitAndSendShortcut() == nil ? .note : .insert
+    func loadNewDraftMode() -> DraftMode {
+        loadStringEnum(DraftMode.self, forKey: Key.newDraftMode) ?? .insert
     }
 
-    func saveAppMode(_ mode: AppMode) {
-        saveStringEnum(mode, forKey: Key.appMode)
+    func saveNewDraftMode(_ mode: DraftMode) {
+        saveStringEnum(mode, forKey: Key.newDraftMode)
     }
 
     func loadPanelScreen() -> PanelScreen {

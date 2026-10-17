@@ -23,26 +23,20 @@ struct PanelSettingsView: View {
 
     private var screenGroup: some View {
         SettingsGroup(title: "パネルを出す位置", identifier: "settings.group.panelScreen") {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .top, spacing: 8) {
-                    ForEach(PanelScreen.allCases, id: \.self) { screen in
-                        PanelScreenTile(
-                            screen: screen,
-                            isSelected: settings.effectivePanelScreen == screen,
-                            isEnabled: screen.isSelectable(isNoteMode: settings.isNoteMode),
-                            onSelect: { select(screen) }
-                        )
-                    }
-                }
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel("パネルを出す位置")
-                .accessibilityIdentifier("settings.panelScreenPicker")
-                if settings.isNoteMode {
-                    NoteModeReason(restriction: .nearFocusedField, identifier: "settings.noteModeReason.nearFocusedField")
-                        .padding(.horizontal, 4)
+            HStack(alignment: .top, spacing: 8) {
+                ForEach(PanelScreen.allCases, id: \.self) { screen in
+                    PanelScreenTile(
+                        screen: screen,
+                        isSelected: settings.panelScreen == screen,
+                        isEnabled: true,
+                        onSelect: { settings.panelScreen = screen }
+                    )
                 }
             }
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("パネルを出す位置")
+            .accessibilityIdentifier("settings.panelScreenPicker")
         }
     }
 
@@ -215,24 +209,14 @@ struct PanelSettingsView: View {
     private var outlineGroup: some View {
         SettingsGroup(title: "挿入先の枠線", identifier: "settings.group.insertionTargetOutline") {
             SettingsCard {
-                VStack(spacing: 0) {
-                    SettingsRow(
-                        title: "挿入先の入力欄を枠線で囲む",
-                        description: SettingsHelpText.insertionTargetOutline
-                    ) {
-                        Toggle("挿入先の入力欄を枠線で囲む", isOn: $settings.isInsertionTargetOutlineShown)
-                            .toggleStyle(.switch)
-                            .labelsHidden()
-                            .disabled(settings.isNoteMode)
-                            .accessibilityIdentifier("settings.insertionTargetOutlineToggle")
-                    }
-                    if settings.isNoteMode {
-                        NoteModeReason(restriction: .insertionTargetOutline, identifier: "settings.noteModeReason.insertionTargetOutline")
-                            .padding(.horizontal, 14)
-                            .padding(.bottom, 10)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color(nsColor: .controlBackgroundColor))
-                    }
+                SettingsRow(
+                    title: "挿入先の入力欄を枠線で囲む",
+                    description: SettingsHelpText.insertionTargetOutline
+                ) {
+                    Toggle("挿入先の入力欄を枠線で囲む", isOn: $settings.isInsertionTargetOutlineShown)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings.insertionTargetOutlineToggle")
                 }
             }
         }
@@ -256,13 +240,7 @@ struct PanelSettingsView: View {
     private func statusItemNoteText(_ note: StatusItemNote) -> String {
         switch note {
         case .keyNotAssigned: String(localized: "キーを登録していないあいだは帯に出ません")
-        case .noteMode: String(localized: "ノートモードのあいだは帯に出ません")
         }
-    }
-
-    private func select(_ screen: PanelScreen) {
-        guard screen.isSelectable(isNoteMode: settings.isNoteMode) else { return }
-        settings.panelScreen = screen
     }
 
     private func statusItemBinding(_ item: PanelStatusItem) -> Binding<Bool> {

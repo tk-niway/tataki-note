@@ -60,7 +60,7 @@ struct RecorderFeedback: Equatable {
         self.lastAcceptedHotkey = hotkey()
     }
 
-    /// 「パネルを開く・閉じる」の記録ボックスの変更を受け、⌘K・⌘S・⌘N・⌘B・⌘, なら直前のキーに戻して理由を出す。
+    /// 「パネルを開く・閉じる」の記録ボックスの変更を受け、⌘K・⌘S・⌘N・⌘E・⌘B・⌘, なら直前のキーに戻して理由を出す。
     func hotkeyDidChange(to shortcut: PanelShortcut?) {
         guard shortcut != lastAcceptedHotkey else { return }
         if let shortcut, ReservedPanelKeys.isReserved(shortcut) {
@@ -137,7 +137,7 @@ struct RecorderFeedback: Equatable {
     }
 
     /// 確定+挿入キーと確定+送信キーの最後の1つを消そうとしたときの理由。
-    static let lastKeyClearMessage = String(localized: "確定+挿入キーと確定+送信キーの両方を未登録にはできません。挿入せずに使うときは、ノートモードにしてください。")
+    static let lastKeyClearMessage = String(localized: "確定+挿入キーと確定+送信キーの両方を未登録にはできません。挿入せずに書くときは、パネルで ⌘E を押してノートにしてください。")
 
     func clear(_ role: PanelShortcutRole) {
         let otherRole: PanelShortcutRole = role == .commit ? .commitAndSend : .commit
