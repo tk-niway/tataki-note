@@ -276,63 +276,6 @@ struct NoteModePanelTests {
         }
     }
 
-    // MARK: - AC-12
-
-    @Test("AC-12: ノートモードで確定+挿入キー・確定+送信キー(初期値)を押しても確定せず、キーは入力欄に渡り、パネルは開いたまま文章が残り、挿入は頼まれない。⇧⌘↩・⌘↩ は入力欄に改行を入れる")
-    func noteModeCommitKeysDoNotCommit() throws {
-        let fixture = try NoteModeFixture(mode: .note)
-        defer { fixture.finish() }
-        fixture.controller.open()
-        fixture.controller.model.text = "abc"
-
-        for input in [commitInput, commitAndSendInput] {
-            #expect(fixture.controller.handleKey(input) == false)
-            #expect(PanelKeyResolver.insertsNewlineExplicitly(for: input))
-        }
-
-        #expect(fixture.controller.model.isPresented)
-        #expect(fixture.controller.model.text == "abc")
-        #expect(fixture.events.insertions.isEmpty)
-    }
-
-    @Test("AC-12: ノートモードでは、登録している確定キー(⇧↩ など)も確定せず、入力欄に渡る")
-    func noteModeCustomCommitKeyIsPassedThrough() throws {
-        let fixture = try NoteModeFixture(mode: .note)
-        defer { fixture.finish() }
-        fixture.settings.selectCommitKey(.shiftReturn)
-        fixture.controller.open()
-        fixture.controller.model.text = "abc"
-        let shiftReturn = PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.shift], hasMarkedText: false)
-
-        #expect(fixture.controller.handleKey(shiftReturn) == false)
-
-        #expect(fixture.controller.model.isPresented)
-        #expect(fixture.controller.model.text == "abc")
-        #expect(fixture.events.insertions.isEmpty)
-    }
-
-    @Test("AC-12: ノートモードでも、閉じる・下書きに保存などのほかのキーは今までどおり効く")
-    func noteModeOtherKeysStillWork() throws {
-        let fixture = try NoteModeFixture(mode: .note)
-        defer { fixture.finish() }
-        fixture.controller.open()
-        let escape = PanelKeyInput(keyCode: KeyCode.escape, modifiers: [], hasMarkedText: false)
-
-        #expect(fixture.controller.handleKey(escape))
-
-        #expect(!fixture.controller.model.isPresented)
-    }
-
-    @Test("AC-12: インサートモードでは、同じキーで確定する(キーを受け取って true を返す)")
-    func insertModeCommitKeysAreHandled() throws {
-        let fixture = try NoteModeFixture(mode: .insert)
-        defer { fixture.finish() }
-        fixture.controller.open()
-        fixture.controller.model.text = "abc"
-
-        #expect(fixture.controller.handleKey(commitInput))
-    }
-
     // MARK: - AC-14
 
     @Test("AC-14: ノートモードでは、枠線の設定がオンでも枠線を出さない")
@@ -412,7 +355,7 @@ struct NoteModePanelTests {
 
     // MARK: - AC-15
 
-    @Test("AC-15: パネルを開いたままノートモードにすると、挿入先が無くなり、クリックの見張りが止まり、確定キーで確定しなくなる")
+    @Test("AC-15: パネルを開いたままノートモードにすると、挿入先が無くなり、クリックの見張りが止まる")
     func switchingToNoteModeWhilePresentedStopsWatching() throws {
         let fixture = try NoteModeFixture(mode: .insert)
         defer { fixture.finish() }
@@ -428,10 +371,6 @@ struct NoteModePanelTests {
         #expect(fixture.controller.model.target == nil)
         #expect(fixture.clicks.activeCount == 0)
         #expect(fixture.probe.targets.count == probesBeforeSwitch)
-        #expect(fixture.controller.handleKey(commitInput) == false)
-        #expect(fixture.controller.model.isPresented)
-        #expect(fixture.controller.model.text == "abc")
-        #expect(fixture.events.insertions.isEmpty)
     }
 
     @Test("AC-15: 設定のモードが変わると、パネルは自動でノートモードの動きに切り替わる")

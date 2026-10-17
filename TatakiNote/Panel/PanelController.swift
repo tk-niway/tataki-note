@@ -414,8 +414,9 @@ final class PanelController: NSObject, NSWindowDelegate {
     func handleKey(_ input: PanelKeyInput) -> Bool {
         switch PanelKeyResolver.action(
             for: input,
-            commitKey: settings.isNoteMode ? nil : settings.commitKey,
-            commitAndSendKey: settings.isNoteMode ? nil : settings.commitAndSendKey
+            commitKey: settings.commitKey,
+            commitAndSendKey: settings.commitAndSendKey,
+            mode: session.mode
         ) {
         case .cancel:
             close()
@@ -442,15 +443,26 @@ final class PanelController: NSObject, NSWindowDelegate {
         case .newDraft:
             requestNewScratch()
             return true
+        case .toggleMode:
+            session.toggleMode()
+            return true
         case .toggleSidebar:
             toggleSidebarAndMoveFocus()
             return true
         case .openSettings:
             openSettings()
             return true
+        case .insertNewline:
+            return insertNewlineInEditor()
         case .passThrough:
             return false
         }
+    }
+
+    private func insertNewlineInEditor() -> Bool {
+        guard let editor = panel.firstResponder as? PromptTextView else { return false }
+        editor.insertNewline(nil)
+        return true
     }
 
     // MARK: - クリックの操作
@@ -477,9 +489,14 @@ final class PanelController: NSObject, NSWindowDelegate {
         model.requestFocus()
     }
 
-    /// 下の帯の「挿入」「送信」のボタン。ノートモードでは何もしない。変換中の文字を確定してから確定する。
+    /// タイトルバーの「ノート」のボタン。今の書きかけをインサートにする。
+    func switchToInsertFromButton() {
+        session.switchToInsert()
+    }
+
+    /// 下の帯の「挿入」「送信」のボタン。ノートの書きかけでは何もしない。変換中の文字を確定してから確定する。
     func commitFromButton(shouldSendAfterInsert: Bool) {
-        guard !settings.isNoteMode else { return }
+        guard session.mode == .insert else { return }
         Self.commitMarkedText(in: panel)
         commit(shouldSendAfterInsert: shouldSendAfterInsert)
     }
@@ -509,8 +526,9 @@ final class PanelController: NSObject, NSWindowDelegate {
     func handleKeyOutsideEditor(_ input: PanelKeyInput) -> Bool {
         switch PanelKeyResolver.actionOutsideEditor(
             for: input,
-            commitKey: settings.isNoteMode ? nil : settings.commitKey,
-            commitAndSendKey: settings.isNoteMode ? nil : settings.commitAndSendKey
+            commitKey: settings.commitKey,
+            commitAndSendKey: settings.commitAndSendKey,
+            mode: session.mode
         ) {
         case .commit:
             commit(shouldSendAfterInsert: false)

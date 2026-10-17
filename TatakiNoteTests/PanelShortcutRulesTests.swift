@@ -234,9 +234,9 @@ struct PanelShortcutRulesTests {
         )
     }
 
-    @Test("AC-7: ⌘K・⌘S・⌘N・⌘B・⌘, は両方の役割で reservedForPanelCommands になり、理由の文面は「パネルの検索・下書きの保存・新しい書きかけ・サイドバーの開閉・設定を開く操作」")
+    @Test("AC-10: ⌘K・⌘S・⌘N・⌘E・⌘B・⌘, は両方の役割で reservedForPanelCommands になり、理由の文面は「パネルの検索・下書きの保存・新しい書きかけ・モードの切り替え・サイドバーの開閉・設定を開く操作」")
     func panelCommandKeysAreRejected() {
-        let keys: [(UInt16, String)] = [(40, "k"), (1, "s"), (45, "n"), (11, "b"), (43, ",")]
+        let keys: [(UInt16, String)] = [(40, "k"), (1, "s"), (45, "n"), (14, "e"), (11, "b"), (43, ",")]
         for role in PanelShortcutRole.allCases {
             for (keyCode, characters) in keys {
                 let key = PanelShortcut(keyCode: keyCode, modifiers: [.command])
@@ -250,7 +250,7 @@ struct PanelShortcutRulesTests {
                 #expect(rejection == .reservedForPanelCommands, "\(role) ⌘\(characters)")
                 #expect(
                     rejection?.message(for: key)
-                        == "⌘\(characters.uppercased()) はパネルの検索・下書きの保存・新しい書きかけ・サイドバーの開閉・設定を開く操作(⌘K・⌘S・⌘N・⌘B・⌘,)で使っているため、登録できません。"
+                        == "⌘\(characters.uppercased()) はパネルの検索・下書きの保存・新しい書きかけ・モードの切り替え・サイドバーの開閉・設定を開く操作(⌘K・⌘S・⌘N・⌘E・⌘B・⌘,)で使っているため、登録できません。"
                 )
             }
         }
@@ -260,6 +260,7 @@ struct PanelShortcutRulesTests {
     func panelCommandKeysWithOtherModifiersAreAccepted() {
         let accepted: [(UInt16, NSEvent.ModifierFlags, String)] = [
             (1, [.command, .shift], "s"), (40, [.command, .option], "k"), (45, [.command, .control], "n"), (38, [.command], "j"),
+            (14, [.command, .shift], "e"), (14, [.command, .option], "e"),
         ]
         for role in PanelShortcutRole.allCases {
             for (keyCode, modifiers, characters) in accepted {

@@ -74,7 +74,7 @@ final class KeySettingsUITests: XCTestCase {
             XCTAssertEqual(text(of: element(in: app, identifier: "settings.shortcutGroup.\(id).title")), title, id)
         }
         XCTAssertEqual(rowCount(prefix: "settings.shortcut.", in: list), 7)
-        XCTAssertEqual(rowCount(prefix: "settings.panelCommand.", in: list), 5)
+        XCTAssertEqual(rowCount(prefix: "settings.panelCommand.", in: list), 6)
 
         for keys in ["⌥↑", "⌘L", "⌘D", "⌘K", "⌘,"] {
             let row = list.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", keys)).firstMatch

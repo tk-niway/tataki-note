@@ -285,12 +285,13 @@ struct PanelKeyResolverTests {
         PanelKeyInput(keyCode: keyCode, modifiers: modifiers, hasMarkedText: hasMarkedText, characters: character)
     }
 
-    @Test("AC-21: ⌘K は検索、⌘S は保存、⌘N は新規、⌘B はサイドバーの開閉、⌘, は設定を開く操作になり、Caps Lock・fn・テンキーの印が付いていても同じ")
+    @Test("AC-9: ⌘K は検索、⌘S は保存、⌘N は新規、⌘E はモードの切り替え、⌘B はサイドバーの開閉、⌘, は設定を開く操作になり、Caps Lock・fn・テンキーの印が付いていても同じ。モードによらない")
     func panelCommandKeys() {
         let cases: [(String, UInt16, PanelKeyAction)] = [
             ("k", 40, .openSearch),
             ("s", 1, .saveDraft),
             ("n", 45, .newDraft),
+            ("e", 14, .toggleMode),
             ("b", 11, .toggleSidebar),
             (",", 43, .openSettings),
         ]
@@ -300,15 +301,18 @@ struct PanelKeyResolverTests {
             for extra in extraFlags {
                 let input = commandKey(character, keyCode: keyCode, modifiers: NSEvent.ModifierFlags.command.union(extra))
                 #expect(PanelKeyResolver.action(for: input) == expected, "⌘\(character) + \(extra)")
+                for mode in DraftMode.allCases {
+                    #expect(PanelKeyResolver.action(for: input, mode: mode) == expected, "\(mode) ⌘\(character) + \(extra)")
+                }
             }
         }
     }
 
-    @Test("AC-21: ⌘ だけでない修飾キーの k・s・n・b・, や、⌘ の無い k・s・n・b・, は操作にならず、入力欄に渡す")
+    @Test("AC-9: ⌘ だけでない修飾キーの k・s・n・e・b・, や、⌘ の無い k・s・n・e・b・, は操作にならず、入力欄に渡す")
     func otherModifiersOnLetterKeysPassThrough() {
         let modifierSets: [NSEvent.ModifierFlags] = [[], [.shift], [.option], [.control], [.command, .shift], [.command, .option], [.command, .control]]
 
-        for character in ["k", "s", "n", "b", ","] {
+        for character in ["k", "s", "n", "e", "b", ","] {
             for modifiers in modifierSets {
                 let input = commandKey(character, keyCode: 0, modifiers: modifiers)
                 #expect(PanelKeyResolver.action(for: input) == .passThrough, "\(modifiers) + \(character)")
@@ -318,11 +322,15 @@ struct PanelKeyResolverTests {
         #expect(PanelKeyResolver.action(for: commandJ) == .passThrough)
     }
 
-    @Test("AC-21: 未確定の文字があるときの ⌘K・⌘S・⌘N・⌘B・⌘, は入力メソッドに渡す")
+    @Test("AC-9: 未確定の文字があるときの ⌘K・⌘S・⌘N・⌘E・⌘B・⌘, は入力メソッドに渡す。モードによらない")
     func panelCommandKeysPassThroughWhileComposing() {
-        for (character, keyCode) in [("k", UInt16(40)), ("s", UInt16(1)), ("n", UInt16(45)), ("b", UInt16(11)), (",", UInt16(43))] {
+        let keys = [("k", UInt16(40)), ("s", UInt16(1)), ("n", UInt16(45)), ("e", UInt16(14)), ("b", UInt16(11)), (",", UInt16(43))]
+        for (character, keyCode) in keys {
             let input = commandKey(character, keyCode: keyCode, hasMarkedText: true)
             #expect(PanelKeyResolver.action(for: input) == .passThrough, "⌘\(character)")
+            for mode in DraftMode.allCases {
+                #expect(PanelKeyResolver.action(for: input, mode: mode) == .passThrough, "\(mode) ⌘\(character)")
+            }
         }
     }
 
