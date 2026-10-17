@@ -262,8 +262,14 @@ final class PanelController: NSObject, NSWindowDelegate {
         { target.flatMap { locate($0.processIdentifier) } }
     }
 
-    func open(observedFocus: ObservedFocus? = nil) {
-        let app = isTargetLookupDisabled ? nil : (targetOverride?() ?? targetTracker.currentTarget())
+    /// 挿入先を探さずにパネルを開く。開いているときは何もしない。
+    func openWithoutTarget() {
+        guard !model.isPresented else { return }
+        open(looksUpTarget: false)
+    }
+
+    func open(observedFocus: ObservedFocus? = nil, looksUpTarget: Bool = true) {
+        let app = (isTargetLookupDisabled || !looksUpTarget) ? nil : (targetOverride?() ?? targetTracker.currentTarget())
         settings.refreshKeyDisplayTexts()
         let wasPresented = model.isPresented
         var start: InsertionTargetStart?

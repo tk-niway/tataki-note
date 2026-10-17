@@ -4,7 +4,7 @@ import Foundation
 enum SettingsHelpText {
     /// 「メニューバーのアイコンを隠す」の下の説明文。
     static let hideMenuBarIcon = String(
-        localized: "隠している間は、TatakiNote をもう一度開くとこの画面が開きます。終了は左下の「TatakiNote を終了」から。"
+        localized: "隠している間は、パネルの「設定」のボタンか ⌘, でこの画面を開きます。終了は左下の「TatakiNote を終了」から。"
     )
 
     /// 「履歴」の下の説明文。

@@ -22,7 +22,7 @@ final class SettingsDescriptionsUITests: XCTestCase {
         let general = element(in: app, identifier: "settings.sidebar.general")
         general.click()
         XCTAssertTrue(element(in: app, identifier: "settings.hideMenuBarIconToggle").waitForExistence(timeout: timeout))
-        XCTAssertTrue(waitUntil { self.staticText(in: app, containing: "もう一度開く").exists })
+        XCTAssertTrue(waitUntil { self.staticText(in: app, containing: "⌘, でこの画面を開きます").exists })
         XCTAssertFalse(staticText(in: app, containing: "外観モード").exists)
         XCTAssertFalse(staticText(in: app, containing: "ログインしたとき").exists)
 

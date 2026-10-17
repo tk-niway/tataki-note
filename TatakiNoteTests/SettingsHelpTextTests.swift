@@ -2,9 +2,10 @@ import Testing
 @testable import TatakiNote
 
 struct SettingsHelpTextTests {
-    @Test("AC-4: 「メニューバーのアイコンを隠す」の説明文は短い文")
+    @Test("AC-3: 「メニューバーのアイコンを隠す」の説明文は、設定の開き方を案内し、もう一度開くとこの画面が開くとは言わない")
     func hideMenuBarIcon() {
-        #expect(SettingsHelpText.hideMenuBarIcon == "隠している間は、TatakiNote をもう一度開くとこの画面が開きます。終了は左下の「TatakiNote を終了」から。")
+        #expect(SettingsHelpText.hideMenuBarIcon == "隠している間は、パネルの「設定」のボタンか ⌘, でこの画面を開きます。終了は左下の「TatakiNote を終了」から。")
+        #expect(!SettingsHelpText.hideMenuBarIcon.contains("もう一度開くとこの画面が開きます"))
     }
 
     @Test("AC-4: 「履歴」の説明文は残す件数を含む短い文")
