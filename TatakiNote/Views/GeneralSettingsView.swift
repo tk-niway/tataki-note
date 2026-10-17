@@ -11,6 +11,7 @@ struct GeneralSettingsView: View {
             SettingsGroup(title: "外観", identifier: "settings.group.appearance") {
                 SettingsCard {
                     themeRow
+                    animationRow
                 }
             }
             SettingsGroup(title: "起動とメニューバー", identifier: "settings.group.startup") {
@@ -40,6 +41,20 @@ struct GeneralSettingsView: View {
             .labelsHidden()
             .fixedSize()
             .accessibilityIdentifier("settings.themePicker")
+        }
+    }
+
+    private var animationRow: some View {
+        SettingsRow(title: "アニメーション", description: SettingsHelpText.animationMode) {
+            Picker("アニメーション", selection: $settings.animationMode) {
+                ForEach(AnimationMode.allCases, id: \.self) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            .accessibilityIdentifier("settings.animationModePicker")
         }
     }
 

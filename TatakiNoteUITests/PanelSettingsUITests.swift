@@ -68,11 +68,6 @@ final class PanelSettingsUITests: XCTestCase {
         XCTAssertTrue(outline.isEnabled)
         XCTAssertTrue(isOn(outline))
 
-        let animation = element(in: app, identifier: "settings.panelAnimationToggle")
-        app.revealInSettings(animation)
-        XCTAssertTrue(animation.isEnabled)
-        XCTAssertTrue(isOn(animation))
-
         closeSettings(in: app)
     }
 
