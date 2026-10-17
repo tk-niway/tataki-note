@@ -139,7 +139,8 @@ final class PanelController: NSObject, NSWindowDelegate {
                 onToggleSidebar: { [weak self] in self?.toggleSidebarFromButton() },
                 onNewDraft: { [weak self] in self?.newDraftFromButton() },
                 onSaveDraft: { [weak self] in self?.saveDraftFromButton() },
-                onOpenSettings: { [weak self] in self?.openSettings() }
+                onOpenSettings: { [weak self] in self?.openSettings() },
+                onSwitchToInsert: { [weak self] in self?.switchToInsertFromButton() }
             )
         )
         hostingView.sizingOptions = []

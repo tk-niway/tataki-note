@@ -216,12 +216,12 @@ struct PanelKeySettingsModelTests {
         defer { defaults.removePersistentDomain(forName: name) }
         let model = makeModel(settings: settings)
 
-        #expect(settings.panelStatusItems.contains(.commitAndSend))
+        #expect(settings.panelStatusItems(for: .insert).contains(.commitAndSend))
         model.clear(.commitAndSend)
 
         #expect(model.displayText(for: .commitAndSend) == nil)
         #expect(settings.commitAndSendKey == nil)
-        #expect(!settings.panelStatusItems.contains(.commitAndSend))
+        #expect(!settings.panelStatusItems(for: .insert).contains(.commitAndSend))
     }
 
     @Test("ホットキーの閉包は記録のたびに読む(設定画面を開いている間の変更が次の記録から効く)")

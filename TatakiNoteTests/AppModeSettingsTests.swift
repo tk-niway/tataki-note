@@ -310,23 +310,6 @@ struct AppModeSettingsTests {
         }
     }
 
-    @Test("AC-5, AC-7: 帯の項目は、ノートモードで改行と確定キー2つが除かれ、閉じると文字数・行数は残り、インサートモードでは今と同じ")
-    func panelStatusItemsDropLineBreakAndCommitKeysInNoteMode() throws {
-        let (defaults, name) = try makeDefaults()
-        defer { defaults.removePersistentDomain(forName: name) }
-
-        let loaded = settings(defaults)
-        #expect(loaded.panelStatusItems == [.close, .lineBreak, .commit, .commitAndSend, .characterCount, .lineCount])
-
-        loaded.selectAppMode(.note, hotkey: nil)
-        #expect(loaded.panelStatusItems == [.close, .characterCount, .lineCount])
-        #expect(loaded.commitKey == .commandShiftReturn)
-        #expect(!loaded.hiddenPanelStatusItems.contains(.lineBreak))
-
-        loaded.selectAppMode(.insert, hotkey: nil)
-        #expect(loaded.panelStatusItems == [.close, .lineBreak, .commit, .commitAndSend, .characterCount, .lineCount])
-    }
-
     // MARK: - AC-25
 
     @Test("AC-5: 「ショートカットキー」の説明文は、インサートモードでは今の文、ノートモードでは確定キーの項目を指さず「割り当ては変えられません」を残す文")

@@ -7,10 +7,10 @@ import Testing
 struct PanelStatusBarContentTests {
     private typealias Entry = PanelStatusBarContent.Entry
 
-    private func makeContent(text: String, settings: AppSettings) -> PanelStatusBarContent {
+    private func makeContent(text: String, settings: AppSettings, mode: DraftMode = .insert) -> PanelStatusBarContent {
         PanelStatusBarContent(
             text: text,
-            items: settings.panelStatusItems,
+            items: settings.panelStatusItems(for: mode),
             commitKey: settings.commitKey,
             commitAndSendKey: settings.commitAndSendKey
         )
@@ -186,8 +186,8 @@ struct PanelStatusBarContentTests {
         #expect(empty.entries.isEmpty)
     }
 
-    @Test("AC-7: ノートモードの帯には改行・挿入・送信の案内が出ず、閉じる・文字数・行数は出る。インサートモードでは今と同じ")
-    func noteModeHidesLineBreakAndCommitHints() throws {
+    @Test("AC-16: ノートの書きかけの帯には挿入・送信の案内が出ず、閉じる・改行・文字数・行数は出る。インサートの書きかけでは今と同じ")
+    func noteDraftHidesCommitHints() throws {
         let temp = try TemporaryDefaults()
         defer { temp.remove() }
         let settings = temp.makeSettings()
@@ -196,17 +196,21 @@ struct PanelStatusBarContentTests {
             .close, .lineBreak, .commit, .commitAndSend, .characterCount, .lineCount,
         ])
 
-        settings.selectAppMode(.note, hotkey: nil)
-        let noteContent = makeContent(text: "ab", settings: settings)
+        let noteContent = makeContent(text: "ab", settings: settings, mode: .note)
         #expect(noteContent.entries == [
             .keyHint(item: .close, key: "esc", label: "閉じる"),
+            .keyHint(item: .lineBreak, key: "↩", label: "改行"),
             .count(item: .characterCount, text: "2文字"),
             .count(item: .lineCount, text: "1行"),
         ])
 
-        settings.selectAppMode(.insert, hotkey: nil)
-        #expect(makeContent(text: "ab", settings: settings).entries.map(\.item) == [
-            .close, .lineBreak, .commit, .commitAndSend, .characterCount, .lineCount,
+        settings.hiddenPanelStatusItems = [.lineBreak, .close]
+        #expect(makeContent(text: "ab", settings: settings, mode: .note).entries.map(\.item) == [
+            .characterCount, .lineCount,
         ])
+
+        settings.hiddenPanelStatusItems = [.lineBreak, .close, .characterCount, .lineCount]
+        #expect(makeContent(text: "ab", settings: settings, mode: .note).isEmpty)
+        #expect(makeContent(text: "ab", settings: settings).entries.map(\.item) == [.commit, .commitAndSend])
     }
 }
