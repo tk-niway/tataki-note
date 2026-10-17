@@ -42,6 +42,15 @@ struct DraftSaveEvent: Equatable {
     /// 切り替えで書きかけを履歴へ移した回数。
     private(set) var archivedScratchCount = 0
 
+    /// 今の書きかけのモード。
+    private(set) var mode: DraftMode
+
+    /// 「新しい書きかけのモード」の設定を読む。
+    @ObservationIgnored let newDraftMode: () -> DraftMode
+
+    /// チュートリアルを開いている間、新しい書きかけをインサートで始めるか。
+    @ObservationIgnored private(set) var isInsertModeForced = false
+
     @ObservationIgnored private let panel: PanelModel
     @ObservationIgnored private let library: DraftLibrary
     @ObservationIgnored private let ownProcessIdentifier: pid_t
@@ -61,11 +70,14 @@ struct DraftSaveEvent: Equatable {
     init(
         panel: PanelModel,
         library: DraftLibrary,
-        ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier
+        ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier,
+        newDraftMode: @escaping () -> DraftMode = { .insert }
     ) {
         self.panel = panel
         self.library = library
         self.ownProcessIdentifier = ownProcessIdentifier
+        self.newDraftMode = newDraftMode
+        self.mode = newDraftMode()
         panel.onTextChange = { [weak self] text in
             self?.panelTextDidChange(text)
         }
@@ -81,9 +93,16 @@ struct DraftSaveEvent: Equatable {
         !panel.text.isEmpty
     }
 
-    /// 新規作成のアイコンを押せるか。
-    var isNewDraftAvailable: Bool {
-        !(document == .scratch && panel.text.isEmpty)
+    // MARK: - モード
+
+    /// インサートとノートを入れ替える。
+    func toggleMode() {
+        mode = mode.toggled
+    }
+
+    /// 今の書きかけをインサートにする。インサートなら何もしない。
+    func switchToInsert() {
+        mode = .insert
     }
 
     // MARK: - 保存
@@ -108,6 +127,9 @@ struct DraftSaveEvent: Equatable {
 
     /// 別の文章へすぐ切り替える。書きかけがあれば、切り替える前に挿入していない履歴へ移す。
     func request(_ target: DocumentSwitch) {
+        if target == .newScratch {
+            resetModeForNewDraft()
+        }
         guard !isCurrent(target), let text = targetText(target) else { return }
         library.flush()
         if archiveScratchIfNeeded() {
@@ -166,6 +188,7 @@ struct DraftSaveEvent: Equatable {
         guard case .insert(let text, let target) = plan else { return }
         switch outcome {
         case .inserted:
+            resetModeForNewDraft()
             guard !target.isOwnApp(ownProcessIdentifier) else { return }
             library.recordInsertion(text: text, appName: target.localizedName, bundleIdentifier: target.bundleIdentifier)
         case .notInserted:
@@ -185,6 +208,10 @@ struct DraftSaveEvent: Equatable {
     }
 
     // MARK: - 内部
+
+    private func resetModeForNewDraft() {
+        mode = DraftMode.forNewDraft(setting: newDraftMode(), isInsertForced: isInsertModeForced)
+    }
 
     private func panelTextDidChange(_ text: String) {
         guard !isReplacingText else { return }

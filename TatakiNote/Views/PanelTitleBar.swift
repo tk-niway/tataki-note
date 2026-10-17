@@ -103,7 +103,6 @@ struct PanelTitleBar: View {
         }
         .buttonStyle(PanelIconButtonStyle())
         .focusable(false)
-        .disabled(!(session?.isNewDraftAvailable ?? false))
         .help("新しい書きかけ(⌘N)")
         .accessibilityLabel("新しい書きかけ")
         .accessibilityIdentifier("promptPanel.newDraftButton")

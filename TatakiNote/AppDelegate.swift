@@ -205,6 +205,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 defaultHotkey: KeyboardShortcuts.Name.togglePanel.initialShortcut.map { PanelShortcut($0) },
                 resetHotkey: { KeyboardShortcuts.reset(.togglePanel) }
             )
+            settings.registerDefaultCommitKeysIfBothMissing(hotkey: PanelShortcut.currentHotkey())
             KeyboardShortcuts.onKeyDown(for: .togglePanel) { [weak self] in
                 self?.panelController.toggle()
             }

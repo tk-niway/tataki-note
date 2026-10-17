@@ -32,6 +32,17 @@ extension AppMode {
     }
 }
 
+extension DraftMode {
+    var displayName: String {
+        switch self {
+        case .insert:
+            String(localized: "インサート")
+        case .note:
+            String(localized: "ノート")
+        }
+    }
+}
+
 extension AppTheme {
     var displayName: String {
         switch self {

@@ -117,7 +117,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         let session = DraftSession(
             panel: model,
             library: library,
-            ownProcessIdentifier: ownProcessIdentifier
+            ownProcessIdentifier: ownProcessIdentifier,
+            newDraftMode: { [settings] in settings.newDraftMode }
         )
         self.session = session
         self.sidebarModel = SidebarModel(settings: settings, library: library, session: session)

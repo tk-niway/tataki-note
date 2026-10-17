@@ -26,6 +26,7 @@ struct SettingsStore {
         static let panelAnimationEnabled = "panelAnimationEnabled"
         static let insertionTargetOutlineShown = "insertionTargetOutlineShown"
         static let appMode = "appMode"
+        static let newDraftMode = "newDraftMode"
         static let historyLimit = "historyLimit"
     }
 
@@ -92,6 +93,14 @@ struct SettingsStore {
 
     func saveAppMode(_ mode: AppMode) {
         saveStringEnum(mode, forKey: Key.appMode)
+    }
+
+    func loadNewDraftMode() -> DraftMode {
+        loadStringEnum(DraftMode.self, forKey: Key.newDraftMode) ?? .insert
+    }
+
+    func saveNewDraftMode(_ mode: DraftMode) {
+        saveStringEnum(mode, forKey: Key.newDraftMode)
     }
 
     func loadPanelScreen() -> PanelScreen {
