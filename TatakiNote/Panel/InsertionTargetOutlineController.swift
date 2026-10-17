@@ -6,6 +6,7 @@ final class InsertionTargetOutlineController {
     private let settings: AppSettings
     private let panelModel: PanelModel
     private let panel: NSWindow
+    private let session: DraftSession?
     private let window: InsertionTargetOutlineWindow
     private let primaryScreenHeight: () -> CGFloat?
 
@@ -14,6 +15,7 @@ final class InsertionTargetOutlineController {
         settings: AppSettings,
         panelModel: PanelModel,
         panel: NSWindow,
+        session: DraftSession? = nil,
         window: InsertionTargetOutlineWindow = InsertionTargetOutlineWindow(),
         primaryScreenHeight: @escaping () -> CGFloat? = { ScreenCoordinates.primaryScreenFrame?.height }
     ) {
@@ -21,21 +23,28 @@ final class InsertionTargetOutlineController {
         self.settings = settings
         self.panelModel = panelModel
         self.panel = panel
+        self.session = session
         self.window = window
         self.primaryScreenHeight = primaryScreenHeight
         observeChanges()
     }
 
-    /// 枠線の窓を出すか。
-    static func shouldShow(isPanelPresented: Bool, isOutlineEnabled: Bool, rect: CGRect?) -> Bool {
-        isPanelPresented && isOutlineEnabled && rect != nil
+    /// 枠線の窓を出すか。ノートの書きかけでは出さない。
+    static func shouldShow(
+        isPanelPresented: Bool,
+        isOutlineEnabled: Bool,
+        mode: DraftMode = .insert,
+        rect: CGRect?
+    ) -> Bool {
+        isPanelPresented && isOutlineEnabled && mode == .insert && rect != nil
     }
 
     /// 今の状態に合わせて窓を出す・動かす・消す。
     func update() {
         guard Self.shouldShow(
             isPanelPresented: panelModel.isPresented,
-            isOutlineEnabled: settings.isInsertionTargetOutlineActive,
+            isOutlineEnabled: settings.isInsertionTargetOutlineShown,
+            mode: session?.mode ?? .insert,
             rect: outline.rect
         ), let rect = outline.rect, let screenHeight = primaryScreenHeight() else {
             window.orderOut(nil)
@@ -60,7 +69,7 @@ final class InsertionTargetOutlineController {
         observeRepeatedly(
             tracking: { [weak self] in
                 _ = self?.outline.rect
-                _ = self?.settings.appMode
+                _ = self?.session?.mode
                 _ = self?.settings.isInsertionTargetOutlineShown
                 _ = self?.panelModel.isPresented
             },

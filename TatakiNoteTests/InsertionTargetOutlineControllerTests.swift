@@ -49,7 +49,11 @@ struct InsertionTargetOutlineControllerTests {
         let controller: InsertionTargetOutlineController
     }
 
-    private func makeFixture(screenHeight: CGFloat?, panel: NSWindow? = nil) throws -> Fixture {
+    private func makeFixture(
+        screenHeight: CGFloat?,
+        panel: NSWindow? = nil,
+        session: DraftSession? = nil
+    ) throws -> Fixture {
         let defaults = try TemporaryDefaults()
         let settings = defaults.makeSettings()
         let model = PanelModel()
@@ -65,6 +69,7 @@ struct InsertionTargetOutlineControllerTests {
                 backing: .buffered,
                 defer: true
             ),
+            session: session,
             window: window,
             primaryScreenHeight: { screenHeight }
         )
@@ -112,6 +117,72 @@ struct InsertionTargetOutlineControllerTests {
                 }
             }
         }
+    }
+
+    @Test("AC-30: ノートの書きかけでは、ほかの条件がそろっていても枠線の窓を出さない")
+    func shouldShowDependsOnDraftMode() {
+        let rect = CGRect(x: 0, y: 0, width: 10, height: 10)
+        for isPresented in [true, false] {
+            for isEnabled in [true, false] {
+                for candidate in [rect, nil] {
+                    for mode in DraftMode.allCases {
+                        let shown = InsertionTargetOutlineController.shouldShow(
+                            isPanelPresented: isPresented,
+                            isOutlineEnabled: isEnabled,
+                            mode: mode,
+                            rect: candidate
+                        )
+                        let expected = isPresented && isEnabled && candidate != nil && mode == .insert
+                        #expect(shown == expected, "presented=\(isPresented) enabled=\(isEnabled) rect=\(String(describing: candidate)) mode=\(mode)")
+                    }
+                }
+            }
+        }
+    }
+
+    @Test("AC-30: 設定がオンでパネルが開いて枠があっても、ノートの書きかけでは窓が出ない。インサートに戻すとその場で出て、ノートにすると消える")
+    func windowFollowsDraftMode() async throws {
+        let session = DraftSession(panel: PanelModel(), library: DraftLibrary(store: .inMemory))
+        session.toggleMode()
+        #expect(session.mode == .note)
+        let fixture = try makeFixture(screenHeight: screenHeight, session: session)
+        defer { fixture.defaults.remove() }
+        fixture.settings.isInsertionTargetOutlineShown = true
+
+        fixture.model.present(target: nil)
+        fixture.outline.update(rect)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(!fixture.window.isVisible)
+        #expect(fixture.window.orderedFrontCount == 0)
+
+        session.switchToInsert()
+        #expect(try await waitUntilVisible(fixture.window))
+        #expect(fixture.window.frame == expectedFrame(for: rect))
+
+        session.toggleMode()
+        #expect(try await waitUntilHidden(fixture.window))
+        withExtendedLifetime(fixture.controller) {}
+    }
+
+    @Test("AC-30: ノートの間に入力欄の枠が動いても窓は出ず、インサートに戻すとその時点の枠に出る")
+    func windowAppearsAtLatestRectAfterReturningToInsert() async throws {
+        let session = DraftSession(panel: PanelModel(), library: DraftLibrary(store: .inMemory))
+        session.toggleMode()
+        let fixture = try makeFixture(screenHeight: screenHeight, session: session)
+        defer { fixture.defaults.remove() }
+        fixture.settings.isInsertionTargetOutlineShown = true
+        fixture.model.present(target: nil)
+        fixture.outline.update(rect)
+
+        let moved = CGRect(x: 40, y: 80, width: 120, height: 30)
+        fixture.outline.update(moved)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(!fixture.window.isVisible)
+
+        session.switchToInsert()
+        #expect(try await waitUntilVisible(fixture.window))
+        #expect(fixture.window.frame == expectedFrame(for: moved))
+        withExtendedLifetime(fixture.controller) {}
     }
 
     @Test("AC-22: パネルが開いて枠が入ると、枠を外側へ広げた位置と大きさで窓が出る")

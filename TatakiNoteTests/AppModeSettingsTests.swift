@@ -271,45 +271,6 @@ struct AppModeSettingsTests {
         }
     }
 
-    @Test("AC-5: 効く自動表示は、ノートモードでオフになる。自動表示と対象のアプリの保存値は変わらない")
-    func effectiveAutoShowModeFollowsMode() throws {
-        let (defaults, name) = try makeDefaults()
-        defer { defaults.removePersistentDomain(forName: name) }
-
-        let loaded = settings(defaults)
-        loaded.autoShowApps = [AutoShowApp(bundleIdentifier: "com.example.notes", name: "Notes")]
-        let apps = loaded.autoShowApps
-        for mode in AutoShowMode.allCases {
-            loaded.autoShowMode = mode
-            loaded.selectAppMode(.insert, hotkey: nil)
-            #expect(loaded.effectiveAutoShowMode == mode)
-
-            loaded.selectAppMode(.note, hotkey: nil)
-            #expect(loaded.effectiveAutoShowMode == .off)
-            #expect(loaded.autoShowMode == mode)
-            #expect(defaults.string(forKey: "autoShowMode") == mode.rawValue)
-            #expect(loaded.autoShowApps == apps)
-        }
-    }
-
-    @Test("AC-5: 挿入先の枠線は、ノートモードで効かなくなる。保存値は変わらず、インサートモードに戻すとそのまま効く")
-    func insertionTargetOutlineIsInactiveInNoteMode() throws {
-        let (defaults, name) = try makeDefaults()
-        defer { defaults.removePersistentDomain(forName: name) }
-
-        let loaded = settings(defaults)
-        for isShown in [true, false] {
-            loaded.isInsertionTargetOutlineShown = isShown
-            loaded.selectAppMode(.insert, hotkey: nil)
-            #expect(loaded.isInsertionTargetOutlineActive == isShown)
-
-            loaded.selectAppMode(.note, hotkey: nil)
-            #expect(!loaded.isInsertionTargetOutlineActive)
-            #expect(loaded.isInsertionTargetOutlineShown == isShown)
-            #expect(defaults.object(forKey: "insertionTargetOutlineShown") as? Bool == isShown)
-        }
-    }
-
     // MARK: - AC-25
 
     @Test("AC-5: 「ショートカットキー」の説明文は、インサートモードでは今の文、ノートモードでは確定キーの項目を指さず「割り当ては変えられません」を残す文")

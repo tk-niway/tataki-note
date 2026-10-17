@@ -100,25 +100,26 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.locateTargetWindowFrame = locateTargetWindowFrame
         self.ownProcessIdentifier = ownProcessIdentifier
         self.library = library
+        let session = DraftSession(
+            panel: model,
+            library: library,
+            ownProcessIdentifier: ownProcessIdentifier,
+            newDraftMode: { [settings] in settings.newDraftMode }
+        )
         let targetMonitor = makeTargetMonitor?(model) ?? InsertionTargetMonitor(
             panelModel: model,
             probe: fieldProbe,
             ownProcessIdentifier: ownProcessIdentifier,
             exposeWebContent: exposeWebContent,
-            isOutlineEnabled: { [settings] in settings.isInsertionTargetOutlineActive }
+            isOutlineEnabled: { [settings] in PanelController.isOutlineTrackingEnabled(settings: settings) }
         )
         self.targetMonitor = targetMonitor
         self.outlineController = InsertionTargetOutlineController(
             outline: targetMonitor.outline,
             settings: settings,
             panelModel: model,
-            panel: panel
-        )
-        let session = DraftSession(
-            panel: model,
-            library: library,
-            ownProcessIdentifier: ownProcessIdentifier,
-            newDraftMode: { [settings] in settings.newDraftMode }
+            panel: panel,
+            session: session
         )
         self.session = session
         self.sidebarModel = SidebarModel(settings: settings, library: library, session: session)
@@ -155,30 +156,12 @@ final class PanelController: NSObject, NSWindowDelegate {
         observeBodyFocusRequests()
         observeSaveEvents()
         observeArchivedScratch()
-        observeAppMode()
         targetMonitor.onFieldAdopted = { [weak self] in self?.returnInputToPanel() }
     }
 
-    private func observeAppMode() {
-        observeRepeatedly(
-            tracking: { [weak self] in _ = self?.settings.appMode },
-            onChange: { [weak self] in
-                guard let self else { return false }
-                self.applyAppMode()
-                return true
-            }
-        )
-    }
-
-    /// 開いているパネルを今のモードに合わせる。ノートモードなら見張りをやめて挿入先なしにし、インサートモードなら挿入先なしから見張りを始める。
-    func applyAppMode() {
-        guard model.isPresented else { return }
-        if settings.isNoteMode {
-            targetMonitor.end()
-            model.updateTarget(nil)
-        } else {
-            targetMonitor.begin(app: nil)
-        }
+    /// 挿入先の入力欄の位置を読み、枠線の矩形を計算し続けるか。書きかけのモードには関わらない。
+    static func isOutlineTrackingEnabled(settings: AppSettings) -> Bool {
+        settings.isInsertionTargetOutlineShown
     }
 
     private func observeSaveEvents() {
@@ -280,13 +263,12 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func open(observedFocus: ObservedFocus? = nil) {
-        let isNoteMode = settings.isNoteMode
         let app = isTargetLookupDisabled ? nil : (targetOverride?() ?? targetTracker.currentTarget())
         settings.refreshKeyDisplayTexts()
         let wasPresented = model.isPresented
         var start: InsertionTargetStart?
         let isTrusted = permission.isTrusted
-        if !wasPresented, !isNoteMode {
+        if !wasPresented {
             if let app,
                Self.shouldExposeWebContent(
                    target: app,
@@ -302,11 +284,11 @@ final class PanelController: NSObject, NSWindowDelegate {
             sidebarModel.discardPendingFocusRequests()
             stopMotion()
             sizing.beginOpening(defaultSize: settings.panelDefaultSize, hasText: !model.text.isEmpty)
-            let queriesAccessibility = !isNoteMode && Self.shouldQueryAccessibility(
+            let queriesAccessibility = Self.shouldQueryAccessibility(
                 of: app,
                 ownProcessIdentifier: ownProcessIdentifier
             )
-            let mode = settings.effectivePanelScreen
+            let mode = settings.panelScreen
             let fieldFrame = ScreenCoordinates.primaryScreenFrame.flatMap { primaryScreenFrame in
                 PanelOpenPlacement.fieldFrame(
                     mode: mode,

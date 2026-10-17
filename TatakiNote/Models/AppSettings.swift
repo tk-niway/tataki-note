@@ -235,16 +235,6 @@ import Observation
         isNoteMode && panelScreen == .nearFocusedField ? .mouse : panelScreen
     }
 
-    /// 実際に使う自動表示の設定。ノートモードではオフ。
-    var effectiveAutoShowMode: AutoShowMode {
-        isNoteMode ? .off : autoShowMode
-    }
-
-    /// 挿入先の枠線を実際に出すか。ノートモードでは出さない。
-    var isInsertionTargetOutlineActive: Bool {
-        !isNoteMode && isInsertionTargetOutlineShown
-    }
-
     /// 帯に出す項目。ノートの書きかけでは確定+挿入・確定+送信を出さない。
     func panelStatusItems(for mode: DraftMode) -> [PanelStatusItem] {
         PanelStatusItem.visibleItems(
