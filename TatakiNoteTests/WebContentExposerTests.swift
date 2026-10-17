@@ -73,6 +73,7 @@ struct WebContentExposerTests {
             fieldProbe: probe,
             exposeWebContent: exposeWebContent,
             ownProcessIdentifier: Self.ownPid,
+            beep: {},
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )
         controller.targetOverride = { target }

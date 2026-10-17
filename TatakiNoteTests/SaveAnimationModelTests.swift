@@ -334,6 +334,7 @@ struct SaveAnimationPanelWiringTests {
                 library: library,
                 saveAnimation: recorder.model,
                 animator: animator,
+                beep: {},
                 makeTargetMonitor: InsertionTargetMonitor.testFactory(
                     probe: probe,
                     ownProcessIdentifier: SaveAnimationModelTests.ownPid

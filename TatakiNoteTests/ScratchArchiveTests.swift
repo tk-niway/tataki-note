@@ -100,6 +100,7 @@ struct ScratchArchiveTests {
                 fieldProbe: probe,
                 library: library,
                 animator: animator,
+                beep: {},
                 hideApplication: {},
                 makeTargetMonitor: InsertionTargetMonitor.testFactory(
                     probe: probe,

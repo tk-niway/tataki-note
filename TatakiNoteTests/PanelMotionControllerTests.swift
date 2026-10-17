@@ -129,6 +129,7 @@ struct PanelMotionControllerTests {
             exposeWebContent: { _ in },
             ownProcessIdentifier: Self.ownPid,
             animator: animator,
+            beep: {},
             hideApplication: { hides.record() },
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )

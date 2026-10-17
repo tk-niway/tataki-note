@@ -47,6 +47,7 @@ struct InsertionWithoutToastTests {
             library: library,
             animator: FakePanelFrameAnimator(),
             shaker: PanelShakerSpy(),
+            beep: {},
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )
         controller.targetOverride = { Self.textEdit }

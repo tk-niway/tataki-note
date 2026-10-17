@@ -74,6 +74,7 @@ private struct InsertionTargetFixture {
             locateTargetWindowFrame: { locator.locate($0) },
             ownProcessIdentifier: Self.ownPid,
             animator: FakePanelFrameAnimator(),
+            beep: {},
             makeTargetMonitor: { model in
                 let monitor = InsertionTargetMonitor(
                     panelModel: model,

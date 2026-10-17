@@ -20,6 +20,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let targetMonitor: InsertionTargetMonitor
     private let outlineController: InsertionTargetOutlineController
     private let shaker: PanelShaking
+    private let beep: () -> Void
 
     let session: DraftSession
     let sidebarModel: SidebarModel
@@ -82,6 +83,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         saveAnimation: SaveAnimationModel = SaveAnimationModel(),
         animator: PanelFrameAnimating = AppKitPanelFrameAnimator(),
         shaker: PanelShaking = PanelShaker(),
+        beep: @escaping () -> Void = { NSSound.beep() },
         hideApplication: @escaping () -> Void = { NSApp.hide(nil) },
         makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil
     ) {
@@ -91,6 +93,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.settings = settings
         self.animator = animator
         self.shaker = shaker
+        self.beep = beep
         self.hideApplication = hideApplication
         self.targetTracker = targetTracker
         self.permission = permission
@@ -374,10 +377,16 @@ final class PanelController: NSObject, NSWindowDelegate {
         saveAnimation.cancel()
     }
 
-    private func shakePanel() {
+    private func signalEmptyInput() {
         finishSidebarSlide()
-        guard PanelShake.canStart(motionPhase: motion.phase) else { return }
-        shaker.shake(panel)
+        switch PanelShake.emptyInputFeedback(motionPhase: motion.phase, isAnimationEnabled: settings.isAnimationEnabled) {
+        case .shake:
+            shaker.shake(panel)
+        case .beep:
+            beep()
+        case .none:
+            break
+        }
     }
 
     func toggle() {
@@ -423,7 +432,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             if session.isSaveAvailable {
                 session.saveCurrent()
             } else {
-                shakePanel()
+                signalEmptyInput()
             }
             return true
         case .newDraft:
@@ -470,7 +479,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         if session.isSaveAvailable {
             session.saveCurrent()
         } else {
-            shakePanel()
+            signalEmptyInput()
         }
         model.requestFocus()
     }
@@ -639,7 +648,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
         if plan == .noTarget { return }
         if plan == .emptyText {
-            shakePanel()
+            signalEmptyInput()
             return
         }
         stopPanelEffects()

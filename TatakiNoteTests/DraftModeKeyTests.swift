@@ -44,6 +44,7 @@ struct DraftModeKeyTests {
             library: DraftLibrary(store: .inMemory),
             animator: FakePanelFrameAnimator(),
             shaker: PanelShakerSpy(),
+            beep: {},
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )
         controller.targetOverride = { own }

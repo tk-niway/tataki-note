@@ -12,6 +12,7 @@ struct PanelCommitButtonTests {
     private struct Fixture {
         let controller: PanelController
         let shaker: PanelShakerSpy
+        let beepSpy: BeepSpy
         let inserter: InserterStub
         let permission: PermissionStub
 
@@ -33,6 +34,7 @@ struct PanelCommitButtonTests {
         settings.commitKey = .commandShiftReturn
         settings.commitAndSendKey = .commandReturn
         let shaker = PanelShakerSpy()
+        let beepSpy = BeepSpy()
         let inserter = InserterStub(result: .inserted)
         let permission = PermissionStub(isTrusted: true)
         let probe = FocusedElementProbeStub()
@@ -47,6 +49,7 @@ struct PanelCommitButtonTests {
             library: DraftLibrary(store: .inMemory),
             animator: FakePanelFrameAnimator(),
             shaker: shaker,
+            beep: beepSpy.beep,
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )
         if isNoteMode {
@@ -58,7 +61,7 @@ struct PanelCommitButtonTests {
             controller.isTargetLookupDisabled = true
         }
         defer { controller.panel.orderOut(nil) }
-        try await body(Fixture(controller: controller, shaker: shaker, inserter: inserter, permission: permission))
+        try await body(Fixture(controller: controller, shaker: shaker, beepSpy: beepSpy, inserter: inserter, permission: permission))
     }
 
     private func waitForInsertion(_ inserter: InserterStub) async {
@@ -117,14 +120,15 @@ struct PanelCommitButtonTests {
         }
     }
 
-    @Test("AC-5: 本文が空のままボタンを押すと、揺れて閉じず、挿入も合図もない", arguments: [false, true])
-    func buttonWithEmptyTextShakes(shouldSend: Bool) async throws {
+    @Test("AC-11: 本文が空のままボタンを押すと、警告音で知らせて閉じず、挿入も合図もない", arguments: [false, true])
+    func buttonWithEmptyTextSignals(shouldSend: Bool) async throws {
         try await withFixture { fixture in
             fixture.controller.open()
 
             fixture.controller.commitFromButton(shouldSendAfterInsert: shouldSend)
 
-            #expect(fixture.shaker.shakeCount == 1)
+            #expect(fixture.shaker.shakeCount == 0)
+            #expect(fixture.beepSpy.count == 1)
             #expect(fixture.model.isPresented)
             #expect(fixture.inserter.calls.isEmpty)
             #expect(fixture.model.noTargetAlertCount == 0)

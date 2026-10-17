@@ -70,6 +70,7 @@ struct PanelInsertionCheckTests {
             exposeWebContent: { _ in },
             ownProcessIdentifier: Self.ownPid,
             library: library,
+            beep: {},
             makeTargetMonitor: { model in
                 let monitor = factory(model)
                 monitorBox.monitor = monitor

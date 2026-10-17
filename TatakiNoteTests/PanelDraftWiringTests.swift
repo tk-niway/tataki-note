@@ -43,6 +43,7 @@ struct PanelDraftWiringTests {
                 permission: PermissionStub(isTrusted: isTrusted),
                 fieldProbe: probe,
                 library: library,
+                beep: {},
                 makeTargetMonitor: InsertionTargetMonitor.testFactory(
                     probe: probe,
                     ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier
