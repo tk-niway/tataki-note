@@ -40,6 +40,7 @@ final class TutorialWindowController: NSObject, NSWindowDelegate {
     func show() {
         if window?.isVisible != true {
             model.reset()
+            draftSession?.beginInsertModeForTutorial()
         }
         let window = AppWindow.prepare(
             existing: self.window,
@@ -91,6 +92,7 @@ final class TutorialWindowController: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         isObservingPanel = false
+        draftSession?.endInsertModeForTutorial()
     }
 
     // MARK: - 内部
@@ -113,34 +115,6 @@ final class TutorialWindowController: NSObject, NSWindowDelegate {
         isObservingPanel = true
         observationGeneration += 1
         observePanel(generation: observationGeneration)
-        observeSaveEvents(generation: observationGeneration)
-        observeAppMode(generation: observationGeneration)
-    }
-
-    private func observeSaveEvents(generation: Int) {
-        observeRepeatedly(
-            tracking: { [weak self] in
-                _ = self?.draftSession?.lastSaveEvent
-            },
-            onChange: { [weak self] in
-                guard let self, self.isObservingPanel, self.observationGeneration == generation else { return false }
-                self.model.draftDidSave()
-                return true
-            }
-        )
-    }
-
-    private func observeAppMode(generation: Int) {
-        observeRepeatedly(
-            tracking: { [weak self] in
-                _ = self?.settings.appMode
-            },
-            onChange: { [weak self] in
-                guard let self, self.isObservingPanel, self.observationGeneration == generation else { return false }
-                self.model.appModeDidChange()
-                return true
-            }
-        )
     }
 
     private func observePanel(generation: Int) {

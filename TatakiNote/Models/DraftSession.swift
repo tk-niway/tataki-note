@@ -105,6 +105,17 @@ struct DraftSaveEvent: Equatable {
         mode = .insert
     }
 
+    /// チュートリアルを開いたとき、今の書きかけをインサートにし、閉じるまで新しい書きかけもインサートで始める。
+    func beginInsertModeForTutorial() {
+        isInsertModeForced = true
+        mode = .insert
+    }
+
+    /// チュートリアルを閉じたとき、新しい書きかけを設定どおりに戻す。今の書きかけのモードは変えない。
+    func endInsertModeForTutorial() {
+        isInsertModeForced = false
+    }
+
     // MARK: - 保存
 
     /// 今の文章を下書きとして保存する。表示中の下書きなら書き出しを今行う。
