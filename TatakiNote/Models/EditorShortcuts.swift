@@ -28,7 +28,7 @@ enum EditorShortcuts {
         EditorShortcut(id: "newDraft", keys: "⌘N", action: String(localized: "新しい書きかけにする")),
         EditorShortcut(id: "toggleMode", keys: "⌘E", action: String(localized: "インサートとノートを切り替える")),
         EditorShortcut(id: "toggleSidebar", keys: "⌘B", action: String(localized: "サイドバーを開く・閉じる")),
-        EditorShortcut(id: "openSettings", keys: "⌘,", action: String(localized: "設定を開く(パネルは閉じる)")),
+        EditorShortcut(id: "openSettings", keys: "⌘,", action: String(localized: "設定を開く")),
     ]
 
     /// 「行の操作」「コピーと貼り付け」「下書き」「表示」の4つの分類。

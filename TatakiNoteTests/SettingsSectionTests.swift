@@ -111,4 +111,34 @@ struct SettingsSectionTests {
         #expect(controller.history.phase == .idle)
         #expect(controller.history.isClearAvailable == false)
     }
+
+    @Test("AC-19: 設定画面の窓が閉じると、その場ではなく次の main の回で onDidClose が1回呼ばれる")
+    func closingWindowCallsOnDidCloseOnNextTurn() async throws {
+        let name = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let controller = makeController(library: DraftLibrary(store: .inMemory), defaults: defaults)
+        var closeCount = 0
+        controller.onDidClose = { closeCount += 1 }
+
+        controller.windowWillClose(Notification(name: NSWindow.willCloseNotification))
+
+        #expect(closeCount == 0)
+        try await waitUntil(attempts: 100, interval: .milliseconds(20)) { closeCount > 0 }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(closeCount == 1)
+    }
+
+    @Test("AC-19: onDidClose が無くても、設定画面の窓を閉じて落ちない")
+    func closingWindowWithoutOnDidCloseDoesNotCrash() throws {
+        let name = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let controller = makeController(library: DraftLibrary(store: .inMemory), defaults: defaults)
+
+        controller.windowWillClose(Notification(name: NSWindow.willCloseNotification))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+
+        #expect(controller.onDidClose == nil)
+    }
 }

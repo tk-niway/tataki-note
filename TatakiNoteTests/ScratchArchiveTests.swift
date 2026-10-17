@@ -7,7 +7,6 @@ enum ScratchArchiveCloseWay: CaseIterable, Sendable {
     case escape
     case closeImmediately
     case hideKey
-    case openSettings
     case commitWithoutPermission
 }
 
@@ -279,8 +278,6 @@ struct ScratchArchiveTests {
             fixture.controller.closeImmediately()
         case .hideKey:
             #expect(fixture.controller.handleHideKey())
-        case .openSettings:
-            fixture.controller.openSettings()
         case .commitWithoutPermission:
             fixture.controller.commit()
         }

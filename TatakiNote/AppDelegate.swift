@@ -141,22 +141,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         draftSession: panelController.session
     )
 
-    private(set) lazy var settingsWindow = SettingsWindowController(
-        settings: settings,
-        launchAtLogin: LaunchAtLoginModel(
-            service: AppLaunchContext.loginItemService(environment: ProcessInfo.processInfo.environment)
-        ),
-        appInfo: AppInfoModel(
-            infoDictionary: Bundle.main.infoDictionary ?? [:],
-            permissionStatus: PermissionGuideModel(permission: permission),
-            onOpenTutorial: { [weak self] in self?.tutorial.show() }
-        ),
-        panelDefaultSize: PanelDefaultSizeModel(
-            settings: settings,
-            currentPanelSize: { [weak self] in self?.panelController.heldPanelSize }
-        ),
-        library: library
-    )
+    private(set) lazy var settingsWindow: SettingsWindowController = {
+        let controller = SettingsWindowController(
+            settings: self.settings,
+            launchAtLogin: LaunchAtLoginModel(
+                service: AppLaunchContext.loginItemService(environment: ProcessInfo.processInfo.environment)
+            ),
+            appInfo: AppInfoModel(
+                infoDictionary: Bundle.main.infoDictionary ?? [:],
+                permissionStatus: PermissionGuideModel(permission: self.permission),
+                onOpenTutorial: { [weak self] in self?.tutorial.show() }
+            ),
+            panelDefaultSize: PanelDefaultSizeModel(
+                settings: self.settings,
+                currentPanelSize: { [weak self] in self?.panelController.heldPanelSize }
+            ),
+            library: self.library
+        )
+        controller.onDidClose = { [weak self] in
+            self?.panelController.settingsWindowDidClose()
+        }
+        return controller
+    }()
 
     let webContentExposer = WebContentExposer()
 
