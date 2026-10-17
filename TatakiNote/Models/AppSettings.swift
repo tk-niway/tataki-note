@@ -131,6 +131,16 @@ import Observation
         didSet { store.saveIsInsertionTargetOutlineShown(isInsertionTargetOutlineShown) }
     }
 
+    /// Dock にアイコンを出すか。
+    var showsDockIcon: Bool {
+        didSet { store.saveShowsDockIcon(showsDockIcon) }
+    }
+
+    /// ⌘Q で終了する前に確かめるか。
+    var confirmsQuit: Bool {
+        didSet { store.saveConfirmsQuit(confirmsQuit) }
+    }
+
     /// 初回起動のチュートリアルを自動で出したか。
     var hasShownFirstLaunchTutorial: Bool {
         didSet { store.saveHasShownFirstLaunchTutorial(hasShownFirstLaunchTutorial) }
@@ -192,6 +202,8 @@ import Observation
         self.panelDefaultHeight = store.loadPanelDefaultHeight()
         self.isPanelAnimationEnabled = store.loadIsPanelAnimationEnabled()
         self.isInsertionTargetOutlineShown = store.loadIsInsertionTargetOutlineShown()
+        self.showsDockIcon = store.loadShowsDockIcon()
+        self.confirmsQuit = store.loadConfirmsQuit()
         self.hasShownFirstLaunchTutorial = store.loadHasShownFirstLaunchTutorial()
         self.isSidebarOpen = store.loadSidebarIsOpen()
         self.sidebarTab = store.loadSidebarTab()
