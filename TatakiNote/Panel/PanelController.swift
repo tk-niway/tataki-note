@@ -353,7 +353,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// ⌘H を受け取る。アニメーションがオンで開いているときは閉じる動きのあとにアプリを隠して true を返す。
     func handleHideKey() -> Bool {
-        guard settings.isPanelAnimationEnabled,
+        guard settings.isAnimationEnabled,
               motion.phase == .opening || motion.phase == .shown else { return false }
         prepareToClose()
         hidePanel(then: { [weak self] in self?.hideApplication() })
@@ -537,7 +537,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             applyMinimumSize()
             return
         }
-        if settings.isPanelAnimationEnabled, motion.phase == .shown {
+        if settings.isAnimationEnabled, motion.phase == .shown {
             slideSidebar(open: isOpen)
             return
         }
@@ -678,7 +678,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     // MARK: - 開閉の動き
 
     private func present(at restFrame: NSRect) {
-        guard settings.isPanelAnimationEnabled else {
+        guard settings.isAnimationEnabled else {
             endMotion()
             panel.makeKeyAndOrderFront(nil)
             motion.showWithoutMotion()
@@ -699,7 +699,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private func hidePanel(then completion: (() -> Void)? = nil) {
         finishSidebarSlide()
-        guard settings.isPanelAnimationEnabled, motion.phase != .hidden else {
+        guard settings.isAnimationEnabled, motion.phase != .hidden else {
             hideWithoutMotion()
             completion?()
             return

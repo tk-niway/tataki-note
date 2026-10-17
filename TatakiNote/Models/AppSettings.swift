@@ -121,9 +121,14 @@ import Observation
         }
     }
 
-    /// パネルの開閉エフェクトを使うか。
-    var isPanelAnimationEnabled: Bool {
-        didSet { store.saveIsPanelAnimationEnabled(isPanelAnimationEnabled) }
+    /// 「アニメーション」の選択。
+    var animationMode: AnimationMode {
+        didSet { store.saveAnimationMode(animationMode) }
+    }
+
+    /// 今、動きを使うか。
+    var isAnimationEnabled: Bool {
+        animationMode.isEnabled(reduceMotion: reducesMotion())
     }
 
     /// 挿入先の入力欄を枠線で囲むか。
@@ -164,8 +169,14 @@ import Observation
 
     @ObservationIgnored private let store: SettingsStore
 
-    init(store: SettingsStore) {
+    @ObservationIgnored private let reducesMotion: () -> Bool
+
+    init(
+        store: SettingsStore,
+        reducesMotion: @escaping () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+    ) {
         self.store = store
+        self.reducesMotion = reducesMotion
         self.newDraftMode = store.loadNewDraftMode()
         self.commitKey = store.loadCommitShortcut()
         self.commitAndSendKey = store.loadCommitAndSendShortcut()
@@ -190,7 +201,7 @@ import Observation
         self.hidesMenuBarIcon = store.loadHidesMenuBarIcon()
         self.panelDefaultWidth = store.loadPanelDefaultWidth()
         self.panelDefaultHeight = store.loadPanelDefaultHeight()
-        self.isPanelAnimationEnabled = store.loadIsPanelAnimationEnabled()
+        self.animationMode = store.loadAnimationMode()
         self.isInsertionTargetOutlineShown = store.loadIsInsertionTargetOutlineShown()
         self.hasShownFirstLaunchTutorial = store.loadHasShownFirstLaunchTutorial()
         self.isSidebarOpen = store.loadSidebarIsOpen()

@@ -29,7 +29,7 @@ struct SidebarFocusWiringTests {
             let settings = AppSettings(store: SettingsStore(defaults: defaults))
             settings.isSidebarOpen = isSidebarOpen
             settings.panelScreen = .main
-            settings.isPanelAnimationEnabled = false
+            settings.animationMode = .off
             let library = DraftLibrary(store: DraftLibraryStore(directory: directory))
             let probe = FocusedElementProbeStub()
             self.directory = directory

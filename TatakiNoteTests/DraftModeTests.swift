@@ -67,7 +67,7 @@ struct DraftModeTests {
         let settings = defaults.makeSettings()
         settings.newDraftMode = newDraftMode
         settings.panelScreen = .main
-        settings.isPanelAnimationEnabled = false
+        settings.animationMode = .off
         settings.commitKey = .commandShiftReturn
         settings.commitAndSendKey = .commandReturn
         let shaker = PanelShakerSpy()

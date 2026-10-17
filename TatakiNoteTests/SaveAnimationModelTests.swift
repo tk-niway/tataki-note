@@ -194,7 +194,7 @@ struct SaveAnimationPanelWiringTests {
             let defaults = try #require(UserDefaults(suiteName: defaultsName))
             settings = AppSettings(store: SettingsStore(defaults: defaults))
             settings.panelScreen = .main
-            settings.isPanelAnimationEnabled = false
+            settings.animationMode = .off
             settings.isSidebarOpen = isSidebarOpen
             settings.sidebarTab = tab
             settings.commitKey = .commandShiftReturn
@@ -365,7 +365,7 @@ struct SaveAnimationPanelWiringTests {
     func playsWithPanelAnimationOff() async throws {
         let fixture = try PanelFixture(isSidebarOpen: false)
         defer { fixture.cleanup() }
-        #expect(fixture.settings.isPanelAnimationEnabled == false)
+        #expect(fixture.settings.animationMode == .off)
         fixture.controller.model.text = "memo"
 
         fixture.pressSave()

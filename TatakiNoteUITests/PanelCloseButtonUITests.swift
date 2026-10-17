@@ -48,7 +48,7 @@ final class PanelCloseButtonUITests: XCTestCase {
     // AC-3
     @MainActor
     func testAC3_closeButtonKeepsDraggedSize() throws {
-        let app = try launchApp(seed: ["panelAnimationEnabled": false])
+        let app = try launchApp(seed: ["animationMode": "off"])
         let panel = openPanel(in: app)
 
         dragBottomRightCorner(of: panel, by: CGVector(dx: -100, dy: -60))

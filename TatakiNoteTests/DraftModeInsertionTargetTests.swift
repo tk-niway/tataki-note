@@ -51,7 +51,7 @@ private struct InsertionTargetFixture {
         settings.panelScreen = panelScreen
         settings.newDraftMode = newDraftMode
         settings.isInsertionTargetOutlineShown = isOutlineShown
-        settings.isPanelAnimationEnabled = false
+        settings.animationMode = .off
         let probe = PerAppProbeStub()
         probe.results[Self.editor.processIdentifier] = FocusedElementProbe(
             element: Self.editorElement,

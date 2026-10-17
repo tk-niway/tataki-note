@@ -53,7 +53,7 @@ struct EmptyCommitShakeTests {
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.panelScreen = .main
-        settings.isPanelAnimationEnabled = animationEnabled
+        settings.animationMode = animationEnabled ? .on : .off
         settings.commitKey = .commandShiftReturn
         settings.commitAndSendKey = .commandReturn
         let shaker = PanelShakerSpy()

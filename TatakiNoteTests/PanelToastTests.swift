@@ -68,7 +68,7 @@ struct PanelToastTests {
             let defaults = try #require(UserDefaults(suiteName: defaultsName))
             let settings = AppSettings(store: SettingsStore(defaults: defaults))
             settings.panelScreen = .main
-            settings.isPanelAnimationEnabled = false
+            settings.animationMode = .off
             settings.isSidebarOpen = false
             let probe = FocusedElementProbeStub()
             controller = PanelController(

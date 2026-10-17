@@ -236,7 +236,7 @@ struct PanelDraftWiringTests {
         defer { fixture.cleanup() }
         let draft = try fixture.addDraft("one")
         fixture.settings.panelScreen = .main
-        fixture.settings.isPanelAnimationEnabled = false
+        fixture.settings.animationMode = .off
         fixture.probe.result = FocusedElementProbe(
             element: AXUIElementCreateApplication(pid_t.max),
             lookup: WatcherFixture.textFieldLookup,

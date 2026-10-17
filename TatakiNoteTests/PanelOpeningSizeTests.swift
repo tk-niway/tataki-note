@@ -28,7 +28,7 @@ struct PanelOpeningSizeTests {
         settings.panelScreen = .main
         settings.panelDefaultWidth = Self.defaultSize.width
         settings.panelDefaultHeight = Self.defaultSize.height
-        settings.isPanelAnimationEnabled = false
+        settings.animationMode = .off
         settings.commitKey = .commandShiftReturn
         let inserter = InserterStub(result: result)
         let shaker = PanelShakerSpy()

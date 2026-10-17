@@ -86,7 +86,7 @@ struct ScratchArchiveTests {
             settings.panelScreen = .main
             settings.panelDefaultWidth = 600
             settings.panelDefaultHeight = 400
-            settings.isPanelAnimationEnabled = isAnimationEnabled
+            settings.animationMode = isAnimationEnabled ? .on : .off
             let library = DraftLibrary(store: DraftLibraryStore(directory: directory))
             let probe = FocusedElementProbeStub()
             self.directory = directory

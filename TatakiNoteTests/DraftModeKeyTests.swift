@@ -28,7 +28,7 @@ struct DraftModeKeyTests {
         defer { defaults.remove() }
         let settings = defaults.makeSettings()
         settings.panelScreen = .main
-        settings.isPanelAnimationEnabled = false
+        settings.animationMode = .off
         settings.commitKey = registeredKeys?.commit ?? .commandShiftReturn
         settings.commitAndSendKey = registeredKeys?.send ?? .commandReturn
         let inserter = InserterStub(result: .inserted)

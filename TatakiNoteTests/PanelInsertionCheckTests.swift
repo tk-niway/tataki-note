@@ -47,7 +47,7 @@ struct PanelInsertionCheckTests {
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.panelScreen = .main
-        settings.isPanelAnimationEnabled = false
+        settings.animationMode = .off
         let probe = FocusedElementProbeStub()
         probe.result = FocusedElementProbe(element: fieldA, lookup: WatcherFixture.textFieldLookup, frame: nil)
         probe.elementFrame = CGRect(x: 0, y: 0, width: 100, height: 20)
