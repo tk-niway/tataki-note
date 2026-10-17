@@ -12,6 +12,7 @@ struct PanelToastView: View {
 
     private static let transitionSeconds = 0.2
 
+    @Environment(\.isAppAnimationReduced) private var reduceMotion
     @State private var stage: Stage = .entering
 
     var body: some View {
@@ -37,14 +38,22 @@ struct PanelToastView: View {
         .opacity(stage == .shown ? 1 : 0)
         .offset(y: stage == .entering ? 10 : 0)
         .onAppear {
-            withAnimation(.easeOut(duration: Self.transitionSeconds)) {
+            if reduceMotion {
                 stage = .shown
+            } else {
+                withAnimation(.easeOut(duration: Self.transitionSeconds)) {
+                    stage = .shown
+                }
             }
         }
         .task {
             try? await Task.sleep(for: SaveAnimationModel.toastDuration - .milliseconds(200))
-            withAnimation(.easeIn(duration: Self.transitionSeconds)) {
+            if reduceMotion {
                 stage = .leaving
+            } else {
+                withAnimation(.easeIn(duration: Self.transitionSeconds)) {
+                    stage = .leaving
+                }
             }
         }
         .accessibilityElement(children: .ignore)
