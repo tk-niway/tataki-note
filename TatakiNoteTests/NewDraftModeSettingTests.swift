@@ -45,16 +45,16 @@ struct NewDraftModeSettingTests {
     func legacyAppModeIsIgnored() throws {
         let defaults = try TemporaryDefaults()
         defer { defaults.remove() }
-        defaults.defaults.set("note", forKey: SettingsStore.Key.appMode)
+        defaults.defaults.set("note", forKey: "appMode")
 
         let settings = defaults.makeSettings()
         #expect(settings.newDraftMode == .insert)
 
         settings.newDraftMode = .note
-        #expect(defaults.defaults.string(forKey: SettingsStore.Key.appMode) == "note")
+        #expect(defaults.defaults.string(forKey: "appMode") == "note")
 
         settings.newDraftMode = .insert
-        #expect(defaults.defaults.string(forKey: SettingsStore.Key.appMode) == "note")
+        #expect(defaults.defaults.string(forKey: "appMode") == "note")
         #expect(defaults.makeSettings().newDraftMode == .insert)
     }
 
@@ -66,7 +66,7 @@ struct NewDraftModeSettingTests {
         _ = defaults.makeSettings()
 
         #expect(defaults.defaults.object(forKey: SettingsStore.Key.newDraftMode) == nil)
-        #expect(defaults.defaults.object(forKey: SettingsStore.Key.appMode) == nil)
+        #expect(defaults.defaults.object(forKey: "appMode") == nil)
     }
 
     @Test("AC-8: 確定キーが両方とも未登録で、ホットキーが無ければ、初期値の2つを登録して保存する")

@@ -114,47 +114,4 @@ struct NoteModeKeySettingsTests {
         #expect(settings.commitKey == nil)
         #expect(model.rejectionMessage(for: .commit) == nil)
     }
-
-    // MARK: - AC-9
-
-    @Test("AC-9: ノートモードでは改行・確定+挿入キー・確定+送信キーに「帯に出ません」の注記が付く。登録の有無より優先する")
-    func statusItemNoteInNoteMode() throws {
-        let temp = try TemporaryDefaults()
-        defer { temp.remove() }
-        let settings = temp.makeSettings()
-        let model = EditorSettingsModel(settings: settings)
-
-        settings.selectAppMode(.note, hotkey: nil)
-        #expect(model.statusItemNote(.commit) == .noteMode)
-        #expect(model.statusItemNote(.commitAndSend) == .noteMode)
-        #expect(model.statusItemNote(.lineBreak) == .noteMode)
-        for item in [PanelStatusItem.close, .characterCount, .lineCount] {
-            #expect(model.statusItemNote(item) == nil, "\(item)")
-        }
-
-        settings.selectCommitKey(nil)
-        #expect(model.statusItemNote(.commit) == .noteMode)
-
-        model.setStatusItem(.commit, isVisible: false)
-        #expect(model.statusItemNote(.commit) == .noteMode)
-    }
-
-    @Test("AC-9: インサートモードに戻すと注記は今と同じ(未登録のときだけ「キーを登録していないあいだは帯に出ません」)")
-    func statusItemNoteInInsertMode() throws {
-        let temp = try TemporaryDefaults()
-        defer { temp.remove() }
-        let settings = temp.makeSettings()
-        let model = EditorSettingsModel(settings: settings)
-
-        #expect(model.statusItemNote(.commit) == nil)
-        #expect(model.statusItemNote(.commitAndSend) == nil)
-
-        settings.selectAppMode(.note, hotkey: nil)
-        settings.selectCommitKey(nil)
-        settings.selectAppMode(.insert, hotkey: nil)
-
-        #expect(model.statusItemNote(.commit) == .keyNotAssigned)
-        #expect(model.statusItemNote(.commitAndSend) == nil)
-        #expect(model.statusItemNote(.lineBreak) == nil)
-    }
 }

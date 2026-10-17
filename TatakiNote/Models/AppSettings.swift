@@ -157,11 +157,6 @@ import Observation
         }
     }
 
-    /// 今のモード。`selectAppMode(_:hotkey:)` で変える。
-    private(set) var appMode: AppMode {
-        didSet { store.saveAppMode(appMode) }
-    }
-
     /// 新しい書きかけを始めるモード。
     var newDraftMode: DraftMode {
         didSet { store.saveNewDraftMode(newDraftMode) }
@@ -171,7 +166,6 @@ import Observation
 
     init(store: SettingsStore) {
         self.store = store
-        self.appMode = store.loadAppMode()
         self.newDraftMode = store.loadNewDraftMode()
         self.commitKey = store.loadCommitShortcut()
         self.commitAndSendKey = store.loadCommitAndSendShortcut()
@@ -206,19 +200,6 @@ import Observation
         self.commitAndSendKeyDisplayText = commitAndSendKey?.displayText
     }
 
-    var isNoteMode: Bool {
-        appMode == .note
-    }
-
-    /// モードを切り替える。インサートモードにしたとき確定キーが両方とも未登録なら、初期値を登録する(ホットキーと同じキーは除く)。
-    func selectAppMode(_ mode: AppMode, hotkey: PanelShortcut?) {
-        guard mode != appMode else { return }
-        if mode == .insert {
-            registerDefaultCommitKeysIfBothMissing(hotkey: hotkey)
-        }
-        appMode = mode
-    }
-
     /// 確定+挿入キーと確定+送信キーが両方とも未登録なら、初期値を登録する(ホットキーと同じキーは除く)。
     func registerDefaultCommitKeysIfBothMissing(hotkey: PanelShortcut?) {
         guard commitKey == nil, commitAndSendKey == nil else { return }
@@ -228,11 +209,6 @@ import Observation
         if let key = PanelShortcut.defaultCommitAndSendKey, key != hotkey {
             commitAndSendKey = key
         }
-    }
-
-    /// 実際に使う「パネルを出す位置」。ノートモードでは「入力欄の近く」を「マウスの近く」にする。
-    var effectivePanelScreen: PanelScreen {
-        isNoteMode && panelScreen == .nearFocusedField ? .mouse : panelScreen
     }
 
     /// 帯に出す項目。ノートの書きかけでは確定+挿入・確定+送信を出さない。

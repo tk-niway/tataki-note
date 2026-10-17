@@ -24,40 +24,4 @@ struct SettingsWindowModelTests {
         #expect(SettingsSection.general.rawValue == "general")
         #expect(SettingsSection.general.id == .general)
     }
-
-    @Test("AC-28: 案内の「インサートに切り替える →」とサイドバーの「インサート」が通る selectAppMode(_:in:) は、確定キーが両方未登録なら注入したホットキー以外の初期値を登録してインサートモードにする")
-    func selectAppModeRegistersDefaultKeysThroughInjectedHotkey() throws {
-        let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
-        defer { defaults.removePersistentDomain(forName: name) }
-        let settings = AppSettings(store: SettingsStore(defaults: defaults))
-        settings.commitKey = nil
-        settings.commitAndSendKey = nil
-        settings.selectAppMode(.note, hotkey: nil)
-        let model = SettingsWindowModel(hotkey: { .commandShiftReturn })
-
-        model.selectAppMode(.insert, in: settings)
-
-        #expect(settings.appMode == .insert)
-        #expect(settings.commitKey == nil)
-        #expect(settings.commitAndSendKey == PanelShortcut.defaultCommitAndSendKey)
-    }
-
-    @Test("selectAppMode は今と同じモードを選んでも何も変えない")
-    func selectAppModeIgnoresSameMode() throws {
-        let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
-        defer { defaults.removePersistentDomain(forName: name) }
-        let settings = AppSettings(store: SettingsStore(defaults: defaults))
-        settings.selectAppMode(.note, hotkey: nil)
-        settings.commitKey = nil
-        settings.commitAndSendKey = nil
-        let model = SettingsWindowModel(hotkey: { nil })
-
-        model.selectAppMode(.note, in: settings)
-
-        #expect(settings.appMode == .note)
-        #expect(settings.commitKey == nil)
-        #expect(settings.commitAndSendKey == nil)
-    }
 }

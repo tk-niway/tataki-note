@@ -4,7 +4,6 @@ import Observation
 /// 帯の項目に添える注記。
 enum StatusItemNote: Equatable {
     case keyNotAssigned
-    case noteMode
 }
 
 /// 設定画面の「パネル」の状態(フォント・文字サイズ・透明度・帯の項目)。
@@ -65,12 +64,10 @@ enum StatusItemNote: Equatable {
     func statusItemNote(_ item: PanelStatusItem) -> StatusItemNote? {
         switch item {
         case .commit:
-            settings.isNoteMode ? .noteMode : (settings.commitKey == nil ? .keyNotAssigned : nil)
+            settings.commitKey == nil ? .keyNotAssigned : nil
         case .commitAndSend:
-            settings.isNoteMode ? .noteMode : (settings.commitAndSendKey == nil ? .keyNotAssigned : nil)
-        case .lineBreak:
-            settings.isNoteMode ? .noteMode : nil
-        case .close, .characterCount, .lineCount:
+            settings.commitAndSendKey == nil ? .keyNotAssigned : nil
+        case .lineBreak, .close, .characterCount, .lineCount:
             nil
         }
     }

@@ -14,9 +14,6 @@ final class SettingsLayoutUITests: XCTestCase {
     private let sidebarTitles = ["一般", "ホットキーとキー操作", "パネル", "情報"]
     private let scrollViewID = "settings.detailScrollView"
     private let detailTitleID = "settings.detailTitle"
-    private let toggleID = "settings.appModeToggle"
-    private let insertModeID = "settings.appMode.insert"
-    private let noteModeID = "settings.appMode.note"
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -84,34 +81,6 @@ final class SettingsLayoutUITests: XCTestCase {
 
         keys.click()
         XCTAssertTrue(waitUntil { self.isVisible(element(in: app, identifier: "settings.hotkeyRecorder"), in: scrollView) }, "「ホットキーとキー操作」が先頭から出ない")
-
-        closeSettings(in: app)
-    }
-
-    // AC-7
-    @MainActor
-    func testAC7_modeToggleSwitchesInEverySection() throws {
-        let app = launchApp()
-        openSettingsFromMenu(in: app)
-
-        let insert = element(in: app, identifier: insertModeID)
-        let note = element(in: app, identifier: noteModeID)
-        XCTAssertTrue(note.waitForExistence(timeout: timeout))
-        XCTAssertTrue(insert.isSelected)
-        XCTAssertFalse(note.isSelected)
-
-        note.click()
-        XCTAssertTrue(waitUntil { note.isSelected && !insert.isSelected }, "「ノート」を押してもノートが選択中に見えない")
-
-        for identifier in sidebarIDs {
-            element(in: app, identifier: identifier).click()
-            XCTAssertTrue(element(in: app, identifier: toggleID).waitForExistence(timeout: timeout), "\(identifier) を開いたときにモードの切り替えが無い")
-            XCTAssertTrue(note.isHittable, "\(identifier) を開いたときにモードの切り替えが押せない")
-            XCTAssertTrue(note.isSelected, "\(identifier) を開くとモードが変わった")
-        }
-
-        insert.click()
-        XCTAssertTrue(waitUntil { insert.isSelected && !note.isSelected }, "「インサート」を押してもインサートが選択中に見えない")
 
         closeSettings(in: app)
     }

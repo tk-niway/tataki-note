@@ -47,7 +47,7 @@ struct SettingsView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            SettingsSidebar(settings: settings, model: model, onQuit: onQuit)
+            SettingsSidebar(model: model, onQuit: onQuit)
             Divider()
             VStack(spacing: 0) {
                 Text(model.selectedSection.displayName)
