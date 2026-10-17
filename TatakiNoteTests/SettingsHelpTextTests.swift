@@ -8,6 +8,12 @@ struct SettingsHelpTextTests {
         #expect(!SettingsHelpText.hideMenuBarIcon.contains("もう一度開くとこの画面が開きます"))
     }
 
+    @Test("AC-25: 「Dock にアイコンを出す」と「⌘Q で終了する前に確かめる」の説明文は決めた全文")
+    func dockIconAndConfirmQuit() {
+        #expect(SettingsHelpText.showDockIcon == "出さないときも、Finder や Spotlight から開くとパネルが開きます。")
+        #expect(SettingsHelpText.confirmQuit == "メニューの「終了」と「TatakiNote を終了」では確かめません。")
+    }
+
     @Test("AC-4: 「履歴」の説明文は残す件数を含む短い文")
     func historyKept() {
         #expect(SettingsHelpText.historyKept(limit: 50) == "最新 50 件までこの Mac に残ります。")

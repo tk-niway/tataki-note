@@ -7,6 +7,12 @@ enum SettingsHelpText {
         localized: "隠している間は、パネルの「設定」のボタンか ⌘, でこの画面を開きます。終了は左下の「TatakiNote を終了」から。"
     )
 
+    /// 「Dock にアイコンを出す」の下の説明文。
+    static let showDockIcon = String(localized: "出さないときも、Finder や Spotlight から開くとパネルが開きます。")
+
+    /// 「⌘Q で終了する前に確かめる」の下の説明文。
+    static let confirmQuit = String(localized: "メニューの「終了」と「TatakiNote を終了」では確かめません。")
+
     /// 「履歴」の下の説明文。
     static func historyKept(limit: Int) -> String {
         String(localized: "最新 \(limit) 件までこの Mac に残ります。")

@@ -17,6 +17,8 @@ struct GeneralSettingsView: View {
                 SettingsCard {
                     launchAtLoginRow
                     hideMenuBarIconRow
+                    showDockIconRow
+                    confirmQuitRow
                 }
             }
             SettingsGroup(title: "履歴", identifier: "settings.group.history") {
@@ -77,6 +79,30 @@ struct GeneralSettingsView: View {
                 .toggleStyle(.switch)
                 .labelsHidden()
                 .accessibilityIdentifier("settings.hideMenuBarIconToggle")
+        }
+    }
+
+    private var showDockIconRow: some View {
+        SettingsRow(
+            title: "Dock にアイコンを出す",
+            description: SettingsHelpText.showDockIcon
+        ) {
+            Toggle("Dock にアイコンを出す", isOn: $settings.showsDockIcon)
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .accessibilityIdentifier("settings.showDockIconToggle")
+        }
+    }
+
+    private var confirmQuitRow: some View {
+        SettingsRow(
+            title: "⌘Q で終了する前に確かめる",
+            description: SettingsHelpText.confirmQuit
+        ) {
+            Toggle("⌘Q で終了する前に確かめる", isOn: $settings.confirmsQuit)
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .accessibilityIdentifier("settings.confirmQuitToggle")
         }
     }
 

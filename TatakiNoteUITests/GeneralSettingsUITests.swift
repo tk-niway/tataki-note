@@ -82,6 +82,7 @@ final class GeneralSettingsUITests: XCTestCase {
         let clearButton = element(in: app, identifier: clearHistoryID)
         XCTAssertTrue(clearButton.exists)
         XCTAssertTrue(clearButton.isEnabled)
+        app.revealInSettings(clearButton)
         clearButton.click()
         XCTAssertTrue(element(in: app, identifier: cancelID).waitForExistence(timeout: timeout))
         XCTAssertTrue(element(in: app, identifier: confirmID).exists)
@@ -94,6 +95,7 @@ final class GeneralSettingsUITests: XCTestCase {
         XCTAssertEqual(text(of: count), "1")
 
         // AC-52
+        app.revealInSettings(element(in: app, identifier: clearHistoryID))
         element(in: app, identifier: clearHistoryID).click()
         let warning = element(in: app, identifier: warningID)
         XCTAssertTrue(warning.waitForExistence(timeout: timeout))
@@ -104,6 +106,7 @@ final class GeneralSettingsUITests: XCTestCase {
         XCTAssertEqual(text(of: count), "1")
 
         // AC-18
+        app.revealInSettings(element(in: app, identifier: clearHistoryID))
         element(in: app, identifier: clearHistoryID).click()
         XCTAssertTrue(element(in: app, identifier: cancelID).waitForExistence(timeout: timeout))
         element(in: app, identifier: sidebarPanelID).click()
@@ -116,6 +119,7 @@ final class GeneralSettingsUITests: XCTestCase {
         XCTAssertEqual(text(of: element(in: app, identifier: countID)), "1")
 
         // AC-52
+        app.revealInSettings(clearButtonAfterSwitch)
         clearButtonAfterSwitch.click()
         XCTAssertTrue(element(in: app, identifier: confirmID).waitForExistence(timeout: timeout))
         app.typeKey(.return, modifierFlags: [])
@@ -134,6 +138,7 @@ final class GeneralSettingsUITests: XCTestCase {
         // AC-15
         let clearButton = element(in: app, identifier: clearHistoryID)
         XCTAssertTrue(clearButton.waitForExistence(timeout: timeout))
+        app.revealInSettings(clearButton)
         clearButton.click()
         let confirm = element(in: app, identifier: confirmID)
         XCTAssertTrue(confirm.waitForExistence(timeout: timeout))
