@@ -220,10 +220,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         didHideIcon: { [weak self] in self?.settingsWindow.bringToFrontIfVisible() }
     )
 
+    private lazy var quitConfirmation = QuitConfirmationController(
+        model: QuitConfirmationModel(settings: settings, terminate: { NSApp.terminate(nil) }),
+        settings: settings,
+        isRecordingShortcut: { event in
+            ShortcutRecordingMonitorView.isRecordingAnywhere
+                || QuitConfirmationController.isKeyboardShortcutsRecorderFocused(in: event.window)
+        },
+        isPanelCommitKey: { [weak self] event in
+            guard let self else { return false }
+            let input = PanelKeyInput(
+                keyCode: event.keyCode,
+                modifiers: event.modifierFlags.intersection(.deviceIndependentFlagsMask),
+                hasMarkedText: PromptPanel.firstResponderHasMarkedText(event.window?.firstResponder),
+                characters: event.charactersIgnoringModifiers?.lowercased() ?? ""
+            )
+            return QuitConfirmation.isPanelCommitKey(
+                input,
+                isPanelKey: event.window === self.panelController.panel,
+                commitKey: self.settings.commitKey,
+                commitAndSendKey: self.settings.commitAndSendKey
+            )
+        }
+    )
+
+    private var isConfirmingQuit: Bool {
+        quitConfirmation.model.isConfirming
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         let environment = ProcessInfo.processInfo.environment
         if AppLaunchContext.shouldApplyDockIcon(environment: environment) {
             dockIcon.start()
+        }
+        if !AppLaunchContext.isRunningUnitTests(environment: environment) {
+            quitConfirmation.start()
         }
         if AppLaunchContext.shouldRegisterHotkeys(environment: environment) {
             ReservedPanelKeys.apply(
@@ -234,8 +265,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             settings.registerDefaultCommitKeysIfBothMissing(hotkey: PanelShortcut.currentHotkey())
             KeyboardShortcuts.onKeyDown(for: .togglePanel) { [weak self] in
-                guard AppOpenRequest.allowsPanelToggle(isConfirmingQuit: false) else { return }
-                self?.panelController.toggle()
+                guard let self, AppOpenRequest.allowsPanelToggle(isConfirmingQuit: self.isConfirmingQuit) else { return }
+                self.panelController.toggle()
             }
         }
         if AppLaunchContext.shouldWatchFocusedElement(environment: environment) {
@@ -245,8 +276,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 permission: permission,
                 exposeWebContent: { [webContentExposer] in webContentExposer.expose($0) },
                 onShow: { [weak self] focus in
-                    guard AppOpenRequest.allowsPanelToggle(isConfirmingQuit: false) else { return }
-                    self?.panelController.open(observedFocus: focus)
+                    guard let self, AppOpenRequest.allowsPanelToggle(isConfirmingQuit: self.isConfirmingQuit) else { return }
+                    self.panelController.open(observedFocus: focus)
                 }
             )
             watcher.start()
@@ -300,7 +331,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if AppOpenRequest.shouldOpenPanelOnReopen(
             isPanelPresented: panelController.model.isPresented,
-            isConfirmingQuit: false,
+            isConfirmingQuit: isConfirmingQuit,
             isSuppressed: AppLaunchContext.isOpenPanelOnReopenSuppressed(environment: ProcessInfo.processInfo.environment)
         ) {
             panelController.openWithoutTarget()

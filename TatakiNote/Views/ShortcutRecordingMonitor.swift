@@ -32,6 +32,13 @@ final class ShortcutRecordingMonitorView: NSView {
 
     private var localMonitor: Any?
 
+    private static let recordingViews = NSHashTable<ShortcutRecordingMonitorView>.weakObjects()
+
+    /// どこかの記録欄が記録中か。
+    static var isRecordingAnywhere: Bool {
+        !recordingViews.allObjects.isEmpty
+    }
+
     override func hitTest(_ point: NSPoint) -> NSView? {
         nil
     }
@@ -56,6 +63,7 @@ final class ShortcutRecordingMonitorView: NSView {
             guard let self else { return event }
             return self.handleMonitoredEvent(event)
         }
+        Self.recordingViews.add(self)
     }
 
     private func stopMonitoring() {
@@ -63,6 +71,7 @@ final class ShortcutRecordingMonitorView: NSView {
             NSEvent.removeMonitor(localMonitor)
         }
         localMonitor = nil
+        Self.recordingViews.remove(self)
     }
 
     private func handleMonitoredEvent(_ event: NSEvent) -> NSEvent? {
