@@ -171,6 +171,122 @@ struct SaveAnimationModelTests {
         #expect(recorder.model.toastMessage == nil)
     }
 
+    // MARK: - 動きを使わないとき
+
+    @Test("AC-8: isAnimated が false なら飛ばず、段は idle のまま弾みは進まず、トーストを出して読み上げ、待ちは 720・1180ms")
+    func playWithoutMotionShowsOnlyToast() async {
+        let recorder = Recorder()
+
+        await recorder.model.play(text: "memo", destination: .sidebarToggle, isAnimated: false)
+
+        #expect(recorder.durations == [.milliseconds(720), .milliseconds(1180)])
+        #expect(recorder.phases == [.idle, .idle])
+        #expect(recorder.toasts == [SaveAnimationModel.savedMessage, SaveAnimationModel.savedMessage])
+        #expect(recorder.announcements == [SaveAnimationModel.savedMessage])
+        #expect(recorder.model.arrivalCount == 0)
+        #expect(recorder.model.phase == .idle)
+        #expect(recorder.model.toastMessage == nil)
+    }
+
+    @Test("AC-8: isAnimated が false なら、showsToast が false でもトーストを出す")
+    func playWithoutMotionShowsToastEvenWhenOverwriting() async {
+        let recorder = Recorder()
+
+        await recorder.model.play(text: "memo", destination: .draftsTab, showsToast: false, isAnimated: false)
+
+        #expect(recorder.toasts == [SaveAnimationModel.savedMessage, SaveAnimationModel.savedMessage])
+        #expect(recorder.announcements == [SaveAnimationModel.savedMessage])
+        #expect(recorder.model.arrivalCount == 0)
+    }
+
+    @Test("AC-9: isAnimated が false で行が目的地なら、すぐ印が付いて 720ms で外れ、印のきっかけが 1 つ進む。行以外では印は付かない")
+    func playWithoutMotionGlowsRowImmediately() async {
+        let recorder = Recorder()
+        let id = UUID()
+
+        await recorder.model.play(text: "memo", destination: .draftRow(id), isAnimated: false)
+
+        #expect(recorder.glowingIDs == [id, nil])
+        #expect(recorder.model.glowCount == 1)
+        #expect(recorder.model.glowingDraftID == nil)
+
+        await recorder.model.play(text: "memo", destination: .draftsTab, isAnimated: false)
+        await recorder.model.play(text: "memo", destination: .sidebarToggle, isAnimated: false)
+
+        #expect(recorder.glowingIDs.dropFirst(2).allSatisfy { $0 == nil })
+        #expect(recorder.model.glowCount == 1)
+    }
+
+    @Test("AC-9: 同じ行をすぐもう一度保存すると、印のきっかけがもう 1 つ進み、印はその行のままで、前の残りの待ちは何もしない")
+    func playWithoutMotionTwiceOnSameRowRestartsGlow() async {
+        let recorder = Recorder()
+        let id = UUID()
+        recorder.heldSleepIndices = [0, 1]
+        let first = Task { @MainActor in
+            await recorder.model.play(text: "memo", destination: .draftRow(id), isAnimated: false)
+        }
+        await yieldUntil { recorder.durations.count == 1 }
+        let second = Task { @MainActor in
+            await recorder.model.play(text: "memo", destination: .draftRow(id), isAnimated: false)
+        }
+        await yieldUntil { recorder.durations.count == 2 }
+
+        #expect(recorder.model.glowCount == 2)
+        #expect(recorder.model.glowingDraftID == id)
+        #expect(recorder.model.toastMessage == SaveAnimationModel.savedMessage)
+
+        recorder.releaseSleeps()
+        await first.value
+        await second.value
+
+        #expect(recorder.durations.count == 3)
+        #expect(recorder.announcements.count == 2)
+        #expect(recorder.model.glowCount == 2)
+        #expect(recorder.model.glowingDraftID == nil)
+        #expect(recorder.model.toastMessage == nil)
+    }
+
+    @Test("AC-9: isAnimated が false の途中で cancel すると、印とトーストをすぐ消し、残りの待ちが終わっても何も起きない")
+    func cancelStopsPlayWithoutMotion() async {
+        let recorder = Recorder()
+        recorder.onSleep = {
+            if recorder.durations.count == 1 {
+                recorder.model.cancel()
+            }
+        }
+
+        await recorder.model.play(text: "memo", destination: .draftRow(UUID()), isAnimated: false)
+
+        #expect(recorder.durations.count == 1)
+        #expect(recorder.model.glowingDraftID == nil)
+        #expect(recorder.model.toastMessage == nil)
+        #expect(recorder.model.phase == .idle)
+    }
+
+    @Test("AC-10: isAnimated が true なら今までどおり飛び、着いたときに弾みと印のきっかけがそれぞれ 1 つ進む")
+    func playWithMotionAdvancesGlowCountOnArrival() async {
+        let recorder = Recorder()
+        let id = UUID()
+
+        await recorder.model.play(text: "memo", destination: .draftRow(id), isAnimated: true)
+
+        #expect(recorder.flyingFlights.count == 1)
+        #expect(recorder.model.arrivalCount == 1)
+        #expect(recorder.model.glowCount == 1)
+        #expect(recorder.glowingIDs == [nil, id, nil])
+        #expect(recorder.durations == [.milliseconds(680), .milliseconds(720), .milliseconds(1180)])
+    }
+
+    @Test("AC-10: isAnimated が true でも、行以外の目的地では印のきっかけは進まない")
+    func playWithMotionOnNonRowDoesNotAdvanceGlowCount() async {
+        let recorder = Recorder()
+
+        await recorder.model.play(text: "memo", destination: .draftsTab)
+
+        #expect(recorder.model.glowCount == 0)
+        #expect(recorder.model.arrivalCount == 1)
+    }
+
     fileprivate static let saveKey = PanelKeyInput(keyCode: 1, modifiers: [.command], hasMarkedText: false, characters: "s")
     fileprivate static let commitKey = PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.command, .shift], hasMarkedText: false)
     fileprivate static let ownPid: pid_t = 4242
@@ -188,13 +304,19 @@ struct SaveAnimationPanelWiringTests {
         let library = DraftLibrary(store: .inMemory)
         let inserter = InserterStub(result: .inserted)
         let permission: PermissionStub
+        let animator = FakePanelFrameAnimator()
         let controller: PanelController
 
-        init(isSidebarOpen: Bool, tab: SidebarTab = .drafts, isTrusted: Bool = true) throws {
+        init(
+            isSidebarOpen: Bool,
+            tab: SidebarTab = .drafts,
+            isTrusted: Bool = true,
+            animationMode: AnimationMode = .on
+        ) throws {
             let defaults = try #require(UserDefaults(suiteName: defaultsName))
             settings = AppSettings(store: SettingsStore(defaults: defaults))
             settings.panelScreen = .main
-            settings.animationMode = .off
+            settings.animationMode = animationMode
             settings.isSidebarOpen = isSidebarOpen
             settings.sidebarTab = tab
             settings.commitKey = .commandShiftReturn
@@ -211,6 +333,7 @@ struct SaveAnimationPanelWiringTests {
                 ownProcessIdentifier: SaveAnimationModelTests.ownPid,
                 library: library,
                 saveAnimation: recorder.model,
+                animator: animator,
                 makeTargetMonitor: InsertionTargetMonitor.testFactory(
                     probe: probe,
                     ownProcessIdentifier: SaveAnimationModelTests.ownPid
@@ -220,6 +343,9 @@ struct SaveAnimationPanelWiringTests {
                 InsertionTarget(processIdentifier: SaveAnimationModelTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
             }
             controller.open()
+            for index in animator.calls.indices {
+                animator.finish(index)
+            }
         }
 
         func cleanup() {
@@ -361,17 +487,105 @@ struct SaveAnimationPanelWiringTests {
         #expect(fixture.library.drafts.map(\.text) == ["memo edited"])
     }
 
-    @Test("AC-16: パネルの開閉エフェクトをオフにしていても、演出は出る")
-    func playsWithPanelAnimationOff() async throws {
-        let fixture = try PanelFixture(isSidebarOpen: false)
+    // MARK: - アニメーションがオフのとき
+
+    @Test("AC-8: アニメーションがオフで ⌘S の保存をすると、飛ばずにトーストだけ出て読み上げられ、下書きは増える")
+    func savingWithAnimationOffShowsOnlyToast() async throws {
+        let fixture = try PanelFixture(isSidebarOpen: false, animationMode: .off)
         defer { fixture.cleanup() }
-        #expect(fixture.settings.animationMode == .off)
+        fixture.controller.model.text = "memo"
+
+        fixture.pressSave()
+        try await fixture.waitForSleeps(2)
+
+        #expect(fixture.recorder.flyingFlights.isEmpty)
+        #expect(fixture.recorder.phases.allSatisfy { $0 == .idle })
+        #expect(fixture.recorder.model.arrivalCount == 0)
+        #expect(fixture.recorder.toasts == [SaveAnimationModel.savedMessage, SaveAnimationModel.savedMessage])
+        #expect(fixture.recorder.announcements == [SaveAnimationModel.savedMessage])
+        #expect(fixture.recorder.durations == [.milliseconds(720), .milliseconds(1180)])
+        #expect(fixture.library.drafts.map(\.text) == ["memo"])
+    }
+
+    @Test("AC-8: アニメーションがオフで保存のアイコンを押しても、飛ばずにトーストだけ出る")
+    func savingWithButtonAndAnimationOffShowsOnlyToast() async throws {
+        let fixture = try PanelFixture(isSidebarOpen: false, animationMode: .off)
+        defer { fixture.cleanup() }
+        fixture.controller.model.text = "memo"
+
+        fixture.controller.saveDraftFromButton()
+        try await fixture.waitForSleeps(2)
+
+        #expect(fixture.recorder.flyingFlights.isEmpty)
+        #expect(fixture.recorder.model.arrivalCount == 0)
+        #expect(fixture.recorder.toasts.first == SaveAnimationModel.savedMessage)
+        #expect(fixture.recorder.announcements == [SaveAnimationModel.savedMessage])
+        #expect(fixture.library.drafts.count == 1)
+    }
+
+    @Test("AC-8: アニメーションがオフなら、上書きの ⌘S でもトーストが出る")
+    func overwritingWithAnimationOffShowsToast() async throws {
+        let fixture = try PanelFixture(isSidebarOpen: false, animationMode: .off)
+        defer { fixture.cleanup() }
+        fixture.controller.model.text = "memo"
+        fixture.pressSave()
+        try await fixture.waitForSleeps(2)
+        let draftID = try #require(fixture.controller.session.document.savedDraftID)
+
+        fixture.controller.model.text = "memo edited"
+        fixture.pressSave()
+        try await fixture.waitForSleeps(4)
+
+        #expect(fixture.controller.session.lastSaveEvent?.kind == .overwritten(draftID))
+        #expect(fixture.recorder.toasts.dropFirst(2).first == SaveAnimationModel.savedMessage)
+        #expect(fixture.recorder.announcements == [SaveAnimationModel.savedMessage, SaveAnimationModel.savedMessage])
+        #expect(fixture.recorder.flyingFlights.isEmpty)
+        #expect(fixture.library.drafts.map(\.text) == ["memo edited"])
+    }
+
+    @Test("AC-8: アニメーションがオフで、サイドバーを開いて履歴を出しているときに ⌘S で保存すると、下書きのタブに切り替わる")
+    func savingFromHistoryWithAnimationOffSwitchesToDrafts() async throws {
+        let fixture = try PanelFixture(isSidebarOpen: true, tab: .history, animationMode: .off)
+        defer { fixture.cleanup() }
+        fixture.library.recordInsertion(text: "old", appName: "Safari", bundleIdentifier: nil)
+        fixture.controller.model.text = "memo"
+
+        fixture.pressSave()
+        try await fixture.waitForSleeps(2)
+
+        let draftID = try #require(fixture.controller.session.document.savedDraftID)
+        #expect(fixture.controller.sidebarModel.tab == .drafts)
+        #expect(fixture.recorder.flyingFlights.isEmpty)
+        #expect(fixture.recorder.model.glowCount == 1)
+        #expect(fixture.recorder.glowingIDs == [draftID, nil])
+    }
+
+    @Test("AC-9: アニメーションがオフで、サイドバーに保存した行が見えているときは、すぐその行に印が付く")
+    func savingWithAnimationOffGlowsVisibleRow() async throws {
+        let fixture = try PanelFixture(isSidebarOpen: true, animationMode: .off)
+        defer { fixture.cleanup() }
+        fixture.controller.model.text = "memo"
+
+        fixture.pressSave()
+        try await fixture.waitForSleeps(2)
+
+        let draftID = try #require(fixture.controller.session.document.savedDraftID)
+        #expect(fixture.recorder.glowingIDs == [draftID, nil])
+        #expect(fixture.recorder.model.glowCount == 1)
+    }
+
+    @Test("AC-10: アニメーションがオンで ⌘S の保存をすると、今までどおり飛んで着いたときに弾む")
+    func savingWithAnimationOnStillFlies() async throws {
+        let fixture = try PanelFixture(isSidebarOpen: false, animationMode: .on)
+        defer { fixture.cleanup() }
         fixture.controller.model.text = "memo"
 
         fixture.pressSave()
         try await fixture.waitForSleeps(3)
 
+        #expect(fixture.recorder.flyingFlights.count == 1)
         #expect(fixture.recorder.model.arrivalCount == 1)
+        #expect(fixture.recorder.toasts == [nil, SaveAnimationModel.savedMessage, SaveAnimationModel.savedMessage])
     }
 
     @Test("AC-16: パネルを閉じると、飛んでいる途中でも着いたあとのトースト中でも、演出とトーストが止まる")

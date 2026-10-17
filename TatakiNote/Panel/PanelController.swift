@@ -199,7 +199,10 @@ final class PanelController: NSObject, NSWindowDelegate {
         )
         let animation = saveAnimation
         let showsToast = event.showsToast
-        Task { await animation.play(text: text, destination: destination, showsToast: showsToast) }
+        let isAnimated = settings.isAnimationEnabled
+        Task {
+            await animation.play(text: text, destination: destination, showsToast: showsToast, isAnimated: isAnimated)
+        }
     }
 
     private func observeArchivedScratch() {
