@@ -19,14 +19,6 @@ enum EditorShortcuts {
     /// 「ショートカットキー」の一覧の下に出す説明文。
     static let settingDescription = String(localized: "割り当ては変えられません。確定のキーは上の「確定+挿入キー」「確定+送信キー」で確かめられます。")
 
-    /// ノートモードのときの「ショートカットキー」の説明文。
-    static let noteModeSettingDescription = String(localized: "割り当ては変えられません。")
-
-    /// モードに合わせた「ショートカットキー」の説明文。
-    static func settingDescription(isNoteMode: Bool) -> String {
-        isNoteMode ? noteModeSettingDescription : settingDescription
-    }
-
     static let all: [EditorShortcut] = EditorKeyCommand.allCases.compactMap(\.listing)
 
     /// 「ショートカットキー」の一覧で編集キーの後に出す、検索・保存・新規・サイドバーの開閉・設定の行。

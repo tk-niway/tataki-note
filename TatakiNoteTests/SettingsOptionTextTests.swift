@@ -19,10 +19,4 @@ struct SettingsOptionTextTests {
             #expect(screen.isSelectable(isNoteMode: isNoteMode) == isSelectable, "\(screen) note=\(isNoteMode)")
         }
     }
-
-    @Test("ノートモードでの案内は、自動表示と挿入・送信で別の文になる")
-    func noteModeMessagesDiffer() {
-        #expect(InsertOnlyGroup.autoShow.noteModeMessage == "ノートモードでは自動表示しません")
-        #expect(InsertOnlyGroup.insertAndSend.noteModeMessage == "ノートモードでは挿入・送信しません")
-    }
 }

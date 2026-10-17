@@ -25,6 +25,11 @@ struct SettingsHelpTextTests {
         #expect(SettingsHelpText.insertAndSendFooter == "記録ボックスをクリックしてキーを押します。esc で取り消します。")
     }
 
+    @Test("AC-31: 「モード」の説明文は決めた全文")
+    func newDraftMode() {
+        #expect(SettingsHelpText.newDraftMode == "新しい書きかけ(起動したとき・⌘N で新しくしたとき・挿入したあと)を、このモードで始めます。ノートでは挿入・送信せず、確定のキーは改行になります。今の書きかけのモードは、パネルで ⌘E を押して切り替えられます。")
+    }
+
     @Test("AC-4: 「パネル」と「情報」の説明文は短い文")
     func panelAndInfo() {
         #expect(SettingsHelpText.statusItemsFooter == "すべて外すと帯ごと消えます。")

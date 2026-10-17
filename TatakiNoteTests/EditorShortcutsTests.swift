@@ -58,6 +58,11 @@ struct EditorShortcutsTests {
         }
     }
 
+    @Test("AC-25: 「パネルの中で使えるキー」の下の説明文は、いつも決めた全文")
+    func settingDescriptionIsExact() {
+        #expect(EditorShortcuts.settingDescription == "割り当ては変えられません。確定のキーは上の「確定+挿入キー」「確定+送信キー」で確かめられます。")
+    }
+
     @Test("AC-5: 「ショートカットキー」の説明文は、割り当ては変えられないことと、確定のキーは「確定+挿入キー」「確定+送信キー」で確かめられることを書き、「一般」「エディタ設定」を書かない")
     func settingDescriptionPointsToKeysInSameSection() {
         let description = EditorShortcuts.settingDescription
