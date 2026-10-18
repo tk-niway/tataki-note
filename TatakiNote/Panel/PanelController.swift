@@ -23,6 +23,8 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let beep: () -> Void
     private let exporter: TextExporter
     private let presentExportFailure: (String, NSWindow?, @escaping () -> Void) -> Void
+    private let sharer: TextSharing
+    private let sharingAnchorRegistry = SharingAnchorRegistry()
 
     let session: DraftSession
     let sidebarModel: SidebarModel
@@ -90,6 +92,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil,
         exportChooser: ExportDestinationChoosing = SavePanelDestinationChooser(),
         writeTextFile: @escaping (String, URL) throws -> Void = TextFileWriter.write,
+        sharer: TextSharing? = nil,
         presentExportFailure: ((String, NSWindow?, @escaping () -> Void) -> Void)? = nil
     ) {
         let panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
@@ -100,6 +103,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.shaker = shaker
         self.beep = beep
         self.exporter = TextExporter(settings: settings, chooser: exportChooser, write: writeTextFile)
+        self.sharer = sharer ?? SharingServicePresenter(panel: panel, anchorRegistry: sharingAnchorRegistry)
         self.presentExportFailure = presentExportFailure ?? { message, window, completion in
             ExportFailureAlert.show(message: message, attachedTo: window, completion: completion)
         }
@@ -153,7 +157,9 @@ final class PanelController: NSObject, NSWindowDelegate {
                 onNewDraft: { [weak self] in self?.newDraftFromButton() },
                 onSaveDraft: { [weak self] in self?.saveDraftFromButton() },
                 onOpenSettings: { [weak self] in self?.openSettings() },
-                onSwitchToInsert: { [weak self] in self?.switchToInsertFromButton() }
+                onSwitchToInsert: { [weak self] in self?.switchToInsertFromButton() },
+                onShare: { [weak self] in self?.shareFromButton() },
+                sharingAnchorRegistry: sharingAnchorRegistry
             )
         )
         hostingView.sizingOptions = []
@@ -544,6 +550,19 @@ final class PanelController: NSObject, NSWindowDelegate {
             signalEmptyInput()
         }
         model.requestFocus()
+    }
+
+    /// タイトルバーのシェアのボタン。変換中の文字を確定してから、パネルの文章でシェアのメニューを出す。
+    func shareFromButton() {
+        Self.commitMarkedText(in: panel)
+        guard !ExportableText.isEmpty(model.text) else {
+            signalEmptyInput()
+            let animation = saveAnimation
+            Task { await animation.showToast(SaveAnimationModel.nothingToShareMessage, style: .notice) }
+            model.requestFocus()
+            return
+        }
+        sharer.share(model.text, from: .titleBarButton)
     }
 
     /// タイトルバーの「ノート」のボタン。今の書きかけをインサートにする。

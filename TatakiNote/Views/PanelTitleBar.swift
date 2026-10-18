@@ -13,6 +13,8 @@ struct PanelTitleBar: View {
     let onNewDraft: () -> Void
     let onSaveDraft: () -> Void
     let onSwitchToInsert: () -> Void
+    let onShare: () -> Void
+    let sharingAnchorRegistry: SharingAnchorRegistry?
     let appIcon: @MainActor (InsertionTarget) -> NSImage
     let mode: DraftMode
 
@@ -28,6 +30,8 @@ struct PanelTitleBar: View {
         onNewDraft: @escaping () -> Void = {},
         onSaveDraft: @escaping () -> Void = {},
         onSwitchToInsert: @escaping () -> Void = {},
+        onShare: @escaping () -> Void = {},
+        sharingAnchorRegistry: SharingAnchorRegistry? = nil,
         appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = InsertionTargetBadge.systemIcon(for:)
     ) {
         self.target = target
@@ -41,6 +45,8 @@ struct PanelTitleBar: View {
         self.onNewDraft = onNewDraft
         self.onSaveDraft = onSaveDraft
         self.onSwitchToInsert = onSwitchToInsert
+        self.onShare = onShare
+        self.sharingAnchorRegistry = sharingAnchorRegistry
         self.appIcon = appIcon
     }
 
@@ -57,6 +63,8 @@ struct PanelTitleBar: View {
             Spacer(minLength: 0)
             newDraftButton
             saveDraftButton
+                .padding(.leading, 4)
+            shareButton
                 .padding(.leading, 4)
             switch mode {
             case .insert:
@@ -124,6 +132,22 @@ struct PanelTitleBar: View {
         .help("下書きに保存(⌘S)")
         .accessibilityLabel("下書きに保存")
         .accessibilityIdentifier("promptPanel.saveDraftButton")
+    }
+
+    private var shareButton: some View {
+        Button(action: onShare) {
+            iconLabel("square.and.arrow.up")
+        }
+        .buttonStyle(PanelIconButtonStyle())
+        .focusable(false)
+        .background {
+            if let sharingAnchorRegistry {
+                SharingAnchorView(registry: sharingAnchorRegistry)
+            }
+        }
+        .help("共有")
+        .accessibilityLabel("共有")
+        .accessibilityIdentifier("promptPanel.shareButton")
     }
 
     private var noteModeButton: some View {
