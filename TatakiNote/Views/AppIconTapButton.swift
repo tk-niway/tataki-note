@@ -3,7 +3,6 @@ import SwiftUI
 
 /// 叩くと弾んで言葉が飛ぶ、アプリのアイコン。
 struct AppIconTapButton: View {
-    @Environment(\.isAppAnimationReduced) private var reduceMotion
     @State private var tapCount = 0
     @State private var flyingWords: [FlyingWord] = []
 
@@ -14,7 +13,7 @@ struct AppIconTapButton: View {
             icon
                 .frame(width: Self.iconSize, height: Self.iconSize)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .keyframeAnimator(initialValue: IconBounce(), trigger: reduceMotion ? 0 : tapCount) { content, bounce in
+                .keyframeAnimator(initialValue: IconBounce(), trigger: tapCount) { content, bounce in
                     content
                         .scaleEffect(x: bounce.scaleX, y: 1)
                         .rotationEffect(.degrees(bounce.rotation))
@@ -68,10 +67,6 @@ struct AppIconTapButton: View {
     }
 
     private func tap() {
-        guard !reduceMotion else {
-            tapCount += 1
-            return
-        }
         flyingWords.append(FlyingWord(text: AppInfoModel.tapWord(at: tapCount), drift: .random(in: -40...40)))
         tapCount += 1
     }

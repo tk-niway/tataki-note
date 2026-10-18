@@ -9,7 +9,7 @@ enum SettingsHelpText {
 
     /// 「アニメーション」の下の説明文。
     static let animationMode = String(
-        localized: "パネルの開閉や保存の演出など、TatakiNote の動きをまとめて切り替えます。「システム」では、macOS のシステム設定の「アクセシビリティ」→「ディスプレイ」→「視差効果を減らす」に従います。"
+        localized: "TatakiNote の動きをまとめて切り替えます。「システム」は macOS の「視差効果を減らす」に従います。"
     )
 
     /// 「履歴」の下の説明文。
