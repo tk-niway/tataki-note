@@ -161,6 +161,11 @@ import Observation
         didSet { store.saveSidebarTab(sidebarTab) }
     }
 
+    /// 前回書き出したフォルダのパス。
+    var lastExportDirectoryPath: String? {
+        didSet { store.saveLastExportDirectoryPath(lastExportDirectoryPath) }
+    }
+
     /// 履歴に残す件数の上限。
     var historyLimit: Int {
         didSet {
@@ -218,6 +223,7 @@ import Observation
         self.hasShownFirstLaunchTutorial = store.loadHasShownFirstLaunchTutorial()
         self.isSidebarOpen = store.loadSidebarIsOpen()
         self.sidebarTab = store.loadSidebarTab()
+        self.lastExportDirectoryPath = store.loadLastExportDirectoryPath()
         self.historyLimit = store.loadHistoryLimit()
         self.commitKeyDisplayText = commitKey?.displayText
         self.commitAndSendKeyDisplayText = commitAndSendKey?.displayText

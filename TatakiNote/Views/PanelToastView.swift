@@ -3,6 +3,7 @@ import SwiftUI
 /// 保存の結果を知らせる、丸いカプセルのトースト。
 struct PanelToastView: View {
     let message: String
+    var style: PanelToastStyle = .done
 
     private enum Stage {
         case entering
@@ -17,11 +18,11 @@ struct PanelToastView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "checkmark")
+            Image(systemName: style == .notice ? "exclamationmark" : "checkmark")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(width: 20, height: 20)
-                .background(Circle().fill(Color.accentColor))
+                .background(Circle().fill(style == .notice ? Color.orange : Color.accentColor))
             Text(message)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color(nsColor: .textBackgroundColor))

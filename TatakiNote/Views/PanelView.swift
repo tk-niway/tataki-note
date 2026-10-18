@@ -170,7 +170,7 @@ struct PanelView: View {
         .background(Color(nsColor: .textBackgroundColor))
         .overlay(alignment: .bottom) {
             if let saveAnimation, let message = saveAnimation.toastMessage {
-                PanelToastView(message: message)
+                PanelToastView(message: message, style: saveAnimation.toastStyle)
                     .id(saveAnimation.toastCount)
                     .padding(.bottom, saveToastBottomInset)
                     .allowsHitTesting(false)

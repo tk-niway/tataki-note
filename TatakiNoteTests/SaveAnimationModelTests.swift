@@ -13,6 +13,8 @@ struct SaveAnimationModelTests {
         var toasts: [String?] = []
         var announcements: [String] = []
         var onSleep: (() -> Void)?
+        var styleDuringSave: PanelToastStyle?
+        var styleDuringNotice: PanelToastStyle?
         var heldSleepIndices: Set<Int> = []
 
         lazy var model: SaveAnimationModel = SaveAnimationModel(
@@ -634,6 +636,41 @@ struct SaveAnimationPanelWiringTests {
         try await Task.sleep(for: .milliseconds(50))
         #expect(fixture.recorder.model.phase == .idle)
         #expect(fixture.recorder.model.toastMessage == nil)
+    }
+
+    // MARK: - トーストの種類
+
+    @Test("AC-31: 注意のトーストの後の保存は、動きの有無によらずチェックの印で出る", arguments: [true, false])
+    func savedToastIsDoneAfterNotice(isAnimated: Bool) async {
+        let recorder = SaveAnimationModelTests.Recorder()
+        await recorder.model.showToast(SaveAnimationModel.nothingToExportMessage, style: .notice)
+        #expect(recorder.model.toastStyle == .notice)
+
+        recorder.onSleep = {
+            if recorder.model.toastMessage == SaveAnimationModel.savedMessage {
+                recorder.styleDuringSave = recorder.model.toastStyle
+            }
+        }
+        await recorder.model.play(text: "memo", destination: .draftsTab, isAnimated: isAnimated)
+
+        #expect(recorder.styleDuringSave == .done)
+        #expect(recorder.model.toastStyle == .done)
+    }
+
+    @Test("AC-31: 注意のトーストを止めた(cancel)後の種類はチェックの印に戻る")
+    func cancelResetsToastStyle() async {
+        let recorder = SaveAnimationModelTests.Recorder()
+        recorder.onSleep = {
+            if recorder.model.toastMessage != nil {
+                recorder.styleDuringNotice = recorder.model.toastStyle
+                recorder.model.cancel()
+            }
+        }
+        await recorder.model.showToast(SaveAnimationModel.nothingToShareMessage, style: .notice)
+
+        #expect(recorder.styleDuringNotice == .notice)
+        #expect(recorder.model.toastMessage == nil)
+        #expect(recorder.model.toastStyle == .done)
     }
 }
 
