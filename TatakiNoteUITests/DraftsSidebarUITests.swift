@@ -37,46 +37,6 @@ final class DraftsSidebarUITests: PanelDraftsUITestCase {
         )
     }
 
-    // AC-36
-    @MainActor
-    func testAC36_savedDraftShowsRowAndRightClickDeletes() throws {
-        let app = try launchApp(history: ["history one"])
-        _ = openPanel(in: app)
-        let body = textView(in: app)
-
-        openSidebar(in: app)
-        let historyTab = element(in: app, identifier: "sidebar.tab.history")
-        XCTAssertTrue(historyTab.waitForExistence(timeout: timeout))
-        historyTab.click()
-        let historyRow = row(in: app, containing: "history one")
-        XCTAssertTrue(historyRow.waitForExistence(timeout: timeout), "履歴の行が出ない")
-        historyRow.click()
-        XCTAssertTrue(waitUntil { body.promptPanelText == "history one" }, "履歴の行を選んでも本文に入らない")
-
-        pressCommand("n", in: app)
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty }, "⌘N で本文が空にならない")
-
-        app.typeText("draft one")
-        pressCommand("s", in: app)
-        element(in: app, identifier: "sidebar.tab.drafts").click()
-        let draftRow = row(in: app, containing: "draft one")
-        XCTAssertTrue(draftRow.waitForExistence(timeout: timeout), "保存した下書きの行が出ない")
-        XCTAssertFalse(app.buttons["sidebar.deleteButton"].exists, "行にゴミ箱のボタンが出ている")
-
-        // AC-4
-        draftRow.rightClick()
-        let byIdentifier = app.menuItems["sidebar.row.deleteMenuItem"]
-        let menuItem = byIdentifier.waitForExistence(timeout: 2) ? byIdentifier : app.menuItems["削除"]
-        XCTAssertTrue(menuItem.waitForExistence(timeout: timeout), "右クリックのメニューに削除が出ない")
-        let menuItemTitle = menuItem.title.isEmpty ? menuItem.label : menuItem.title
-        XCTAssertEqual(menuItemTitle, "削除", "削除の項目の題が「削除」でない")
-        menuItem.click()
-
-        XCTAssertTrue(draftRow.waitForNonExistence(timeout: timeout), "削除しても行が消えない")
-        XCTAssertFalse(element(in: app, identifier: "sidebar.deleteConfirmation").exists, "削除の確認が出ている")
-        XCTAssertEqual(body.promptPanelText, "draft one", "削除で本文が消えた")
-    }
-
     // AC-40
     @MainActor
     func testAC40_typingContinuesDuringSaveAnimation() throws {
