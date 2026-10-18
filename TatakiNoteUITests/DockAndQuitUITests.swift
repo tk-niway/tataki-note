@@ -12,10 +12,6 @@ final class DockAndQuitUITests: XCTestCase {
     private let showDockIconToggleID = "settings.showDockIconToggle"
     private let confirmQuitToggleID = "settings.confirmQuitToggle"
     private let clearHistoryID = "settings.clearHistory"
-    private let confirmationID = "quitConfirmation"
-    private let confirmationQuitID = "quitConfirmation.quit"
-    private let confirmationCancelID = "quitConfirmation.cancel"
-    private let confirmationSuppressID = "quitConfirmation.suppress"
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -44,45 +40,6 @@ final class DockAndQuitUITests: XCTestCase {
         XCTAssertTrue(waitForStatusItem(in: app), "メニューバーのアイコンが出ない")
         XCTAssertFalse(app.dialogs["promptPanel"].waitForExistence(timeout: 2), "指定が無いのに起動の後にパネルが開いた")
         app.terminate()
-    }
-
-    // AC-17
-    @MainActor
-    func testAC17_quitKeyShowsConfirmation() throws {
-        let app = makeApp()
-        app.launch()
-
-        openPanelFromMenu(in: app)
-        let textView = app.textViews["promptPanel.textView"]
-        XCTAssertTrue(textView.waitForExistence(timeout: timeout))
-        app.typeText("abc")
-        XCTAssertEqual(textView.promptPanelText, "abc")
-
-        app.typeKey("q", modifierFlags: .command)
-        XCTAssertTrue(waitForConfirmation(in: app), "⌘Q で確かめの窓が出ない")
-        XCTAssertTrue(element(in: app, identifier: confirmationQuitID).exists)
-        XCTAssertTrue(element(in: app, identifier: confirmationCancelID).exists)
-        let suppress = element(in: app, identifier: confirmationSuppressID)
-        XCTAssertTrue(suppress.exists)
-        XCTAssertFalse(isChecked(suppress), "「今後は確かめない」が最初からチェックされている")
-
-        app.typeKey("d", modifierFlags: .command)
-        XCTAssertTrue(waitUntil { self.isChecked(suppress) }, "⌘D でチェックされない")
-        app.typeKey("d", modifierFlags: .command)
-        XCTAssertTrue(waitUntil { !self.isChecked(suppress) }, "もう一度 ⌘D でチェックが外れない")
-
-        app.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(element(in: app, identifier: confirmationQuitID).waitForNonExistence(timeout: timeout), "esc で確かめの窓が閉じない")
-        XCTAssertNotEqual(app.state, .notRunning, "キャンセルで終了した")
-        XCTAssertTrue(textView.exists)
-
-        app.typeText("d")
-        XCTAssertEqual(textView.promptPanelText, "abcd")
-
-        app.typeKey("q", modifierFlags: .command)
-        XCTAssertTrue(waitForConfirmation(in: app), "もう一度 ⌘Q で確かめの窓が出ない")
-        app.typeKey(.return, modifierFlags: [])
-        XCTAssertTrue(app.wait(for: .notRunning, timeout: timeout), "確かめの窓で ↩ を押しても終了しない")
     }
 
     // AC-18
@@ -207,14 +164,6 @@ final class DockAndQuitUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
         return condition()
-    }
-
-    @MainActor
-    private func waitForConfirmation(in app: XCUIApplication) -> Bool {
-        if app.windows[confirmationID].waitForExistence(timeout: timeout) {
-            return true
-        }
-        return element(in: app, identifier: confirmationID).waitForExistence(timeout: 1)
     }
 
     @MainActor

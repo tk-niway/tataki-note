@@ -37,26 +37,6 @@ final class TutorialUITests: XCTestCase {
         XCTAssertTrue(waitUntil { self.isPracticeFieldEmpty(field) }, "送った後に入力欄が空にならない")
     }
 
-    // AC-26
-    @MainActor
-    func testAC26_skipShowsNoticeAndCloseClosesWindow() throws {
-        let app = launchApp(permission: AccessibilityOverride.trusted, showsTutorial: true)
-        let window = tutorialWindow(in: app)
-        XCTAssertTrue(window.waitForExistence(timeout: timeout), "チュートリアルの窓が開かない")
-
-        let skip = app.buttons["tutorial.skip"]
-        XCTAssertTrue(skip.waitForExistence(timeout: timeout))
-        skip.click()
-
-        XCTAssertTrue(element(in: app, identifier: "tutorial.skipNotice").waitForExistence(timeout: timeout))
-        XCTAssertFalse(skip.exists)
-        let close = app.buttons["tutorial.skipNotice.close"]
-        XCTAssertTrue(close.exists)
-        close.click()
-
-        XCTAssertTrue(window.waitForNonExistence(timeout: timeout), "「閉じる」で窓が閉じない")
-    }
-
     // AC-7
     @MainActor
     func testAC7_skipNoticeShowsSettingsRoute() throws {

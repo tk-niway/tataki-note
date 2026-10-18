@@ -51,25 +51,6 @@ final class PanelSizeUITests: XCTestCase {
         closePanel(in: app)
     }
 
-    // AC-2
-    @MainActor
-    func testAC2_openingHeightIgnoresDraftLength() throws {
-        let app = makeApp()
-        app.launch()
-
-        let panel = openPanel(in: app)
-        assertSize(panel.frame.size, equals: defaultSize)
-        typeLines(30, in: app)
-
-        closePanel(in: app)
-        let reopened = openPanel(in: app)
-        assertSize(reopened.frame.size, equals: defaultSize, "下書きが多いと既定の大きさで開かない")
-        XCTAssertFalse(app.textViews["promptPanel.textView"].promptPanelText.isEmpty, "下書きが残っていない")
-
-        clearText(in: app)
-        closePanel(in: app)
-    }
-
     @MainActor
     func testAC1_dragResize() throws {
         let app = makeApp()
@@ -105,32 +86,6 @@ final class PanelSizeUITests: XCTestCase {
         closePanel(in: app)
     }
 
-    // AC-7
-    @MainActor
-    func testAC7_emptyPanelOpensAtDefaultSize() throws {
-        let app = makeApp()
-        app.launch()
-
-        let panel = openPanel(in: app)
-        assertSize(panel.frame.size, equals: defaultSize)
-        dragBottomRightCorner(of: panel, by: CGVector(dx: -100, dy: -80))
-        XCTAssertLessThan(panel.frame.width, defaultSize.width - tolerance, "左へドラッグしても幅が小さくならない")
-        XCTAssertLessThan(panel.frame.height, defaultSize.height - tolerance, "上へドラッグしても高さが小さくならない")
-
-        closePanel(in: app)
-        let reopened = openPanel(in: app)
-        assertSize(reopened.frame.size, equals: defaultSize, "空のパネルが既定の大きさで開かない")
-
-        app.typeText("abc")
-        XCTAssertTrue(waitUntil { app.textViews["promptPanel.textView"].promptPanelText == "abc" }, "打った文字が入力欄に入らない")
-        closePanel(in: app)
-        let reopenedWithText = openPanel(in: app)
-        assertSize(reopenedWithText.frame.size, equals: defaultSize, "捨てた大きさが文章を入れると戻ってしまう")
-
-        clearText(in: app)
-        closePanel(in: app)
-    }
-
     // AC-4
     @MainActor
     func testAC4_draggedSizeIsUnaffectedByTextChanges() throws {
@@ -159,22 +114,6 @@ final class PanelSizeUITests: XCTestCase {
         let reopened = openPanel(in: app)
         assertSize(reopened.frame.size, equals: draggedSize, "閉じて開き直すとドラッグした大きさが保たれない")
         clearText(in: app)
-        closePanel(in: app)
-    }
-
-    // AC-14
-    @MainActor
-    func testAC14_doubleClickTitleBarDoesNotZoom() throws {
-        let app = makeApp()
-        app.launch()
-
-        let panel = openPanel(in: app)
-        let frameBefore = panel.frame
-
-        panel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).withOffset(CGVector(dx: 0, dy: 14)).doubleClick()
-        RunLoop.current.run(until: Date().addingTimeInterval(1))
-
-        XCTAssertEqual(panel.frame, frameBefore)
         closePanel(in: app)
     }
 

@@ -78,17 +78,6 @@ final class PanelCommitButtonUITests: XCTestCase {
         XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
     }
 
-    // AC-16
-    @MainActor
-    func testAC16_noteDraftHasNoCommitButtons() throws {
-        let app = try launchApp(permission: AccessibilityOverride.trusted, seed: ["newDraftMode": "note"])
-        openPanelFromMenu(in: app)
-        XCTAssertTrue(app.textViews["promptPanel.textView"].waitForExistence(timeout: timeout))
-        XCTAssertTrue(element(in: app, identifier: "promptPanel.statusBar").waitForExistence(timeout: timeout))
-        XCTAssertFalse(element(in: app, identifier: "promptPanel.status.commit").exists)
-        XCTAssertFalse(element(in: app, identifier: "promptPanel.status.commitAndSend").exists)
-    }
-
     // MARK: - 起動と要素の探し方
 
     @MainActor

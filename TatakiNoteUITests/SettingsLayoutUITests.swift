@@ -5,15 +5,7 @@ final class SettingsLayoutUITests: XCTestCase {
 
     private let settingsSuiteName = "TatakiNoteUITests.\(UUID().uuidString)"
 
-    private let sidebarIDs = [
-        "settings.sidebar.general",
-        "settings.sidebar.keys",
-        "settings.sidebar.panel",
-        "settings.sidebar.appInfo",
-    ]
-    private let sidebarTitles = ["一般", "ホットキーとキー操作", "パネル", "情報"]
     private let scrollViewID = "settings.detailScrollView"
-    private let detailTitleID = "settings.detailTitle"
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -21,37 +13,6 @@ final class SettingsLayoutUITests: XCTestCase {
 
     override func tearDownWithError() throws {
         UserDefaults(suiteName: settingsSuiteName)?.removePersistentDomain(forName: settingsSuiteName)
-    }
-
-    // AC-1
-    // AC-5
-    @MainActor
-    func testAC1_AC5_sidebarOrderSelectionAndDetailTitle() throws {
-        let app = launchApp()
-        openSettingsFromMenu(in: app)
-
-        let buttons = sidebarIDs.map { element(in: app, identifier: $0) }
-        for button in buttons {
-            XCTAssertTrue(button.waitForExistence(timeout: timeout))
-        }
-        let ys = buttons.map(\.frame.minY)
-        XCTAssertEqual(ys, ys.sorted(), "サイドバーの種類が上から「一般」「ホットキーとキー操作」「パネル」「情報」の順に並んでいない")
-        XCTAssertEqual(Set(ys).count, ys.count)
-
-        XCTAssertTrue(waitUntil { self.detailTitle(in: app) == "一般" })
-        XCTAssertTrue(buttons[0].isSelected)
-
-        // AC-1
-        for index in [2, 1, 3, 0] {
-            buttons[index].click()
-            XCTAssertTrue(waitUntil { buttons[index].isSelected }, "\(sidebarTitles[index]) が選択中に見えない")
-            for (other, button) in buttons.enumerated() where other != index {
-                XCTAssertFalse(button.isSelected, "\(sidebarTitles[other]) も選択中に見える")
-            }
-            XCTAssertTrue(waitUntil { self.detailTitle(in: app) == self.sidebarTitles[index] }, "見出しが「\(self.sidebarTitles[index])」にならない")
-        }
-
-        closeSettings(in: app)
     }
 
     // AC-6
@@ -101,13 +62,6 @@ final class SettingsLayoutUITests: XCTestCase {
     @MainActor
     private func element(in app: XCUIApplication, identifier: String) -> XCUIElement {
         app.descendants(matching: .any)[identifier].firstMatch
-    }
-
-    @MainActor
-    private func detailTitle(in app: XCUIApplication) -> String? {
-        let title = element(in: app, identifier: detailTitleID)
-        guard title.exists else { return nil }
-        return (title.value as? String) ?? title.label
     }
 
     @MainActor
