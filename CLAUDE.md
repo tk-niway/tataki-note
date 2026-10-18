@@ -60,6 +60,12 @@ xcodebuild build -project TatakiNote.xcodeproj -scheme TatakiNote -destination '
   渡し、最後に消す。**既定の `UserDefaults.standard` やアプリケーションサポートのディレクトリに触れない**
 - UI テストは XCTest の `XCUIApplication`。要素は `accessibilityIdentifier` で探す。UI テストは画面の配線だけを
   確かめ、保存・検証・並び順は単体テストで確かめる
+- UI テストは流すのに時間がかかり、その間 Mac を使えないので、次のものは書かない:
+  - 既存の UI テストと同じ流れのテスト(新しく作らず、既存のシナリオに手順を足す)
+  - 並び順・ラベル・説明文・グループ名・余白・レイアウトだけを確かめるテスト(単体で確かめる)
+  - 単体テストと同じ条件を確かめるテスト(検証・キーの規則・保存・計算)
+  - アプリに無い識別子が「無いこと」を確かめるテスト(必ず通り、何も確かめない)
+  - XCUITest から安定して動かせない操作(送ったキーがアプリに届かないなど)。手で確かめる
 - テストを弱める書き方(`.disabled`・`withKnownIssue`・`XCTSkip`・`XCTExpectFailure`)を足さない
 
 ## コメント
