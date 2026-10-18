@@ -89,7 +89,7 @@ struct TutorialSettingsAccessTests {
         }
     }
 
-    @Test("AC-5: 「メニューバーのアイコンを隠す」がオンでもオフでも、案内の文は同じ")
+    @Test("AC-5: 「メニューバーにアイコンを表示」がオンでもオフでも、案内の文は同じ")
     func hidingMenuBarIconDoesNotChangeText() throws {
         try withModel(hasHotkey: false) { model, settings in
             settings.hidesMenuBarIcon = false

@@ -32,9 +32,9 @@ final class SettingsWindowUITests: XCTestCase {
         XCTAssertTrue(element(in: app, identifier: quitID).exists)
 
         // AC-1
-        let hideIcon = element(in: app, identifier: hideMenuBarIconToggleID)
-        app.revealInSettings(hideIcon)
-        XCTAssertTrue(hideIcon.isHittable)
+        let showIcon = element(in: app, identifier: showMenuBarIconToggleID)
+        app.revealInSettings(showIcon)
+        XCTAssertTrue(showIcon.isHittable)
 
         // AC-2
         openSettingsFromMenu(in: app)
@@ -157,30 +157,30 @@ final class SettingsWindowUITests: XCTestCase {
 
     // AC-12
     @MainActor
-    func testAC12_hideMenuBarIconScenario() throws {
+    func testAC12_menuBarIconToggleScenario() throws {
         let app = XCUIApplication()
         launch(app)
 
         XCTAssertTrue(waitUntil { self.isMenuBarIconShown(in: app) })
         openSettingsFromMenu(in: app)
-        let toggle = element(in: app, identifier: hideMenuBarIconToggleID)
+        let toggle = element(in: app, identifier: showMenuBarIconToggleID)
         app.revealInSettings(toggle)
-        XCTAssertFalse(isChecked(toggle))
+        XCTAssertTrue(isChecked(toggle))
 
         toggle.click()
-        XCTAssertTrue(waitUntil { self.isChecked(toggle) })
+        XCTAssertTrue(waitUntil { !self.isChecked(toggle) })
         RunLoop.current.run(until: Date().addingTimeInterval(2))
-        XCTAssertNotEqual(app.state, .notRunning, "アイコンを隠すとアプリが終了した")
-        XCTAssertTrue(settingsWindow(in: app).exists, "アイコンを隠すと設定画面が閉じた")
+        XCTAssertNotEqual(app.state, .notRunning, "アイコンを表示しないとアプリが終了した")
+        XCTAssertTrue(settingsWindow(in: app).exists, "アイコンを表示しないと設定画面が閉じた")
 
         XCTAssertTrue(waitUntil { !self.isMenuBarIconShown(in: app) }, "アイコンが消えない")
 
         toggle.click()
-        XCTAssertTrue(waitUntil { !self.isChecked(toggle) })
+        XCTAssertTrue(waitUntil { self.isChecked(toggle) })
         XCTAssertTrue(waitUntil { self.isMenuBarIconShown(in: app) }, "アイコンが戻らない")
 
         toggle.click()
-        XCTAssertTrue(waitUntil { self.isChecked(toggle) })
+        XCTAssertTrue(waitUntil { !self.isChecked(toggle) })
         XCTAssertTrue(waitUntil { !self.isMenuBarIconShown(in: app) })
         element(in: app, identifier: quitID).click()
         XCTAssertTrue(app.wait(for: .notRunning, timeout: timeout))
@@ -189,7 +189,7 @@ final class SettingsWindowUITests: XCTestCase {
         XCTAssertTrue(element(in: app, identifier: "permissionGuide.status").waitForExistence(timeout: timeout))
         app.dismissPermissionGuideIfPresent()
 
-        XCTAssertFalse(waitUntil(timeout: 2) { self.isMenuBarIconShown(in: app) }, "隠したまま起動し直したのにアイコンが出た")
+        XCTAssertFalse(waitUntil(timeout: 2) { self.isMenuBarIconShown(in: app) }, "表示しない設定のまま起動し直したのにアイコンが出た")
         app.terminate()
     }
 
@@ -318,7 +318,7 @@ final class SettingsWindowUITests: XCTestCase {
     private let settingsDetailTrailingPadding: CGFloat = 28
     private let themePickerID = "settings.themePicker"
     private let launchAtLoginToggleID = "settings.launchAtLoginToggle"
-    private let hideMenuBarIconToggleID = "settings.hideMenuBarIconToggle"
+    private let showMenuBarIconToggleID = "settings.showMenuBarIconToggle"
 
     @MainActor
     private func element(in app: XCUIApplication, identifier: String) -> XCUIElement {

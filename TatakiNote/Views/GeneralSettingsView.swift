@@ -16,7 +16,7 @@ struct GeneralSettingsView: View {
             SettingsGroup(title: "起動とメニューバー", identifier: "settings.group.startup") {
                 SettingsCard {
                     launchAtLoginRow
-                    hideMenuBarIconRow
+                    showMenuBarIconRow
                     showDockIconRow
                     confirmQuitRow
                 }
@@ -70,24 +70,24 @@ struct GeneralSettingsView: View {
         }
     }
 
-    private var hideMenuBarIconRow: some View {
+    private var showMenuBarIconRow: some View {
         SettingsRow(
-            title: "メニューバーのアイコンを隠す",
-            description: SettingsHelpText.hideMenuBarIcon
+            title: "メニューバーにアイコンを表示",
+            description: SettingsHelpText.showMenuBarIcon
         ) {
-            Toggle("メニューバーのアイコンを隠す", isOn: $settings.hidesMenuBarIcon)
+            Toggle("メニューバーにアイコンを表示", isOn: $settings.isMenuBarIconShown)
                 .toggleStyle(.switch)
                 .labelsHidden()
-                .accessibilityIdentifier("settings.hideMenuBarIconToggle")
+                .accessibilityIdentifier("settings.showMenuBarIconToggle")
         }
     }
 
     private var showDockIconRow: some View {
         SettingsRow(
-            title: "Dock にアイコンを出す",
+            title: "Dock にアイコンを表示",
             description: SettingsHelpText.showDockIcon
         ) {
-            Toggle("Dock にアイコンを出す", isOn: $settings.showsDockIcon)
+            Toggle("Dock にアイコンを表示", isOn: $settings.showsDockIcon)
                 .toggleStyle(.switch)
                 .labelsHidden()
                 .accessibilityIdentifier("settings.showDockIconToggle")
@@ -96,10 +96,10 @@ struct GeneralSettingsView: View {
 
     private var confirmQuitRow: some View {
         SettingsRow(
-            title: "⌘Q で終了する前に確かめる",
+            title: "⌘Q で終了前に確認",
             description: SettingsHelpText.confirmQuit
         ) {
-            Toggle("⌘Q で終了する前に確かめる", isOn: $settings.confirmsQuit)
+            Toggle("⌘Q で終了前に確認", isOn: $settings.confirmsQuit)
                 .toggleStyle(.switch)
                 .labelsHidden()
                 .accessibilityIdentifier("settings.confirmQuitToggle")

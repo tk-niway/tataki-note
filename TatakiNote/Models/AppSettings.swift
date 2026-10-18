@@ -131,12 +131,12 @@ import Observation
         didSet { store.saveIsInsertionTargetOutlineShown(isInsertionTargetOutlineShown) }
     }
 
-    /// Dock にアイコンを出すか。
+    /// Dock にアイコンを表示するか。
     var showsDockIcon: Bool {
         didSet { store.saveShowsDockIcon(showsDockIcon) }
     }
 
-    /// ⌘Q で終了する前に確かめるか。
+    /// ⌘Q で終了前に確認するか。
     var confirmsQuit: Bool {
         didSet { store.saveConfirmsQuit(confirmsQuit) }
     }

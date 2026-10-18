@@ -324,6 +324,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelController.closeImmediately()
     }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        quitConfirmation.shouldTerminate(
+            currentEvent: NSApp.currentEvent,
+            isQuitAppleEvent: QuitConfirmation.isQuitAppleEvent(eventID: NSAppleEventManager.shared().currentAppleEvent?.eventID)
+        )
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         panelController.prepareForTermination()
     }

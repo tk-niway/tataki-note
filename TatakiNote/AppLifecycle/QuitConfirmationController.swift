@@ -39,11 +39,33 @@ final class QuitConfirmationController: NSObject, NSWindowDelegate {
         }
     }
 
+    /// 終了の頼みへの返事。見張りを始めていなければ、すぐ終了する。
+    func shouldTerminate(currentEvent: NSEvent?, isQuitAppleEvent: Bool) -> NSApplication.TerminateReply {
+        guard keyMonitor != nil else { return .terminateNow }
+        let isQuitKeyEvent = QuitConfirmation.isQuitKeyEvent(currentEvent)
+        let eventForKey = isQuitKeyEvent ? currentEvent : nil
+        let reply = model.handleTerminationRequest(
+            isQuitKeyEvent: isQuitKeyEvent,
+            isQuitAppleEvent: isQuitAppleEvent,
+            isRecordingShortcut: eventForKey.map(isRecordingShortcut) ?? false,
+            isPanelCommitKey: eventForKey.map(isPanelCommitKey) ?? false,
+            isModalRunning: NSApp.modalWindow != nil
+        )
+        switch reply {
+        case .terminate:
+            return .terminateNow
+        case .cancel:
+            return .terminateCancel
+        case .cancelAndConfirm:
+            DispatchQueue.main.async { [weak self] in
+                self?.present()
+            }
+            return .terminateCancel
+        }
+    }
+
     private func handleKeyDown(_ event: NSEvent) -> NSEvent? {
-        guard QuitConfirmation.isQuitKey(
-            modifiers: event.modifierFlags.intersection(.deviceIndependentFlagsMask),
-            charactersIgnoringModifiers: event.charactersIgnoringModifiers
-        ) else { return event }
+        guard QuitConfirmation.isQuitKeyEvent(event) else { return event }
         let action = model.handleQuitKey(
             isRecordingShortcut: isRecordingShortcut(event),
             isPanelCommitKey: isPanelCommitKey(event),

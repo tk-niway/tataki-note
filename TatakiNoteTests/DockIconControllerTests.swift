@@ -112,7 +112,7 @@ struct DockIconControllerTests {
         }
     }
 
-    @Test("AC-4: 「メニューバーのアイコンを隠す」を変えても当て直さない")
+    @Test("AC-4: 「メニューバーにアイコンを表示」を変えても当て直さない")
     func menuBarIconSettingDoesNotReapply() async throws {
         try await withController(showsDockIcon: true) { controller, settings, recorder in
             controller.start()

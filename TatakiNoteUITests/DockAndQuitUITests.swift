@@ -7,7 +7,8 @@ final class DockAndQuitUITests: XCTestCase {
 
     private let sidebarGeneralID = "settings.sidebar.general"
     private let quitSettingsID = "settings.quit"
-    private let hideMenuBarIconToggleID = "settings.hideMenuBarIconToggle"
+    private let launchAtLoginToggleID = "settings.launchAtLoginToggle"
+    private let showMenuBarIconToggleID = "settings.showMenuBarIconToggle"
     private let showDockIconToggleID = "settings.showDockIconToggle"
     private let confirmQuitToggleID = "settings.confirmQuitToggle"
     private let clearHistoryID = "settings.clearHistory"
@@ -117,38 +118,57 @@ final class DockAndQuitUITests: XCTestCase {
         XCTAssertTrue(app.wait(for: .notRunning, timeout: timeout), "設定の「TatakiNote を終了」で終了しない")
     }
 
-    // AC-21
+    // AC-27
     @MainActor
-    func testAC21_dockAndQuitToggles() throws {
+    func testAC27_startupToggles() throws {
         let app = makeApp(seed: ["showsDockIcon": false])
         app.launch()
 
+        XCTAssertTrue(waitForStatusItem(in: app), "メニューバーのアイコンが出ない")
         openSettingsFromMenu(in: app)
-        let hideToggle = element(in: app, identifier: hideMenuBarIconToggleID)
+        let launchToggle = element(in: app, identifier: launchAtLoginToggleID)
+        let menuBarToggle = element(in: app, identifier: showMenuBarIconToggleID)
         let dockToggle = element(in: app, identifier: showDockIconToggleID)
         let confirmToggle = element(in: app, identifier: confirmQuitToggleID)
         let clearHistory = element(in: app, identifier: clearHistoryID)
         app.revealInSettings(clearHistory)
-        app.revealInSettings(dockToggle)
         app.revealInSettings(confirmToggle)
+        app.revealInSettings(dockToggle)
+        app.revealInSettings(menuBarToggle)
+        app.revealInSettings(launchToggle)
 
-        XCTAssertTrue(hideToggle.exists)
-        XCTAssertGreaterThan(dockToggle.frame.minY, hideToggle.frame.minY, "「Dock にアイコンを出す」が「メニューバーのアイコンを隠す」より下に無い")
-        XCTAssertGreaterThan(confirmToggle.frame.minY, dockToggle.frame.minY, "「⌘Q で終了する前に確かめる」が「Dock にアイコンを出す」より下に無い")
-        XCTAssertLessThan(confirmToggle.frame.minY, clearHistory.frame.minY, "2つのスイッチが「履歴」より上に無い")
-        XCTAssertFalse(isChecked(dockToggle), "種でオフにした「Dock にアイコンを出す」がオンに見える")
-        XCTAssertTrue(isChecked(confirmToggle), "「⌘Q で終了する前に確かめる」がオンに見えない")
+        XCTAssertTrue(launchToggle.exists)
+        XCTAssertGreaterThan(menuBarToggle.frame.minY, launchToggle.frame.minY, "「メニューバーにアイコンを表示」が「ログイン時に起動」より下に無い")
+        XCTAssertGreaterThan(dockToggle.frame.minY, menuBarToggle.frame.minY, "「Dock にアイコンを表示」が「メニューバーにアイコンを表示」より下に無い")
+        XCTAssertGreaterThan(confirmToggle.frame.minY, dockToggle.frame.minY, "「⌘Q で終了前に確認」が「Dock にアイコンを表示」より下に無い")
+        XCTAssertLessThan(confirmToggle.frame.minY, clearHistory.frame.minY, "3つのスイッチが「履歴」より上に無い")
+        XCTAssertTrue(isChecked(menuBarToggle), "アイコンが出ているのに「メニューバーにアイコンを表示」がオンに見えない")
+        XCTAssertFalse(isChecked(dockToggle), "種でオフにした「Dock にアイコンを表示」がオンに見える")
+        XCTAssertTrue(isChecked(confirmToggle), "「⌘Q で終了前に確認」がオンに見えない")
+
+        app.revealInSettings(menuBarToggle)
+        menuBarToggle.click()
+        XCTAssertTrue(waitUntil { !self.isChecked(menuBarToggle) }, "「メニューバーにアイコンを表示」がオフにならない")
+        XCTAssertTrue(waitUntil { !self.isMenuBarIconShown(in: app) }, "アイコンが消えない")
+        XCTAssertNotEqual(app.state, .notRunning, "アイコンを表示しないとアプリが終了した")
+        XCTAssertTrue(isSettingsWindowUsable(in: app), "アイコンを表示しないと設定ウィンドウが押せなくなった")
+
+        menuBarToggle.click()
+        XCTAssertTrue(waitUntil { self.isChecked(menuBarToggle) }, "「メニューバーにアイコンを表示」がオンに戻らない")
+        XCTAssertTrue(waitUntil { self.isMenuBarIconShown(in: app) }, "アイコンが戻らない")
+
+        app.revealInSettings(dockToggle)
+        dockToggle.click()
+        XCTAssertTrue(waitUntil { self.isChecked(dockToggle) }, "「Dock にアイコンを表示」がオンにならない")
+        XCTAssertFalse(waitUntil(timeout: 1) { !self.isSettingsWindowUsable(in: app) }, "Dock のアイコンを表示すると設定ウィンドウが押せなくなった")
 
         dockToggle.click()
-        XCTAssertTrue(waitUntil { self.isChecked(dockToggle) }, "「Dock にアイコンを出す」がオンにならない")
-        XCTAssertFalse(waitUntil(timeout: 1) { !self.isSettingsWindowUsable(in: app) }, "Dock のアイコンを出すと設定ウィンドウが押せなくなった")
-
-        dockToggle.click()
-        XCTAssertTrue(waitUntil { !self.isChecked(dockToggle) }, "「Dock にアイコンを出す」がオフにならない")
+        XCTAssertTrue(waitUntil { !self.isChecked(dockToggle) }, "「Dock にアイコンを表示」がオフにならない")
         XCTAssertFalse(waitUntil(timeout: 1) { !self.isSettingsWindowUsable(in: app) }, "Dock のアイコンを消すと設定ウィンドウが押せなくなった")
 
+        app.revealInSettings(confirmToggle)
         confirmToggle.click()
-        XCTAssertTrue(waitUntil { !self.isChecked(confirmToggle) }, "「⌘Q で終了する前に確かめる」がオフにならない")
+        XCTAssertTrue(waitUntil { !self.isChecked(confirmToggle) }, "「⌘Q で終了前に確認」がオフにならない")
 
         closeSettings(in: app)
     }
@@ -201,6 +221,11 @@ final class DockAndQuitUITests: XCTestCase {
     private func isSettingsWindowUsable(in app: XCUIApplication) -> Bool {
         let general = element(in: app, identifier: sidebarGeneralID)
         return general.exists && general.isHittable
+    }
+
+    @MainActor
+    private func isMenuBarIconShown(in app: XCUIApplication) -> Bool {
+        app.statusItems.firstMatch.exists || app.menuBars.statusItems.firstMatch.exists
     }
 
     @MainActor

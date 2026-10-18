@@ -38,6 +38,30 @@ import Observation
         return action
     }
 
+    /// 終了の頼みへの返事を決める。`.cancelAndConfirm` なら確かめ中にしてチェックを外す。終了はしない。
+    func handleTerminationRequest(
+        isQuitKeyEvent: Bool,
+        isQuitAppleEvent: Bool,
+        isRecordingShortcut: Bool,
+        isPanelCommitKey: Bool,
+        isModalRunning: Bool
+    ) -> QuitTerminationReply {
+        let reply = QuitConfirmation.terminationReply(
+            isQuitKeyEvent: isQuitKeyEvent,
+            isQuitAppleEvent: isQuitAppleEvent,
+            isRecordingShortcut: isRecordingShortcut,
+            isPanelCommitKey: isPanelCommitKey,
+            isModalRunning: isModalRunning,
+            isConfirming: isConfirming,
+            confirmsQuit: settings.confirmsQuit
+        )
+        if reply == .cancelAndConfirm {
+            isConfirming = true
+            suppressesFuture = false
+        }
+        return reply
+    }
+
     /// 「終了」。チェックがあれば確かめの設定をオフにしてから終了する。
     func quit() {
         guard isConfirming else { return }

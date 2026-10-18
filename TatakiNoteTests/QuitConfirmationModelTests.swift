@@ -39,6 +39,116 @@ struct QuitConfirmationModelTests {
         )
     }
 
+    private func requestTermination(
+        _ model: QuitConfirmationModel,
+        isQuitKeyEvent: Bool = true,
+        isQuitAppleEvent: Bool = false,
+        isRecordingShortcut: Bool = false,
+        isPanelCommitKey: Bool = false,
+        isModalRunning: Bool = false
+    ) -> QuitTerminationReply {
+        model.handleTerminationRequest(
+            isQuitKeyEvent: isQuitKeyEvent,
+            isQuitAppleEvent: isQuitAppleEvent,
+            isRecordingShortcut: isRecordingShortcut,
+            isPanelCommitKey: isPanelCommitKey,
+            isModalRunning: isModalRunning
+        )
+    }
+
+    @Test("AC-30: 終了の頼みのときのイベントが ⌘Q で確認がオンなら、終了をやめて確かめ中になり、チェックが外れ、終了の処理は呼ばない")
+    func terminationRequestByQuitKeyStartsConfirming() throws {
+        try withModel { model, _, counter in
+            model.suppressesFuture = true
+
+            #expect(requestTermination(model) == .cancelAndConfirm)
+
+            #expect(model.isConfirming)
+            #expect(!model.suppressesFuture)
+            #expect(counter.count == 0)
+        }
+    }
+
+    @Test("AC-30: 終了の頼みのときのイベントが ⌘Q でも確認がオフなら、確かめずに終了を通す(終了の処理は呼ばない)")
+    func terminationRequestByQuitKeyTerminatesWhenSettingIsOff() throws {
+        try withModel(confirmsQuit: false) { model, _, counter in
+            #expect(requestTermination(model) == .terminate)
+
+            #expect(!model.isConfirming)
+            #expect(counter.count == 0)
+        }
+    }
+
+    @Test("AC-30: 確かめ中の ⌘Q の終了の頼みは、終了をやめ、確かめ中のまま")
+    func terminationRequestByQuitKeyWhileConfirmingCancels() throws {
+        try withModel { model, _, counter in
+            _ = requestTermination(model)
+            model.suppressesFuture = true
+
+            #expect(requestTermination(model) == .cancel)
+
+            #expect(model.isConfirming)
+            #expect(model.suppressesFuture)
+            #expect(counter.count == 0)
+        }
+    }
+
+    @Test("AC-30: モーダル中・記録中・パネルの確定キーの ⌘Q の終了の頼みは、終了をやめ、確かめ中にならない")
+    func guardedTerminationRequestCancelsWithoutConfirming() throws {
+        try withModel { model, _, counter in
+            #expect(requestTermination(model, isModalRunning: true) == .cancel)
+            #expect(requestTermination(model, isRecordingShortcut: true) == .cancel)
+            #expect(requestTermination(model, isPanelCommitKey: true) == .cancel)
+
+            #expect(!model.isConfirming)
+            #expect(counter.count == 0)
+        }
+    }
+
+    @Test("AC-30: ⌘Q でない終了の頼み(クリック・↩・イベントなし)は、確認がオンでも確かめ中でも終了を通す")
+    func terminationRequestWithoutQuitKeyTerminates() throws {
+        try withModel { model, _, counter in
+            #expect(requestTermination(model, isQuitKeyEvent: false) == .terminate)
+            #expect(!model.isConfirming)
+
+            _ = requestTermination(model)
+
+            #expect(requestTermination(model, isQuitKeyEvent: false) == .terminate)
+            #expect(model.isConfirming)
+            #expect(counter.count == 0)
+        }
+    }
+
+    @Test("AC-30: 終了の Apple Event(Dock のメニュー・ログアウト)は、前の ⌘Q のイベントが残っていても確かめず終了を通す")
+    func quitAppleEventTerminatesEvenWhileConfirming() throws {
+        try withModel { model, _, counter in
+            #expect(requestTermination(model, isQuitAppleEvent: true) == .terminate)
+            #expect(!model.isConfirming)
+
+            _ = requestTermination(model)
+
+            #expect(requestTermination(model, isQuitAppleEvent: true) == .terminate)
+            #expect(counter.count == 0)
+        }
+    }
+
+    @Test("AC-30: 終了の頼みで確かめ中になったあと、「終了」で1回だけ終了し、「キャンセル」では終了しない")
+    func confirmingFromTerminationRequestEndsLikeQuitKey() throws {
+        try withModel { model, _, counter in
+            _ = requestTermination(model)
+            model.cancel()
+
+            #expect(!model.isConfirming)
+            #expect(counter.count == 0)
+
+            _ = requestTermination(model)
+            model.quit()
+
+            #expect(counter.count == 1)
+            #expect(!model.isConfirming)
+        }
+    }
+
     @Test("AC-16: 設定がオンなら ⌘Q で確かめ中になり、まだ終了しない")
     func quitKeyStartsConfirming() throws {
         try withModel { model, _, counter in

@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import Testing
 @testable import TatakiNote
 
@@ -30,41 +31,180 @@ struct QuitConfirmationTests {
 
     // MARK: - isQuitKey
 
+    private static let keyCodeW: UInt16 = 13
+    private static let keyCodeH: UInt16 = 4
+
+    private func isQuitKey(
+        _ modifiers: NSEvent.ModifierFlags,
+        keyCode: UInt16 = QuitConfirmationTests.keyCodeQ,
+        characters: String? = "q"
+    ) -> Bool {
+        QuitConfirmation.isQuitKey(keyCode: keyCode, modifiers: modifiers, charactersIgnoringModifiers: characters)
+    }
+
+    private func keyEvent(
+        type: NSEvent.EventType = .keyDown,
+        modifiers: NSEvent.ModifierFlags = .command,
+        keyCode: UInt16 = QuitConfirmationTests.keyCodeQ,
+        characters: String = "q"
+    ) throws -> NSEvent {
+        try #require(NSEvent.keyEvent(
+            with: type,
+            location: .zero,
+            modifierFlags: modifiers,
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            characters: characters,
+            charactersIgnoringModifiers: characters,
+            isARepeat: false,
+            keyCode: keyCode
+        ))
+    }
+
     @Test("AC-14: ⌘Q は終了のキー(大文字でも)")
     func commandQIsQuitKey() {
-        #expect(QuitConfirmation.isQuitKey(modifiers: .command, charactersIgnoringModifiers: "q"))
-        #expect(QuitConfirmation.isQuitKey(modifiers: .command, charactersIgnoringModifiers: "Q"))
+        #expect(isQuitKey(.command, characters: "q"))
+        #expect(isQuitKey(.command, characters: "Q"))
+    }
+
+    @Test("AC-29: Q のキーコードに ⌘ だけを付けたら、文字が「q」「Q」「た」・空・無しのどれでも ⌘Q")
+    func commandQAtQPositionIsQuitKeyWhateverTheCharacter() {
+        for characters in ["q", "Q", "た", "", nil] as [String?] {
+            #expect(isQuitKey(.command, characters: characters), "\(characters ?? "nil")")
+        }
+    }
+
+    @Test("AC-29: 英字の文字が来たときはその文字で決める(AZERTY の「a」・Dvorak の「'」は ⌘Q ではなく、Dvorak の「q」は ⌘Q)")
+    func asciiCharacterDecidesBeforeKeyCode() {
+        #expect(!isQuitKey(.command, keyCode: Self.keyCodeQ, characters: "a"))
+        #expect(!isQuitKey(.command, keyCode: Self.keyCodeQ, characters: "'"))
+        #expect(isQuitKey(.command, keyCode: 7, characters: "q"))
+    }
+
+    @Test("AC-29: かな入力の他のキー(「ち」など)や Q 以外のキーコードは ⌘Q ではない")
+    func otherKanaKeysAreNotQuitKey() {
+        #expect(!isQuitKey(.command, keyCode: 0, characters: "ち"))
+        #expect(!isQuitKey(.command, keyCode: Self.keyCodeW, characters: "w"))
+    }
+
+    @Test("AC-29: キーの押下の ⌘Q のイベントだけを ⌘Q とみなす(クリック・キーを離したとき・イベント無しは違う)")
+    func quitKeyEventIsKeyDownOnly() throws {
+        let commandQ = try keyEvent()
+        let commandQOnKana = try keyEvent(characters: "た")
+        let shiftCommandQ = try keyEvent(modifiers: [.command, .shift])
+        let keyUp = try keyEvent(type: .keyUp)
+        #expect(QuitConfirmation.isQuitKeyEvent(commandQ))
+        #expect(QuitConfirmation.isQuitKeyEvent(commandQOnKana))
+        #expect(!QuitConfirmation.isQuitKeyEvent(shiftCommandQ))
+        #expect(!QuitConfirmation.isQuitKeyEvent(keyUp))
+        let click = try #require(NSEvent.mouseEvent(
+            with: .leftMouseUp,
+            location: .zero,
+            modifierFlags: .command,
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 0
+        ))
+        #expect(!QuitConfirmation.isQuitKeyEvent(click))
+        #expect(!QuitConfirmation.isQuitKeyEvent(nil))
     }
 
     @Test("AC-14: Caps Lock・fn が付いていても ⌘Q は終了のキー")
     func capsLockAndFunctionAreIgnored() {
-        #expect(QuitConfirmation.isQuitKey(modifiers: [.command, .capsLock], charactersIgnoringModifiers: "q"))
-        #expect(QuitConfirmation.isQuitKey(modifiers: [.command, .function], charactersIgnoringModifiers: "q"))
-        #expect(QuitConfirmation.isQuitKey(modifiers: [.command, .numericPad], charactersIgnoringModifiers: "q"))
+        #expect(isQuitKey([.command, .capsLock]))
+        #expect(isQuitKey([.command, .function]))
+        #expect(isQuitKey([.command, .numericPad]))
     }
 
     @Test("AC-14: ⇧⌘Q・⌥⌘Q・⌃⌘Q は終了のキーではない")
     func otherModifiersAreNotQuitKey() {
-        #expect(!QuitConfirmation.isQuitKey(modifiers: [.command, .shift], charactersIgnoringModifiers: "q"))
-        #expect(!QuitConfirmation.isQuitKey(modifiers: [.command, .option], charactersIgnoringModifiers: "q"))
-        #expect(!QuitConfirmation.isQuitKey(modifiers: [.command, .control], charactersIgnoringModifiers: "q"))
-        #expect(!QuitConfirmation.isQuitKey(modifiers: [.command, .shift, .option, .control], charactersIgnoringModifiers: "q"))
+        #expect(!isQuitKey([.command, .shift]))
+        #expect(!isQuitKey([.command, .option]))
+        #expect(!isQuitKey([.command, .control]))
+        #expect(!isQuitKey([.command, .shift, .option, .control]))
+        #expect(!isQuitKey([.command, .shift], characters: "た"))
     }
 
     @Test("AC-14: 修飾なしの q・⌘ の付かない q は終了のキーではない")
     func missingCommandIsNotQuitKey() {
-        #expect(!QuitConfirmation.isQuitKey(modifiers: [], charactersIgnoringModifiers: "q"))
-        #expect(!QuitConfirmation.isQuitKey(modifiers: .shift, charactersIgnoringModifiers: "q"))
-        #expect(!QuitConfirmation.isQuitKey(modifiers: .option, charactersIgnoringModifiers: "q"))
-        #expect(!QuitConfirmation.isQuitKey(modifiers: .control, charactersIgnoringModifiers: "q"))
+        #expect(!isQuitKey([]))
+        #expect(!isQuitKey(.shift))
+        #expect(!isQuitKey(.option))
+        #expect(!isQuitKey(.control))
     }
 
-    @Test("AC-14: ⌘W など Q 以外の文字は終了のキーではない")
-    func otherCharactersAreNotQuitKey() {
-        #expect(!QuitConfirmation.isQuitKey(modifiers: .command, charactersIgnoringModifiers: "w"))
-        #expect(!QuitConfirmation.isQuitKey(modifiers: .command, charactersIgnoringModifiers: "h"))
-        #expect(!QuitConfirmation.isQuitKey(modifiers: .command, charactersIgnoringModifiers: ""))
-        #expect(!QuitConfirmation.isQuitKey(modifiers: .command, charactersIgnoringModifiers: nil))
+    @Test("AC-14: ⌘W など Q 以外のキーは終了のキーではない")
+    func otherKeysAreNotQuitKey() {
+        #expect(!isQuitKey(.command, keyCode: Self.keyCodeW, characters: "w"))
+        #expect(!isQuitKey(.command, keyCode: Self.keyCodeH, characters: "h"))
+        #expect(!isQuitKey(.command, keyCode: Self.keyCodeW, characters: ""))
+        #expect(!isQuitKey(.command, keyCode: Self.keyCodeW, characters: nil))
+    }
+
+    // MARK: - isQuitAppleEvent
+
+    @Test("AC-30: 終了の Apple Event だけが終了の頼みの Apple Event")
+    func quitAppleEventIsDetected() {
+        #expect(QuitConfirmation.isQuitAppleEvent(eventID: AEEventID(kAEQuitApplication)))
+        #expect(!QuitConfirmation.isQuitAppleEvent(eventID: AEEventID(kAEOpenApplication)))
+        #expect(!QuitConfirmation.isQuitAppleEvent(eventID: nil))
+    }
+
+    // MARK: - terminationReply
+
+    private func reply(
+        isQuitKeyEvent: Bool = true,
+        isQuitAppleEvent: Bool = false,
+        isRecordingShortcut: Bool = false,
+        isPanelCommitKey: Bool = false,
+        isModalRunning: Bool = false,
+        isConfirming: Bool = false,
+        confirmsQuit: Bool = true
+    ) -> QuitTerminationReply {
+        QuitConfirmation.terminationReply(
+            isQuitKeyEvent: isQuitKeyEvent,
+            isQuitAppleEvent: isQuitAppleEvent,
+            isRecordingShortcut: isRecordingShortcut,
+            isPanelCommitKey: isPanelCommitKey,
+            isModalRunning: isModalRunning,
+            isConfirming: isConfirming,
+            confirmsQuit: confirmsQuit
+        )
+    }
+
+    @Test("AC-30: 終了の頼みのときのイベントが ⌘Q で、確認がオンなら終了をやめて確かめる。オフなら終了する")
+    func quitKeyEventConfirmsOrTerminates() {
+        #expect(reply(confirmsQuit: true) == .cancelAndConfirm)
+        #expect(reply(confirmsQuit: false) == .terminate)
+    }
+
+    @Test("AC-30: ⌘Q でないイベント(クリック・↩・イベントなし)の終了の頼みは、確かめ中でも終了する")
+    func nonQuitKeyEventTerminates() {
+        #expect(reply(isQuitKeyEvent: false) == .terminate)
+        #expect(reply(isQuitKeyEvent: false, isConfirming: true) == .terminate)
+        #expect(reply(isQuitKeyEvent: false, isModalRunning: true) == .terminate)
+    }
+
+    @Test("AC-30: 終了の Apple Event(Dock のメニュー・ログアウト)なら、前の ⌘Q のイベントが残っていても終了する")
+    func quitAppleEventTerminates() {
+        #expect(reply(isQuitAppleEvent: true) == .terminate)
+        #expect(reply(isQuitAppleEvent: true, isConfirming: true) == .terminate)
+        #expect(reply(isQuitAppleEvent: true, isModalRunning: true) == .terminate)
+    }
+
+    @Test("AC-30: 確かめ中・モーダル中・記録中・パネルの確定キーの ⌘Q は、終了をやめるだけで確かめない")
+    func guardedQuitKeyCancels() {
+        #expect(reply(isConfirming: true) == .cancel)
+        #expect(reply(isConfirming: true, confirmsQuit: false) == .cancel)
+        #expect(reply(isModalRunning: true) == .cancel)
+        #expect(reply(isModalRunning: true, confirmsQuit: false) == .cancel)
+        #expect(reply(isRecordingShortcut: true) == .cancel)
+        #expect(reply(isPanelCommitKey: true) == .cancel)
+        #expect(reply(isPanelCommitKey: true, confirmsQuit: false) == .cancel)
     }
 
     // MARK: - isPanelCommitKey

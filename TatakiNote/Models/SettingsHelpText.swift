@@ -2,16 +2,16 @@ import Foundation
 
 /// 設定画面の View に表示する説明文。
 enum SettingsHelpText {
-    /// 「メニューバーのアイコンを隠す」の下の説明文。
-    static let hideMenuBarIcon = String(
-        localized: "隠している間は、パネルの「設定」のボタンか ⌘, でこの画面を開きます。終了は左下の「TatakiNote を終了」から。"
+    /// 「メニューバーにアイコンを表示」の下の説明文。
+    static let showMenuBarIcon = String(
+        localized: "オフの間は、パネルの「設定」のボタンか ⌘, でこの画面を開きます。終了は左下の「TatakiNote を終了」から。"
     )
 
-    /// 「Dock にアイコンを出す」の下の説明文。
-    static let showDockIcon = String(localized: "出さないときも、Finder や Spotlight から開くとパネルが開きます。")
+    /// 「Dock にアイコンを表示」の下の説明文。
+    static let showDockIcon = String(localized: "表示しないときも、Finder や Spotlight から開くとパネルが開きます。")
 
-    /// 「⌘Q で終了する前に確かめる」の下の説明文。
-    static let confirmQuit = String(localized: "メニューの「終了」と「TatakiNote を終了」では確かめません。")
+    /// 「⌘Q で終了前に確認」の下の説明文。
+    static let confirmQuit = String(localized: "メニューの「終了」と「TatakiNote を終了」では確認しません。")
 
     /// 「履歴」の下の説明文。
     static func historyKept(limit: Int) -> String {

@@ -48,7 +48,7 @@ final class GeneralSettingsUITests: XCTestCase {
         let members = [
             "settings.themePicker",
             "settings.launchAtLoginToggle",
-            "settings.hideMenuBarIconToggle",
+            "settings.showMenuBarIconToggle",
             clearHistoryID,
         ]
         let memberYs = members.map { element(in: app, identifier: $0).frame.minY }
