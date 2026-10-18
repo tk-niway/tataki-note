@@ -27,6 +27,8 @@ struct SettingsStore {
         static let insertionTargetOutlineShown = "insertionTargetOutlineShown"
         static let newDraftMode = "newDraftMode"
         static let historyLimit = "historyLimit"
+        static let showsDockIcon = "showsDockIcon"
+        static let confirmsQuit = "confirmsQuit"
     }
 
     let defaults: UserDefaults
@@ -212,6 +214,26 @@ struct SettingsStore {
 
     func saveIsInsertionTargetOutlineShown(_ isShown: Bool) {
         defaults.set(isShown, forKey: Key.insertionTargetOutlineShown)
+    }
+
+    // MARK: - Dock のアイコン
+
+    func loadShowsDockIcon() -> Bool {
+        boolean(forKey: Key.showsDockIcon) ?? true
+    }
+
+    func saveShowsDockIcon(_ shows: Bool) {
+        defaults.set(shows, forKey: Key.showsDockIcon)
+    }
+
+    // MARK: - 終了の確かめ
+
+    func loadConfirmsQuit() -> Bool {
+        boolean(forKey: Key.confirmsQuit) ?? true
+    }
+
+    func saveConfirmsQuit(_ confirms: Bool) {
+        defaults.set(confirms, forKey: Key.confirmsQuit)
     }
 
     // MARK: - 初回起動のチュートリアル

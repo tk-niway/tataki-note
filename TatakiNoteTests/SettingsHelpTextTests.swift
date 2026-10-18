@@ -2,9 +2,16 @@ import Testing
 @testable import TatakiNote
 
 struct SettingsHelpTextTests {
-    @Test("AC-4: 「メニューバーのアイコンを隠す」の説明文は短い文")
-    func hideMenuBarIcon() {
-        #expect(SettingsHelpText.hideMenuBarIcon == "隠している間は、TatakiNote をもう一度開くとこの画面が開きます。終了は左下の「TatakiNote を終了」から。")
+    @Test("AC-26: 「メニューバーにアイコンを表示」の説明文は、設定の開き方を案内し、もう一度開くとこの画面が開くとは言わない")
+    func showMenuBarIcon() {
+        #expect(SettingsHelpText.showMenuBarIcon == "オフの間は、パネルの「設定」のボタンか ⌘, でこの画面を開きます。終了は左下の「TatakiNote を終了」から。")
+        #expect(!SettingsHelpText.showMenuBarIcon.contains("もう一度開くとこの画面が開きます"))
+    }
+
+    @Test("AC-26: 「Dock にアイコンを表示」と「⌘Q で終了前に確認」の説明文は決めた全文")
+    func dockIconAndConfirmQuit() {
+        #expect(SettingsHelpText.showDockIcon == "表示しないときも、Finder や Spotlight から開くとパネルが開きます。")
+        #expect(SettingsHelpText.confirmQuit == "メニューの「終了」と「TatakiNote を終了」では確認しません。")
     }
 
     @Test("AC-4: 「履歴」の説明文は残す件数を含む短い文")
@@ -44,8 +51,8 @@ struct SettingsHelpTextTests {
         #expect(!SettingsHelpText.animationMode.contains("→"))
     }
 
-    @Test("AC-5: アイコンを隠したときの終了の案内が残る")
-    func hideMenuBarIconKeepsQuitGuidance() {
-        #expect(SettingsHelpText.hideMenuBarIcon.contains("TatakiNote を終了"))
+    @Test("AC-5: アイコンを表示しないときの終了の案内が残る")
+    func showMenuBarIconKeepsQuitGuidance() {
+        #expect(SettingsHelpText.showMenuBarIcon.contains("TatakiNote を終了"))
     }
 }

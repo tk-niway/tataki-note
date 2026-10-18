@@ -110,8 +110,26 @@ enum AppLaunchContext {
         #endif
     }
 
-    static func shouldOpenSettingsOnReopen(hidesMenuBarIcon: Bool) -> Bool {
-        hidesMenuBarIcon
+    static func shouldApplyDockIcon(environment: [String: String]) -> Bool {
+        !isRunningUnitTests(environment: environment)
+    }
+
+    static func isOpenPanelOnLaunchSuppressed(environment: [String: String]) -> Bool {
+        #if DEBUG
+        guard settingsSuiteName(environment: environment) != nil else { return false }
+        return environment["TATAKINOTE_OPEN_PANEL_ON_LAUNCH"] != "enabled"
+        #else
+        return false
+        #endif
+    }
+
+    static func isOpenPanelOnReopenSuppressed(environment: [String: String]) -> Bool {
+        #if DEBUG
+        guard settingsSuiteName(environment: environment) != nil else { return false }
+        return environment["TATAKINOTE_OPEN_PANEL_ON_REOPEN"] != "enabled"
+        #else
+        return false
+        #endif
     }
 }
 
@@ -202,8 +220,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var focusedElementWatcher: FocusedElementWatcher?
 
+    private lazy var dockIcon = DockIconController(
+        settings: settings,
+        setActivationPolicy: { NSApp.setActivationPolicy($0) },
+        didHideIcon: { [weak self] in self?.settingsWindow.bringToFrontIfVisible() }
+    )
+
+    private lazy var quitConfirmation = QuitConfirmationController(
+        model: QuitConfirmationModel(settings: settings, terminate: { NSApp.terminate(nil) }),
+        settings: settings,
+        isRecordingShortcut: { event in
+            ShortcutRecordingMonitorView.isRecordingAnywhere
+                || QuitConfirmationController.isKeyboardShortcutsRecorderFocused(in: event.window)
+        },
+        isPanelCommitKey: { [weak self] event in
+            guard let self else { return false }
+            let input = PanelKeyInput(
+                keyCode: event.keyCode,
+                modifiers: event.modifierFlags.intersection(.deviceIndependentFlagsMask),
+                hasMarkedText: PromptPanel.firstResponderHasMarkedText(event.window?.firstResponder),
+                characters: event.charactersIgnoringModifiers?.lowercased() ?? ""
+            )
+            return QuitConfirmation.isPanelCommitKey(
+                input,
+                isPanelKey: event.window === self.panelController.panel,
+                commitKey: self.settings.commitKey,
+                commitAndSendKey: self.settings.commitAndSendKey
+            )
+        }
+    )
+
+    private var isConfirmingQuit: Bool {
+        quitConfirmation.model.isConfirming
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         let environment = ProcessInfo.processInfo.environment
+        if AppLaunchContext.shouldApplyDockIcon(environment: environment) {
+            dockIcon.start()
+        }
+        if !AppLaunchContext.isRunningUnitTests(environment: environment) {
+            quitConfirmation.start()
+        }
         if AppLaunchContext.shouldRegisterHotkeys(environment: environment) {
             ReservedPanelKeys.apply(
                 to: settings,
@@ -213,7 +271,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             settings.registerDefaultCommitKeysIfBothMissing(hotkey: PanelShortcut.currentHotkey())
             KeyboardShortcuts.onKeyDown(for: .togglePanel) { [weak self] in
-                self?.panelController.toggle()
+                guard let self, AppOpenRequest.allowsPanelToggle(isConfirmingQuit: self.isConfirmingQuit) else { return }
+                self.panelController.toggle()
             }
         }
         if AppLaunchContext.shouldWatchFocusedElement(environment: environment) {
@@ -222,17 +281,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 panelModel: panelController.model,
                 permission: permission,
                 exposeWebContent: { [webContentExposer] in webContentExposer.expose($0) },
-                onShow: { [weak self] focus in self?.panelController.open(observedFocus: focus) }
+                onShow: { [weak self] focus in
+                    guard let self, AppOpenRequest.allowsPanelToggle(isConfirmingQuit: self.isConfirmingQuit) else { return }
+                    self.panelController.open(observedFocus: focus)
+                }
             )
             watcher.start()
             focusedElementWatcher = watcher
         }
         if AppLaunchContext.shouldPresentPermissionGuideOnLaunch(environment: environment) {
-            presentOnLaunch(environment: environment)
+            let presentation = presentOnLaunch(environment: environment)
+            if AppOpenRequest.shouldOpenPanelOnLaunch(
+                presentation: presentation,
+                isLoginItemLaunch: Self.isLoginItemLaunch(),
+                isSuppressed: AppLaunchContext.isOpenPanelOnLaunchSuppressed(environment: environment)
+            ) {
+                panelController.openWithoutTarget()
+            }
         }
     }
 
-    private func presentOnLaunch(environment: [String: String]) {
+    private func presentOnLaunch(environment: [String: String]) -> LaunchPresentation {
         let presentation = FirstLaunchFlow.resolveOnLaunch(
             settings: settings,
             isTrusted: permission.isTrusted,
@@ -246,10 +315,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .permissionGuide(let reason):
             permissionGuide.show(reason: reason)
         }
+        return presentation
+    }
+
+    private static func isLoginItemLaunch() -> Bool {
+        let event = NSAppleEventManager.shared().currentAppleEvent
+        return AppOpenRequest.isLoginItemLaunch(
+            eventID: event?.eventID,
+            propData: event?.paramDescriptor(forKeyword: AEKeyword(keyAEPropData))?.enumCodeValue
+        )
     }
 
     func applicationDidHide(_ notification: Notification) {
         panelController.closeImmediately()
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        quitConfirmation.shouldTerminate(
+            currentEvent: NSApp.currentEvent,
+            isQuitAppleEvent: QuitConfirmation.isQuitAppleEvent(eventID: NSAppleEventManager.shared().currentAppleEvent?.eventID)
+        )
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -257,8 +342,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if AppLaunchContext.shouldOpenSettingsOnReopen(hidesMenuBarIcon: settings.hidesMenuBarIcon) {
-            settingsWindow.show()
+        if AppOpenRequest.shouldOpenPanelOnReopen(
+            isPanelPresented: panelController.model.isPresented,
+            isConfirmingQuit: isConfirmingQuit,
+            isSuppressed: AppLaunchContext.isOpenPanelOnReopenSuppressed(environment: ProcessInfo.processInfo.environment)
+        ) {
+            panelController.openWithoutTarget()
         }
         return false
     }

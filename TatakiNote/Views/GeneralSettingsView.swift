@@ -17,7 +17,9 @@ struct GeneralSettingsView: View {
             SettingsGroup(title: "起動とメニューバー", identifier: "settings.group.startup") {
                 SettingsCard {
                     launchAtLoginRow
-                    hideMenuBarIconRow
+                    showMenuBarIconRow
+                    showDockIconRow
+                    confirmQuitRow
                 }
             }
             SettingsGroup(title: "履歴", identifier: "settings.group.history") {
@@ -83,15 +85,39 @@ struct GeneralSettingsView: View {
         }
     }
 
-    private var hideMenuBarIconRow: some View {
+    private var showMenuBarIconRow: some View {
         SettingsRow(
-            title: "メニューバーのアイコンを隠す",
-            description: SettingsHelpText.hideMenuBarIcon
+            title: "メニューバーにアイコンを表示",
+            description: SettingsHelpText.showMenuBarIcon
         ) {
-            Toggle("メニューバーのアイコンを隠す", isOn: $settings.hidesMenuBarIcon)
+            Toggle("メニューバーにアイコンを表示", isOn: $settings.isMenuBarIconShown)
                 .toggleStyle(.switch)
                 .labelsHidden()
-                .accessibilityIdentifier("settings.hideMenuBarIconToggle")
+                .accessibilityIdentifier("settings.showMenuBarIconToggle")
+        }
+    }
+
+    private var showDockIconRow: some View {
+        SettingsRow(
+            title: "Dock にアイコンを表示",
+            description: SettingsHelpText.showDockIcon
+        ) {
+            Toggle("Dock にアイコンを表示", isOn: $settings.showsDockIcon)
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .accessibilityIdentifier("settings.showDockIconToggle")
+        }
+    }
+
+    private var confirmQuitRow: some View {
+        SettingsRow(
+            title: "⌘Q で終了前に確認",
+            description: SettingsHelpText.confirmQuit
+        ) {
+            Toggle("⌘Q で終了前に確認", isOn: $settings.confirmsQuit)
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .accessibilityIdentifier("settings.confirmQuitToggle")
         }
     }
 

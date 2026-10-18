@@ -49,6 +49,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         AppWindow.bringToFront(window)
     }
 
+    /// 設定画面が見えているときだけ、前に出し直す。
+    func bringToFrontIfVisible() {
+        guard let window, window.isVisible else { return }
+        AppWindow.bringToFront(window)
+    }
+
     func windowDidBecomeKey(_ notification: Notification) {
         launchAtLogin.refresh()
     }
