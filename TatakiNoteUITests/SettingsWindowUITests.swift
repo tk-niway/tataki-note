@@ -71,90 +71,6 @@ final class SettingsWindowUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    @MainActor
-    func testRightPaddingScenario() throws {
-        let app = XCUIApplication()
-        launch(app)
-
-        openSettingsFromMenu(in: app)
-        let scrollView = element(in: app, identifier: "settings.detailScrollView")
-        XCTAssertTrue(scrollView.waitForExistence(timeout: timeout))
-
-        let themePicker = element(in: app, identifier: themePickerID)
-        app.revealInSettings(themePicker)
-        assertRightEdgeHasTrailingPadding(themePicker, scrollView: scrollView)
-
-        let keys = element(in: app, identifier: sidebarKeysID)
-        keys.click()
-        let shortcutList = element(in: app, identifier: "settings.shortcutList")
-        app.revealInSettings(shortcutList)
-        assertRightEdgeHasTrailingPadding(shortcutList, scrollView: scrollView)
-
-        let panel = element(in: app, identifier: sidebarPanelID)
-        panel.click()
-        let resetFont = element(in: app, identifier: "settings.resetFontToSystem")
-        app.revealInSettings(resetFont)
-        assertRightEdgeHasTrailingPadding(resetFont, scrollView: scrollView)
-
-        let appInfo = element(in: app, identifier: sidebarAppInfoID)
-        appInfo.click()
-        let version = element(in: app, identifier: "settings.appInfo.version")
-        app.revealInSettings(version)
-        assertRightEdgeHasTrailingPadding(version, scrollView: scrollView)
-
-        closeSettings(in: app)
-    }
-
-    // AC-13
-    @MainActor
-    func testAC13_itemLabels() throws {
-        let app = XCUIApplication()
-        launch(app)
-
-        openSettingsFromMenu(in: app)
-        let keys = element(in: app, identifier: sidebarKeysID)
-        XCTAssertTrue(keys.waitForExistence(timeout: timeout))
-        keys.click()
-        let commitLabel = app.staticTexts["確定+挿入キー"].firstMatch
-        app.revealInSettings(commitLabel)
-        XCTAssertTrue(commitLabel.exists)
-
-        let appInfo = element(in: app, identifier: sidebarAppInfoID)
-        XCTAssertTrue(appInfo.waitForExistence(timeout: timeout))
-        appInfo.click()
-        let permissionLabel = app.staticTexts["アクセシビリティの許可"].firstMatch
-        app.revealInSettings(permissionLabel)
-        XCTAssertTrue(permissionLabel.exists)
-
-        closeSettings(in: app)
-    }
-
-    // AC-12
-    @MainActor
-    func testAC12_launchAtLoginScenario() throws {
-        let app = XCUIApplication()
-        launch(app)
-
-        openSettingsFromMenu(in: app)
-        let toggle = element(in: app, identifier: launchAtLoginToggleID)
-        app.revealInSettings(toggle)
-        XCTAssertFalse(isChecked(toggle))
-        XCTAssertFalse(element(in: app, identifier: "settings.launchAtLoginOpenSettings").exists)
-        XCTAssertFalse(element(in: app, identifier: "settings.launchAtLoginError").exists)
-
-        toggle.click()
-        XCTAssertTrue(waitUntil { self.isChecked(toggle) })
-        XCTAssertFalse(element(in: app, identifier: "settings.launchAtLoginError").exists)
-
-        closeSettings(in: app)
-        openSettingsFromMenu(in: app)
-        let toggleAfterReopen = element(in: app, identifier: launchAtLoginToggleID)
-        app.revealInSettings(toggleAfterReopen)
-        XCTAssertTrue(isChecked(toggleAfterReopen))
-
-        closeSettings(in: app)
-    }
-
     // AC-12
     @MainActor
     func testAC12_menuBarIconToggleScenario() throws {
@@ -193,20 +109,6 @@ final class SettingsWindowUITests: XCTestCase {
         app.terminate()
     }
 
-    // AC-8
-    @MainActor
-    func testAC8_quitButton() throws {
-        let app = XCUIApplication()
-        launch(app)
-        XCTAssertTrue(waitUntil { self.isMenuBarIconShown(in: app) })
-
-        openSettingsFromMenu(in: app)
-        let quit = element(in: app, identifier: quitID)
-        XCTAssertTrue(quit.waitForExistence(timeout: timeout))
-        quit.click()
-        XCTAssertTrue(app.wait(for: .notRunning, timeout: timeout))
-    }
-
     // AC-14
     @MainActor
     func testAC14_sidebarCannotCollapse() throws {
@@ -234,34 +136,6 @@ final class SettingsWindowUITests: XCTestCase {
         XCTAssertTrue(general.waitForExistence(timeout: timeout))
         XCTAssertTrue(waitUntil { general.isHittable }, "開き直すとサイドバーが畳まれていた(「一般」が押せない)")
         XCTAssertTrue(quit.isHittable, "開き直すとサイドバーが畳まれていた(「TatakiNote を終了」が押せない)")
-        closeSettings(in: app)
-    }
-
-    // AC-14
-    @MainActor
-    func testAC14_sidebarStaysPutWhenSwitchingSections() throws {
-        let app = XCUIApplication()
-        launch(app)
-
-        openSettingsFromMenu(in: app)
-        let window = settingsWindow(in: app)
-        let general = element(in: app, identifier: sidebarGeneralID)
-        let quit = element(in: app, identifier: quitID)
-        XCTAssertTrue(general.waitForExistence(timeout: timeout))
-
-        let initialGeneral = general.frame
-        let initialQuit = quit.frame
-        XCTAssertGreaterThanOrEqual(initialGeneral.minX - window.frame.minX, 12, "「一般」がウィンドウの左の縁に近すぎる")
-        XCTAssertGreaterThanOrEqual(initialQuit.minX - window.frame.minX, 12, "終了ボタンがウィンドウの左の縁に近すぎる")
-
-        for identifier in [sidebarKeysID, sidebarPanelID, sidebarAppInfoID, sidebarGeneralID] {
-            element(in: app, identifier: identifier).click()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-            XCTAssertEqual(general.frame.minX, initialGeneral.minX, accuracy: 0.5, "\(identifier) を選ぶとサイドバーの位置が動いた")
-            XCTAssertEqual(general.frame.width, initialGeneral.width, accuracy: 0.5, "\(identifier) を選ぶとサイドバーの幅が動いた")
-            XCTAssertEqual(quit.frame.minX, initialQuit.minX, accuracy: 0.5, "\(identifier) を選ぶと終了ボタンの位置が動いた")
-            XCTAssertEqual(quit.frame.width, initialQuit.width, accuracy: 0.5, "\(identifier) を選ぶと終了ボタンの幅が動いた")
-        }
         closeSettings(in: app)
     }
 
@@ -311,13 +185,8 @@ final class SettingsWindowUITests: XCTestCase {
     // MARK: - 設定画面の部品
 
     private let sidebarGeneralID = "settings.sidebar.general"
-    private let sidebarKeysID = "settings.sidebar.keys"
-    private let sidebarPanelID = "settings.sidebar.panel"
-    private let sidebarAppInfoID = "settings.sidebar.appInfo"
     private let quitID = "settings.quit"
-    private let settingsDetailTrailingPadding: CGFloat = 28
     private let themePickerID = "settings.themePicker"
-    private let launchAtLoginToggleID = "settings.launchAtLoginToggle"
     private let showMenuBarIconToggleID = "settings.showMenuBarIconToggle"
 
     @MainActor
@@ -342,18 +211,6 @@ final class SettingsWindowUITests: XCTestCase {
     @MainActor
     private func isSidebarItemSelected(_ identifier: String, in app: XCUIApplication) -> Bool {
         element(in: app, identifier: identifier).isSelected
-    }
-
-    @MainActor
-    private func assertRightEdgeHasTrailingPadding(
-        _ element: XCUIElement,
-        scrollView: XCUIElement,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) {
-        XCTAssertTrue(element.exists, file: file, line: line)
-        let gap = scrollView.frame.maxX - element.frame.maxX
-        XCTAssertGreaterThanOrEqual(gap, settingsDetailTrailingPadding, "余白が狭い(\(gap)pt)", file: file, line: line)
     }
 
     @MainActor

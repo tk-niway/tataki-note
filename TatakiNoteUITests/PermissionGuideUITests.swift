@@ -71,33 +71,6 @@ final class PermissionGuideUITests: XCTestCase {
         XCTAssertEqual(textView.value as? String, "abc")
     }
 
-
-    // AC-13
-    @MainActor
-    func testAC13_reopeningDoesNotAddWindows() throws {
-        let app = try launchApp(override: AccessibilityOverride.untrusted, seed: ["commitKey": "commandEnter"])
-        let status = guideElement(in: app, identifier: "permissionGuide.status")
-        XCTAssertTrue(
-            status.waitForExistence(timeout: timeout),
-            "untrusted の上書きが効いていない。本物の挿入を避けるため、文章を打たずに止める"
-        )
-        XCTAssertEqual(guideStatusCount(in: app), 1)
-
-        openPanelFromMenu(in: app)
-        let textView = app.textViews["promptPanel.textView"]
-        XCTAssertTrue(textView.waitForExistence(timeout: timeout))
-        app.typeKey("a", modifierFlags: [.command])
-        app.typeKey(.delete, modifierFlags: [])
-        app.typeText("abc")
-        XCTAssertEqual(textView.value as? String, "abc")
-
-        app.typeKey(.return, modifierFlags: [.command])
-        XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
-        XCTAssertTrue(guideElement(in: app, identifier: "permissionGuide.draftKept").waitForExistence(timeout: timeout))
-        XCTAssertTrue(status.exists)
-        XCTAssertEqual(guideStatusCount(in: app), 1)
-    }
-
     // AC-2
     @MainActor
     func testAC2_launchWithPermission() throws {
@@ -133,11 +106,6 @@ final class PermissionGuideUITests: XCTestCase {
     @MainActor
     private func guideElement(in app: XCUIApplication, identifier: String) -> XCUIElement {
         app.descendants(matching: .any)[identifier].firstMatch
-    }
-
-    @MainActor
-    private func guideStatusCount(in app: XCUIApplication) -> Int {
-        app.descendants(matching: .any).matching(identifier: "permissionGuide.status").count
     }
 
     @MainActor

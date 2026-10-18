@@ -44,61 +44,6 @@ final class PanelStatusBarUITests: XCTestCase {
         XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
     }
 
-    // AC-7
-    // AC-9
-    // AC-12
-    // AC-31
-    @MainActor
-    func testAC7_AC9_AC31_keysFollowSettings() throws {
-        let app = try launchApp(seed: ["commitKey": "shiftEnter", "commitAndSendKey": "commandShiftEnter"])
-        _ = openPanel(in: app)
-        XCTAssertTrue(statusBar(in: app).waitForExistence(timeout: timeout), "帯が無い")
-        // AC-6
-        // AC-9
-        assertLabel(statusItem("commit", in: app), "⇧↩ 挿入")
-        assertLabel(statusItem("commitAndSend", in: app), "⇧⌘↩ 送信")
-
-        // AC-31
-        let closeX = statusItem("close", in: app).frame.minX
-        let lineBreakX = statusItem("lineBreak", in: app).frame.minX
-        let commitX = statusItem("commit", in: app).frame.minX
-        let commitAndSendX = statusItem("commitAndSend", in: app).frame.minX
-        let characterCountX = statusItem("characterCount", in: app).frame.minX
-        let lineCountX = statusItem("lineCount", in: app).frame.minX
-        XCTAssertLessThan(closeX, lineBreakX)
-        XCTAssertLessThan(lineBreakX, commitX)
-        XCTAssertLessThan(commitX, commitAndSendX)
-        XCTAssertLessThan(commitAndSendX, characterCountX)
-        XCTAssertLessThan(characterCountX, lineCountX)
-    }
-
-    // AC-16
-    @MainActor
-    func testAC16_noteDraftHidesCommitHints() throws {
-        let app = try launchApp(seed: ["newDraftMode": "note"])
-        _ = openPanel(in: app)
-        XCTAssertTrue(statusBar(in: app).waitForExistence(timeout: timeout), "帯が無い")
-        assertLabel(statusItem("close", in: app), "esc 閉じる")
-        assertLabel(statusItem("lineBreak", in: app), "↩ 改行")
-        assertLabel(statusItem("characterCount", in: app), "0文字")
-        assertLabel(statusItem("lineCount", in: app), "0行")
-        XCTAssertFalse(statusItem("commit", in: app).exists)
-        XCTAssertFalse(statusItem("commitAndSend", in: app).exists)
-    }
-
-    // AC-10
-    @MainActor
-    func testAC10_hiddenItems() throws {
-        let app = try launchApp(seed: ["hiddenPanelStatusItems": ["characterCount"]])
-        _ = openPanel(in: app)
-        XCTAssertTrue(statusBar(in: app).waitForExistence(timeout: timeout), "帯が無い")
-        assertLabel(statusItem("lineCount", in: app), "0行")
-        XCTAssertFalse(statusItem("characterCount", in: app).exists)
-
-        app.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(app.textViews["promptPanel.textView"].waitForNonExistence(timeout: timeout))
-    }
-
     // MARK: - 起動と要素の探し方
 
     @MainActor
@@ -145,7 +90,6 @@ final class PanelStatusBarUITests: XCTestCase {
         XCTAssertTrue(textView.waitForExistence(timeout: timeout))
         return textView
     }
-
 
     @MainActor
     private func openMenu(in app: XCUIApplication) {

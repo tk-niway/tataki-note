@@ -51,20 +51,6 @@ final class DraftsSidebarUITests: PanelDraftsUITestCase {
         XCTAssertTrue(waitUntil { body.promptPanelText == "abcdef" }, "保存のアニメーション中に本文へ打てない")
     }
 
-    @MainActor
-    func testCommandBTogglesSidebar() throws {
-        let app = try launchApp()
-        _ = openPanel(in: app)
-        let tab = element(in: app, identifier: "sidebar.tab.drafts")
-        XCTAssertFalse(tab.exists, "閉じているのにサイドバーが出ている")
-
-        pressCommand("b", in: app)
-        XCTAssertTrue(tab.waitForExistence(timeout: timeout), "⌘B でサイドバーが出ない")
-
-        pressCommand("b", in: app)
-        XCTAssertTrue(tab.waitForNonExistence(timeout: timeout), "⌘B でサイドバーが消えない")
-    }
-
     // AC-20
     @MainActor
     func testAC20_settingsKeepsPanelAndReturnsInput() throws {

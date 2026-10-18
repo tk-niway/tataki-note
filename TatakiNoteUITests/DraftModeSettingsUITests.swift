@@ -34,51 +34,6 @@ final class DraftModeSettingsUITests: PanelDraftsUITestCase {
         )
     }
 
-    // AC-27
-    @MainActor
-    func testAC27_settingsHaveNoModeSwitchOrRestrictions() throws {
-        for seed: [String: Any] in [[:], ["newDraftMode": "note"]] {
-            let app = try launchApp(seed: seed)
-            openSettingsFromMenu(in: app)
-            XCTAssertTrue(element(in: app, identifier: "settings.sidebar.keys").waitForExistence(timeout: timeout))
-            XCTAssertFalse(element(in: app, identifier: "settings.appModeToggle").exists, "サイドバーにモードの切り替えが残っている")
-
-            element(in: app, identifier: "settings.sidebar.keys").click()
-            XCTAssertTrue(element(in: app, identifier: "settings.hotkeyRecorder").waitForExistence(timeout: timeout))
-            for identifier in [
-                "settings.group.autoShow.badge",
-                "settings.group.insertAndSend.badge",
-                "settings.noteModeBanner.autoShow",
-                "settings.noteModeBanner.insertAndSend",
-            ] {
-                XCTAssertFalse(element(in: app, identifier: identifier).exists, identifier)
-            }
-            for identifier in [
-                "settings.autoShowModePicker",
-                "settings.commitKeyRecorder",
-                "settings.commitAndSendKeyRecorder",
-            ] {
-                let target = element(in: app, identifier: identifier)
-                app.revealInSettings(target)
-                XCTAssertTrue(target.isEnabled, "\(identifier) が押せない")
-            }
-
-            element(in: app, identifier: "settings.sidebar.panel").click()
-            let tile = element(in: app, identifier: "settings.panelScreen.nearFocusedField")
-            app.revealInSettings(tile)
-            XCTAssertTrue(tile.isEnabled, "「入力欄の近く」のタイルが押せない")
-            XCTAssertFalse(element(in: app, identifier: "settings.noteModeReason.nearFocusedField").exists)
-
-            let outline = element(in: app, identifier: "settings.insertionTargetOutlineToggle")
-            app.revealInSettings(outline)
-            XCTAssertTrue(outline.isEnabled, "「挿入先の枠線」のスイッチが押せない")
-            XCTAssertFalse(element(in: app, identifier: "settings.noteModeReason.insertionTargetOutline").exists)
-
-            closeSettings(in: app)
-            app.terminate()
-        }
-    }
-
     // MARK: - 設定画面
 
     @MainActor

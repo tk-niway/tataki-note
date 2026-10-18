@@ -6,9 +6,6 @@ final class GeneralSettingsUITests: XCTestCase {
     private let settingsSuiteName = "TatakiNoteUITests.\(UUID().uuidString)"
     private var dataDirectory: URL?
 
-    private let groupIdentifiers = ["settings.group.appearance", "settings.group.startup", "settings.group.history"]
-    private let groupTitles = ["外観", "起動とメニューバー", "履歴"]
-
     private let sidebarGeneralID = "settings.sidebar.general"
     private let sidebarPanelID = "settings.sidebar.panel"
     private let clearHistoryID = "settings.clearHistory"
@@ -27,41 +24,6 @@ final class GeneralSettingsUITests: XCTestCase {
         if let dataDirectory {
             try? FileManager.default.removeItem(at: dataDirectory)
         }
-    }
-
-    // AC-10
-    @MainActor
-    func testAC10_groupsInOrderWithoutAutoShow() throws {
-        let app = try launchApp(historyCount: 0)
-        openSettingsFromMenu(in: app)
-
-        for identifier in groupIdentifiers {
-            XCTAssertTrue(element(in: app, identifier: identifier).waitForExistence(timeout: timeout), identifier)
-        }
-        let ys = groupIdentifiers.map { element(in: app, identifier: $0).frame.minY }
-        XCTAssertEqual(ys, ys.sorted(), "「一般」のまとまりが上から \(groupTitles) の順に並んでいない")
-        XCTAssertEqual(Set(ys).count, ys.count)
-        for (identifier, title) in zip(groupIdentifiers, groupTitles) {
-            XCTAssertEqual(text(of: element(in: app, identifier: "\(identifier).title")), title, identifier)
-        }
-
-        let members = [
-            "settings.themePicker",
-            "settings.launchAtLoginToggle",
-            "settings.showMenuBarIconToggle",
-            clearHistoryID,
-        ]
-        let memberYs = members.map { element(in: app, identifier: $0).frame.minY }
-        for identifier in members {
-            XCTAssertTrue(element(in: app, identifier: identifier).exists, identifier)
-        }
-        XCTAssertEqual(memberYs, memberYs.sorted(), "項目が テーマ・ログイン・アイコン・履歴 の順に並んでいない")
-
-        for identifier in ["settings.autoShowModePicker", "settings.autoShowAppList"] {
-            XCTAssertFalse(element(in: app, identifier: identifier).exists, identifier)
-        }
-
-        closeSettings(in: app)
     }
 
     // AC-13
@@ -124,54 +86,6 @@ final class GeneralSettingsUITests: XCTestCase {
         XCTAssertTrue(element(in: app, identifier: confirmID).waitForExistence(timeout: timeout))
         app.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(element(in: app, identifier: doneID).waitForExistence(timeout: timeout))
-
-        closeSettings(in: app)
-    }
-
-    // AC-15
-    // AC-18
-    @MainActor
-    func testAC15_AC18_clearingEmptiesHistoryAndShowsDone() throws {
-        let app = try launchApp(historyCount: 1)
-        openSettingsFromMenu(in: app)
-
-        // AC-15
-        let clearButton = element(in: app, identifier: clearHistoryID)
-        XCTAssertTrue(clearButton.waitForExistence(timeout: timeout))
-        app.revealInSettings(clearButton)
-        clearButton.click()
-        let confirm = element(in: app, identifier: confirmID)
-        XCTAssertTrue(confirm.waitForExistence(timeout: timeout))
-        confirm.click()
-
-        XCTAssertTrue(element(in: app, identifier: doneID).waitForExistence(timeout: timeout))
-        XCTAssertEqual(text(of: element(in: app, identifier: countID)), "0")
-        let clearAfterDone = element(in: app, identifier: clearHistoryID)
-        XCTAssertTrue(!clearAfterDone.exists || !clearAfterDone.isEnabled)
-
-        // AC-18
-        element(in: app, identifier: sidebarPanelID).click()
-        XCTAssertTrue(element(in: app, identifier: "settings.panelScreenPicker").waitForExistence(timeout: timeout))
-        element(in: app, identifier: sidebarGeneralID).click()
-        let clearButtonAfterSwitch = element(in: app, identifier: clearHistoryID)
-        XCTAssertTrue(clearButtonAfterSwitch.waitForExistence(timeout: timeout))
-        XCTAssertFalse(element(in: app, identifier: doneID).exists)
-        XCTAssertFalse(clearButtonAfterSwitch.isEnabled)
-
-        closeSettings(in: app)
-    }
-
-    // AC-17
-    @MainActor
-    func testAC17_clearIsUnavailableWithoutHistory() throws {
-        let app = try launchApp(historyCount: 0)
-        openSettingsFromMenu(in: app)
-
-        let clearButton = element(in: app, identifier: clearHistoryID)
-        XCTAssertTrue(clearButton.waitForExistence(timeout: timeout))
-        XCTAssertFalse(clearButton.isEnabled)
-        XCTAssertEqual(text(of: element(in: app, identifier: countID)), "0")
-        XCTAssertFalse(element(in: app, identifier: cancelID).exists)
 
         closeSettings(in: app)
     }

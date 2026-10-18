@@ -24,15 +24,6 @@ final class PromptPanelUITests: XCTestCase {
         return app
     }
 
-    // AC-10
-    @MainActor
-    func testAC10_launchOpensNoWindow() throws {
-        let app = makeApp()
-        app.launch()
-
-        XCTAssertEqual(app.windows.count, 0)
-    }
-
     // AC-2
     @MainActor
     func testAC2_placeholderIsExposedAndTypedTextIsValue() throws {

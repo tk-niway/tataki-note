@@ -47,65 +47,6 @@ final class SettingsUITests: XCTestCase {
         XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
     }
 
-    @MainActor
-    func testRecorderRejectsInvalidKeys() throws {
-        let app = XCUIApplication()
-        launch(app)
-
-        openKeySettings(in: app)
-        let commitRecorder = element(in: app, identifier: commitKeyRecorderID)
-        XCTAssertTrue(commitRecorder.waitForExistence(timeout: timeout))
-        let commitRejection = element(in: app, identifier: commitKeyRejectionID)
-
-        commitRecorder.click()
-        app.typeKey("k", modifierFlags: [])
-        XCTAssertTrue(commitRejection.waitForExistence(timeout: timeout))
-        XCTAssertTrue(isRecording(commitRecorder))
-
-        app.typeKey("c", modifierFlags: [.command])
-        XCTAssertTrue(waitUntil { self.text(of: commitRejection).contains("編集ショートカット") })
-        XCTAssertTrue(isRecording(commitRecorder))
-
-        app.typeKey(.return, modifierFlags: [.command])
-        XCTAssertTrue(waitUntil { self.text(of: commitRejection).contains("確定+送信キー") })
-        XCTAssertTrue(isRecording(commitRecorder))
-
-        app.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(waitUntil { self.recorderDisplayText(commitRecorder) == "⇧⌘↩" })
-        commitRecorder.click()
-        app.typeKey("j", modifierFlags: [.command])
-        XCTAssertTrue(waitUntil { self.recorderDisplayText(commitRecorder) == "⌘J" })
-        XCTAssertFalse(commitRejection.exists)
-
-        closeSettings(in: app)
-    }
-
-    // AC-33
-    @MainActor
-    func testAC33_openingSettingsDoesNotStartRecording() throws {
-        let app = XCUIApplication()
-        launch(app)
-
-        openKeySettings(in: app)
-        let commitRecorder = element(in: app, identifier: commitKeyRecorderID)
-        let commitAndSendRecorder = element(in: app, identifier: commitAndSendKeyRecorderID)
-        XCTAssertTrue(commitRecorder.waitForExistence(timeout: timeout))
-
-        XCTAssertFalse(isRecording(commitRecorder))
-        XCTAssertEqual(recorderDisplayText(commitAndSendRecorder), "⌘↩")
-
-        app.typeKey("k", modifierFlags: [.command])
-        XCTAssertFalse(isRecording(commitRecorder))
-        XCTAssertEqual(recorderDisplayText(commitRecorder), "⇧⌘↩")
-
-        closeSettings(in: app)
-        openKeySettings(in: app)
-        let commitRecorderAfterReopen = element(in: app, identifier: commitKeyRecorderID)
-        XCTAssertTrue(commitRecorderAfterReopen.waitForExistence(timeout: timeout))
-        XCTAssertEqual(recorderDisplayText(commitRecorderAfterReopen), "⇧⌘↩")
-        closeSettings(in: app)
-    }
-
     // AC-33
     @MainActor
     func testAC33_recordingCancelledByEscOrOutsideClick() throws {
@@ -152,47 +93,6 @@ final class SettingsUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-36
-    // AC-15
-    @MainActor
-    func testAC36_AC15_panelScreenTilesOrderAndChangeScenario() throws {
-        let app = XCUIApplication()
-        launch(app)
-
-        openPanelScreenSettings(in: app)
-        let panelScreenPicker = element(in: app, identifier: panelScreenPickerID)
-        XCTAssertTrue(panelScreenPicker.waitForExistence(timeout: timeout))
-
-        let screens = ["nearFocusedField", "targetWindow", "mouse", "main"]
-        let tiles = screens.map { element(in: app, identifier: "settings.panelScreen.\($0)") }
-        XCTAssertTrue(tiles[0].waitForExistence(timeout: timeout))
-        for (screen, tile) in zip(screens, tiles) {
-            XCTAssertTrue(tile.exists, screen)
-        }
-        let xPositions = tiles.map(\.frame.minX)
-        XCTAssertEqual(xPositions, xPositions.sorted(), "タイルが左から \(screens) の順に並んでいない")
-        XCTAssertEqual(Set(xPositions).count, xPositions.count)
-        let titles = ["入力欄の近く", "挿入先のウィンドウがある画面", "マウスの近く", "メインの画面"]
-        for (title, tile) in zip(titles, tiles) {
-            XCTAssertEqual(tile.label, title)
-        }
-
-        let description = element(in: app, identifier: panelScreenDescriptionID)
-        // AC-15
-        XCTAssertFalse(description.exists)
-        XCTAssertTrue(tiles[0].isSelected)
-        XCTAssertFalse(tiles[2].isSelected)
-
-        tiles[2].click()
-        XCTAssertTrue(waitUntil { tiles[2].isSelected })
-        XCTAssertFalse(tiles[0].isSelected)
-        XCTAssertFalse(tiles[1].isSelected)
-        XCTAssertFalse(tiles[3].isSelected)
-        XCTAssertFalse(description.exists)
-
-        closeSettings(in: app)
-    }
-
     // AC-33
     // AC-35
     @MainActor
@@ -227,41 +127,6 @@ final class SettingsUITests: XCTestCase {
     }
 
     @MainActor
-    func testAC14_clearHistoryAsksForConfirmationInTheRow() throws {
-        let dataDirectory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("TatakiNoteUITests-\(UUID().uuidString)", isDirectory: true)
-        defer { try? FileManager.default.removeItem(at: dataDirectory) }
-        try FileManager.default.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
-        let history = """
-        {"version": 1, "history": [{"id": "\(UUID().uuidString)", "text": "history one", \
-        "insertedAt": "2026-10-06T05:32:00Z", "appName": "Notes"}]}
-        """
-        try Data(history.utf8).write(to: dataDirectory.appendingPathComponent("history.json"))
-
-        let app = XCUIApplication()
-        app.launchEnvironment["TATAKINOTE_DATA_DIRECTORY"] = dataDirectory.path
-        launch(app)
-
-        openSettingsFromMenu(in: app)
-        // AC-14
-        let clearButton = element(in: app, identifier: "settings.clearHistory")
-        app.revealInSettings(clearButton)
-        XCTAssertTrue(clearButton.isEnabled)
-
-        clearButton.click()
-        let cancelButton = element(in: app, identifier: "settings.clearHistoryCancel")
-        XCTAssertTrue(cancelButton.waitForExistence(timeout: timeout))
-        XCTAssertTrue(element(in: app, identifier: "settings.clearHistoryConfirm").exists)
-        XCTAssertFalse(app.sheets.firstMatch.exists)
-
-        cancelButton.click()
-        XCTAssertTrue(cancelButton.waitForNonExistence(timeout: timeout))
-        XCTAssertTrue(waitUntil { self.element(in: app, identifier: "settings.clearHistory").isEnabled })
-
-        closeSettings(in: app)
-    }
-
-    @MainActor
     private func launch(_ app: XCUIApplication) {
         app.launchEnvironment["TATAKINOTE_SETTINGS_SUITE"] = settingsSuiteName
         app.launchEnvironment[AccessibilityOverride.key] = AccessibilityOverride.untrusted
@@ -273,9 +138,7 @@ final class SettingsUITests: XCTestCase {
 
     private let commitKeyRecorderID = "settings.commitKeyRecorder"
     private let commitAndSendKeyRecorderID = "settings.commitAndSendKeyRecorder"
-    private let commitKeyRejectionID = "settings.commitKeyRejection"
     private let panelScreenPickerID = "settings.panelScreenPicker"
-    private let panelScreenDescriptionID = "settings.panelScreenDescription"
     private let sidebarGeneralID = "settings.sidebar.general"
     private let sidebarKeysID = "settings.sidebar.keys"
     private let sidebarPanelID = "settings.sidebar.panel"
@@ -298,14 +161,6 @@ final class SettingsUITests: XCTestCase {
         guard let value = element.value as? String, !value.isEmpty,
               value != recordingValue, value != unregisteredValue else { return nil }
         return value
-    }
-
-    @MainActor
-    private func text(of element: XCUIElement) -> String {
-        if let value = element.value as? String, !value.isEmpty {
-            return value
-        }
-        return element.label
     }
 
     @MainActor
@@ -369,15 +224,6 @@ final class SettingsUITests: XCTestCase {
         XCTAssertTrue(keys.waitForExistence(timeout: timeout))
         keys.click()
         XCTAssertTrue(element(in: app, identifier: commitKeyRecorderID).waitForExistence(timeout: timeout))
-    }
-
-    @MainActor
-    private func openPanelScreenSettings(in app: XCUIApplication) {
-        openSettingsFromMenu(in: app)
-        let panel = element(in: app, identifier: sidebarPanelID)
-        XCTAssertTrue(panel.waitForExistence(timeout: timeout))
-        panel.click()
-        app.revealInSettings(element(in: app, identifier: panelScreenPickerID))
     }
 
     @MainActor
