@@ -362,7 +362,7 @@ struct SidebarModelTests {
 
     // MARK: - 行の表示
 
-    @Test("AC-24: 下書きの行は1行目だけ(先頭の空行は飛ばす)。本文が空・空白だけなら「(空の下書き)」")
+    @Test("AC-22: 下書きの行の1段目は最初の行(先頭の空行は飛ばす)、2段目は日時と本文の続き。本文が空・空白だけなら「(空の下書き)」で続きは無い")
     func draftRowsShowFirstLine() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
@@ -372,8 +372,76 @@ struct SidebarModelTests {
 
         #expect(rows.count == 2)
         #expect(rows[0].title == "(空の下書き)")
+        #expect(rows[0].isUntitled)
+        #expect(rows[0].preview == nil)
         #expect(rows[1].title == "タイトル")
-        #expect(rows.allSatisfy { $0.kind == .draft && $0.detail == nil })
+        #expect(rows[1].preview == "二行目")
+        #expect(rows.allSatisfy { $0.kind == .draft && $0.detail == "10月6日 14:32" })
+    }
+
+    @Test("AC-22: 履歴の行も2段で、2段目に本文の続きが入る。続きが無ければ入らない")
+    func historyRowsShowPreview() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        fixture.addHistory("one line")
+        fixture.addHistory("題\n\n 本文 \n続き")
+        fixture.model.tab = .history
+        let rows = fixture.model.rows
+
+        #expect(rows.count == 2)
+        #expect(rows[0].title == "題")
+        #expect(rows[0].preview == "本文 続き")
+        #expect(rows[1].title == "one line")
+        #expect(rows[1].preview == nil)
+    }
+
+    @Test("AC-22: 本文の続きは、最初の行より後の空でない行を半角スペースでつなぐ")
+    func previewJoinsLinesAfterTheFirst() {
+        #expect(DraftListing.preview(of: "") == nil)
+        #expect(DraftListing.preview(of: "a") == nil)
+        #expect(DraftListing.preview(of: "\n\nT\n") == nil)
+        #expect(DraftListing.preview(of: "a\n\n  b \n c") == "b c")
+        #expect(DraftListing.preview(of: "  \n題\n本文") == "本文")
+        #expect(DraftListing.preview(of: "a\r\nb\r\nc") == "b c")
+    }
+
+    @Test("AC-22: 本文の続きは先頭の 200 文字で切る。ちょうど 200 文字ならそのまま")
+    func previewIsCappedAt200Characters() {
+        let exact = String(repeating: "あ", count: 200)
+        let over = String(repeating: "あ", count: 201)
+
+        #expect(DraftListing.preview(of: "T\n\(exact)") == exact)
+        #expect(DraftListing.preview(of: "T\n\(over)") == exact)
+
+        let first = String(repeating: "a", count: 150)
+        let second = String(repeating: "b", count: 100)
+        let joined = DraftListing.preview(of: "T\n\(first)\n\(second)")
+        #expect(joined == String("\(first) \(second)".prefix(200)))
+        #expect(joined?.count == 200)
+    }
+
+    @Test("AC-23: 下書きの行の日時は最後に書き換えた日時で、書き換えると新しい日時になる")
+    func draftRowDetailFollowsUpdatedAt() throws {
+        let defaults = try TemporaryDefaults()
+        defer { defaults.remove() }
+        var clock = Date(timeIntervalSince1970: 1_700_000_000)
+        let library = DraftLibrary(store: .inMemory, now: { clock })
+        let session = DraftSession(panel: PanelModel(), library: library, ownProcessIdentifier: 777)
+        let model = SidebarModel(
+            settings: defaults.makeSettings(),
+            library: library,
+            session: session,
+            dateFormatter: { ISO8601DateFormatter().string(from: $0) }
+        )
+        let id = try #require(library.addDraft(text: "first")).id
+        let createdText = ISO8601DateFormatter().string(from: clock)
+        #expect(model.rows.first?.detail == createdText)
+
+        clock = clock.addingTimeInterval(3_600)
+        library.updateDraft(id: id, text: "first edited")
+
+        #expect(model.rows.first?.detail == ISO8601DateFormatter().string(from: clock))
+        #expect(model.rows.first?.detail != createdText)
     }
 
     @Test("AC-24: 履歴の行は「挿入日時 · 挿入先のアプリ名」と1行目を出す。アプリ名が無ければ「不明なアプリ」")
@@ -390,7 +458,38 @@ struct SidebarModelTests {
         #expect(rows[0].detail == "10月6日 14:32 · 不明なアプリ")
         #expect(rows[1].title == "本文の一行目")
         #expect(rows[1].detail == "10月6日 14:32 · チャットノート")
+        #expect(rows[1].preview == "二行目")
         #expect(rows.allSatisfy { $0.kind == .history && !$0.isShownInPanel })
+    }
+
+    @Test("AC-24: 挿入していない書きかけの履歴の2段目は日時だけで、アプリ名は付かない")
+    func unsentHistoryDetailHasNoAppName() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        fixture.library.recordUnsentText("書きかけ")
+        fixture.model.tab = .history
+        let rows = fixture.model.rows
+
+        #expect(rows.count == 1)
+        #expect(rows[0].detail == "10月6日 14:32")
+    }
+
+    @Test("AC-26: 行の読み上げの文字は、1段目・日時(とアプリ名)・本文の続きをつなぐ。続きが無ければ入らない")
+    func accessibilityTextJoinsTitleDetailAndPreview() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        try fixture.addDraft("題名\n続きの文")
+        try fixture.addDraft("だけ")
+        fixture.addHistory("履歴の題\n履歴の続き", appName: "チャットノート")
+
+        let drafts = fixture.model.rows
+        #expect(drafts[0].accessibilityText == "だけ 10月6日 14:32")
+        #expect(drafts[1].accessibilityText == "題名 10月6日 14:32 続きの文")
+        #expect(drafts[1].accessibilityText.contains(drafts[1].title))
+
+        fixture.model.tab = .history
+        let history = fixture.model.rows
+        #expect(history[0].accessibilityText == "履歴の題 10月6日 14:32 · チャットノート 履歴の続き")
     }
 
     @Test("AC-24: パネルに出している下書きの行は分かる。切り替えると印も移る")

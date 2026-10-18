@@ -36,6 +36,12 @@ struct SidebarRow: Equatable, Identifiable {
     let detail: String?
     let isShownInPanel: Bool
     var isUntitled = false
+    var preview: String?
+
+    /// 読み上げに使う文字。1段目・日時・本文の続きをつなぐ。
+    var accessibilityText: String {
+        [title, detail, preview].compactMap { $0 }.joined(separator: " ")
+    }
 }
 
 /// サイドバーの開閉・表示中の側・検索・選択の状態。
@@ -81,9 +87,9 @@ struct SidebarRow: Equatable, Identifiable {
         self.dateFormatter = dateFormatter
     }
 
-    /// 月日・時分の文字。
+    /// 今年なら月日・時分、それ以外は年も付けた文字。
     nonisolated static func defaultDateText(_ date: Date) -> String {
-        date.formatted(.dateTime.month().day().hour().minute())
+        SidebarDateText.text(for: date, now: Date(), calendar: SidebarDateText.gregorian)
     }
 
     // MARK: - 開閉と表示中の側
@@ -127,9 +133,10 @@ struct SidebarRow: Equatable, Identifiable {
                         id: draft.id,
                         kind: .draft,
                         title: firstLine ?? Self.untitledDraftTitle,
-                        detail: nil,
+                        detail: dateFormatter(draft.updatedAt),
                         isShownInPanel: session.document == .savedDraft(draft.id),
-                        isUntitled: firstLine == nil
+                        isUntitled: firstLine == nil,
+                        preview: DraftListing.preview(of: draft.text)
                     )
                 }
         case .history:
@@ -141,7 +148,8 @@ struct SidebarRow: Equatable, Identifiable {
                         kind: .history,
                         title: DraftListing.firstLine(of: entry.text) ?? "",
                         detail: historyDetail(of: entry),
-                        isShownInPanel: session.document == .fromHistory(entry.id)
+                        isShownInPanel: session.document == .fromHistory(entry.id),
+                        preview: DraftListing.preview(of: entry.text)
                     )
                 }
         }
