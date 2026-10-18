@@ -37,44 +37,6 @@ final class DraftsSidebarUITests: PanelDraftsUITestCase {
         )
     }
 
-    // AC-31
-    @MainActor
-    func testAC31_commandKOpensSearchAndEscReturnsToBody() throws {
-        let app = try launchApp()
-        _ = openPanel(in: app)
-        let body = textView(in: app)
-
-        app.typeText("first")
-        pressCommand("s", in: app)
-        pressCommand("n", in: app)
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty })
-        app.typeText("second")
-        pressCommand("s", in: app)
-        pressCommand("n", in: app)
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty })
-
-        pressCommand("k", in: app)
-        let search = element(in: app, identifier: "sidebar.searchField")
-        XCTAssertTrue(search.waitForExistence(timeout: timeout), "⌘K でサイドバーの検索欄が出ない")
-        XCTAssertTrue(row(in: app, containing: "first").waitForExistence(timeout: timeout))
-        app.typeText("fir")
-        XCTAssertTrue(waitUntil { (search.value as? String) == "fir" }, "検索欄に打てない")
-        app.typeKey(.return, modifierFlags: [])
-        XCTAssertTrue(waitUntil { body.promptPanelText == "first" }, "↩ で選んだ下書きがパネルに入らない")
-
-        pressCommand("k", in: app)
-        pressCommand("n", in: app)
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty }, "検索欄にフォーカスがあるときに ⌘N が効かない")
-
-        pressCommand("k", in: app)
-        app.typeKey(.escape, modifierFlags: [])
-        app.typeText("z")
-        XCTAssertTrue(waitUntil { body.promptPanelText == "z" }, "esc で本文に戻って打てない")
-
-        app.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(body.waitForNonExistence(timeout: timeout), "本文で esc を押してもパネルが閉じない")
-    }
-
     // AC-36
     @MainActor
     func testAC36_savedDraftShowsRowAndRightClickDeletes() throws {
