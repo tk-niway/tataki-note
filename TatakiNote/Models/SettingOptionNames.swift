@@ -40,6 +40,19 @@ extension AppTheme {
     }
 }
 
+extension AnimationMode {
+    var displayName: String {
+        switch self {
+        case .system:
+            String(localized: "システム")
+        case .on:
+            String(localized: "オン")
+        case .off:
+            String(localized: "オフ")
+        }
+    }
+}
+
 extension PanelStatusItem {
     var displayName: String {
         switch self {

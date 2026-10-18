@@ -19,4 +19,17 @@ enum PanelShake {
     static func canStart(motionPhase: PanelMotionPhase) -> Bool {
         motionPhase == .shown
     }
+
+    /// 空の確定・保存のときの知らせ方。
+    enum EmptyInputFeedback: Equatable {
+        case shake
+        case beep
+        case none
+    }
+
+    /// 動きを使うなら、開く・閉じる動きの途中でなければ揺らす。動きを使わないなら警告音。
+    static func emptyInputFeedback(motionPhase: PanelMotionPhase, isAnimationEnabled: Bool) -> EmptyInputFeedback {
+        guard isAnimationEnabled else { return .beep }
+        return canStart(motionPhase: motionPhase) ? .shake : .none
+    }
 }

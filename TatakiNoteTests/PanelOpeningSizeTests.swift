@@ -15,6 +15,7 @@ struct PanelOpeningSizeTests {
         let controller: PanelController
         let inserter: InserterStub
         let shaker: PanelShakerSpy
+        let beepSpy: BeepSpy
     }
 
     private func withFixture(
@@ -28,10 +29,11 @@ struct PanelOpeningSizeTests {
         settings.panelScreen = .main
         settings.panelDefaultWidth = Self.defaultSize.width
         settings.panelDefaultHeight = Self.defaultSize.height
-        settings.isPanelAnimationEnabled = false
+        settings.animationMode = .off
         settings.commitKey = .commandShiftReturn
         let inserter = InserterStub(result: result)
         let shaker = PanelShakerSpy()
+        let beepSpy = BeepSpy()
         let probe = FocusedElementProbeStub()
         let controller = PanelController(
             settings: settings,
@@ -44,11 +46,12 @@ struct PanelOpeningSizeTests {
             library: DraftLibrary(store: .inMemory),
             animator: FakePanelFrameAnimator(),
             shaker: shaker,
+            beep: beepSpy.beep,
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )
         controller.targetOverride = { target }
         defer { controller.panel.orderOut(nil) }
-        try await body(Fixture(controller: controller, inserter: inserter, shaker: shaker))
+        try await body(Fixture(controller: controller, inserter: inserter, shaker: shaker, beepSpy: beepSpy))
     }
 
     private func drag(_ controller: PanelController, to size: CGSize) {
@@ -90,7 +93,7 @@ struct PanelOpeningSizeTests {
         }
     }
 
-    @Test("AC-7: 開いている間にもう一度開いても、空のまま確定しても、ドラッグで決めた大きさは消えない")
+    @Test("AC-11: 開いている間にもう一度開いても、空のまま確定して知らせても、ドラッグで決めた大きさは消えない")
     func heldSizeSurvivesReopenWhilePresentedAndEmptyCommit() async throws {
         try await withFixture { fixture in
             let controller = fixture.controller
@@ -101,7 +104,8 @@ struct PanelOpeningSizeTests {
             #expect(controller.panel.frame.size == Self.draggedSize)
 
             controller.commit()
-            #expect(fixture.shaker.shakeCount == 1)
+            #expect(fixture.shaker.shakeCount == 0)
+            #expect(fixture.beepSpy.count == 1)
             #expect(controller.model.isPresented)
             #expect(controller.heldPanelSize == Self.draggedSize)
             #expect(controller.panel.frame.size == Self.draggedSize)

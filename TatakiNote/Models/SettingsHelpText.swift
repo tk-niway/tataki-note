@@ -13,6 +13,11 @@ enum SettingsHelpText {
     /// 「⌘Q で終了前に確認」の下の説明文。
     static let confirmQuit = String(localized: "メニューの「終了」と「TatakiNote を終了」では確認しません。")
 
+    /// 「アニメーション」の下の説明文。
+    static let animationMode = String(
+        localized: "TatakiNote の動きをまとめて切り替えます。「システム」は macOS の「視差効果を減らす」に従います。"
+    )
+
     /// 「履歴」の下の説明文。
     static func historyKept(limit: Int) -> String {
         String(localized: "最新 \(limit) 件までこの Mac に残ります。")

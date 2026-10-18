@@ -28,7 +28,7 @@ struct PanelOpenWithoutTargetTests {
         defer { defaults.remove() }
         let settings = defaults.makeSettings()
         settings.panelScreen = .mouse
-        settings.isPanelAnimationEnabled = false
+        settings.animationMode = .off
         let probe = PerAppProbeStub()
         probe.results[editor.processIdentifier] = FocusedElementProbe(
             element: MonitorFixture.fieldA,

@@ -143,25 +143,34 @@ final class DraftsSidebarUITests: PanelDraftsUITestCase {
         XCTAssertTrue(tab.waitForNonExistence(timeout: timeout), "⌘B でサイドバーが消えない")
     }
 
+    // AC-20
     @MainActor
-    func testSettingsButtonAndCommandCommaOpenSettings() throws {
-        let app = try launchApp()
+    func testAC20_settingsKeepsPanelAndReturnsInput() throws {
+        let app = try launchApp(seed: ["panelScreen": "main", "animationMode": "off"])
         let general = element(in: app, identifier: "settings.sidebar.general")
         let settings = app.windows.containing(.any, identifier: "settings.sidebar.general").firstMatch
+        let body = textView(in: app)
 
         _ = openPanel(in: app)
+        app.typeText("abc")
+        XCTAssertTrue(waitUntil { body.promptPanelText == "abc" }, "パネルに打てない")
         openSidebar(in: app)
         let button = app.buttons["sidebar.settingsButton"]
         XCTAssertTrue(button.waitForExistence(timeout: timeout))
         button.click()
         XCTAssertTrue(general.waitForExistence(timeout: timeout), "歯車のボタンで設定が開かない")
-        XCTAssertTrue(textView(in: app).waitForNonExistence(timeout: timeout), "設定を開いてもパネルが閉じない")
+        XCTAssertTrue(body.exists, "設定を開くとパネルが閉じる")
         settings.buttons[XCUIIdentifierCloseWindow].click()
         XCTAssertTrue(general.waitForNonExistence(timeout: timeout))
+        app.typeText("d")
+        XCTAssertTrue(waitUntil { body.promptPanelText == "abcd" }, "設定を閉じた後にパネルへ打てない")
 
-        _ = openPanel(in: app)
         pressCommand(",", in: app)
         XCTAssertTrue(general.waitForExistence(timeout: timeout), "⌘, で設定が開かない")
-        XCTAssertTrue(textView(in: app).waitForNonExistence(timeout: timeout), "⌘, でパネルが閉じない")
+        XCTAssertTrue(body.exists, "⌘, でパネルが閉じる")
+        settings.buttons[XCUIIdentifierCloseWindow].click()
+        XCTAssertTrue(general.waitForNonExistence(timeout: timeout))
+        app.typeText("e")
+        XCTAssertTrue(waitUntil { body.promptPanelText == "abcde" }, "⌘, で開いた設定を閉じた後にパネルへ打てない")
     }
 }

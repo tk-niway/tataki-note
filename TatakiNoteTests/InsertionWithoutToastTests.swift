@@ -25,7 +25,7 @@ struct InsertionWithoutToastTests {
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.panelScreen = .main
-        settings.isPanelAnimationEnabled = false
+        settings.animationMode = .off
         settings.commitKey = .commandShiftReturn
         settings.commitAndSendKey = .commandReturn
         let library = DraftLibrary(store: .inMemory)
@@ -47,6 +47,7 @@ struct InsertionWithoutToastTests {
             library: library,
             animator: FakePanelFrameAnimator(),
             shaker: PanelShakerSpy(),
+            beep: {},
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )
         controller.targetOverride = { Self.textEdit }

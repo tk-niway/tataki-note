@@ -94,6 +94,7 @@ struct PanelTargetMonitorWiringTests {
             fieldProbe: probe,
             exposeWebContent: { _ in log.record("expose") },
             ownProcessIdentifier: Self.ownPid,
+            beep: {},
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )
         controller.targetOverride = { target }

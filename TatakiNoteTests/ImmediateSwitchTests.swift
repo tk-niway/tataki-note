@@ -29,6 +29,7 @@ struct ImmediateSwitchTests {
                 permission: PermissionStub(isTrusted: true),
                 fieldProbe: probe,
                 library: library,
+                beep: {},
                 makeTargetMonitor: InsertionTargetMonitor.testFactory(
                     probe: probe,
                     ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier

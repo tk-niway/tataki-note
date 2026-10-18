@@ -11,6 +11,7 @@ struct GeneralSettingsView: View {
             SettingsGroup(title: "外観", identifier: "settings.group.appearance") {
                 SettingsCard {
                     themeRow
+                    animationRow
                 }
             }
             SettingsGroup(title: "起動とメニューバー", identifier: "settings.group.startup") {
@@ -42,6 +43,20 @@ struct GeneralSettingsView: View {
             .labelsHidden()
             .fixedSize()
             .accessibilityIdentifier("settings.themePicker")
+        }
+    }
+
+    private var animationRow: some View {
+        SettingsRow(title: "アニメーション", description: SettingsHelpText.animationMode) {
+            Picker("アニメーション", selection: $settings.animationMode) {
+                ForEach(AnimationMode.allCases, id: \.self) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            .accessibilityIdentifier("settings.animationModePicker")
         }
     }
 
@@ -117,7 +132,7 @@ struct GeneralSettingsView: View {
 private struct HistoryRow: View {
     let history: HistorySettingsModel
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isAppAnimationReduced) private var reduceMotion
     @State private var finishedSequence = 0
     @State private var displayedCount: Int?
 
@@ -238,7 +253,7 @@ private struct HistoryRow: View {
 private struct HistoryLimitRow: View {
     let history: HistorySettingsModel
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isAppAnimationReduced) private var reduceMotion
 
     var body: some View {
         SettingsRow {

@@ -20,6 +20,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let targetMonitor: InsertionTargetMonitor
     private let outlineController: InsertionTargetOutlineController
     private let shaker: PanelShaking
+    private let beep: () -> Void
 
     let session: DraftSession
     let sidebarModel: SidebarModel
@@ -62,7 +63,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         set { targetMonitor.isOwnTargetAvailable = newValue }
     }
 
-    /// サイドバーの歯車のボタンと ⌘, で、パネルを閉じた後に呼ぶ処理。
+    /// サイドバーの歯車のボタンと ⌘, で、設定を開く処理。
     var onOpenSettings: (() -> Void)?
 
     /// 確定で挿入することになったとき、パネルを閉じた後・挿入の前に、文章・挿入先・送信もするかを知らせる。
@@ -82,6 +83,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         saveAnimation: SaveAnimationModel = SaveAnimationModel(),
         animator: PanelFrameAnimating = AppKitPanelFrameAnimator(),
         shaker: PanelShaking = PanelShaker(),
+        beep: @escaping () -> Void = { NSSound.beep() },
         hideApplication: @escaping () -> Void = { NSApp.hide(nil) },
         makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil
     ) {
@@ -91,6 +93,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.settings = settings
         self.animator = animator
         self.shaker = shaker
+        self.beep = beep
         self.hideApplication = hideApplication
         self.targetTracker = targetTracker
         self.permission = permission
@@ -156,7 +159,17 @@ final class PanelController: NSObject, NSWindowDelegate {
         observeBodyFocusRequests()
         observeSaveEvents()
         observeArchivedScratch()
-        targetMonitor.onFieldAdopted = { [weak self] in self?.returnInputToPanel() }
+        targetMonitor.onFieldAdopted = { [weak self] in self?.handleFieldAdopted() }
+    }
+
+    /// 他のアプリの入力欄をクリックして挿入先が移ったときに、キー入力をパネルへ戻すか。インサートの書きかけだけ戻す。
+    static func shouldReturnInputAfterFieldAdopted(mode: DraftMode) -> Bool {
+        mode == .insert
+    }
+
+    private func handleFieldAdopted() {
+        guard Self.shouldReturnInputAfterFieldAdopted(mode: session.mode) else { return }
+        returnInputToPanel()
     }
 
     /// 挿入先の入力欄の位置を読み、枠線の矩形を計算し続けるか。書きかけのモードには関わらない。
@@ -199,7 +212,10 @@ final class PanelController: NSObject, NSWindowDelegate {
         )
         let animation = saveAnimation
         let showsToast = event.showsToast
-        Task { await animation.play(text: text, destination: destination, showsToast: showsToast) }
+        let isAnimated = settings.isAnimationEnabled
+        Task {
+            await animation.play(text: text, destination: destination, showsToast: showsToast, isAnimated: isAnimated)
+        }
     }
 
     private func observeArchivedScratch() {
@@ -359,7 +375,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// ⌘H を受け取る。アニメーションがオンで開いているときは閉じる動きのあとにアプリを隠して true を返す。
     func handleHideKey() -> Bool {
-        guard settings.isPanelAnimationEnabled,
+        guard settings.isAnimationEnabled,
               motion.phase == .opening || motion.phase == .shown else { return false }
         prepareToClose()
         hidePanel(then: { [weak self] in self?.hideApplication() })
@@ -377,10 +393,16 @@ final class PanelController: NSObject, NSWindowDelegate {
         saveAnimation.cancel()
     }
 
-    private func shakePanel() {
+    private func signalEmptyInput() {
         finishSidebarSlide()
-        guard PanelShake.canStart(motionPhase: motion.phase) else { return }
-        shaker.shake(panel)
+        switch PanelShake.emptyInputFeedback(motionPhase: motion.phase, isAnimationEnabled: settings.isAnimationEnabled) {
+        case .shake:
+            shaker.shake(panel)
+        case .beep:
+            beep()
+        case .none:
+            break
+        }
     }
 
     func toggle() {
@@ -426,7 +448,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             if session.isSaveAvailable {
                 session.saveCurrent()
             } else {
-                shakePanel()
+                signalEmptyInput()
             }
             return true
         case .newDraft:
@@ -473,7 +495,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         if session.isSaveAvailable {
             session.saveCurrent()
         } else {
-            shakePanel()
+            signalEmptyInput()
         }
         model.requestFocus()
     }
@@ -490,10 +512,15 @@ final class PanelController: NSObject, NSWindowDelegate {
         commit(shouldSendAfterInsert: shouldSendAfterInsert)
     }
 
-    /// サイドバーの歯車のボタンと ⌘,。パネルを閉じて(書いた文章は残る)、設定を開く処理を呼ぶ。
+    /// サイドバーの歯車のボタンと ⌘,。変換中の文字を確定し、パネルを開いたまま設定を開く処理を呼ぶ。
     func openSettings() {
-        closeFromButton()
+        Self.commitMarkedText(in: panel)
         onOpenSettings?()
+    }
+
+    /// 設定ウィンドウが閉じたときに呼ぶ。パネルが開いていれば、キー入力をパネルへ戻す。
+    func settingsWindowDidClose() {
+        returnInputToPanel()
     }
 
     /// タイトルバーのサイドバーの開閉ボタン。
@@ -543,7 +570,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             applyMinimumSize()
             return
         }
-        if settings.isPanelAnimationEnabled, motion.phase == .shown {
+        if settings.isAnimationEnabled, motion.phase == .shown {
             slideSidebar(open: isOpen)
             return
         }
@@ -642,7 +669,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
         if plan == .noTarget { return }
         if plan == .emptyText {
-            shakePanel()
+            signalEmptyInput()
             return
         }
         stopPanelEffects()
@@ -684,7 +711,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     // MARK: - 開閉の動き
 
     private func present(at restFrame: NSRect) {
-        guard settings.isPanelAnimationEnabled else {
+        guard settings.isAnimationEnabled else {
             endMotion()
             panel.makeKeyAndOrderFront(nil)
             motion.showWithoutMotion()
@@ -705,7 +732,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private func hidePanel(then completion: (() -> Void)? = nil) {
         finishSidebarSlide()
-        guard settings.isPanelAnimationEnabled, motion.phase != .hidden else {
+        guard settings.isAnimationEnabled, motion.phase != .hidden else {
             hideWithoutMotion()
             completion?()
             return

@@ -61,6 +61,7 @@ struct PanelToastTests {
         let defaultsName = UUID().uuidString
         let recorder: SleepRecorder
         let library = DraftLibrary(store: .inMemory)
+        let animator = FakePanelFrameAnimator()
         let controller: PanelController
 
         init(isHolding: Bool, isOpen: Bool = true) throws {
@@ -68,7 +69,7 @@ struct PanelToastTests {
             let defaults = try #require(UserDefaults(suiteName: defaultsName))
             let settings = AppSettings(store: SettingsStore(defaults: defaults))
             settings.panelScreen = .main
-            settings.isPanelAnimationEnabled = false
+            settings.animationMode = .on
             settings.isSidebarOpen = false
             let probe = FocusedElementProbeStub()
             controller = PanelController(
@@ -81,6 +82,8 @@ struct PanelToastTests {
                 ownProcessIdentifier: PanelToastTests.ownPid,
                 library: library,
                 saveAnimation: recorder.model,
+                animator: animator,
+                beep: {},
                 makeTargetMonitor: InsertionTargetMonitor.testFactory(
                     probe: probe,
                     ownProcessIdentifier: PanelToastTests.ownPid
@@ -91,6 +94,9 @@ struct PanelToastTests {
             }
             if isOpen {
                 controller.open()
+                for index in animator.calls.indices {
+                    animator.finish(index)
+                }
             }
         }
 

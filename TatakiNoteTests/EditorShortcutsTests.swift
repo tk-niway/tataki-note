@@ -36,6 +36,14 @@ struct EditorShortcutsTests {
         #expect(EditorShortcuts.all.allSatisfy { !["⌘K", "⌘S", "⌘N", "⌘E", "⌘B", "⌘,"].contains($0.keys) })
     }
 
+    @Test("AC-18: ⌘, の説明は「設定を開く」で、パネルを閉じるとは書かない")
+    func openSettingsShortcutDoesNotMentionClosingPanel() throws {
+        let shortcut = try #require(EditorShortcuts.panelCommands.first { $0.id == "openSettings" })
+
+        #expect(shortcut.action == "設定を開く")
+        #expect(!shortcut.action.contains("閉じる"))
+    }
+
     @Test("AC-12: パネルの中で使えるキーは「行の操作」「コピーと貼り付け」「下書き」「表示」の4つに分かれ、「下書き」に ⌘E が入り、一覧の13行がちょうど1回ずつ、今のキーと文言のまま入る")
     func groupsCoverEveryShortcutExactlyOnce() {
         let groups = EditorShortcuts.groups

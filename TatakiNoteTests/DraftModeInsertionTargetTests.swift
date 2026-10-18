@@ -51,7 +51,7 @@ private struct InsertionTargetFixture {
         settings.panelScreen = panelScreen
         settings.newDraftMode = newDraftMode
         settings.isInsertionTargetOutlineShown = isOutlineShown
-        settings.isPanelAnimationEnabled = false
+        settings.animationMode = .off
         let probe = PerAppProbeStub()
         probe.results[Self.editor.processIdentifier] = FocusedElementProbe(
             element: Self.editorElement,
@@ -74,6 +74,7 @@ private struct InsertionTargetFixture {
             locateTargetWindowFrame: { locator.locate($0) },
             ownProcessIdentifier: Self.ownPid,
             animator: FakePanelFrameAnimator(),
+            beep: {},
             makeTargetMonitor: { model in
                 let monitor = InsertionTargetMonitor(
                     panelModel: model,

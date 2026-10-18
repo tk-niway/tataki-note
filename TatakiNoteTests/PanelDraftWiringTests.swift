@@ -43,6 +43,7 @@ struct PanelDraftWiringTests {
                 permission: PermissionStub(isTrusted: isTrusted),
                 fieldProbe: probe,
                 library: library,
+                beep: {},
                 makeTargetMonitor: InsertionTargetMonitor.testFactory(
                     probe: probe,
                     ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier
@@ -157,14 +158,16 @@ struct PanelDraftWiringTests {
         #expect(!fixture.settings.isSidebarOpen)
     }
 
-    @Test("サイドバーの歯車のボタンと ⌘, は、書いた文章を残してパネルを閉じてから設定を開く処理を呼ぶ", arguments: [false, true])
-    func settingsButtonAndKeyClosePanelThenOpenSettings(byKey: Bool) throws {
+    @Test("AC-18: サイドバーの歯車のボタンと ⌘, は、パネルを開いたまま文章をそのままにして、設定を開く処理を1回呼ぶ", arguments: [false, true])
+    func settingsButtonAndKeyOpenSettingsKeepingPanel(byKey: Bool) throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
         fixture.model.present(target: nil)
         fixture.model.text = "typed"
+        var openCount = 0
         var wasPresentedWhenOpening: Bool?
         fixture.controller.onOpenSettings = { [model = fixture.model] in
+            openCount += 1
             wasPresentedWhenOpening = model.isPresented
         }
 
@@ -175,9 +178,66 @@ struct PanelDraftWiringTests {
             fixture.controller.openSettings()
         }
 
-        #expect(wasPresentedWhenOpening == false)
-        #expect(!fixture.model.isPresented)
+        #expect(openCount == 1)
+        #expect(wasPresentedWhenOpening == true)
+        #expect(fixture.model.isPresented)
         #expect(fixture.model.text == "typed")
+        #expect(fixture.library.drafts.isEmpty)
+    }
+
+    @Test("AC-18: 変換中の文字があるとき、設定を開く処理を呼ぶ前に確定される", arguments: [false, true])
+    func openingSettingsCommitsMarkedTextFirst(byKey: Bool) throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        fixture.model.present(target: nil)
+        fixture.model.text = "abc"
+        let textView = try fixture.attachEditor()
+        Self.settle(fixture.controller) { textView.string == "abc" }
+        markText("にほんご", in: textView)
+        #expect(textView.hasMarkedText())
+        var textWhenOpening: String?
+        var hadMarkedTextWhenOpening: Bool?
+        fixture.controller.onOpenSettings = { [model = fixture.model] in
+            textWhenOpening = model.text
+            hadMarkedTextWhenOpening = textView.hasMarkedText()
+        }
+
+        if byKey {
+            let onKeyEquivalent = try #require(fixture.controller.panel.onKeyEquivalent)
+            #expect(onKeyEquivalent(Self.key(",", keyCode: 43, modifiers: [.command])))
+        } else {
+            fixture.controller.openSettings()
+        }
+
+        #expect(hadMarkedTextWhenOpening == false)
+        #expect(textWhenOpening == "abcにほんご")
+        #expect(fixture.model.isPresented)
+        #expect(fixture.model.text == "abcにほんご")
+    }
+
+    @Test("AC-19: パネルが開いているときに設定ウィンドウが閉じたと知らされると、フォーカスの要求が1回増える")
+    func settingsWindowDidCloseReturnsInputWhenPresented() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        fixture.model.present(target: nil)
+        let before = fixture.model.focusRequest
+
+        fixture.controller.settingsWindowDidClose()
+
+        #expect(fixture.model.focusRequest == before + 1)
+        #expect(fixture.model.isPresented)
+    }
+
+    @Test("AC-19: パネルが閉じているときに設定ウィンドウが閉じたと知らされても、何も起きず開きもしない")
+    func settingsWindowDidCloseDoesNothingWhenClosed() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let before = fixture.model.focusRequest
+
+        fixture.controller.settingsWindowDidClose()
+
+        #expect(fixture.model.focusRequest == before)
+        #expect(!fixture.model.isPresented)
     }
 
     @Test("AC-33: 開閉ボタンで閉じるときと保存のアイコンを押したときは、本文へフォーカスを戻す")
@@ -236,7 +296,7 @@ struct PanelDraftWiringTests {
         defer { fixture.cleanup() }
         let draft = try fixture.addDraft("one")
         fixture.settings.panelScreen = .main
-        fixture.settings.isPanelAnimationEnabled = false
+        fixture.settings.animationMode = .off
         fixture.probe.result = FocusedElementProbe(
             element: AXUIElementCreateApplication(pid_t.max),
             lookup: WatcherFixture.textFieldLookup,

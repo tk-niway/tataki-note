@@ -7,7 +7,6 @@ enum ScratchArchiveCloseWay: CaseIterable, Sendable {
     case escape
     case closeImmediately
     case hideKey
-    case openSettings
     case commitWithoutPermission
 }
 
@@ -86,7 +85,7 @@ struct ScratchArchiveTests {
             settings.panelScreen = .main
             settings.panelDefaultWidth = 600
             settings.panelDefaultHeight = 400
-            settings.isPanelAnimationEnabled = isAnimationEnabled
+            settings.animationMode = isAnimationEnabled ? .on : .off
             let library = DraftLibrary(store: DraftLibraryStore(directory: directory))
             let probe = FocusedElementProbeStub()
             self.directory = directory
@@ -100,6 +99,7 @@ struct ScratchArchiveTests {
                 fieldProbe: probe,
                 library: library,
                 animator: animator,
+                beep: {},
                 hideApplication: {},
                 makeTargetMonitor: InsertionTargetMonitor.testFactory(
                     probe: probe,
@@ -278,8 +278,6 @@ struct ScratchArchiveTests {
             fixture.controller.closeImmediately()
         case .hideKey:
             #expect(fixture.controller.handleHideKey())
-        case .openSettings:
-            fixture.controller.openSettings()
         case .commitWithoutPermission:
             fixture.controller.commit()
         }

@@ -6,6 +6,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     let model = SettingsWindowModel()
     let history: HistorySettingsModel
 
+    /// 設定ウィンドウが閉じた後に呼ぶ処理。
+    var onDidClose: (() -> Void)?
+
     private let settings: AppSettings
     private let launchAtLogin: LaunchAtLoginModel
     private let appInfo: AppInfoModel
@@ -60,6 +63,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         model.prepareForOpen()
         history.resetPhase()
         fontPanel.close()
+        DispatchQueue.main.async { [weak self] in
+            self?.onDidClose?()
+        }
     }
 
     private func makeWindow() -> NSWindow {

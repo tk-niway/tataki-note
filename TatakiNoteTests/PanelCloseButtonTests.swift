@@ -22,6 +22,7 @@ struct PanelCloseButtonTests {
             inserter: InserterStub(result: .inserted),
             permission: PermissionStub(isTrusted: true),
             fieldProbe: probe,
+            beep: {},
             makeTargetMonitor: InsertionTargetMonitor.testFactory(
                 probe: probe,
                 ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier

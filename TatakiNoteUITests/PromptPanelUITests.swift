@@ -54,7 +54,7 @@ final class PromptPanelUITests: XCTestCase {
 
     @MainActor
     func testAC1_AC2_AC3_AC5_AC9_AC14_AC17_panelScenario() throws {
-        let app = makeApp(seed: ["panelAnimationEnabled": false])
+        let app = makeApp(seed: ["animationMode": "off"])
         app.launch()
 
         // AC-9
