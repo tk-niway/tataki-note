@@ -272,6 +272,17 @@ struct SidebarView: View {
             model.show(row.id)
         }
         .contextMenu {
+            Button("ファイルに書き出す") {
+                model.requestExport(row.id)
+            }
+            .disabled(!model.canExport(row.id))
+            .accessibilityIdentifier("sidebar.row.exportMenuItem")
+            Button("共有") {
+                model.requestShare(row.id)
+            }
+            .disabled(!model.canExport(row.id))
+            .accessibilityIdentifier("sidebar.row.shareMenuItem")
+            Divider()
             Button("削除") {
                 model.requestDelete(row.id)
             }

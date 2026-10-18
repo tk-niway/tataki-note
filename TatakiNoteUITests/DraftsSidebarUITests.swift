@@ -37,6 +37,45 @@ final class DraftsSidebarUITests: PanelDraftsUITestCase {
         )
     }
 
+    // AC-19
+    @MainActor
+    func testAC19_rowContextMenuOpensSavePanel() throws {
+        let app = try launchApp(seed: ["animationMode": "off"])
+        _ = openPanel(in: app)
+        let body = textView(in: app)
+        app.typeText("abc")
+        XCTAssertTrue(waitUntil { body.promptPanelText == "abc" }, "パネルに打てない")
+        let saveButton = app.buttons["promptPanel.saveDraftButton"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: timeout))
+        saveButton.click()
+
+        openSidebar(in: app)
+        let draftRow = row(in: app, containing: "abc")
+        XCTAssertTrue(draftRow.waitForExistence(timeout: timeout), "保存した下書きの行が出ない")
+        draftRow.rightClick()
+
+        let byIdentifier = app.menuItems["sidebar.row.exportMenuItem"]
+        let item = byIdentifier.waitForExistence(timeout: timeout) ? byIdentifier : app.menuItems["ファイルに書き出す"]
+        XCTAssertTrue(item.waitForExistence(timeout: timeout), "右クリックのメニューに「ファイルに書き出す」が無い")
+        item.click()
+
+        let savePanel = element(in: app, identifier: "export.savePanel")
+        XCTAssertTrue(savePanel.waitForExistence(timeout: timeout), "保存ダイアログが開かない")
+
+        var cancel = savePanel.buttons["キャンセル"]
+        if !cancel.exists {
+            cancel = savePanel.buttons["Cancel"]
+        }
+        if cancel.exists {
+            cancel.click()
+        } else {
+            app.typeKey(XCUIKeyboardKey.escape, modifierFlags: [])
+        }
+        XCTAssertTrue(savePanel.waitForNonExistence(timeout: timeout), "キャンセルしても保存ダイアログが閉じない")
+        XCTAssertTrue(body.exists, "保存ダイアログを閉じるとパネルが閉じる")
+        XCTAssertEqual(body.promptPanelText, "abc", "本文が変わった")
+    }
+
     // AC-40
     @MainActor
     func testAC40_typingContinuesDuringSaveAnimation() throws {

@@ -67,6 +67,12 @@ struct SidebarRow: Equatable, Identifiable {
     /// 一覧の esc で呼ぶ、パネルを閉じる処理。
     @ObservationIgnored var closePanel: () -> Void = {}
 
+    /// 行の文章を書き出す処理。
+    @ObservationIgnored var exportText: (String) -> Void = { _ in }
+
+    /// 行の文章を共有する処理。
+    @ObservationIgnored var shareText: (String) -> Void = { _ in }
+
     @ObservationIgnored private var handledSearchFocusRequest = 0
     @ObservationIgnored private var handledListFocusRequest = 0
 
@@ -304,6 +310,34 @@ struct SidebarRow: Equatable, Identifiable {
     func deleteSelection() {
         guard let id = selection else { return }
         requestDelete(id)
+    }
+
+    // MARK: - 書き出しと共有
+
+    /// 行の文章。行が無ければ `nil`。
+    func text(of id: UUID) -> String? {
+        if let draft = library.draft(id: id) {
+            return draft.text
+        }
+        return library.history.first { $0.id == id }?.text
+    }
+
+    /// 行の文章を書き出し・共有できるか。文章が空・空白だけなら `false`。
+    func canExport(_ id: UUID) -> Bool {
+        guard let text = text(of: id) else { return false }
+        return !ExportableText.isEmpty(text)
+    }
+
+    /// 行の文章を書き出す。書き出せない行では何もしない。
+    func requestExport(_ id: UUID) {
+        guard canExport(id), let text = text(of: id) else { return }
+        exportText(text)
+    }
+
+    /// 行の文章を共有する。共有できない行では何もしない。
+    func requestShare(_ id: UUID) {
+        guard canExport(id), let text = text(of: id) else { return }
+        shareText(text)
     }
 
     // MARK: - キー

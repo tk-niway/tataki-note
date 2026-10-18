@@ -261,6 +261,8 @@ final class PanelController: NSObject, NSWindowDelegate {
             }
         }
         sidebarModel.closePanel = { [weak self] in self?.close() }
+        sidebarModel.exportText = { [weak self] in self?.exportText($0) }
+        sidebarModel.shareText = { [weak self] in self?.sharer.share($0, from: .pointer) }
     }
 
     private func observeBodyFocusRequests() {
