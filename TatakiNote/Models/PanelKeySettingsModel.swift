@@ -60,7 +60,7 @@ struct RecorderFeedback: Equatable {
         self.lastAcceptedHotkey = hotkey()
     }
 
-    /// 「パネルを開く・閉じる」の記録ボックスの変更を受け、⌘K・⌘S・⌘N・⌘E・⌘B・⌘, なら直前のキーに戻して理由を出す。
+    /// 「パネルを開く・閉じる」の記録ボックスの変更を受け、⌘K・⌘S・⌘N・⌘E・⌘B・⌘,・⇧⌘S なら直前のキーに戻して理由を出す。
     func hotkeyDidChange(to shortcut: PanelShortcut?) {
         guard shortcut != lastAcceptedHotkey else { return }
         if let shortcut, ReservedPanelKeys.isReserved(shortcut) {

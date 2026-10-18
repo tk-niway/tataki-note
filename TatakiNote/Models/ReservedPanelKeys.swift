@@ -1,17 +1,43 @@
 import AppKit
 
-/// パネルの検索・保存・新規・モードの切り替え・サイドバーの開閉・設定に使う ⌘K・⌘S・⌘N・⌘E・⌘B・⌘,。
+/// パネルの検索・保存・新規・モードの切り替え・サイドバーの開閉・設定・ファイルへの書き出しに使う ⌘K・⌘S・⌘N・⌘E・⌘B・⌘,・⇧⌘S。
 enum ReservedPanelKeys {
-    static let characters: [String] = ["k", "s", "n", "e", "b", ","]
+    /// 予約のキーの修飾キーと文字の組。
+    static let keys: [EditorKeyEquivalent] = [
+        EditorKeyEquivalent(modifiers: [.command], character: "k"),
+        EditorKeyEquivalent(modifiers: [.command], character: "s"),
+        EditorKeyEquivalent(modifiers: [.command], character: "n"),
+        EditorKeyEquivalent(modifiers: [.command], character: "e"),
+        EditorKeyEquivalent(modifiers: [.command], character: "b"),
+        EditorKeyEquivalent(modifiers: [.command], character: ","),
+        EditorKeyEquivalent(modifiers: [.command, .shift], character: "s"),
+    ]
 
-    /// 記録で押されたキーが ⌘K・⌘S・⌘N・⌘E・⌘B・⌘, のどれかを返す。
-    static func isReserved(_ candidate: PanelShortcutCandidate) -> Bool {
-        candidate.shortcut.modifiers == [.command] && characters.contains(candidate.characters.lowercased())
+    /// 修飾キーが ⌘ だけの予約のキーの文字。
+    static var characters: [String] {
+        keys.filter { $0.modifiers == [.command] }.map(\.character)
     }
 
-    /// 保存値のキーが、今のキー配列で ⌘K・⌘S・⌘N・⌘E・⌘B・⌘, に当たるかを返す。
+    /// 押されたキー(修飾キーは `PanelShortcut.relevantModifiers` に絞ったもの、文字は小文字)が予約のキーかを返す。
+    static func contains(modifiers: NSEvent.ModifierFlags, character: String) -> Bool {
+        let relevant = modifiers.intersection(PanelShortcut.relevantModifiers)
+        return keys.contains { $0.modifiers == relevant && $0.character == character }
+    }
+
+    /// 記録で押されたキーが予約のキーかを返す。
+    static func isReserved(_ candidate: PanelShortcutCandidate) -> Bool {
+        contains(modifiers: candidate.shortcut.modifiers, character: candidate.characters.lowercased())
+    }
+
+    /// 保存値のキーが、今のキー配列で予約のキーに当たるかを返す。
     static func isReserved(_ shortcut: PanelShortcut) -> Bool {
-        shortcut.modifiers == [.command] && characters.map { "⌘" + $0.uppercased() }.contains(shortcut.displayText)
+        keys.contains { key in
+            key.modifiers == shortcut.modifiers && displayText(of: key) == shortcut.displayText
+        }
+    }
+
+    private static func displayText(of key: EditorKeyEquivalent) -> String {
+        (key.modifiers.contains(.shift) ? "⇧" : "") + "⌘" + key.character.uppercased()
     }
 
     struct Migration: Equatable {

@@ -258,16 +258,20 @@ struct PanelKeySettingsModelTests {
         #expect(model.displayText(for: .commit) == valueBefore)
     }
 
-    @Test("AC-10: 「パネルを開く・閉じる」で ⌘K・⌘S・⌘N・⌘E・⌘B・⌘, を押すと直前のキーに戻り、理由が出る")
+    @Test("AC-13: 「パネルを開く・閉じる」で ⌘K・⌘S・⌘N・⌘E・⌘B・⌘,・⇧⌘S を押すと直前のキーに戻り、理由が出る")
     func reservedHotkeyIsRevertedWithMessage() throws {
         let (settings, defaults, name) = try makeSettings()
         defer { defaults.removePersistentDomain(forName: name) }
         let previous = PanelShortcut(keyCode: 49, modifiers: [.option, .shift])
 
-        for (keyCode, label) in [(UInt16(40), "⌘K"), (UInt16(1), "⌘S"), (UInt16(45), "⌘N"), (UInt16(14), "⌘E"), (UInt16(11), "⌘B"), (UInt16(43), "⌘,")] {
+        let reservedKeys: [(UInt16, NSEvent.ModifierFlags, String)] = [
+            (40, [.command], "⌘K"), (1, [.command], "⌘S"), (45, [.command], "⌘N"), (14, [.command], "⌘E"),
+            (11, [.command], "⌘B"), (43, [.command], "⌘,"), (1, [.command, .shift], "⇧⌘S"),
+        ]
+        for (keyCode, modifiers, label) in reservedKeys {
             let controller = FakeHotkeyController(hotkey: previous)
             let model = makeModel(settings: settings, controller: controller)
-            let reserved = PanelShortcut(keyCode: keyCode, modifiers: [.command])
+            let reserved = PanelShortcut(keyCode: keyCode, modifiers: modifiers)
 
             controller.hotkey = reserved
             model.hotkeyDidChange(to: reserved)
@@ -584,7 +588,7 @@ struct PanelKeySettingsModelTests {
         #expect(controller.resumeCount == 1)
     }
 
-    @Test("AC-10: ホットキーに ⌘E を記録すると直前のキーに戻り、理由は「⌘E はパネルの検索・…(⌘K・⌘S・⌘N・⌘E・⌘B・⌘,)で使っているため、登録できません。」")
+    @Test("AC-13: ホットキーに ⌘E を記録すると直前のキーに戻り、理由は「⌘E はパネルの検索・…・ファイルへの書き出しの操作(⌘K・⌘S・⌘N・⌘E・⌘B・⌘,・⇧⌘S)で使っているため、登録できません。」")
     func commandEHotkeyIsRejectedWithFullMessage() throws {
         let (settings, defaults, name) = try makeSettings()
         defer { defaults.removePersistentDomain(forName: name) }
@@ -599,7 +603,26 @@ struct PanelKeySettingsModelTests {
         #expect(controller.hotkey == previous)
         #expect(
             model.hotkeyRejectionMessage
-                == "⌘E はパネルの検索・下書きの保存・新しい書きかけ・モードの切り替え・サイドバーの開閉・設定を開く操作(⌘K・⌘S・⌘N・⌘E・⌘B・⌘,)で使っているため、登録できません。"
+                == "⌘E はパネルの検索・下書きの保存・新しい書きかけ・モードの切り替え・サイドバーの開閉・設定を開く・ファイルへの書き出しの操作(⌘K・⌘S・⌘N・⌘E・⌘B・⌘,・⇧⌘S)で使っているため、登録できません。"
+        )
+    }
+
+    @Test("AC-13: ホットキーに ⇧⌘S を記録すると直前のキーに戻り、理由に「⇧⌘S」とファイルへの書き出しが入る")
+    func shiftCommandSHotkeyIsRejectedWithFullMessage() throws {
+        let (settings, defaults, name) = try makeSettings()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let previous = PanelShortcut(keyCode: 49, modifiers: [.option, .shift])
+        let controller = FakeHotkeyController(hotkey: previous)
+        let model = makeModel(settings: settings, controller: controller)
+        let shiftCommandS = PanelShortcut(keyCode: 1, modifiers: [.command, .shift])
+
+        controller.hotkey = shiftCommandS
+        model.hotkeyDidChange(to: shiftCommandS)
+
+        #expect(controller.hotkey == previous)
+        #expect(
+            model.hotkeyRejectionMessage
+                == "⇧⌘S はパネルの検索・下書きの保存・新しい書きかけ・モードの切り替え・サイドバーの開閉・設定を開く・ファイルへの書き出しの操作(⌘K・⌘S・⌘N・⌘E・⌘B・⌘,・⇧⌘S)で使っているため、登録できません。"
         )
     }
 

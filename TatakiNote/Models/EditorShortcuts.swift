@@ -29,6 +29,7 @@ enum EditorShortcuts {
         EditorShortcut(id: "toggleMode", keys: "⌘E", action: String(localized: "インサートとノートを切り替える")),
         EditorShortcut(id: "toggleSidebar", keys: "⌘B", action: String(localized: "サイドバーを開く・閉じる")),
         EditorShortcut(id: "openSettings", keys: "⌘,", action: String(localized: "設定を開く")),
+        EditorShortcut(id: "exportToFile", keys: "⇧⌘S", action: String(localized: "ファイルに書き出す")),
     ]
 
     /// 「行の操作」「コピーと貼り付け」「下書き」「表示」の4つの分類。
@@ -46,7 +47,7 @@ enum EditorShortcuts {
         EditorShortcutGroup(
             id: "drafts",
             title: String(localized: "下書き"),
-            shortcuts: shortcuts(withIDs: ["saveDraft", "newDraft", "toggleMode", "searchDrafts"])
+            shortcuts: shortcuts(withIDs: ["saveDraft", "exportToFile", "newDraft", "toggleMode", "searchDrafts"])
         ),
         EditorShortcutGroup(
             id: "view",
