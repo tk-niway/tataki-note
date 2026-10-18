@@ -14,6 +14,11 @@ struct InsertionTargetBadge: Equatable {
         target.map { InsertionTargetBadge(target: $0) }
     }
 
+    /// 「挿入先なし」の合図で、横にずらす量を順に並べたもの。動きを使わないときはすべて 0。
+    static func noTargetShakeOffsets(isAnimationEnabled: Bool) -> [CGFloat] {
+        isAnimationEnabled ? [-4, 4, -4, 4, -2, 0] : [0, 0, 0, 0, 0, 0]
+    }
+
     /// アイコンにマウスを乗せたときのチップの文。
     var tipText: String {
         if let name = appName {

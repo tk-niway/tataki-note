@@ -102,17 +102,19 @@ struct PanelMotionControllerTests {
 
     private func withFixture(
         animationEnabled: Bool = true,
+        animationMode: AnimationMode? = nil,
+        reducesMotion: @escaping () -> Bool = { false },
         completesPendingOnJump: Bool = false,
         _ body: (Fixture) async throws -> Void
     ) async throws {
         let suiteName = UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
-        let settings = AppSettings(store: SettingsStore(defaults: defaults))
+        let settings = AppSettings(store: SettingsStore(defaults: defaults), reducesMotion: reducesMotion)
         settings.panelScreen = .main
         settings.panelDefaultWidth = 600
         settings.panelDefaultHeight = 400
-        settings.isPanelAnimationEnabled = animationEnabled
+        settings.animationMode = animationMode ?? (animationEnabled ? .on : .off)
         let animator = FakePanelFrameAnimator()
         animator.completesPendingOnJump = completesPendingOnJump
         let inserter = InserterStub(result: .inserted)
@@ -127,6 +129,7 @@ struct PanelMotionControllerTests {
             exposeWebContent: { _ in },
             ownProcessIdentifier: Self.ownPid,
             animator: animator,
+            beep: {},
             hideApplication: { hides.record() },
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )
@@ -508,7 +511,7 @@ struct PanelMotionControllerTests {
             controller.toggle()
             #expect(fixture.animator.calls.count == 2)
             #expect(panel.isVisible == false)
-            fixture.settings.isPanelAnimationEnabled = false
+            fixture.settings.animationMode = .off
 
             controller.toggle()
 
@@ -534,7 +537,7 @@ struct PanelMotionControllerTests {
             let panel = controller.panel
             controller.toggle()
             let destination = fixture.animator.calls[0].frame
-            fixture.settings.isPanelAnimationEnabled = false
+            fixture.settings.animationMode = .off
 
             controller.toggle()
 
@@ -998,6 +1001,65 @@ struct PanelMotionControllerTests {
             #expect(panel.frame.width == bodyFrame.width + SidebarLayout.width)
             #expect(controller.sidebarModel.isOpen)
             #expect(controller.sidebarModel.slidingBodyWidth == nil)
+        }
+    }
+
+    // MARK: - 「アニメーション」の設定
+
+    @Test("AC-7: 動きを使わない設定(オフ、システムで視差効果を減らす)では、開閉・サイドバー・⌘H のどれでも動きを始めずにすぐ出入りする")
+    func motionIsNotStartedWhenAnimationIsNotUsed() async throws {
+        let cases: [(mode: AnimationMode, reducesMotion: Bool)] = [(.off, false), (.off, true), (.system, true)]
+        for item in cases {
+            try await withFixture(animationMode: item.mode, reducesMotion: { item.reducesMotion }) { fixture in
+                let controller = fixture.controller
+                let panel = controller.panel
+
+                controller.open()
+                #expect(panel.isVisible)
+                #expect(panel.canBecomeKey)
+
+                let bodyFrame = panel.frame
+                controller.setSidebarOpen(true)
+                #expect(panel.frame.width == bodyFrame.width + SidebarLayout.width)
+                controller.setSidebarOpen(false)
+                #expect(panel.frame.width == bodyFrame.width)
+
+                let handled = panel.performKeyEquivalent(with: try commandH(in: panel))
+                #expect(handled == false)
+                #expect(controller.handleHideKey() == false)
+                #expect(panel.isVisible)
+
+                controller.close()
+                #expect(panel.isVisible == false)
+                #expect(controller.model.isPresented == false)
+                #expect(fixture.animator.calls.isEmpty)
+                #expect(fixture.hides.count == 0)
+            }
+        }
+    }
+
+    @Test("AC-7: システムで視差効果を減らしていないときは動く")
+    func motionStartsWhenSystemDoesNotReduceMotion() async throws {
+        try await withFixture(animationMode: .system, reducesMotion: { false }) { fixture in
+            fixture.controller.open()
+
+            #expect(fixture.animator.calls.count == 1)
+        }
+    }
+
+    @Test("AC-7: オンで開いた後にオフにすると、次の閉じるから動かずにすぐ隠れる")
+    func switchingOffAfterOpeningStopsNextClose() async throws {
+        try await withFixture { fixture in
+            let controller = fixture.controller
+            openAndSettle(fixture)
+            #expect(fixture.animator.calls.count == 1)
+
+            fixture.settings.animationMode = .off
+            controller.close()
+
+            #expect(fixture.animator.calls.count == 1)
+            #expect(controller.panel.isVisible == false)
+            #expect(controller.model.isPresented == false)
         }
     }
 }

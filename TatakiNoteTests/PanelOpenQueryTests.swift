@@ -66,6 +66,7 @@ struct PanelOpenQueryTests {
             exposeWebContent: { _ in },
             locateTargetWindowFrame: { recorder.locate($0) },
             ownProcessIdentifier: Self.ownPid,
+            beep: {},
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: fieldProbe, ownProcessIdentifier: Self.ownPid)
         )
         controller.targetOverride = { target }

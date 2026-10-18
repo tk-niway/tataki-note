@@ -7,8 +7,6 @@ struct SettingsSidebar: View {
     @Bindable var model: SettingsWindowModel
     let onQuit: () -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(spacing: 2) {
@@ -35,13 +33,7 @@ struct SettingsSidebar: View {
 
     private func select(_ section: SettingsSection) {
         guard section != model.selectedSection else { return }
-        if reduceMotion {
-            model.selectedSection = section
-        } else {
-            withAnimation(.easeOut(duration: 0.3)) {
-                model.selectedSection = section
-            }
-        }
+        model.selectedSection = section
     }
 }
 

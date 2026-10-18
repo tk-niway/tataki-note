@@ -189,7 +189,7 @@ final class PanelSizeUITests: XCTestCase {
         return app
     }
 
-    private let baseSeed: [String: Any] = ["panelAnimationEnabled": false]
+    private let baseSeed: [String: Any] = ["animationMode": "off"]
 
     private func settingsSeedJSON(_ values: [String: Any]) -> String {
         let data = (try? JSONSerialization.data(withJSONObject: values, options: [.sortedKeys])) ?? Data()

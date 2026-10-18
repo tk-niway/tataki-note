@@ -13,23 +13,31 @@ final class PanelAnimationUITests: XCTestCase {
         UserDefaults(suiteName: settingsSuiteName)?.removePersistentDomain(forName: settingsSuiteName)
     }
 
-    // AC-3
+    // AC-5
     @MainActor
-    func testAC3_animationCheckboxTogglesOnAndOff() throws {
+    func testAC5_animationModePickerSwitches() throws {
         let app = launchApp()
 
-        openPanelSettings(in: app)
-        let toggle = element(in: app, identifier: animationToggleID)
-        app.revealInSettings(toggle)
-        XCTAssertTrue(element(in: app, identifier: "パネルの開閉エフェクト").exists, "チェックボックスの文言が無い")
-        XCTAssertTrue(element(in: app, identifier: "アニメーション").exists, "行の見出しが無い")
-        XCTAssertTrue(isChecked(toggle), "初期がオンでない")
+        openSettingsFromMenu(in: app)
+        let picker = element(in: app, identifier: animationPickerID)
+        app.revealInSettings(picker)
+        XCTAssertTrue(picker.waitForExistence(timeout: timeout), "アニメーションの選択が無い")
+        for name in ["システム", "オン", "オフ"] {
+            XCTAssertTrue(segment(name, in: picker).exists, "「\(name)」の選択肢が無い")
+        }
 
-        toggle.click()
-        XCTAssertTrue(waitUntil { !self.isChecked(toggle) }, "押してもチェックが外れない")
+        segment("オフ", in: picker).click()
+        XCTAssertTrue(waitUntil { self.isChecked(self.segment("オフ", in: picker)) }, "「オフ」を押しても選ばれない")
 
-        toggle.click()
-        XCTAssertTrue(waitUntil { self.isChecked(toggle) }, "もう一度押してもチェックが付かない")
+        segment("システム", in: picker).click()
+        XCTAssertTrue(waitUntil { self.isChecked(self.segment("システム", in: picker)) }, "「システム」を押しても選ばれない")
+
+        segment("オン", in: picker).click()
+        XCTAssertTrue(waitUntil { self.isChecked(self.segment("オン", in: picker)) }, "「オン」を押しても選ばれない")
+
+        element(in: app, identifier: sidebarPanelID).click()
+        XCTAssertTrue(element(in: app, identifier: "settings.panelScreenPicker").waitForExistence(timeout: timeout))
+        XCTAssertFalse(element(in: app, identifier: "settings.panelAnimationToggle").exists, "「パネルの開閉エフェクト」が残っている")
 
         closeSettings(in: app)
     }
@@ -66,7 +74,7 @@ final class PanelAnimationUITests: XCTestCase {
 
     // MARK: - 起動と要素の探し方(PanelCloseButtonUITests・SettingsUITests と同じ方法)
 
-    private let animationToggleID = "settings.panelAnimationToggle"
+    private let animationPickerID = "settings.animationModePicker"
     private let sidebarGeneralID = "settings.sidebar.general"
     private let sidebarPanelID = "settings.sidebar.panel"
 
@@ -82,6 +90,12 @@ final class PanelAnimationUITests: XCTestCase {
     @MainActor
     private func element(in app: XCUIApplication, identifier: String) -> XCUIElement {
         app.descendants(matching: .any)[identifier].firstMatch
+    }
+
+    @MainActor
+    private func segment(_ name: String, in picker: XCUIElement) -> XCUIElement {
+        let predicate = NSPredicate(format: "label == %@ OR title == %@", name, name)
+        return picker.descendants(matching: .any).matching(predicate).firstMatch
     }
 
     @MainActor
@@ -126,15 +140,15 @@ final class PanelAnimationUITests: XCTestCase {
     }
 
     @MainActor
-    private func openPanelSettings(in app: XCUIApplication) {
+    private func openSettingsFromMenu(in app: XCUIApplication) {
         openMenu(in: app)
         let item = menuItem(in: app, identifier: "menu.settings", title: "設定")
         XCTAssertTrue(item.waitForExistence(timeout: timeout))
         clickShownMenuItem(item)
-        XCTAssertTrue(element(in: app, identifier: sidebarGeneralID).waitForExistence(timeout: timeout))
-        let panelSection = element(in: app, identifier: sidebarPanelID)
-        XCTAssertTrue(panelSection.waitForExistence(timeout: timeout))
-        panelSection.click()
+        let generalSection = element(in: app, identifier: sidebarGeneralID)
+        XCTAssertTrue(generalSection.waitForExistence(timeout: timeout))
+        generalSection.click()
+        XCTAssertTrue(element(in: app, identifier: animationPickerID).waitForExistence(timeout: timeout))
     }
 
     @MainActor

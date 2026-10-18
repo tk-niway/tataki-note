@@ -37,6 +37,13 @@ struct SettingsHelpTextTests {
         #expect(SettingsHelpText.accessibilityPermission == "文章を入力欄に挿入するのに必要です。")
     }
 
+    @Test("AC-6: 「アニメーション」の説明文は、「システム」が視差効果を減らす設定に従うことを書いた決まった文")
+    func animationMode() {
+        #expect(SettingsHelpText.animationMode == "TatakiNote の動きをまとめて切り替えます。「システム」は macOS の「視差効果を減らす」に従います。")
+        #expect(SettingsHelpText.animationMode.contains("視差効果を減らす"))
+        #expect(!SettingsHelpText.animationMode.contains("→"))
+    }
+
     @Test("AC-5: アイコンを隠したときの終了の案内が残る")
     func hideMenuBarIconKeepsQuitGuidance() {
         #expect(SettingsHelpText.hideMenuBarIcon.contains("TatakiNote を終了"))

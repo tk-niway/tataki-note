@@ -57,6 +57,8 @@ struct ThemedWindowContent<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        content().windowStyle(theme: settings.theme)
+        content()
+            .windowStyle(theme: settings.theme)
+            .appAnimation(mode: settings.animationMode)
     }
 }

@@ -64,10 +64,6 @@ struct SettingsView: View {
                             .frame(width: Self.detailWidth, alignment: .leading)
                     }
                     .id(model.selectedSection)
-                    .transition(.asymmetric(
-                        insertion: .opacity.combined(with: .offset(y: 10)),
-                        removal: .identity
-                    ))
                     .accessibilityIdentifier("settings.detailScrollView")
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -81,6 +77,7 @@ struct SettingsView: View {
         .onChange(of: model.selectedSection) {
             historyModel.resetPhase()
         }
+        .appAnimation(mode: settings.animationMode)
     }
 
     @ViewBuilder

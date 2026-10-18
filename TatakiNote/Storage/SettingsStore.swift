@@ -23,7 +23,7 @@ struct SettingsStore {
         static let hasShownFirstLaunchTutorial = "hasShownFirstLaunchTutorial"
         static let sidebarIsOpen = "sidebarIsOpen"
         static let sidebarTab = "sidebarTab"
-        static let panelAnimationEnabled = "panelAnimationEnabled"
+        static let animationMode = "animationMode"
         static let insertionTargetOutlineShown = "insertionTargetOutlineShown"
         static let newDraftMode = "newDraftMode"
         static let historyLimit = "historyLimit"
@@ -194,14 +194,14 @@ struct SettingsStore {
         defaults.set(hides, forKey: Key.hidesMenuBarIcon)
     }
 
-    // MARK: - パネルの開閉の動き
+    // MARK: - アニメーション
 
-    func loadIsPanelAnimationEnabled() -> Bool {
-        boolean(forKey: Key.panelAnimationEnabled) ?? true
+    func loadAnimationMode() -> AnimationMode {
+        loadStringEnum(AnimationMode.self, forKey: Key.animationMode) ?? .defaultValue
     }
 
-    func saveIsPanelAnimationEnabled(_ isEnabled: Bool) {
-        defaults.set(isEnabled, forKey: Key.panelAnimationEnabled)
+    func saveAnimationMode(_ mode: AnimationMode) {
+        saveStringEnum(mode, forKey: Key.animationMode)
     }
 
     // MARK: - 挿入先の枠線

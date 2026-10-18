@@ -7,6 +7,11 @@ enum SettingsHelpText {
         localized: "隠している間は、TatakiNote をもう一度開くとこの画面が開きます。終了は左下の「TatakiNote を終了」から。"
     )
 
+    /// 「アニメーション」の下の説明文。
+    static let animationMode = String(
+        localized: "TatakiNote の動きをまとめて切り替えます。「システム」は macOS の「視差効果を減らす」に従います。"
+    )
+
     /// 「履歴」の下の説明文。
     static func historyKept(limit: Int) -> String {
         String(localized: "最新 \(limit) 件までこの Mac に残ります。")

@@ -80,6 +80,8 @@ extension Duration {
     private(set) var arrivalCount = 0
     /// 着いて光っている下書きの行。
     private(set) var glowingDraftID: UUID?
+    /// 下書きの行に印を付けるたびに 1 つ進む。行の印のきっかけ。
+    private(set) var glowCount = 0
     /// パネルの中に出しているトーストの文。出していなければ nil。
     private(set) var toastMessage: String?
     /// トーストを出すたびに 1 つ進む。
@@ -97,12 +99,16 @@ extension Duration {
         self.announce = announce
     }
 
-    /// 本文の写しを destination へ飛ばし、着いたら弾ませる。showsToast なら、トーストも出す。新しい保存が来たら前の演出を打ち切る。
-    func play(text: String, destination: SaveFlightDestination, showsToast: Bool = true) async {
+    /// 本文の写しを destination へ飛ばし、着いたら弾ませる。showsToast なら、トーストも出す。isAnimated が false なら飛ばさず、行の印とトーストだけを出す。新しい保存が来たら前の演出を打ち切る。
+    func play(text: String, destination: SaveFlightDestination, showsToast: Bool = true, isAnimated: Bool = true) async {
         playCount += 1
         let generation = playCount
         glowingDraftID = nil
         toastMessage = nil
+        guard isAnimated else {
+            await playWithoutMotion(destination: destination, generation: generation)
+            return
+        }
         let flight = SaveFlight(id: generation, text: text, destination: destination)
         phase = .flying(flight)
         await sleep(Self.flyingDuration)
@@ -111,6 +117,7 @@ extension Duration {
         arrivalCount += 1
         if case .draftRow(let id) = destination {
             glowingDraftID = id
+            glowCount += 1
         }
         let toast = showsToast ? presentToast(Self.savedMessage) : nil
         await sleep(Self.arrivalDuration)
@@ -137,6 +144,21 @@ extension Duration {
         phase = .idle
         glowingDraftID = nil
         toastMessage = nil
+    }
+
+    private func playWithoutMotion(destination: SaveFlightDestination, generation: Int) async {
+        phase = .idle
+        if case .draftRow(let id) = destination {
+            glowingDraftID = id
+            glowCount += 1
+        }
+        let toast = presentToast(Self.savedMessage)
+        await sleep(Self.arrivalDuration)
+        guard generation == playCount else { return }
+        glowingDraftID = nil
+        await sleep(Self.toastDuration - Self.arrivalDuration)
+        guard generation == playCount else { return }
+        dismissToast(numbered: toast)
     }
 
     private func presentToast(_ message: String) -> Int {

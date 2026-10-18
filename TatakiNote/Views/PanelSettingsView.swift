@@ -14,7 +14,6 @@ struct PanelSettingsView: View {
             defaultSizeGroup
             statusItemsGroup
             outlineGroup
-            animationGroup
         }
         .settingsDetailPadding()
     }
@@ -204,7 +203,7 @@ struct PanelSettingsView: View {
         }
     }
 
-    // MARK: - 挿入先の枠線・アニメーション
+    // MARK: - 挿入先の枠線
 
     private var outlineGroup: some View {
         SettingsGroup(title: "挿入先の枠線", identifier: "settings.group.insertionTargetOutline") {
@@ -217,19 +216,6 @@ struct PanelSettingsView: View {
                         .toggleStyle(.switch)
                         .labelsHidden()
                         .accessibilityIdentifier("settings.insertionTargetOutlineToggle")
-                }
-            }
-        }
-    }
-
-    private var animationGroup: some View {
-        SettingsGroup(title: "アニメーション", identifier: "settings.group.animation") {
-            SettingsCard {
-                SettingsRow(title: "パネルの開閉エフェクト") {
-                    Toggle("パネルの開閉エフェクト", isOn: $settings.isPanelAnimationEnabled)
-                        .toggleStyle(.switch)
-                        .labelsHidden()
-                        .accessibilityIdentifier("settings.panelAnimationToggle")
                 }
             }
         }

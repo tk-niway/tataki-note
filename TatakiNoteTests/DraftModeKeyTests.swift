@@ -28,7 +28,7 @@ struct DraftModeKeyTests {
         defer { defaults.remove() }
         let settings = defaults.makeSettings()
         settings.panelScreen = .main
-        settings.isPanelAnimationEnabled = false
+        settings.animationMode = .off
         settings.commitKey = registeredKeys?.commit ?? .commandShiftReturn
         settings.commitAndSendKey = registeredKeys?.send ?? .commandReturn
         let inserter = InserterStub(result: .inserted)
@@ -44,6 +44,7 @@ struct DraftModeKeyTests {
             library: DraftLibrary(store: .inMemory),
             animator: FakePanelFrameAnimator(),
             shaker: PanelShakerSpy(),
+            beep: {},
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )
         controller.targetOverride = { own }

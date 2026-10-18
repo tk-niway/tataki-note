@@ -7,7 +7,7 @@ struct PanelScreenTile: View {
     let isEnabled: Bool
     let onSelect: () -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isAppAnimationReduced) private var reduceMotion
 
     private static let screenHeight: CGFloat = 56
     private static let panelSize = CGSize(width: 24, height: 15)

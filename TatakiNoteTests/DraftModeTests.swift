@@ -48,6 +48,7 @@ struct DraftModeTests {
         let controller: PanelController
         let settings: AppSettings
         let shaker: PanelShakerSpy
+        let beepSpy: BeepSpy
         let inserter: InserterStub
         let permission: PermissionStub
 
@@ -67,10 +68,11 @@ struct DraftModeTests {
         let settings = defaults.makeSettings()
         settings.newDraftMode = newDraftMode
         settings.panelScreen = .main
-        settings.isPanelAnimationEnabled = false
+        settings.animationMode = .off
         settings.commitKey = .commandShiftReturn
         settings.commitAndSendKey = .commandReturn
         let shaker = PanelShakerSpy()
+        let beepSpy = BeepSpy()
         let inserter = InserterStub(result: insertionResult)
         let permission = PermissionStub(isTrusted: isTrusted)
         let probe = FocusedElementProbeStub()
@@ -85,6 +87,7 @@ struct DraftModeTests {
             library: DraftLibrary(store: .inMemory),
             animator: FakePanelFrameAnimator(),
             shaker: shaker,
+            beep: beepSpy.beep,
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )
         if hasTarget {
@@ -93,7 +96,7 @@ struct DraftModeTests {
             controller.isTargetLookupDisabled = true
         }
         defer { controller.panel.orderOut(nil) }
-        try await body(Fixture(controller: controller, settings: settings, shaker: shaker, inserter: inserter, permission: permission))
+        try await body(Fixture(controller: controller, settings: settings, shaker: shaker, beepSpy: beepSpy, inserter: inserter, permission: permission))
     }
 
     private func waitForInsertion(_ inserter: InserterStub) async {
@@ -362,7 +365,7 @@ struct DraftModeTests {
         }
     }
 
-    @Test("AC-6: パネルで本文が空のまま確定しても、モードは変わらない")
+    @Test("AC-11: パネルで本文が空のまま確定して知らせても、モードは変わらない")
     func panelEmptyCommitKeepsMode() async throws {
         try await withFixture(newDraftMode: .insert) { fixture in
             fixture.controller.open()
@@ -370,7 +373,8 @@ struct DraftModeTests {
 
             fixture.controller.commit()
 
-            #expect(fixture.shaker.shakeCount == 1)
+            #expect(fixture.shaker.shakeCount == 0)
+            #expect(fixture.beepSpy.count == 1)
             #expect(fixture.session.mode == .note)
         }
     }

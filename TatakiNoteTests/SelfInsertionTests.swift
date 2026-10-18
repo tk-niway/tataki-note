@@ -33,6 +33,7 @@ struct SelfInsertionTests {
             permission: PermissionStub(isTrusted: isTrusted),
             fieldProbe: probe,
             ownProcessIdentifier: Self.ownPid,
+            beep: {},
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )
         defer { controller.close() }

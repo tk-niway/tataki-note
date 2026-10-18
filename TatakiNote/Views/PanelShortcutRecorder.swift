@@ -11,7 +11,7 @@ struct PanelShortcutRecorder: View {
     let identifier: String
     let accessibilityLabel: String
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isAppAnimationReduced) private var reduceMotion
     @State private var capsAppearCount = 0
 
     private static let cornerRadius: CGFloat = 8
@@ -145,7 +145,7 @@ private struct RecorderKeyCap: View {
 private struct RecorderFeedbackEffect: ViewModifier {
     let feedback: RecorderFeedback?
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isAppAnimationReduced) private var reduceMotion
     @State private var acceptedCount = 0
     @State private var rejectedCount = 0
 

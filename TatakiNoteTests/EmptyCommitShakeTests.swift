@@ -20,6 +20,15 @@ final class PanelShakerSpy: PanelShaking {
 }
 
 @MainActor
+final class BeepSpy {
+    private(set) var count = 0
+
+    func beep() {
+        count += 1
+    }
+}
+
+@MainActor
 struct EmptyCommitShakeTests {
     private static let ownPid: pid_t = 4242
     private static let noReplacement = NSRange(location: NSNotFound, length: 0)
@@ -33,6 +42,7 @@ struct EmptyCommitShakeTests {
     private struct Fixture {
         let controller: PanelController
         let shaker: PanelShakerSpy
+        let beepSpy: BeepSpy
         let inserter: InserterStub
         let permission: PermissionStub
         let library: DraftLibrary
@@ -53,10 +63,11 @@ struct EmptyCommitShakeTests {
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.panelScreen = .main
-        settings.isPanelAnimationEnabled = animationEnabled
+        settings.animationMode = animationEnabled ? .on : .off
         settings.commitKey = .commandShiftReturn
         settings.commitAndSendKey = .commandReturn
         let shaker = PanelShakerSpy()
+        let beepSpy = BeepSpy()
         let inserter = InserterStub(result: .inserted)
         let permission = PermissionStub(isTrusted: isTrusted)
         let library = DraftLibrary(store: .inMemory)
@@ -73,6 +84,7 @@ struct EmptyCommitShakeTests {
             library: library,
             animator: animator,
             shaker: shaker,
+            beep: beepSpy.beep,
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )
         if hasTarget {
@@ -81,7 +93,7 @@ struct EmptyCommitShakeTests {
             controller.isTargetLookupDisabled = true
         }
         defer { controller.panel.orderOut(nil) }
-        try await body(Fixture(controller: controller, shaker: shaker, inserter: inserter, permission: permission, library: library, animator: animator))
+        try await body(Fixture(controller: controller, shaker: shaker, beepSpy: beepSpy, inserter: inserter, permission: permission, library: library, animator: animator))
     }
 
     private func waitForInsertion(_ inserter: InserterStub) async {
@@ -124,18 +136,35 @@ struct EmptyCommitShakeTests {
 
     // MARK: - 空の確定
 
-    @Test("AC-3: 本文が空のまま確定キー・確定+送信キーを押すと、パネルは閉じず、挿入も権限の要求も合図もなく、1回ずつ揺れる", arguments: [false, true])
-    func emptyCommitKeysShakeWithoutClosing(shouldSend: Bool) async throws {
+    private func openSettled(_ fixture: Fixture) {
+        fixture.controller.open()
+        if !fixture.animator.calls.isEmpty {
+            fixture.animator.finish(0)
+        }
+    }
+
+    private func expectSignals(
+        _ fixture: Fixture,
+        animationEnabled: Bool,
+        count: Int,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) {
+        #expect(fixture.shaker.shakeCount == (animationEnabled ? count : 0), sourceLocation: sourceLocation)
+        #expect(fixture.beepSpy.count == (animationEnabled ? 0 : count), sourceLocation: sourceLocation)
+    }
+
+    @Test("AC-11: 本文が空のまま確定キー・確定+送信キーを押すと、パネルは閉じず、挿入も権限の要求も合図もなく、動きを使うなら揺れ、使わないなら警告音が1回ずつ鳴る", arguments: [false, true], [false, true])
+    func emptyCommitKeysSignalWithoutClosing(shouldSend: Bool, animationEnabled: Bool) async throws {
         let scenarios: [(isTrusted: Bool, hasTarget: Bool)] = [(true, true), (true, false), (false, true)]
         for scenario in scenarios {
-            try await withFixture(isTrusted: scenario.isTrusted, hasTarget: scenario.hasTarget) { fixture in
-                fixture.controller.open()
+            try await withFixture(animationEnabled: animationEnabled, isTrusted: scenario.isTrusted, hasTarget: scenario.hasTarget) { fixture in
+                openSettled(fixture)
                 #expect(fixture.model.isPresented)
                 let key = shouldSend ? Self.commitAndSendKey : Self.commitKey
 
                 #expect(fixture.controller.handleKey(key))
 
-                #expect(fixture.shaker.shakeCount == 1)
+                expectSignals(fixture, animationEnabled: animationEnabled, count: 1)
                 #expect(fixture.model.isPresented)
                 #expect(fixture.model.lastDismissal == nil)
                 #expect(fixture.inserter.calls.isEmpty)
@@ -143,7 +172,7 @@ struct EmptyCommitShakeTests {
                 #expect(fixture.model.noTargetAlertCount == 0)
 
                 #expect(fixture.controller.handleKey(key))
-                #expect(fixture.shaker.shakeCount == 2)
+                expectSignals(fixture, animationEnabled: animationEnabled, count: 2)
                 #expect(fixture.model.isPresented)
             }
         }
@@ -151,36 +180,36 @@ struct EmptyCommitShakeTests {
 
     // MARK: - 空の保存
 
-    @Test("AC-4: 本文が空のまま ⌘S を押すと、下書きは増えず、揺れる")
-    func emptySaveKeyShakes() async throws {
-        try await withFixture { fixture in
-            fixture.controller.open()
+    @Test("AC-11: 本文が空のまま ⌘S を押すと、下書きは増えず、動きを使うなら揺れ、使わないなら警告音が鳴る", arguments: [false, true])
+    func emptySaveKeySignals(animationEnabled: Bool) async throws {
+        try await withFixture(animationEnabled: animationEnabled) { fixture in
+            openSettled(fixture)
 
             #expect(fixture.controller.handleKey(Self.saveKey))
 
-            #expect(fixture.shaker.shakeCount == 1)
+            expectSignals(fixture, animationEnabled: animationEnabled, count: 1)
             #expect(fixture.library.drafts.isEmpty)
             #expect(fixture.model.isPresented)
         }
     }
 
-    @Test("AC-4: 本文が空のまま保存ボタンを押すと、下書きは増えず、揺れる")
-    func emptySaveButtonShakes() async throws {
-        try await withFixture { fixture in
-            fixture.controller.open()
+    @Test("AC-11: 本文が空のまま保存ボタンを押すと、下書きは増えず、動きを使うなら揺れ、使わないなら警告音が鳴る", arguments: [false, true])
+    func emptySaveButtonSignals(animationEnabled: Bool) async throws {
+        try await withFixture(animationEnabled: animationEnabled) { fixture in
+            openSettled(fixture)
 
             fixture.controller.saveDraftFromButton()
 
-            #expect(fixture.shaker.shakeCount == 1)
+            expectSignals(fixture, animationEnabled: animationEnabled, count: 1)
             #expect(fixture.library.drafts.isEmpty)
             #expect(fixture.model.isPresented)
         }
     }
 
-    @Test("AC-4: 本文があれば ⌘S・保存ボタンは保存して、揺れない")
-    func nonEmptySaveDoesNotShake() async throws {
-        try await withFixture { fixture in
-            fixture.controller.open()
+    @Test("AC-11: 本文があれば ⌘S・保存ボタンは保存して、揺れも警告音もない", arguments: [false, true])
+    func nonEmptySaveDoesNotSignal(animationEnabled: Bool) async throws {
+        try await withFixture(animationEnabled: animationEnabled) { fixture in
+            openSettled(fixture)
             fixture.model.text = "abc"
 
             #expect(fixture.controller.handleKey(Self.saveKey))
@@ -191,13 +220,14 @@ struct EmptyCommitShakeTests {
 
             #expect(fixture.library.drafts.map(\.text) == ["abcd"])
             #expect(fixture.shaker.shakeCount == 0)
+            #expect(fixture.beepSpy.count == 0)
         }
     }
 
-    @Test("AC-4: 変換中の文字だけがあるときに保存ボタンを押すと、確定した文字で保存され、揺れない")
-    func markedTextOnlySaveDoesNotShake() async throws {
-        try await withFixture { fixture in
-            fixture.controller.open()
+    @Test("AC-11: 変換中の文字だけがあるときに保存ボタンを押すと、確定した文字で保存され、揺れも警告音もない", arguments: [false, true])
+    func markedTextOnlySaveDoesNotSignal(animationEnabled: Bool) async throws {
+        try await withFixture(animationEnabled: animationEnabled) { fixture in
+            openSettled(fixture)
             let textView = try attachEditor(fixture.controller)
             #expect(fixture.model.text.isEmpty)
             markText("にほんご", in: textView)
@@ -208,13 +238,26 @@ struct EmptyCommitShakeTests {
             #expect(fixture.library.drafts.map(\.text) == ["にほんご"])
             #expect(fixture.model.text == "にほんご")
             #expect(fixture.shaker.shakeCount == 0)
+            #expect(fixture.beepSpy.count == 0)
+        }
+    }
+
+    // MARK: - 知らせ方の判断
+
+    @Test("AC-11: 空の入力の知らせ方は、動きを使うなら開く・閉じる動きの途中以外で揺れ、途中は何もせず、使わないなら常に警告音")
+    func emptyInputFeedbackTable() {
+        let phases: [PanelMotionPhase] = [.shown, .opening, .closing, .hidden]
+        for phase in phases {
+            let expected: PanelShake.EmptyInputFeedback = phase == .shown ? .shake : .none
+            #expect(PanelShake.emptyInputFeedback(motionPhase: phase, isAnimationEnabled: true) == expected, "\(phase)")
+            #expect(PanelShake.emptyInputFeedback(motionPhase: phase, isAnimationEnabled: false) == .beep, "\(phase)")
         }
     }
 
     // MARK: - 揺れの開始と後始末
 
-    @Test("AC-20: 開く動きの途中の空の確定・空の保存は揺れず、パネルは開いたまま。動きが終われば揺れる")
-    func noShakeWhileOpening() async throws {
+    @Test("AC-11: 開く動きの途中の空の確定・空の保存は揺れも警告音もなく、パネルは開いたまま。動きが終われば揺れる")
+    func noSignalWhileOpening() async throws {
         try await withFixture(animationEnabled: true) { fixture in
             fixture.controller.open()
             #expect(fixture.animator.calls.count == 1)
@@ -225,12 +268,14 @@ struct EmptyCommitShakeTests {
             fixture.controller.saveDraftFromButton()
 
             #expect(fixture.shaker.shakeCount == 0)
+            #expect(fixture.beepSpy.count == 0)
             #expect(fixture.model.isPresented)
 
             fixture.animator.finish(0)
             #expect(fixture.controller.handleKey(Self.commitKey))
 
             #expect(fixture.shaker.shakeCount == 1)
+            #expect(fixture.beepSpy.count == 0)
             #expect(fixture.model.isPresented)
         }
     }

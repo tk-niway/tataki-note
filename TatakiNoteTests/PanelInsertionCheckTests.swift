@@ -47,7 +47,7 @@ struct PanelInsertionCheckTests {
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.panelScreen = .main
-        settings.isPanelAnimationEnabled = false
+        settings.animationMode = .off
         let probe = FocusedElementProbeStub()
         probe.result = FocusedElementProbe(element: fieldA, lookup: WatcherFixture.textFieldLookup, frame: nil)
         probe.elementFrame = CGRect(x: 0, y: 0, width: 100, height: 20)
@@ -70,6 +70,7 @@ struct PanelInsertionCheckTests {
             exposeWebContent: { _ in },
             ownProcessIdentifier: Self.ownPid,
             library: library,
+            beep: {},
             makeTargetMonitor: { model in
                 let monitor = factory(model)
                 monitorBox.monitor = monitor
@@ -436,6 +437,125 @@ struct PanelInsertionCheckTests {
 
             #expect(fixture.model.target == nil)
             #expect(fixture.model.focusRequest == focusBefore)
+        }
+    }
+
+    // MARK: - AC-21 〜 AC-24
+
+    @Test("AC-21: ノートの書きかけで他のアプリの入力欄をクリックすると、挿入先はそのアプリに移り、フォーカスの要求は増えず、パネルは開いたまま")
+    func adoptingFieldInNoteKeepsInputInOtherApp() async throws {
+        try await withFixture(target: other) { fixture in
+            fixture.controller.open()
+            fixture.controller.session.toggleMode()
+            #expect(fixture.controller.session.mode == .note)
+            #expect(fixture.model.target == other)
+            let focusBefore = fixture.model.focusRequest
+
+            fixture.front.app = another
+            fixture.monitor.handleClick()
+            await settle()
+
+            #expect(fixture.model.target == another)
+            #expect(fixture.model.focusRequest == focusBefore)
+            #expect(fixture.model.isPresented)
+        }
+    }
+
+    @Test("AC-21: ノートの書きかけで、確かめ直しのときに入力欄が見つかって挿入先が移っても、フォーカスの要求は増えない")
+    func recheckAdoptingFieldInNoteKeepsInputInOtherApp() async throws {
+        try await withFixture(target: other) { fixture in
+            fixture.controller.open()
+            fixture.controller.session.toggleMode()
+            let focusBefore = fixture.model.focusRequest
+
+            fixture.probe.result = FocusedElementProbe(element: nil, lookup: .noFocusedElement, frame: nil)
+            fixture.front.app = another
+            fixture.monitor.handleClick()
+            fixture.probe.result = FocusedElementProbe(element: fieldB, lookup: WatcherFixture.textFieldLookup, frame: nil)
+            await settle()
+
+            #expect(fixture.model.target == another)
+            #expect(fixture.model.focusRequest == focusBefore)
+            #expect(fixture.model.isPresented)
+        }
+    }
+
+    @Test("AC-22: インサートの書きかけで他のアプリの入力欄をクリックすると、今どおりフォーカスの要求が1回増える")
+    func adoptingFieldInInsertReturnsFocusToPanel() async throws {
+        try await withFixture(target: other) { fixture in
+            fixture.controller.open()
+            #expect(fixture.controller.session.mode == .insert)
+            let focusBefore = fixture.model.focusRequest
+
+            fixture.front.app = another
+            fixture.monitor.handleClick()
+
+            #expect(fixture.model.target == another)
+            #expect(fixture.model.focusRequest == focusBefore + 1)
+        }
+    }
+
+    @Test("AC-22: ノートの書きかけで確かめ直しの前にインサートにすると、確かめ直しで移ったときはそのときのモードで戻す")
+    func recheckAdoptingFieldUsesModeAtThatTime() async throws {
+        try await withFixture(target: other) { fixture in
+            fixture.controller.open()
+            fixture.controller.session.toggleMode()
+            let focusBefore = fixture.model.focusRequest
+
+            fixture.probe.result = FocusedElementProbe(element: nil, lookup: .noFocusedElement, frame: nil)
+            fixture.front.app = another
+            fixture.monitor.handleClick()
+            fixture.controller.session.toggleMode()
+            fixture.probe.result = FocusedElementProbe(element: fieldB, lookup: WatcherFixture.textFieldLookup, frame: nil)
+            await settle()
+
+            #expect(fixture.controller.session.mode == .insert)
+            #expect(fixture.model.target == another)
+            #expect(fixture.model.focusRequest == focusBefore + 1)
+        }
+    }
+
+    @Test("AC-22: 入力欄が移ったときに入力を戻すのはインサートの書きかけだけ")
+    func onlyInsertReturnsInputAfterFieldAdopted() {
+        #expect(PanelController.shouldReturnInputAfterFieldAdopted(mode: .insert))
+        #expect(!PanelController.shouldReturnInputAfterFieldAdopted(mode: .note))
+    }
+
+    @Test("AC-23: ノートで他のアプリの入力欄をクリックした後に、インサートにして確定すると、クリックしたアプリへ1回挿入される")
+    func commitAfterAdoptingFieldInNoteInsertsIntoClickedApp() async throws {
+        try await withFixture(target: other) { fixture in
+            openWithText(fixture, "memo")
+            fixture.controller.session.toggleMode()
+            fixture.front.app = another
+            fixture.monitor.handleClick()
+            await settle()
+            #expect(fixture.model.target == another)
+
+            fixture.controller.session.toggleMode()
+            fixture.controller.commit()
+            await waitFor { !fixture.inserter.calls.isEmpty }
+            await settle()
+
+            #expect(fixture.inserter.calls.count == 1)
+            #expect(fixture.inserter.calls.first?.text == "memo")
+            #expect(fixture.inserter.calls.first?.target == another)
+        }
+    }
+
+    @Test("AC-24: ノートで他のアプリの入力欄をクリックした後でも、ホットキー(toggle)でパネルが閉じる")
+    func toggleClosesPanelAfterAdoptingFieldInNote() async throws {
+        try await withFixture(target: other) { fixture in
+            fixture.controller.open()
+            fixture.controller.session.toggleMode()
+            fixture.front.app = another
+            fixture.monitor.handleClick()
+            await settle()
+            #expect(fixture.model.target == another)
+            #expect(fixture.model.isPresented)
+
+            fixture.controller.toggle()
+
+            #expect(!fixture.model.isPresented)
         }
     }
 }

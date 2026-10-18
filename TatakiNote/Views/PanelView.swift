@@ -70,6 +70,7 @@ struct PanelView: View {
                 SidebarView(
                     model: sidebarModel,
                     glowingDraftID: saveAnimation?.glowingDraftID,
+                    glowCount: saveAnimation?.glowCount ?? 0,
                     saveArrival: arrival,
                     onOpenSettings: onOpenSettings
                 )
@@ -114,6 +115,7 @@ struct PanelView: View {
                 )
             }
         }
+        .appAnimation(mode: settings.animationMode)
     }
 
     private var saveArrival: SaveArrival {

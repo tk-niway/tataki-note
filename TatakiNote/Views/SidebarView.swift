@@ -5,9 +5,11 @@ import SwiftUI
 struct SidebarView: View {
     @Bindable var model: SidebarModel
     var glowingDraftID: UUID?
+    var glowCount: Int = 0
     var saveArrival = SaveArrival()
     var onOpenSettings: () -> Void = {}
 
+    @Environment(\.isAppAnimationReduced) private var reduceMotion
     @State private var isSearchFocused = false
     @FocusState private var isListFocused: Bool
     @State private var glowingRowID: UUID?
@@ -36,9 +38,9 @@ struct SidebarView: View {
         .frame(width: SidebarLayout.width)
         .frame(maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
-        .onChange(of: glowingDraftID) { _, newValue in
-            guard let newValue else { return }
-            startGlow(on: newValue)
+        .onChange(of: glowCount) { _, _ in
+            guard let glowingDraftID else { return }
+            startGlow(on: glowingDraftID)
         }
     }
 
@@ -78,17 +80,17 @@ struct SidebarView: View {
             HStack(spacing: 5) {
                 Text(verbatim: tab.title)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    .foregroundStyle(isSelected ? Color.white : Color.secondary)
                 Text(verbatim: String(model.count(of: tab)))
                     .font(.system(size: 10.5))
                     .monospacedDigit()
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(isSelected ? AnyShapeStyle(Color.white.opacity(0.75)) : AnyShapeStyle(.tertiary))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color(nsColor: .controlBackgroundColor))
+                        .fill(Color.accentColor)
                         .shadow(color: .black.opacity(0.15), radius: 1, y: 0.5)
                 }
             }
@@ -189,10 +191,8 @@ struct SidebarView: View {
                     ForEach(rows) { row in
                         rowView(row, isSelected: row.id == selection, isEmphasized: isEmphasized)
                             .id(row.id)
-                            .transition(.move(edge: .top).combined(with: .opacity))
                     }
                 }
-                .animation(.easeOut(duration: 0.25), value: rows.map(\.id))
                 .padding(.horizontal, 6)
                 .padding(.bottom, 6)
             }
@@ -245,7 +245,7 @@ struct SidebarView: View {
                 RoundedRectangle(cornerRadius: Self.rowCornerRadius)
                     .fill(rowBackground(isSelected: isSelected, isEmphasized: isEmphasized))
                 if row.id == glowingRowID {
-                    SavedRowHighlight(cornerRadius: Self.rowCornerRadius)
+                    SavedRowHighlight(cornerRadius: Self.rowCornerRadius, fades: !reduceMotion)
                         .id(glowGeneration)
                 }
             }
@@ -384,6 +384,7 @@ private struct DraftRowAnchor: ViewModifier {
 
 private struct SavedRowHighlight: View {
     let cornerRadius: CGFloat
+    let fades: Bool
 
     @State private var isFaded = false
 
@@ -393,6 +394,7 @@ private struct SavedRowHighlight: View {
         RoundedRectangle(cornerRadius: cornerRadius)
             .fill(Color.accentColor.opacity(isFaded ? 0 : 0.22))
             .onAppear {
+                guard fades else { return }
                 withAnimation(.linear(duration: Self.duration.seconds)) {
                     isFaded = true
                 }
