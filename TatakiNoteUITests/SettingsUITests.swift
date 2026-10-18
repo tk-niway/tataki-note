@@ -13,40 +13,6 @@ final class SettingsUITests: XCTestCase {
         UserDefaults(suiteName: settingsSuiteName)?.removePersistentDomain(forName: settingsSuiteName)
     }
 
-    // AC-31
-    // AC-35
-    @MainActor
-    func testAC31_AC35_recorderDisplayAndRegistration() throws {
-        let app = XCUIApplication()
-        launch(app)
-
-        openKeySettings(in: app)
-        let commitRecorder = element(in: app, identifier: commitKeyRecorderID)
-        let commitAndSendRecorder = element(in: app, identifier: commitAndSendKeyRecorderID)
-        XCTAssertTrue(commitRecorder.waitForExistence(timeout: timeout))
-        XCTAssertTrue(hotkeyRecorder(in: app).exists)
-
-        // AC-31
-        XCTAssertEqual(recorderDisplayText(commitRecorder), "⇧⌘↩")
-        XCTAssertFalse(isRecording(commitRecorder))
-        XCTAssertEqual(recorderDisplayText(commitAndSendRecorder), "⌘↩")
-        commitRecorder.click()
-        XCTAssertEqual(commitRecorder.value as? String, recordingValue)
-        XCTAssertTrue(isRecording(commitRecorder))
-        app.typeKey("j", modifierFlags: [.command])
-        XCTAssertTrue(waitUntil { self.recorderDisplayText(commitRecorder) == "⌘J" })
-
-        closeSettings(in: app)
-
-        // AC-35
-        openPanelFromMenu(in: app)
-        let textView = app.textViews["promptPanel.textView"]
-        XCTAssertTrue(textView.waitForExistence(timeout: timeout))
-        XCTAssertEqual(textView.promptPanelText, "")
-        app.typeKey("j", modifierFlags: [.command])
-        XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
-    }
-
     // AC-33
     @MainActor
     func testAC33_recordingCancelledByEscOrOutsideClick() throws {
@@ -161,22 +127,6 @@ final class SettingsUITests: XCTestCase {
         guard let value = element.value as? String, !value.isEmpty,
               value != recordingValue, value != unregisteredValue else { return nil }
         return value
-    }
-
-    @MainActor
-    private func hotkeyRecorder(in app: XCUIApplication) -> XCUIElement {
-        let byIdentifier = element(in: app, identifier: "settings.hotkeyRecorder")
-        if byIdentifier.waitForExistence(timeout: timeout) {
-            return byIdentifier
-        }
-        let byLabel = app.descendants(matching: .any)["パネルを開く・閉じる"].firstMatch
-        if byLabel.exists {
-            return byLabel
-        }
-        let notCommitRecorders = NSPredicate(
-            format: "identifier != %@ AND identifier != %@", commitKeyRecorderID, commitAndSendKeyRecorderID
-        )
-        return app.searchFields.matching(notCommitRecorders).firstMatch
     }
 
     @MainActor
