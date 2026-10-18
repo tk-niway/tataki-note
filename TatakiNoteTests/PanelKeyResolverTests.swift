@@ -314,6 +314,7 @@ struct PanelKeyResolverTests {
 
         for character in ["k", "s", "n", "e", "b", ","] {
             for modifiers in modifierSets {
+                if character == "s", modifiers == [.command, .shift] { continue }
                 let input = commandKey(character, keyCode: 0, modifiers: modifiers)
                 #expect(PanelKeyResolver.action(for: input) == .passThrough, "\(modifiers) + \(character)")
             }
@@ -331,6 +332,47 @@ struct PanelKeyResolverTests {
             for mode in DraftMode.allCases {
                 #expect(PanelKeyResolver.action(for: input, mode: mode) == .passThrough, "\(mode) ⌘\(character)")
             }
+        }
+    }
+
+    @Test("AC-1: ⇧⌘S はファイルへの書き出しの操作になり、Caps Lock・fn・テンキーの印が付いていても、どのモードでも同じ")
+    func shiftCommandSExportsToFile() {
+        let extraFlags: [NSEvent.ModifierFlags] = [[], [.capsLock], [.function], [.numericPad], [.capsLock, .function]]
+        for extra in extraFlags {
+            let input = commandKey("s", keyCode: 1, modifiers: NSEvent.ModifierFlags([.command, .shift]).union(extra))
+            for mode in DraftMode.allCases {
+                #expect(PanelKeyResolver.action(for: input, mode: mode) == .exportToFile, "\(mode) + \(extra)")
+            }
+        }
+    }
+
+    @Test("AC-1: ⇧⌘S が確定キーに残っていても書き出しが勝つ。⇧⌘K・⇧⌘E・⌥⌘S・⌃⌘S・⇧S・⇧⌥⌘S は書き出しにならない")
+    func exportKeyIsExactAndWinsOverCommitKey() {
+        let shiftCommandS = PanelShortcut(keyCode: 1, modifiers: [.command, .shift])
+        let input = commandKey("s", keyCode: 1, modifiers: [.command, .shift])
+        #expect(PanelKeyResolver.action(for: input, commitKey: shiftCommandS, commitAndSendKey: nil) == .exportToFile)
+
+        let others: [(String, NSEvent.ModifierFlags)] = [
+            ("k", [.command, .shift]),
+            ("e", [.command, .shift]),
+            ("s", [.command, .option]),
+            ("s", [.command, .control]),
+            ("s", [.shift]),
+            ("s", [.command, .shift, .option]),
+        ]
+        for (character, modifiers) in others {
+            #expect(
+                PanelKeyResolver.action(for: commandKey(character, keyCode: 0, modifiers: modifiers)) == .passThrough,
+                "\(modifiers) + \(character)"
+            )
+        }
+    }
+
+    @Test("AC-2: 未確定の文字があるときの ⇧⌘S は入力メソッドに渡す。モードによらない")
+    func shiftCommandSPassesThroughWhileComposing() {
+        let input = commandKey("s", keyCode: 1, modifiers: [.command, .shift], hasMarkedText: true)
+        for mode in DraftMode.allCases {
+            #expect(PanelKeyResolver.action(for: input, mode: mode) == .passThrough, "\(mode)")
         }
     }
 

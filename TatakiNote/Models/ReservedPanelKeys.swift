@@ -13,11 +13,6 @@ enum ReservedPanelKeys {
         EditorKeyEquivalent(modifiers: [.command, .shift], character: "s"),
     ]
 
-    /// 修飾キーが ⌘ だけの予約のキーの文字。
-    static var characters: [String] {
-        keys.filter { $0.modifiers == [.command] }.map(\.character)
-    }
-
     /// 押されたキー(修飾キーは `PanelShortcut.relevantModifiers` に絞ったもの、文字は小文字)が予約のキーかを返す。
     static func contains(modifiers: NSEvent.ModifierFlags, character: String) -> Bool {
         let relevant = modifiers.intersection(PanelShortcut.relevantModifiers)

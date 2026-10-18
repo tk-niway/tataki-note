@@ -79,12 +79,11 @@ final class PromptPanel: NSPanel {
         (responder as? NSTextInputClient)?.hasMarkedText() ?? false
     }
 
-    /// `⌘K` `⌘S` `⌘N` `⌘E` `⌘B` `⌘,` のキーの値。どれでもなければ `nil`。
+    /// `⌘K` `⌘S` `⌘N` `⌘E` `⌘B` `⌘,` `⇧⌘S` のキーの値。どれでもなければ `nil`。
     static func panelCommandInput(for event: NSEvent, hasMarkedText: Bool) -> PanelKeyInput? {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard modifiers.intersection(PanelShortcut.relevantModifiers) == [.command] else { return nil }
         let characters = event.charactersIgnoringModifiers?.lowercased() ?? ""
-        guard ReservedPanelKeys.characters.contains(characters) else { return nil }
+        guard ReservedPanelKeys.contains(modifiers: modifiers, character: characters) else { return nil }
         return PanelKeyInput(
             keyCode: event.keyCode,
             modifiers: modifiers,
