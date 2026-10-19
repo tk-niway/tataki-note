@@ -20,7 +20,6 @@ struct SidebarView: View {
     private static let rowSpacing: CGFloat = 2
     private static let rowLineSpacing: CGFloat = 3
     private static let rowTopInset: CGFloat = 6.5
-    private static let shownMarkTopInset: CGFloat = 11.5
 
     var body: some View {
         VStack(spacing: 0) {
@@ -215,13 +214,6 @@ struct SidebarView: View {
         let secondaryForeground: Color = isHighlighted ? .white.opacity(0.85) : .secondary
         return HStack(spacing: 6) {
             HStack(alignment: .top, spacing: 6) {
-                if row.kind == .draft {
-                    Circle()
-                        .fill(isHighlighted ? Color.white : Color.accentColor)
-                        .frame(width: 6, height: 6)
-                        .opacity(row.isShownInPanel ? 1 : 0)
-                        .padding(.top, Self.shownMarkTopInset)
-                }
                 VStack(alignment: .leading, spacing: Self.rowLineSpacing) {
                     Text(verbatim: row.title)
                         .font(.system(size: 13, weight: .semibold))
