@@ -7,6 +7,7 @@ struct InsertionTargetView: View {
     let noTargetAlertCount: Int
     let appIcon: @MainActor (InsertionTarget) -> NSImage
 
+    @Environment(\.isAppAnimationReduced) private var reduceMotion
     @State private var isHovering = false
 
     private static let iconSize: CGFloat = 16
@@ -31,6 +32,11 @@ struct InsertionTargetView: View {
                 Image(nsImage: appIcon(badge.target))
                     .resizable()
                     .frame(width: Self.iconSize, height: Self.iconSize)
+                    .padding(2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(Color.primary.opacity(0.14))
+                    )
                     .contentShape(Rectangle())
                     .onHover { isHovering = $0 }
             }
@@ -43,7 +49,7 @@ struct InsertionTargetView: View {
                         .alignmentGuide(.bottom) { $0[.top] - 8 }
                 }
             }
-            .animation(.easeOut(duration: 0.1), value: isHovering)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: isHovering)
         } else {
             noTargetBody
         }
@@ -57,7 +63,8 @@ struct InsertionTargetView: View {
     }
 
     private var noTargetBody: some View {
-        Text(verbatim: InsertionTargetBadge.noTargetLabel)
+        let offsets = InsertionTargetBadge.noTargetShakeOffsets(isAnimationEnabled: !reduceMotion)
+        return Text(verbatim: InsertionTargetBadge.noTargetLabel)
             .font(.system(size: 11))
             .keyframeAnimator(initialValue: AlertValues(), trigger: noTargetAlertCount) { content, value in
                 content
@@ -65,12 +72,12 @@ struct InsertionTargetView: View {
                     .offset(x: value.offsetX)
             } keyframes: { _ in
                 KeyframeTrack(\.offsetX) {
-                    LinearKeyframe(-4, duration: 0.075)
-                    LinearKeyframe(4, duration: 0.075)
-                    LinearKeyframe(-4, duration: 0.075)
-                    LinearKeyframe(4, duration: 0.075)
-                    LinearKeyframe(-2, duration: 0.075)
-                    LinearKeyframe(0, duration: 0.075)
+                    LinearKeyframe(offsets[0], duration: 0.075)
+                    LinearKeyframe(offsets[1], duration: 0.075)
+                    LinearKeyframe(offsets[2], duration: 0.075)
+                    LinearKeyframe(offsets[3], duration: 0.075)
+                    LinearKeyframe(offsets[4], duration: 0.075)
+                    LinearKeyframe(offsets[5], duration: 0.075)
                 }
                 KeyframeTrack(\.alert) {
                     MoveKeyframe(1)
@@ -89,7 +96,7 @@ struct InsertionTargetView: View {
                         .alignmentGuide(.bottom) { $0[.top] - 8 }
                 }
             }
-            .animation(.easeOut(duration: 0.1), value: isHovering)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: isHovering)
     }
 
     // MARK: - チップ

@@ -27,7 +27,7 @@ final class CommitPerformer {
     @discardableResult
     func perform(_ plan: CommitPlan, shouldSendAfterInsert: Bool = false) async -> CommitOutcome {
         switch plan {
-        case .dismissOnly:
+        case .emptyText:
             break
         case .permissionDenied:
             if let onPermissionDenied {

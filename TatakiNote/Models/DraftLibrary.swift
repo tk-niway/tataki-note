@@ -8,13 +8,46 @@ struct SavedDraft: Codable, Equatable, Identifiable {
     var updatedAt: Date
 }
 
-/// 挿入に成功した文章の履歴の1件。
-struct HistoryEntry: Codable, Equatable, Identifiable {
+/// 履歴の1件。挿入した文章と、挿入していない文章がある。
+struct HistoryEntry: Equatable, Identifiable {
     let id: UUID
     let text: String
     let insertedAt: Date
     let appName: String?
     let bundleIdentifier: String?
+    let isInserted: Bool
+
+    init(
+        id: UUID,
+        text: String,
+        insertedAt: Date,
+        appName: String?,
+        bundleIdentifier: String?,
+        isInserted: Bool = true
+    ) {
+        self.id = id
+        self.text = text
+        self.insertedAt = insertedAt
+        self.appName = appName
+        self.bundleIdentifier = bundleIdentifier
+        self.isInserted = isInserted
+    }
+}
+
+extension HistoryEntry: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case id, text, insertedAt, appName, bundleIdentifier, isInserted
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        text = try container.decode(String.self, forKey: .text)
+        insertedAt = try container.decode(Date.self, forKey: .insertedAt)
+        appName = try container.decodeIfPresent(String.self, forKey: .appName)
+        bundleIdentifier = try container.decodeIfPresent(String.self, forKey: .bundleIdentifier)
+        isInserted = try container.decodeIfPresent(Bool.self, forKey: .isInserted) ?? true
+    }
 }
 
 /// 一覧の行に出す文字の取り出し。
@@ -27,6 +60,33 @@ enum DraftListing {
         }
         return nil
     }
+
+    /// `preview(of:)` が返す文字数の上限。
+    nonisolated static let previewLimit = 200
+
+    /// 最初の行より後の、空でない行を半角スペースでつないだ文字(先頭の `previewLimit` 文字まで)。無ければ `nil`。
+    nonisolated static func preview(of text: String) -> String? {
+        var joined = ""
+        var hasFirstLine = false
+        var lineStart = text.startIndex
+        while lineStart < text.endIndex {
+            var lineEnd = lineStart
+            while lineEnd < text.endIndex, !text[lineEnd].isNewline {
+                lineEnd = text.index(after: lineEnd)
+            }
+            let line = text[lineStart..<lineEnd].trimmingCharacters(in: .whitespacesAndNewlines)
+            lineStart = lineEnd < text.endIndex ? text.index(after: lineEnd) : lineEnd
+            if line.isEmpty { continue }
+            if !hasFirstLine {
+                hasFirstLine = true
+                continue
+            }
+            if !joined.isEmpty { joined += " " }
+            joined += line
+            if joined.count >= previewLimit { break }
+        }
+        return joined.isEmpty ? nil : String(joined.prefix(previewLimit))
+    }
 }
 
 /// 下書き・履歴の保存と読み込みで今起きている問題。
@@ -38,8 +98,7 @@ enum DraftLibraryProblem: Equatable, Hashable {
 
 /// 保存した下書きと挿入の履歴の一覧。
 @Observable final class DraftLibrary {
-    static let historyLimit = 50
-
+    private(set) var historyLimit: Int
     private(set) var drafts: [SavedDraft] = []
     private(set) var history: [HistoryEntry] = []
     private(set) var problems: Set<DraftLibraryProblem> = []
@@ -50,9 +109,14 @@ enum DraftLibraryProblem: Equatable, Hashable {
     private var failedFileNames: Set<String> = []
     private var isDraftsWritePending = false
 
-    init(store: DraftLibraryStore, now: @escaping () -> Date = Date.init) {
+    init(
+        store: DraftLibraryStore,
+        historyLimit: Int = HistoryLimit.defaultValue,
+        now: @escaping () -> Date = Date.init
+    ) {
         self.store = store
         self.now = now
+        self.historyLimit = HistoryLimit.clamped(historyLimit)
         loadDrafts()
         loadHistory()
         refreshProblems()
@@ -102,20 +166,41 @@ enum DraftLibraryProblem: Equatable, Hashable {
 
     // MARK: - 履歴
 
-    /// 挿入に成功した文章を履歴の先頭に足し、最新 50 件に切ってすぐ書き出す。
+    /// 挿入に成功した文章を履歴の先頭に足し、上限の件数に切ってすぐ書き出す。
     func recordInsertion(text: String, appName: String?, bundleIdentifier: String?) {
-        let entry = HistoryEntry(
+        prepend(HistoryEntry(
             id: UUID(),
             text: text,
             insertedAt: now(),
             appName: appName,
-            bundleIdentifier: bundleIdentifier
-        )
-        history.insert(entry, at: 0)
-        if history.count > Self.historyLimit {
-            history.removeLast(history.count - Self.historyLimit)
-        }
+            bundleIdentifier: bundleIdentifier,
+            isInserted: true
+        ))
+    }
+
+    /// 挿入していない文章を履歴の先頭に足し、上限の件数に切ってすぐ書き出す。
+    func recordUnsentText(_ text: String) {
+        prepend(HistoryEntry(
+            id: UUID(),
+            text: text,
+            insertedAt: now(),
+            appName: nil,
+            bundleIdentifier: nil,
+            isInserted: false
+        ))
+    }
+
+    /// 履歴の上限を範囲に丸めて変え、超えた古い履歴を消す。超えていなければ書き出さない。
+    func setHistoryLimit(_ limit: Int) {
+        historyLimit = HistoryLimit.clamped(limit)
+        guard history.count > historyLimit else { return }
+        history.removeLast(history.count - historyLimit)
         writeHistory()
+    }
+
+    /// 上限を `limit` にしたときに消える履歴の件数。
+    func historyOverflow(forLimit limit: Int) -> Int {
+        max(0, history.count - HistoryLimit.clamped(limit))
     }
 
     func historyEntry(id: UUID) -> HistoryEntry? {
@@ -148,7 +233,7 @@ enum DraftLibraryProblem: Equatable, Hashable {
 
     private func loadHistory() {
         do {
-            history = Array(try store.loadHistory().prefix(Self.historyLimit))
+            history = Array(try store.loadHistory().prefix(historyLimit))
         } catch {
             store.setAsideUnreadableFile(named: DraftLibraryStore.historyFileName, now: now())
             unreadableProblems.insert(.historyUnreadable)
@@ -167,6 +252,14 @@ enum DraftLibraryProblem: Equatable, Hashable {
             failedFileNames.insert(DraftLibraryStore.draftsFileName)
         }
         refreshProblems()
+    }
+
+    private func prepend(_ entry: HistoryEntry) {
+        history.insert(entry, at: 0)
+        if history.count > historyLimit {
+            history.removeLast(history.count - historyLimit)
+        }
+        writeHistory()
     }
 
     private func writeHistory() {

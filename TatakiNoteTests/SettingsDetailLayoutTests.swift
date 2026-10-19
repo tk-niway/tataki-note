@@ -4,11 +4,13 @@ import Testing
 
 @MainActor
 struct SettingsDetailLayoutTests {
-    @Test("AC-5: 右の余白は今(20pt)より広く、左・上・下は今のまま")
-    func trailingIsWiderThanBefore() {
-        #expect(SettingsDetailLayout.leading == 20)
-        #expect(SettingsDetailLayout.top == 16)
-        #expect(SettingsDetailLayout.bottom == 20)
-        #expect(SettingsDetailLayout.trailing > 20)
+    @Test("AC-4: 右の内容の余白は左右 28・上 8・下 28、見出しの余白は上 18・左右 28・下 6")
+    func detailPaddingValues() {
+        #expect(SettingsDetailLayout.leading == 28)
+        #expect(SettingsDetailLayout.trailing == 28)
+        #expect(SettingsDetailLayout.top == 8)
+        #expect(SettingsDetailLayout.bottom == 28)
+        #expect(SettingsDetailLayout.headerTop == 18)
+        #expect(SettingsDetailLayout.headerBottom == 6)
     }
 }

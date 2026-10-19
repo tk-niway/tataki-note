@@ -24,12 +24,12 @@ struct AutoShowAppsEditorTests {
     private let notes = AutoShowApp(bundleIdentifier: "com.example.notes", name: "Notes")
     private let browser = AutoShowApp(bundleIdentifier: "com.example.browser", name: "Browser")
 
-    private func makeSuite() throws -> (UserDefaults, String) {
+    private func makeSuite() throws -> (InMemoryDefaults, String) {
         let temp = try TemporaryDefaults()
         return (temp.defaults, temp.name)
     }
 
-    private func removeSuite(_ defaults: UserDefaults, name: String) {
+    private func removeSuite(_ defaults: InMemoryDefaults, name: String) {
         TemporaryDefaults.remove(named: name)
     }
 
@@ -47,7 +47,7 @@ struct AutoShowAppsEditorTests {
         )
     }
 
-    private func savedApps(in defaults: UserDefaults) -> [AutoShowApp] {
+    private func savedApps(in defaults: InMemoryDefaults) -> [AutoShowApp] {
         AppSettings(store: SettingsStore(defaults: defaults)).autoShowApps
     }
 
@@ -153,29 +153,10 @@ struct AutoShowAppsEditorTests {
         #expect(editor.candidates == [chatmate, notes])
     }
 
-    // MARK: - AC-5・AC-10
+    // MARK: - AC-23・AC-24
 
-    @Test("AC-5, AC-10: 何も選んでいないと「−」は押せず、一覧の行を選ぶと押せる。一覧に無いものを選んでいても押せない")
-    func canRemoveFollowsSelection() throws {
-        let (defaults, name) = try makeSuite()
-        defer { removeSuite(defaults, name: name) }
-        let settings = AppSettings(store: SettingsStore(defaults: defaults))
-        settings.autoShowMode = .selectedApps
-        settings.autoShowApps = [chatmate, notes]
-        let editor = makeEditor(settings: settings, running: StubRunningApplications(), notificationCenter: NotificationCenter())
-
-        #expect(editor.selection == nil)
-        #expect(!editor.canRemove)
-
-        editor.selection = notes.bundleIdentifier
-        #expect(editor.canRemove)
-
-        editor.selection = "com.example.notinlist"
-        #expect(!editor.canRemove)
-    }
-
-    @Test("AC-5, AC-10: 「−」で選んだ行を外すと保存された一覧からも消え、選択が外れて「−」は押せなくなる")
-    func removeSelectedRemovesAndSaves() throws {
+    @Test("AC-23: チップの × で外したアプリだけが一覧から消え、残りの並びは変わらず、保存された一覧からも消える")
+    func removeRemovesOnlyThatAppAndSaves() throws {
         let (defaults, name) = try makeSuite()
         defer { removeSuite(defaults, name: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
@@ -183,17 +164,15 @@ struct AutoShowAppsEditorTests {
         settings.autoShowApps = [chatmate, notes, browser]
         let editor = makeEditor(settings: settings, running: StubRunningApplications(), notificationCenter: NotificationCenter())
 
-        editor.selection = notes.bundleIdentifier
-        editor.removeSelected()
+        editor.remove(bundleIdentifier: notes.bundleIdentifier)
 
         #expect(settings.autoShowApps == [chatmate, browser])
         #expect(savedApps(in: defaults) == [chatmate, browser])
-        #expect(editor.selection == nil)
-        #expect(!editor.canRemove)
+        #expect(editor.rows().map(\.bundleIdentifier) == [chatmate.bundleIdentifier, browser.bundleIdentifier])
     }
 
-    @Test("AC-5, AC-10: 「−」を押せないときに removeSelected を呼んでも一覧は変わらない")
-    func removeSelectedDoesNothingWhenNotRemovable() throws {
+    @Test("AC-23: 一覧に無いアプリを外そうとしても一覧は変わらない")
+    func removeUnknownAppDoesNothing() throws {
         let (defaults, name) = try makeSuite()
         defer { removeSuite(defaults, name: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
@@ -201,13 +180,30 @@ struct AutoShowAppsEditorTests {
         settings.autoShowApps = [chatmate, notes]
         let editor = makeEditor(settings: settings, running: StubRunningApplications(), notificationCenter: NotificationCenter())
 
-        editor.removeSelected()
-        #expect(settings.autoShowApps == [chatmate, notes])
+        editor.remove(bundleIdentifier: "com.example.notinlist")
 
-        editor.selection = "com.example.notinlist"
-        editor.removeSelected()
         #expect(settings.autoShowApps == [chatmate, notes])
         #expect(savedApps(in: defaults) == [chatmate, notes])
+    }
+
+    @Test("AC-24: 「選んだアプリのみ」以外では編集できず、外す操作をしても一覧は変わらない")
+    func removeDoesNothingWhenNotEditable() throws {
+        let (defaults, name) = try makeSuite()
+        defer { removeSuite(defaults, name: name) }
+        let settings = AppSettings(store: SettingsStore(defaults: defaults))
+        settings.autoShowApps = [chatmate, notes]
+        let editor = makeEditor(settings: settings, running: StubRunningApplications(), notificationCenter: NotificationCenter())
+
+        for mode in [AutoShowMode.off, .allApps] {
+            settings.autoShowMode = mode
+            #expect(!editor.canEdit)
+            editor.remove(bundleIdentifier: chatmate.bundleIdentifier)
+            #expect(settings.autoShowApps == [chatmate, notes])
+            #expect(savedApps(in: defaults) == [chatmate, notes])
+        }
+
+        settings.autoShowMode = .selectedApps
+        #expect(editor.canEdit)
     }
 
     // MARK: - AC-6
@@ -310,9 +306,9 @@ struct AutoShowAppsEditorTests {
         return application
     }
 
-    // MARK: - AC-8
+    // MARK: - AC-24
 
-    @Test("AC-8: モードを「オフ」「全アプリ」にしても一覧は消えず操作できなくなり、「選んだアプリのみ」に戻すと元の一覧を操作できる")
+    @Test("AC-24: モードを「オフ」「全アプリ」にしても一覧は消えず操作できなくなり、「選んだアプリのみ」に戻すと元の一覧を操作できる")
     func changingModeKeepsList() throws {
         let (defaults, name) = try makeSuite()
         defer { removeSuite(defaults, name: name) }
@@ -320,27 +316,26 @@ struct AutoShowAppsEditorTests {
         settings.autoShowMode = .selectedApps
         settings.autoShowApps = [chatmate, notes]
         let editor = makeEditor(settings: settings, running: StubRunningApplications(), notificationCenter: NotificationCenter())
-        editor.selection = chatmate.bundleIdentifier
-        #expect(editor.isEditable)
-        #expect(editor.canRemove)
+        #expect(editor.canEdit)
 
         settings.autoShowMode = .off
         #expect(settings.autoShowApps == [chatmate, notes])
-        #expect(!editor.isEditable)
-        #expect(!editor.canRemove)
-        editor.removeSelected()
+        #expect(!editor.canEdit)
+        editor.remove(bundleIdentifier: chatmate.bundleIdentifier)
         #expect(settings.autoShowApps == [chatmate, notes])
 
         settings.autoShowMode = .allApps
         #expect(settings.autoShowApps == [chatmate, notes])
-        #expect(!editor.isEditable)
-        #expect(!editor.canRemove)
+        #expect(!editor.canEdit)
+        editor.remove(bundleIdentifier: chatmate.bundleIdentifier)
+        #expect(settings.autoShowApps == [chatmate, notes])
 
         settings.autoShowMode = .selectedApps
         #expect(settings.autoShowApps == [chatmate, notes])
         #expect(savedApps(in: defaults) == [chatmate, notes])
-        #expect(editor.isEditable)
-        #expect(editor.canRemove)
+        #expect(editor.canEdit)
+        editor.remove(bundleIdentifier: chatmate.bundleIdentifier)
+        #expect(settings.autoShowApps == [notes])
     }
 
     // MARK: - AC-2
@@ -357,7 +352,7 @@ struct AutoShowAppsEditorTests {
         let editor = makeEditor(settings: reloaded, running: StubRunningApplications(), notificationCenter: NotificationCenter())
         #expect(reloaded.autoShowMode == .allApps)
         #expect(reloaded.autoShowApps == [chatmate])
-        #expect(!editor.isEditable)
+        #expect(!editor.canEdit)
     }
 
     // MARK: - AC-9

@@ -32,9 +32,9 @@ final class SettingsWindowUITests: XCTestCase {
         XCTAssertTrue(element(in: app, identifier: quitID).exists)
 
         // AC-1
-        let hideIcon = element(in: app, identifier: hideMenuBarIconToggleID)
-        app.revealInSettings(hideIcon)
-        XCTAssertTrue(hideIcon.isHittable)
+        let showIcon = element(in: app, identifier: showMenuBarIconToggleID)
+        app.revealInSettings(showIcon)
+        XCTAssertTrue(showIcon.isHittable)
 
         // AC-2
         openSettingsFromMenu(in: app)
@@ -43,9 +43,9 @@ final class SettingsWindowUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-5
+    // AC-11
     @MainActor
-    func testAC5_themeScenario() throws {
+    func testAC11_themeScenario() throws {
         let app = XCUIApplication()
         launch(app)
 
@@ -53,13 +53,12 @@ final class SettingsWindowUITests: XCTestCase {
         let themePicker = element(in: app, identifier: themePickerID)
         app.revealInSettings(themePicker)
 
-        let system = radio("システム", inPicker: themePickerID, in: app)
-        let light = radio("ライト", inPicker: themePickerID, in: app)
-        let dark = radio("ダーク", inPicker: themePickerID, in: app)
+        let system = segment("システム", in: themePicker)
+        let light = segment("ライト", in: themePicker)
+        let dark = segment("ダーク", in: themePicker)
         XCTAssertTrue(system.waitForExistence(timeout: timeout))
         XCTAssertTrue(light.exists)
         XCTAssertTrue(dark.exists)
-        XCTAssertEqual(themePicker.radioButtons.count, 3)
         XCTAssertTrue(isChecked(system))
         XCTAssertFalse(isChecked(light))
         XCTAssertFalse(isChecked(dark))
@@ -72,143 +71,42 @@ final class SettingsWindowUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-5
+    // AC-12
     @MainActor
-    func testAC5_rightPaddingScenario() throws {
-        let app = XCUIApplication()
-        launch(app)
-
-        openSettingsFromMenu(in: app)
-        let scrollView = element(in: app, identifier: "settings.detailScrollView")
-        XCTAssertTrue(scrollView.waitForExistence(timeout: timeout))
-
-        let themePicker = element(in: app, identifier: themePickerID)
-        app.revealInSettings(themePicker)
-        assertRightEdgeHasTrailingPadding(themePicker, scrollView: scrollView)
-
-        let keys = element(in: app, identifier: sidebarKeysID)
-        keys.click()
-        let shortcutList = element(in: app, identifier: "settings.shortcutList")
-        app.revealInSettings(shortcutList)
-        assertRightEdgeHasTrailingPadding(shortcutList, scrollView: scrollView)
-
-        let panel = element(in: app, identifier: sidebarPanelID)
-        panel.click()
-        let resetFont = element(in: app, identifier: "settings.resetFontToSystem")
-        app.revealInSettings(resetFont)
-        assertRightEdgeHasTrailingPadding(resetFont, scrollView: scrollView)
-
-        let appInfo = element(in: app, identifier: sidebarAppInfoID)
-        appInfo.click()
-        let version = element(in: app, identifier: "settings.appInfo.version")
-        app.revealInSettings(version)
-        assertRightEdgeHasTrailingPadding(version, scrollView: scrollView)
-
-        closeSettings(in: app)
-    }
-
-    // AC-13
-    @MainActor
-    func testAC13_itemLabels() throws {
-        let app = XCUIApplication()
-        launch(app)
-
-        openSettingsFromMenu(in: app)
-        let keys = element(in: app, identifier: sidebarKeysID)
-        XCTAssertTrue(keys.waitForExistence(timeout: timeout))
-        keys.click()
-        let commitLabel = app.staticTexts["確定+挿入キー"].firstMatch
-        app.revealInSettings(commitLabel)
-        XCTAssertTrue(commitLabel.exists)
-
-        let appInfo = element(in: app, identifier: sidebarAppInfoID)
-        XCTAssertTrue(appInfo.waitForExistence(timeout: timeout))
-        appInfo.click()
-        let permissionLabel = app.staticTexts["アクセシビリティの許可"].firstMatch
-        app.revealInSettings(permissionLabel)
-        XCTAssertTrue(permissionLabel.exists)
-
-        closeSettings(in: app)
-    }
-
-    // AC-7
-    @MainActor
-    func testAC7_launchAtLoginScenario() throws {
-        let app = XCUIApplication()
-        launch(app)
-
-        openSettingsFromMenu(in: app)
-        let toggle = element(in: app, identifier: launchAtLoginToggleID)
-        app.revealInSettings(toggle)
-        XCTAssertFalse(isChecked(toggle))
-        XCTAssertFalse(element(in: app, identifier: "settings.launchAtLoginOpenSettings").exists)
-        XCTAssertFalse(element(in: app, identifier: "settings.launchAtLoginError").exists)
-
-        toggle.click()
-        XCTAssertTrue(waitUntil { self.isChecked(toggle) })
-        XCTAssertFalse(element(in: app, identifier: "settings.launchAtLoginError").exists)
-
-        closeSettings(in: app)
-        openSettingsFromMenu(in: app)
-        let toggleAfterReopen = element(in: app, identifier: launchAtLoginToggleID)
-        app.revealInSettings(toggleAfterReopen)
-        XCTAssertTrue(isChecked(toggleAfterReopen))
-
-        closeSettings(in: app)
-    }
-
-    // AC-9
-    // AC-11
-    @MainActor
-    func testAC9_AC11_hideMenuBarIconScenario() throws {
+    func testAC12_menuBarIconToggleScenario() throws {
         let app = XCUIApplication()
         launch(app)
 
         XCTAssertTrue(waitUntil { self.isMenuBarIconShown(in: app) })
         openSettingsFromMenu(in: app)
-        let toggle = element(in: app, identifier: hideMenuBarIconToggleID)
+        let toggle = element(in: app, identifier: showMenuBarIconToggleID)
         app.revealInSettings(toggle)
-        XCTAssertFalse(isChecked(toggle))
+        XCTAssertTrue(isChecked(toggle))
 
         toggle.click()
-        XCTAssertTrue(waitUntil { self.isChecked(toggle) })
+        XCTAssertTrue(waitUntil { !self.isChecked(toggle) })
         RunLoop.current.run(until: Date().addingTimeInterval(2))
-        XCTAssertNotEqual(app.state, .notRunning, "アイコンを隠すとアプリが終了した")
-        XCTAssertTrue(settingsWindow(in: app).exists, "アイコンを隠すと設定画面が閉じた")
+        XCTAssertNotEqual(app.state, .notRunning, "アイコンを表示しないとアプリが終了した")
+        XCTAssertTrue(settingsWindow(in: app).exists, "アイコンを表示しないと設定画面が閉じた")
 
         XCTAssertTrue(waitUntil { !self.isMenuBarIconShown(in: app) }, "アイコンが消えない")
 
         toggle.click()
-        XCTAssertTrue(waitUntil { !self.isChecked(toggle) })
+        XCTAssertTrue(waitUntil { self.isChecked(toggle) })
         XCTAssertTrue(waitUntil { self.isMenuBarIconShown(in: app) }, "アイコンが戻らない")
 
         toggle.click()
-        XCTAssertTrue(waitUntil { self.isChecked(toggle) })
+        XCTAssertTrue(waitUntil { !self.isChecked(toggle) })
         XCTAssertTrue(waitUntil { !self.isMenuBarIconShown(in: app) })
         element(in: app, identifier: quitID).click()
         XCTAssertTrue(app.wait(for: .notRunning, timeout: timeout))
 
-        // AC-11
         launch(app, dismissingPermissionGuide: false)
         XCTAssertTrue(element(in: app, identifier: "permissionGuide.status").waitForExistence(timeout: timeout))
         app.dismissPermissionGuideIfPresent()
 
-        XCTAssertFalse(waitUntil(timeout: 2) { self.isMenuBarIconShown(in: app) }, "隠したまま起動し直したのにアイコンが出た")
+        XCTAssertFalse(waitUntil(timeout: 2) { self.isMenuBarIconShown(in: app) }, "表示しない設定のまま起動し直したのにアイコンが出た")
         app.terminate()
-    }
-
-    // AC-4
-    @MainActor
-    func testAC4_quitButton() throws {
-        let app = XCUIApplication()
-        launch(app)
-        XCTAssertTrue(waitUntil { self.isMenuBarIconShown(in: app) })
-
-        openSettingsFromMenu(in: app)
-        let quit = element(in: app, identifier: quitID)
-        XCTAssertTrue(quit.waitForExistence(timeout: timeout))
-        quit.click()
-        XCTAssertTrue(app.wait(for: .notRunning, timeout: timeout))
     }
 
     // AC-14
@@ -238,34 +136,6 @@ final class SettingsWindowUITests: XCTestCase {
         XCTAssertTrue(general.waitForExistence(timeout: timeout))
         XCTAssertTrue(waitUntil { general.isHittable }, "開き直すとサイドバーが畳まれていた(「一般」が押せない)")
         XCTAssertTrue(quit.isHittable, "開き直すとサイドバーが畳まれていた(「TatakiNote を終了」が押せない)")
-        closeSettings(in: app)
-    }
-
-    // AC-14
-    @MainActor
-    func testAC14_sidebarStaysPutWhenSwitchingSections() throws {
-        let app = XCUIApplication()
-        launch(app)
-
-        openSettingsFromMenu(in: app)
-        let window = settingsWindow(in: app)
-        let general = element(in: app, identifier: sidebarGeneralID)
-        let quit = element(in: app, identifier: quitID)
-        XCTAssertTrue(general.waitForExistence(timeout: timeout))
-
-        let initialGeneral = general.frame
-        let initialQuit = quit.frame
-        XCTAssertGreaterThanOrEqual(initialGeneral.minX - window.frame.minX, 12, "「一般」がウィンドウの左の縁に近すぎる")
-        XCTAssertGreaterThanOrEqual(initialQuit.minX - window.frame.minX, 12, "終了ボタンがウィンドウの左の縁に近すぎる")
-
-        for identifier in [sidebarKeysID, sidebarPanelID, sidebarAppInfoID, sidebarGeneralID] {
-            element(in: app, identifier: identifier).click()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-            XCTAssertEqual(general.frame.minX, initialGeneral.minX, accuracy: 0.5, "\(identifier) を選ぶとサイドバーの位置が動いた")
-            XCTAssertEqual(general.frame.width, initialGeneral.width, accuracy: 0.5, "\(identifier) を選ぶとサイドバーの幅が動いた")
-            XCTAssertEqual(quit.frame.minX, initialQuit.minX, accuracy: 0.5, "\(identifier) を選ぶと終了ボタンの位置が動いた")
-            XCTAssertEqual(quit.frame.width, initialQuit.width, accuracy: 0.5, "\(identifier) を選ぶと終了ボタンの幅が動いた")
-        }
         closeSettings(in: app)
     }
 
@@ -315,14 +185,9 @@ final class SettingsWindowUITests: XCTestCase {
     // MARK: - 設定画面の部品
 
     private let sidebarGeneralID = "settings.sidebar.general"
-    private let sidebarKeysID = "settings.sidebar.keys"
-    private let sidebarPanelID = "settings.sidebar.panel"
-    private let sidebarAppInfoID = "settings.sidebar.appInfo"
     private let quitID = "settings.quit"
-    private let settingsDetailTrailingPadding: CGFloat = 36
     private let themePickerID = "settings.themePicker"
-    private let launchAtLoginToggleID = "settings.launchAtLoginToggle"
-    private let hideMenuBarIconToggleID = "settings.hideMenuBarIconToggle"
+    private let showMenuBarIconToggleID = "settings.showMenuBarIconToggle"
 
     @MainActor
     private func element(in app: XCUIApplication, identifier: String) -> XCUIElement {
@@ -330,8 +195,9 @@ final class SettingsWindowUITests: XCTestCase {
     }
 
     @MainActor
-    private func radio(_ title: String, inPicker identifier: String, in app: XCUIApplication) -> XCUIElement {
-        element(in: app, identifier: identifier).radioButtons[title]
+    private func segment(_ name: String, in picker: XCUIElement) -> XCUIElement {
+        let predicate = NSPredicate(format: "label == %@ OR title == %@", name, name)
+        return picker.descendants(matching: .any).matching(predicate).firstMatch
     }
 
     @MainActor
@@ -344,27 +210,7 @@ final class SettingsWindowUITests: XCTestCase {
 
     @MainActor
     private func isSidebarItemSelected(_ identifier: String, in app: XCUIApplication) -> Bool {
-        if element(in: app, identifier: identifier).isSelected {
-            return true
-        }
-        let containers = [
-            app.outlineRows.containing(.any, identifier: identifier).firstMatch,
-            app.tableRows.containing(.any, identifier: identifier).firstMatch,
-            app.cells.containing(.any, identifier: identifier).firstMatch,
-        ]
-        return containers.contains { $0.exists && $0.isSelected }
-    }
-
-    @MainActor
-    private func assertRightEdgeHasTrailingPadding(
-        _ element: XCUIElement,
-        scrollView: XCUIElement,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) {
-        XCTAssertTrue(element.exists, file: file, line: line)
-        let gap = scrollView.frame.maxX - element.frame.maxX
-        XCTAssertGreaterThanOrEqual(gap, settingsDetailTrailingPadding, "余白が狭い(\(gap)pt)", file: file, line: line)
+        element(in: app, identifier: identifier).isSelected
     }
 
     @MainActor

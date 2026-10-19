@@ -4,6 +4,10 @@ import SwiftUI
 /// 設定画面のウィンドウ。
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     let model = SettingsWindowModel()
+    let history: HistorySettingsModel
+
+    /// 設定ウィンドウが閉じた後に呼ぶ処理。
+    var onDidClose: (() -> Void)?
 
     private let settings: AppSettings
     private let launchAtLogin: LaunchAtLoginModel
@@ -26,6 +30,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         self.appInfo = appInfo
         self.panelDefaultSize = panelDefaultSize
         self.library = library
+        self.history = HistorySettingsModel(library: library, settings: settings)
         super.init()
     }
 
@@ -44,17 +49,27 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         AppWindow.bringToFront(window)
     }
 
+    /// 設定画面が見えているときだけ、前に出し直す。
+    func bringToFrontIfVisible() {
+        guard let window, window.isVisible else { return }
+        AppWindow.bringToFront(window)
+    }
+
     func windowDidBecomeKey(_ notification: Notification) {
         launchAtLogin.refresh()
     }
 
     func windowWillClose(_ notification: Notification) {
         model.prepareForOpen()
+        history.resetPhase()
         fontPanel.close()
+        DispatchQueue.main.async { [weak self] in
+            self?.onDidClose?()
+        }
     }
 
     private func makeWindow() -> NSWindow {
-        AppWindow.make(
+        let window = AppWindow.make(
             title: String(localized: "TatakiNote の設定"),
             identifier: "settings",
             styleMask: [.titled, .closable, .fullSizeContentView],
@@ -66,9 +81,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 appInfo: appInfo,
                 panelDefaultSize: panelDefaultSize,
                 library: library,
+                history: history,
                 onShowFontPanel: { [weak self] in self?.fontPanel.show() },
                 onQuit: { NSApp.terminate(nil) }
             )
         )
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        return window
     }
 }

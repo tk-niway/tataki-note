@@ -13,8 +13,16 @@ struct DraftLibraryTests {
         }
     }
 
-    private func makeLibrary(in directory: DraftLibraryTestDirectory, clock: Clock = Clock()) -> DraftLibrary {
-        DraftLibrary(store: DraftLibraryStore(directory: directory.dataDirectory), now: { clock.tick() })
+    private func makeLibrary(
+        in directory: DraftLibraryTestDirectory,
+        clock: Clock = Clock(),
+        historyLimit: Int = HistoryLimit.defaultValue
+    ) -> DraftLibrary {
+        DraftLibrary(
+            store: DraftLibraryStore(directory: directory.dataDirectory),
+            historyLimit: historyLimit,
+            now: { clock.tick() }
+        )
     }
 
     private func blockDataDirectory(in directory: DraftLibraryTestDirectory) throws {
@@ -159,9 +167,9 @@ struct DraftLibraryTests {
     func historyKeepsLatestFifty() {
         let directory = DraftLibraryTestDirectory()
         defer { directory.remove() }
-        let library = makeLibrary(in: directory)
+        let library = makeLibrary(in: directory, historyLimit: 50)
 
-        for number in 1...DraftLibrary.historyLimit {
+        for number in 1...library.historyLimit {
             library.recordInsertion(text: "entry \(number)", appName: nil, bundleIdentifier: nil)
         }
         #expect(library.history.count == 50)
@@ -169,11 +177,11 @@ struct DraftLibraryTests {
 
         library.recordInsertion(text: "entry 51", appName: nil, bundleIdentifier: nil)
 
-        #expect(DraftLibrary.historyLimit == 50)
+        #expect(library.historyLimit == 50)
         #expect(library.history.count == 50)
         #expect(library.history.first?.text == "entry 51")
         #expect(library.history.last?.text == "entry 2")
-        #expect(makeLibrary(in: directory).history.map(\.text) == library.history.map(\.text))
+        #expect(makeLibrary(in: directory, historyLimit: 50).history.map(\.text) == library.history.map(\.text))
     }
 
     @Test("AC-3: 履歴の1件の削除と、すべての削除は書き出され、読み直しても消えたまま")

@@ -12,8 +12,8 @@ enum PanelMetrics {
 
     static let defaultHeightRange: ClosedRange<Double> = Double(minimumSize.height)...Double(maximumDefaultSize.height)
 
-    static let titleBarHeight: CGFloat = 28
-    static let statusBarHeight: CGFloat = 28
+    static let titleBarHeight: CGFloat = 38
+    static let statusBarHeight: CGFloat = 40
     static let textContainerInset = NSSize(width: 11, height: 4)
 
     static func clampedDefaultWidth(_ width: Double) -> Double {

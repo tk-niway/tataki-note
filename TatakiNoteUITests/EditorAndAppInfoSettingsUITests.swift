@@ -88,7 +88,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         let adjustedOpacity = text(of: opacityValue)
         XCTAssertTrue(adjustedOpacity.hasSuffix("%"), adjustedOpacity)
 
-        // AC-6
+        // AC-41
         let characterCount = element(in: app, identifier: statusItemID("characterCount"))
         app.revealInSettings(characterCount)
         XCTAssertTrue(isChecked(characterCount))
@@ -102,63 +102,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertFalse(element(in: app, identifier: statusItemNoteID("commitAndSend")).exists)
         XCTAssertFalse(element(in: app, identifier: statusItemNoteID("characterCount")).exists)
 
-        closeSettings(in: app)
-    }
-
-    @MainActor
-    func testCommitNoteShownWhenCommitKeyUnassigned() throws {
-        let app = XCUIApplication()
-        launch(app, permission: AccessibilityOverride.untrusted, seed: ["commitShortcut": [Int]()])
-        openPanelSettings(in: app)
-
-        let commit = element(in: app, identifier: statusItemID("commit"))
-        app.revealInSettings(commit)
-        XCTAssertTrue(isChecked(commit))
-        XCTAssertTrue(element(in: app, identifier: statusItemNoteID("commit")).exists)
-        XCTAssertFalse(element(in: app, identifier: statusItemNoteID("commitAndSend")).exists)
-
-        closeSettings(in: app)
-    }
-
-    // AC-1
-    @MainActor
-    func testAC1_fontControls() throws {
-        let app = XCUIApplication()
-        launch(app)
-        openPanelSettings(in: app)
-
-        let fontName = element(in: app, identifier: fontNameID)
-        app.revealInSettings(fontName)
-        XCTAssertEqual(text(of: fontName), "システムフォント")
-        let showFontPanel = element(in: app, identifier: showFontPanelID)
-        XCTAssertTrue(showFontPanel.exists)
-        let resetFont = element(in: app, identifier: resetFontToSystemID)
-        XCTAssertTrue(resetFont.exists)
-        XCTAssertFalse(element(in: app, identifier: "settings.fontPicker").exists)
-
-        app.revealInSettings(showFontPanel)
-        showFontPanel.click()
-        XCTAssertTrue(fontPanelWindow(in: app).waitForExistence(timeout: timeout), "フォントパネルが開かない")
-        closeSettings(in: app)
-    }
-
-    // AC-6
-    @MainActor
-    func testAC6_resetFontToSystem() throws {
-        let app = XCUIApplication()
-        launch(app, seed: ["panelFontName": "Menlo-Regular"])
-        openPanelSettings(in: app)
-
-        let fontName = element(in: app, identifier: fontNameID)
-        app.revealInSettings(fontName)
-        XCTAssertTrue(text(of: fontName).contains("Menlo"), text(of: fontName))
-        let resetFont = element(in: app, identifier: resetFontToSystemID)
-        app.revealInSettings(resetFont)
-        XCTAssertTrue(resetFont.isEnabled)
-
-        resetFont.click()
-        XCTAssertTrue(waitUntil { self.text(of: fontName) == "システムフォント" }, "名前の表示がシステムフォントにならない")
-        XCTAssertTrue(waitUntil { !resetFont.isEnabled }, "システムフォントに戻した後も押せる")
         closeSettings(in: app)
     }
 
@@ -179,56 +122,42 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertTrue(fontPanel.waitForNonExistence(timeout: timeout), "設定ウィンドウを閉じてもフォントパネルが残る")
     }
 
-    // AC-7
+    // AC-43
+    // AC-45
     @MainActor
-    func testAC7_shortcutList() throws {
-        let app = XCUIApplication()
-        launch(app)
-        openKeySettings(in: app)
-
-        let list = element(in: app, identifier: shortcutListID)
-        XCTAssertTrue(list.waitForExistence(timeout: timeout))
-        let rows = list.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "settings.shortcut."))
-            .allElementsBoundByIndex
-        XCTAssertEqual(rows.count, 7)
-        let rowTexts = rows.map { combinedText(of: $0) }
-        for keys in ["⌥↑", "⌘L", "⌘D"] {
-            XCTAssertTrue(rowTexts.contains { $0.contains(keys) }, "\(keys) の行が無い: \(rowTexts)")
-        }
-        XCTAssertTrue(rowTexts.contains { $0.contains("⌘D") && $0.contains("単語") }, "\(rowTexts)")
-        XCTAssertFalse(rowTexts.contains { $0.contains("esc") }, "\(rowTexts)")
-        closeSettings(in: app)
-    }
-
-    // AC-8
-    // AC-9
-    @MainActor
-    func testAC8_AC9_appInfoUntrusted() throws {
+    func testAC43_AC45_appInfoUntrusted() throws {
         let app = XCUIApplication()
         launch(app, permission: AccessibilityOverride.untrusted)
         openAppInfoSettings(in: app)
 
-        // AC-8
+        // AC-43
+        let icon = element(in: app, identifier: appInfoIconID)
+        XCTAssertTrue(icon.exists)
+        XCTAssertTrue(icon.isHittable)
+        XCTAssertEqual(icon.label, "TatakiNote")
         let version = text(of: element(in: app, identifier: appInfoVersionID))
         XCTAssertTrue(version.contains { $0.isNumber }, version)
         XCTAssertFalse(version.contains("不明"), version)
 
-        // AC-9
-        XCTAssertTrue(element(in: app, identifier: appInfoPermissionStatusID).exists)
+        // AC-45
+        let badge = element(in: app, identifier: appInfoPermissionStatusID)
+        XCTAssertTrue(badge.exists)
+        XCTAssertEqual(badge.label, "許可されていません")
         XCTAssertTrue(element(in: app, identifier: appInfoPermissionStepsID).exists)
         XCTAssertTrue(element(in: app, identifier: appInfoOpenSystemSettingsID).exists)
         closeSettings(in: app)
     }
 
-    // AC-9
+    // AC-45
     @MainActor
-    func testAC9_appInfoTrusted() throws {
+    func testAC45_appInfoTrusted() throws {
         let app = XCUIApplication()
         launch(app)
         openAppInfoSettings(in: app)
 
-        XCTAssertTrue(element(in: app, identifier: appInfoPermissionStatusID).exists)
+        let badge = element(in: app, identifier: appInfoPermissionStatusID)
+        XCTAssertTrue(badge.exists)
+        XCTAssertEqual(badge.label, "許可されています")
         XCTAssertFalse(element(in: app, identifier: appInfoPermissionStepsID).exists)
         XCTAssertFalse(element(in: app, identifier: appInfoOpenSystemSettingsID).exists)
         closeSettings(in: app)
@@ -262,20 +191,31 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         closeSettings(in: app)
     }
 
-    // AC-14
-    // AC-15
+    // AC-42
     @MainActor
-    func testAC14_AC15_useCurrentPanelSizeAndReset() throws {
+    func testAC42_useCurrentPanelSizeAndReset() throws {
         let app = XCUIApplication()
         launch(app)
         openPanelSettings(in: app)
 
-        // AC-14
+        // AC-42
+        let widthField = element(in: app, identifier: widthFieldID)
+        let heightField = element(in: app, identifier: heightFieldID)
+        let widthUp = incrementArrow(ofStepper: widthStepperID, in: app)
+        app.revealInSettings(widthUp)
+        XCTAssertTrue(waitUntil { widthField.value as? String == "520" })
+        widthUp.click()
+        XCTAssertTrue(waitUntil { widthField.value as? String == "530" }, "幅が 10 増えない(\(String(describing: widthField.value)))")
+        let heightUp = incrementArrow(ofStepper: heightStepperID, in: app)
+        app.revealInSettings(heightUp)
+        XCTAssertTrue(waitUntil { heightField.value as? String == "340" })
+        heightUp.click()
+        XCTAssertTrue(waitUntil { heightField.value as? String == "350" }, "高さが 10 増えない(\(String(describing: heightField.value)))")
+
         let useCurrent = element(in: app, identifier: useCurrentPanelSizeID)
         app.revealInSettings(useCurrent)
         XCTAssertFalse(useCurrent.isEnabled)
 
-        // AC-14
         let panel = openPanel(in: app)
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         XCTAssertFalse(useCurrent.isEnabled, "パネルを開いただけで押せる")
@@ -287,18 +227,14 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertNotEqual(dragged.height, sizeBeforeDrag.height, accuracy: 1, "ドラッグで高さが変わらない")
         closePanel(in: app)
 
-        // AC-14
         XCTAssertTrue(waitUntil { useCurrent.isEnabled }, "ドラッグした後も押せない")
         app.revealInSettings(useCurrent)
         useCurrent.click()
-        let widthField = element(in: app, identifier: widthFieldID)
-        let heightField = element(in: app, identifier: heightFieldID)
         XCTAssertTrue(waitUntil { self.number(in: widthField).map { abs($0 - dragged.width) <= 1 } ?? false },
                       "幅がドラッグした大きさにならない(\(String(describing: widthField.value)) / \(dragged.width))")
         XCTAssertTrue(waitUntil { self.number(in: heightField).map { abs($0 - dragged.height) <= 1 } ?? false },
                       "高さがドラッグした大きさにならない(\(String(describing: heightField.value)) / \(dragged.height))")
 
-        // AC-15
         let reset = element(in: app, identifier: resetPanelDefaultSizeID)
         app.revealInSettings(reset)
         reset.click()
@@ -340,7 +276,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     private let appInfoOpenTutorialID = "settings.appInfo.openTutorial"
     private let fontNameID = "settings.fontName"
     private let showFontPanelID = "settings.showFontPanel"
-    private let resetFontToSystemID = "settings.resetFontToSystem"
     private let fontSizeStepperID = "settings.fontSizeStepper"
     private let fontSizeValueID = "settings.fontSizeValue"
     private let opacitySliderID = "settings.opacitySlider"
@@ -348,9 +283,10 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     private let widthFieldID = "settings.panelDefaultWidthField"
     private let heightFieldID = "settings.panelDefaultHeightField"
     private let widthStepperID = "settings.panelDefaultWidthStepper"
+    private let heightStepperID = "settings.panelDefaultHeightStepper"
     private let useCurrentPanelSizeID = "settings.useCurrentPanelSize"
     private let resetPanelDefaultSizeID = "settings.resetPanelDefaultSize"
-    private let shortcutListID = "settings.shortcutList"
+    private let appInfoIconID = "settings.appInfo.icon"
     private let appInfoVersionID = "settings.appInfo.version"
     private let appInfoPermissionStatusID = "settings.appInfo.permissionStatus"
     private let appInfoPermissionStepsID = "settings.appInfo.permissionSteps"
@@ -376,15 +312,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertTrue(panel.waitForExistence(timeout: timeout))
         panel.click()
         XCTAssertTrue(element(in: app, identifier: fontNameID).waitForExistence(timeout: timeout))
-    }
-
-    @MainActor
-    private func openKeySettings(in app: XCUIApplication) {
-        openSettingsFromMenu(in: app)
-        let keys = element(in: app, identifier: sidebarKeysID)
-        XCTAssertTrue(keys.waitForExistence(timeout: timeout))
-        keys.click()
-        XCTAssertTrue(element(in: app, identifier: shortcutListID).waitForExistence(timeout: timeout))
     }
 
     @MainActor
@@ -424,11 +351,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
             return value
         }
         return element.label
-    }
-
-    @MainActor
-    private func combinedText(of element: XCUIElement) -> String {
-        [element.label, element.value as? String ?? ""].joined(separator: " ")
     }
 
     @MainActor

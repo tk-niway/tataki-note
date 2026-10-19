@@ -121,14 +121,29 @@ import Observation
         }
     }
 
-    /// パネルの開閉エフェクトを使うか。
-    var isPanelAnimationEnabled: Bool {
-        didSet { store.saveIsPanelAnimationEnabled(isPanelAnimationEnabled) }
+    /// 「アニメーション」の選択。
+    var animationMode: AnimationMode {
+        didSet { store.saveAnimationMode(animationMode) }
+    }
+
+    /// 今、動きを使うか。
+    var isAnimationEnabled: Bool {
+        animationMode.isEnabled(reduceMotion: reducesMotion())
     }
 
     /// 挿入先の入力欄を枠線で囲むか。
     var isInsertionTargetOutlineShown: Bool {
         didSet { store.saveIsInsertionTargetOutlineShown(isInsertionTargetOutlineShown) }
+    }
+
+    /// Dock にアイコンを表示するか。
+    var showsDockIcon: Bool {
+        didSet { store.saveShowsDockIcon(showsDockIcon) }
+    }
+
+    /// ⌘Q で終了前に確認するか。
+    var confirmsQuit: Bool {
+        didSet { store.saveConfirmsQuit(confirmsQuit) }
     }
 
     /// 初回起動のチュートリアルを自動で出したか。
@@ -146,16 +161,38 @@ import Observation
         didSet { store.saveSidebarTab(sidebarTab) }
     }
 
-    /// 今のモード。`selectAppMode(_:hotkey:)` で変える。
-    private(set) var appMode: AppMode {
-        didSet { store.saveAppMode(appMode) }
+    /// 前回書き出したフォルダのパス。
+    var lastExportDirectoryPath: String? {
+        didSet { store.saveLastExportDirectoryPath(lastExportDirectoryPath) }
+    }
+
+    /// 履歴に残す件数の上限。
+    var historyLimit: Int {
+        didSet {
+            let clamped = HistoryLimit.clamped(historyLimit)
+            if clamped != historyLimit {
+                historyLimit = clamped
+            }
+            store.saveHistoryLimit(historyLimit)
+        }
+    }
+
+    /// 新しい書きかけを始めるモード。
+    var newDraftMode: DraftMode {
+        didSet { store.saveNewDraftMode(newDraftMode) }
     }
 
     @ObservationIgnored private let store: SettingsStore
 
-    init(store: SettingsStore) {
+    @ObservationIgnored private let reducesMotion: () -> Bool
+
+    init(
+        store: SettingsStore,
+        reducesMotion: @escaping () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+    ) {
         self.store = store
-        self.appMode = store.loadAppMode()
+        self.reducesMotion = reducesMotion
+        self.newDraftMode = store.loadNewDraftMode()
         self.commitKey = store.loadCommitShortcut()
         self.commitAndSendKey = store.loadCommitAndSendShortcut()
         self.panelScreen = store.loadPanelScreen()
@@ -179,54 +216,36 @@ import Observation
         self.hidesMenuBarIcon = store.loadHidesMenuBarIcon()
         self.panelDefaultWidth = store.loadPanelDefaultWidth()
         self.panelDefaultHeight = store.loadPanelDefaultHeight()
-        self.isPanelAnimationEnabled = store.loadIsPanelAnimationEnabled()
+        self.animationMode = store.loadAnimationMode()
         self.isInsertionTargetOutlineShown = store.loadIsInsertionTargetOutlineShown()
+        self.showsDockIcon = store.loadShowsDockIcon()
+        self.confirmsQuit = store.loadConfirmsQuit()
         self.hasShownFirstLaunchTutorial = store.loadHasShownFirstLaunchTutorial()
         self.isSidebarOpen = store.loadSidebarIsOpen()
         self.sidebarTab = store.loadSidebarTab()
+        self.lastExportDirectoryPath = store.loadLastExportDirectoryPath()
+        self.historyLimit = store.loadHistoryLimit()
         self.commitKeyDisplayText = commitKey?.displayText
         self.commitAndSendKeyDisplayText = commitAndSendKey?.displayText
     }
 
-    var isNoteMode: Bool {
-        appMode == .note
-    }
-
-    /// モードを切り替える。インサートモードにしたとき確定キーが両方とも未登録なら、初期値を登録する(ホットキーと同じキーは除く)。
-    func selectAppMode(_ mode: AppMode, hotkey: PanelShortcut?) {
-        guard mode != appMode else { return }
-        if mode == .insert, commitKey == nil, commitAndSendKey == nil {
-            if let key = PanelShortcut.defaultCommitKey, key != hotkey {
-                commitKey = key
-            }
-            if let key = PanelShortcut.defaultCommitAndSendKey, key != hotkey {
-                commitAndSendKey = key
-            }
+    /// 確定+挿入キーと確定+送信キーが両方とも未登録なら、初期値を登録する(ホットキーと同じキーは除く)。
+    func registerDefaultCommitKeysIfBothMissing(hotkey: PanelShortcut?) {
+        guard commitKey == nil, commitAndSendKey == nil else { return }
+        if let key = PanelShortcut.defaultCommitKey, key != hotkey {
+            commitKey = key
         }
-        appMode = mode
+        if let key = PanelShortcut.defaultCommitAndSendKey, key != hotkey {
+            commitAndSendKey = key
+        }
     }
 
-    /// 実際に使う「パネルを出す位置」。ノートモードでは「入力欄の近く」を「マウスの近く」にする。
-    var effectivePanelScreen: PanelScreen {
-        isNoteMode && panelScreen == .nearFocusedField ? .mouse : panelScreen
-    }
-
-    /// 実際に使う自動表示の設定。ノートモードではオフ。
-    var effectiveAutoShowMode: AutoShowMode {
-        isNoteMode ? .off : autoShowMode
-    }
-
-    /// 挿入先の枠線を実際に出すか。ノートモードでは出さない。
-    var isInsertionTargetOutlineActive: Bool {
-        !isNoteMode && isInsertionTargetOutlineShown
-    }
-
-    /// 帯に出す項目。ノートモードでは改行・確定+挿入・確定+送信を出さない。
-    var panelStatusItems: [PanelStatusItem] {
+    /// 帯に出す項目。ノートの書きかけでは確定+挿入・確定+送信を出さない。
+    func panelStatusItems(for mode: DraftMode) -> [PanelStatusItem] {
         PanelStatusItem.visibleItems(
-            hidden: isNoteMode ? hiddenPanelStatusItems.union([.lineBreak]) : hiddenPanelStatusItems,
-            commitKey: isNoteMode ? nil : commitKey,
-            commitAndSendKey: isNoteMode ? nil : commitAndSendKey
+            hidden: hiddenPanelStatusItems,
+            commitKey: mode == .note ? nil : commitKey,
+            commitAndSendKey: mode == .note ? nil : commitAndSendKey
         )
     }
 

@@ -2,11 +2,67 @@ import Foundation
 import Observation
 import SwiftUI
 
-/// 保存のアニメーションの段。
+/// 保存した本文の写しが飛び込む先。
+enum SaveFlightDestination: Hashable {
+    case sidebarToggle
+    case draftRow(UUID)
+    case draftsTab
+}
+
+extension SaveFlightDestination {
+    /// サイドバーが閉じていれば開閉ボタン、開いて下書きを出していて保存した下書きの行が一覧に出ていればその行、それ以外は「下書き」の切り替え。
+    static func resolve(
+        savedDraftID: UUID,
+        isSidebarOpen: Bool,
+        isShowingDrafts: Bool,
+        visibleDraftIDs: [UUID]
+    ) -> SaveFlightDestination {
+        guard isSidebarOpen else { return .sidebarToggle }
+        if isShowingDrafts, visibleDraftIDs.contains(savedDraftID) {
+            return .draftRow(savedDraftID)
+        }
+        return .draftsTab
+    }
+
+    /// 保存の前にサイドバーを下書きに切り替えるか。保存で、サイドバーが開いて履歴を出しているときだけ。
+    static func shouldSwitchToDrafts(isSidebarOpen: Bool, tab: SidebarTab) -> Bool {
+        isSidebarOpen && tab == .history
+    }
+}
+
+/// 1 回の保存の演出。
+struct SaveFlight: Equatable {
+    let id: Int
+    let text: String
+    let destination: SaveFlightDestination
+}
+
+/// トーストの印の種類。
+enum PanelToastStyle: Equatable {
+    case done
+    case notice
+}
+
+/// 保存の演出の段。
 enum SaveAnimationPhase: Equatable {
     case idle
-    case flying
-    case absorbing
+    case flying(SaveFlight)
+    case arrived(SaveFlight)
+}
+
+/// 着いた所に散らす粒の置き方。
+enum SaveBurst {
+    static let particleCount = 14
+    static let minimumDistance: CGFloat = 22
+    static let maximumDistance: CGFloat = 52
+
+    /// i 番目の粒の向き(ラジアン)と飛ぶ距離(22〜52pt)。
+    static func particle(at index: Int) -> (angle: Double, distance: CGFloat) {
+        let angle = Double(index) / Double(particleCount) * 2 * .pi
+        let step = (index * 5) % particleCount
+        let fraction = CGFloat(step) / CGFloat(particleCount - 1)
+        return (angle, minimumDistance + (maximumDistance - minimumDistance) * fraction)
+    }
 }
 
 extension Duration {
@@ -17,21 +73,31 @@ extension Duration {
     }
 }
 
-/// 保存のアニメーションの進み方。
+/// 保存の演出の進み方。
 @Observable final class SaveAnimationModel {
-    static let flyingDuration: Duration = .milliseconds(500)
-    static let absorbingDuration: Duration = .milliseconds(250)
-    static let highlightDuration: Duration = .milliseconds(700)
-    static let saveConfirmationDuration: Duration = .milliseconds(700)
-    static let maximumTotal: Duration = .milliseconds(800)
-
-    static let savedAnnouncement = "保存しました"
+    static let flyingDuration: Duration = .milliseconds(680)
+    static let arrivalDuration: Duration = .milliseconds(720)
+    static let toastDuration: Duration = .milliseconds(1900)
+    static let savedMessage = "下書きに保存しました"
+    static let archivedMessage = "書きかけを履歴に残しました"
+    static let exportedMessage = "書き出しました"
+    static let nothingToExportMessage = "書き出す文章がありません"
+    static let nothingToShareMessage = "共有する文章がありません"
 
     private(set) var phase: SaveAnimationPhase = .idle
-    private(set) var highlightedDraftID: UUID?
-    private(set) var isShowingSaveConfirmation = false
+    /// 着いたときに 1 つ進む。着いた所が弾むきっかけ。
+    private(set) var arrivalCount = 0
+    /// 着いて光っている下書きの行。
+    private(set) var glowingDraftID: UUID?
+    /// 下書きの行に印を付けるたびに 1 つ進む。行の印のきっかけ。
+    private(set) var glowCount = 0
+    /// パネルの中に出しているトーストの文。出していなければ nil。
+    private(set) var toastMessage: String?
+    /// 出しているトーストの印の種類。
+    private(set) var toastStyle: PanelToastStyle = .done
+    /// トーストを出すたびに 1 つ進む。
+    private(set) var toastCount = 0
     private(set) var playCount = 0
-    private(set) var absorbCount = 0
 
     @ObservationIgnored private let sleep: (Duration) async -> Void
     @ObservationIgnored private let announce: (String) -> Void
@@ -44,40 +110,79 @@ extension Duration {
         self.announce = announce
     }
 
-    /// 保存の知らせに合わせて動きを進める。新しい知らせが来たら前の動きは打ち切る。
-    func play(_ event: DraftSaveEvent, isSidebarOpen: Bool) async {
+    /// 本文の写しを destination へ飛ばし、着いたら弾ませる。showsToast なら、トーストも出す。isAnimated が false なら飛ばさず、行の印とトーストだけを出す。新しい保存が来たら前の演出を打ち切る。
+    func play(text: String, destination: SaveFlightDestination, showsToast: Bool = true, isAnimated: Bool = true) async {
         playCount += 1
         let generation = playCount
-        reset()
-        switch event.kind {
-        case .created(let id):
-            if isSidebarOpen {
-                highlightedDraftID = id
-                await sleep(Self.highlightDuration)
-                guard generation == playCount else { return }
-                highlightedDraftID = nil
-            } else {
-                phase = .flying
-                await sleep(Self.flyingDuration)
-                guard generation == playCount else { return }
-                phase = .absorbing
-                absorbCount += 1
-                await sleep(Self.absorbingDuration)
-                guard generation == playCount else { return }
-                phase = .idle
-            }
-        case .overwritten:
-            isShowingSaveConfirmation = true
-            announce(Self.savedAnnouncement)
-            await sleep(Self.saveConfirmationDuration)
-            guard generation == playCount else { return }
-            isShowingSaveConfirmation = false
+        glowingDraftID = nil
+        toastMessage = nil
+        guard isAnimated else {
+            await playWithoutMotion(destination: destination, generation: generation)
+            return
         }
+        let flight = SaveFlight(id: generation, text: text, destination: destination)
+        phase = .flying(flight)
+        await sleep(Self.flyingDuration)
+        guard generation == playCount else { return }
+        phase = .arrived(flight)
+        arrivalCount += 1
+        if case .draftRow(let id) = destination {
+            glowingDraftID = id
+            glowCount += 1
+        }
+        let toast = showsToast ? presentToast(Self.savedMessage, style: .done) : nil
+        await sleep(Self.arrivalDuration)
+        guard generation == playCount else { return }
+        phase = .idle
+        glowingDraftID = nil
+        guard let toast else { return }
+        await sleep(Self.toastDuration - Self.arrivalDuration)
+        guard generation == playCount else { return }
+        dismissToast(numbered: toast)
     }
 
-    private func reset() {
+    /// 写しの動きとは別に、トーストだけを出して読み上げ、一定時間で消す。
+    func showToast(_ message: String, style: PanelToastStyle = .done) async {
+        let toast = presentToast(message, style: style)
+        await sleep(Self.toastDuration)
+        dismissToast(numbered: toast)
+    }
+
+    /// 演出とトーストをすぐ止める。
+    func cancel() {
+        playCount += 1
+        toastCount += 1
         phase = .idle
-        highlightedDraftID = nil
-        isShowingSaveConfirmation = false
+        glowingDraftID = nil
+        toastMessage = nil
+        toastStyle = .done
+    }
+
+    private func playWithoutMotion(destination: SaveFlightDestination, generation: Int) async {
+        phase = .idle
+        if case .draftRow(let id) = destination {
+            glowingDraftID = id
+            glowCount += 1
+        }
+        let toast = presentToast(Self.savedMessage, style: .done)
+        await sleep(Self.arrivalDuration)
+        guard generation == playCount else { return }
+        glowingDraftID = nil
+        await sleep(Self.toastDuration - Self.arrivalDuration)
+        guard generation == playCount else { return }
+        dismissToast(numbered: toast)
+    }
+
+    private func presentToast(_ message: String, style: PanelToastStyle) -> Int {
+        toastCount += 1
+        toastMessage = message
+        toastStyle = style
+        announce(message)
+        return toastCount
+    }
+
+    private func dismissToast(numbered number: Int) {
+        guard toastCount == number else { return }
+        toastMessage = nil
     }
 }

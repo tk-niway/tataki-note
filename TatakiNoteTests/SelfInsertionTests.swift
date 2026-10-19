@@ -20,7 +20,7 @@ struct SelfInsertionTests {
         _ body: (Fixture) async throws -> Void
     ) async throws {
         let suiteName = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.panelScreen = .nearFocusedField
@@ -33,6 +33,7 @@ struct SelfInsertionTests {
             permission: PermissionStub(isTrusted: isTrusted),
             fieldProbe: probe,
             ownProcessIdentifier: Self.ownPid,
+            beep: {},
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
         )
         defer { controller.close() }
@@ -229,7 +230,9 @@ struct SelfInsertionTests {
             controller.targetOverride = { own }
             controller.open()
             controller.commit()
+            #expect(controller.model.isPresented)
 
+            controller.close()
             controller.model.present(target: nil)
             controller.model.text = "text"
             controller.commit()

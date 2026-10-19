@@ -10,10 +10,10 @@ private final class PanelViewHarness {
     let panel: PromptPanel
     let hostingView: NSHostingView<PanelView>
     private let suiteName = UUID().uuidString
-    private let defaults: UserDefaults
+    private let defaults: InMemoryDefaults
 
     init(configure: (AppSettings) -> Void = { _ in }) throws {
-        defaults = try #require(UserDefaults(suiteName: suiteName))
+        defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         settings = AppSettings(store: SettingsStore(defaults: defaults))
         configure(settings)
         panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
@@ -282,18 +282,30 @@ struct PanelViewSettingsTests {
         #expect(harness.settle { abs((harness.editorHeight ?? 0) - heightWithBar) < 0.5 })
     }
 
-    @Test("AC-1, AC-7: 入力欄の高さは、パネルの高さからタイトルバーと、帯があるときは区切り線と帯を引いた高さ。閉じるボタンを付けても変わらない")
+    @Test("AC-1, AC-2: 入力欄の高さは、パネルの高さから上の帯 38pt と、帯があるときは区切り線 1pt と下の帯 40pt を引いた高さ。閉じるボタンを付けても変わらない")
     func closeButtonDoesNotChangeEditorHeight() throws {
         let harness = try PanelViewHarness()
         defer { harness.removeDefaults() }
-        let titleBarHeight = harness.panel.frame.height - harness.panel.contentLayoutRect.height
+        let panelHeight = harness.hostingView.bounds.height
 
-        let expectedWithBar = harness.panel.frame.height
-            - (titleBarHeight + 1 + PanelMetrics.statusBarHeight)
+        let expectedWithBar = panelHeight - PanelMetrics.titleBarHeight - 1 - PanelMetrics.statusBarHeight
         #expect(abs((harness.editorHeight ?? 0) - expectedWithBar) < 0.5)
 
         harness.settings.hiddenPanelStatusItems = Set(PanelStatusItem.allCases)
-        let expectedWithoutBar = harness.panel.frame.height - titleBarHeight
+        let expectedWithoutBar = panelHeight - PanelMetrics.titleBarHeight
         #expect(harness.settle { abs((harness.editorHeight ?? 0) - expectedWithoutBar) < 0.5 })
+    }
+
+    @Test("AC-2: 入力欄の上端は、パネルの上端から上の帯の高さ 38pt の位置にある")
+    func editorTopIsBelowTitleBar() throws {
+        let harness = try PanelViewHarness()
+        defer { harness.removeDefaults() }
+        let scrollView = try #require(harness.textView?.enclosingScrollView)
+        let frameInHosting = harness.hostingView.convert(scrollView.bounds, from: scrollView)
+        let topInset = harness.hostingView.isFlipped
+            ? frameInHosting.minY
+            : harness.hostingView.bounds.height - frameInHosting.maxY
+
+        #expect(abs(topInset - PanelMetrics.titleBarHeight) < 0.5)
     }
 }

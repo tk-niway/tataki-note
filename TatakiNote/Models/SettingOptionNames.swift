@@ -16,13 +16,13 @@ extension PanelScreen {
     }
 }
 
-extension AppMode {
+extension DraftMode {
     var displayName: String {
         switch self {
         case .insert:
-            String(localized: "インサートモード")
+            String(localized: "インサート")
         case .note:
-            String(localized: "ノートモード")
+            String(localized: "ノート")
         }
     }
 }
@@ -36,6 +36,19 @@ extension AppTheme {
             String(localized: "ライト")
         case .dark:
             String(localized: "ダーク")
+        }
+    }
+}
+
+extension AnimationMode {
+    var displayName: String {
+        switch self {
+        case .system:
+            String(localized: "システム")
+        case .on:
+            String(localized: "オン")
+        case .off:
+            String(localized: "オフ")
         }
     }
 }
@@ -78,11 +91,11 @@ extension SettingsSection {
         case .general:
             String(localized: "一般")
         case .keys:
-            String(localized: "キー")
+            String(localized: "ホットキーとキー操作")
         case .panel:
             String(localized: "パネル")
         case .appInfo:
-            String(localized: "アプリ情報")
+            String(localized: "情報")
         }
     }
 

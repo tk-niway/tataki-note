@@ -2,15 +2,15 @@ import Foundation
 import Testing
 @testable import TatakiNote
 
-/// テストごとの一時的な UserDefaults(suite)。`remove()` で消す。
+/// テストごとの一時的な設定の保存先(メモリだけ)。`remove()` で消す。
 @MainActor
 struct TemporaryDefaults {
     let name: String
-    let defaults: UserDefaults
+    let defaults: InMemoryDefaults
 
     init(name: String = UUID().uuidString) throws {
         self.name = name
-        self.defaults = try #require(UserDefaults(suiteName: name))
+        self.defaults = try #require(InMemoryDefaults(suiteName: name))
     }
 
     func makeSettings() -> AppSettings {
@@ -22,7 +22,7 @@ struct TemporaryDefaults {
     }
 
     static func remove(named name: String) {
-        UserDefaults(suiteName: name)?.removePersistentDomain(forName: name)
+        InMemoryDefaults(suiteName: name)?.removePersistentDomain(forName: name)
     }
 }
 

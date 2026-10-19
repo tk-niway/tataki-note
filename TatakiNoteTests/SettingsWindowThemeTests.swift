@@ -32,7 +32,7 @@ struct SettingsWindowThemeTests {
     @Test("AC-6: テーマを変えると、開き直さずに設定画面の窓の外観がそのテーマになり、「システム」なら窓の外観の指定が外れる")
     func settingsWindowFollowsTheme() async throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.theme = .dark
@@ -66,7 +66,7 @@ struct SettingsWindowThemeTests {
     @Test("AC-6: テーマを変えると、開き直さずに権限の案内の窓の外観がそのテーマになり、「システム」なら窓の外観の指定が外れる")
     func permissionGuideWindowFollowsTheme() async throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.theme = .light

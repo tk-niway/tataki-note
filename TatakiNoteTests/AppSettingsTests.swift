@@ -7,7 +7,7 @@ struct AppSettingsTests {
     @Test("AC-2: 変えた値は、同じ保存先で作り直した AppSettings でも同じ値")
     func changedValuesSurviveRecreation() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
@@ -28,7 +28,7 @@ struct AppSettingsTests {
     @Test("AC-9, AC-11: 新しい候補(⇧⌘↩・登録なし)も、同じ保存先で作り直した AppSettings で同じ値")
     func newCommitKeysSurviveRecreation() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
@@ -42,7 +42,7 @@ struct AppSettingsTests {
     @Test("AC-1: 作っただけでは何も保存せず、初期値(確定 ⇧⌘↩)を読む")
     func initDoesNotSave() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
@@ -58,7 +58,7 @@ struct AppSettingsTests {
     @Test("確定+送信キーは初期値「⌘↩」で、作っただけでは保存しない。変えると保存され、作り直しても残る")
     func commitAndSendKeyIsSavedAndSurvivesRecreation() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
@@ -78,7 +78,7 @@ struct AppSettingsTests {
     @Test("確定で使っているキーは確定+送信に選べず(値も保存も変わらない)、逆も同じ。登録なしはどちらでも選べる")
     func selectRejectsKeyUsedByTheOtherAction() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         #expect(settings.commitAndSendKey == .commandReturn)
@@ -115,14 +115,14 @@ struct AppSettingsTests {
         "hiddenPanelStatusItems", "hidesMenuBarIcon", "panelDefaultWidth", "panelDefaultHeight",
     ]
 
-    private func storedNumber(_ defaults: UserDefaults, forKey key: String) -> Double? {
+    private func storedNumber(_ defaults: InMemoryDefaults, forKey key: String) -> Double? {
         (defaults.object(forKey: key) as? NSNumber)?.doubleValue
     }
 
     @Test("AC-1: 新しい設定の初期値はテーマ「システム」・フォント名なし・文字サイズ 14・透明度 1.0・帯はすべて表示・アイコンを隠さない・既定の大きさ 520×340 で、作っただけでは新しいキーに何も保存しない")
     func newSettingsDefaultsAndInitDoesNotSave() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
@@ -145,7 +145,7 @@ struct AppSettingsTests {
     @Test("AC-2: 新しい設定を変えると保存され、同じ保存先で作り直した AppSettings でも同じ値")
     func newSettingsSurviveRecreation() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
@@ -194,7 +194,7 @@ struct AppSettingsTests {
     @Test("AC-3: panelFontName に空文字を代入すると nil になり、保存のキーが消える")
     func emptyPanelFontNameBecomesNil() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
@@ -214,7 +214,7 @@ struct AppSettingsTests {
     @Test("AC-3: フォントパネルで書体を選ぶと、名前とファミリー名が保存され、作り直しても同じ書体で表示される")
     func selectedPanelFontIsSavedAndSurvivesRecreation() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let hiragino = try #require(NSFont(name: "HiraginoSans-W6", size: 20))
 
@@ -238,7 +238,7 @@ struct AppSettingsTests {
     @Test("AC-4: フォントパネルのサイズは四捨五入して文字サイズに入り、10 未満は 10、32 超は 32")
     func selectedPanelFontSizeIsRoundedAndClamped() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
 
@@ -257,7 +257,7 @@ struct AppSettingsTests {
     @Test("AC-5: システムフォントのままサイズだけ変えると、フォント名・ファミリー名は無いままで文字サイズだけが変わる")
     func selectingSystemFontOnlyChangesSize() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
 
@@ -279,7 +279,7 @@ struct AppSettingsTests {
     @Test("AC-3, AC-5: 書体を選んだ後にシステムフォントに戻すと、名前とファミリー名のキーが消え、文字サイズは変わらない")
     func resetPanelFontToSystemKeepsSize() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let menlo = try #require(NSFont(name: "Menlo-Regular", size: 22))
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
@@ -303,7 +303,7 @@ struct AppSettingsTests {
     @Test("AC-10: ファミリー名の保存が無い以前の版のフォント名は、同じ書体で表示され、起動時にファミリー名が補われて保存される")
     func legacyFontNameGetsFamilyNameOnInit() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         defaults.set("Menlo-Regular", forKey: "panelFontName")
@@ -320,7 +320,7 @@ struct AppSettingsTests {
     @Test("AC-10: 保存済みのファミリー名は補い直して書き換えない")
     func existingFamilyNameIsKeptOnInit() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         defaults.set("Menlo-Regular", forKey: "panelFontName")
@@ -336,7 +336,7 @@ struct AppSettingsTests {
         let names: [String?] = [nil, "TatakiNoteNoSuchFont-Regular", ".SFNS-Regular", ".AppleSystemUIFont"]
         for fontName in names {
             let name = UUID().uuidString
-            let defaults = try #require(UserDefaults(suiteName: name))
+            let defaults = try #require(InMemoryDefaults(suiteName: name))
             defer { defaults.removePersistentDomain(forName: name) }
             if let fontName {
                 defaults.set(fontName, forKey: "panelFontName")
@@ -352,7 +352,7 @@ struct AppSettingsTests {
     @Test("AC-5: 文字サイズ・透明度に範囲外の値を代入すると丸めて保存し、NaN・無限大は初期値(14・1.0)になる")
     func fontSizeAndOpacityAreClampedOnAssignment() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
 
@@ -389,46 +389,67 @@ struct AppSettingsTests {
     @Test("AC-4: 帯に出す項目は allCases の順で、非表示にした項目と登録なしのキーを出さない。1つずつ切り替えて保存でき、すべて非表示なら空")
     func panelStatusItemsFollowSettings() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
 
-        #expect(settings.panelStatusItems == PanelStatusItem.allCases)
+        #expect(settings.panelStatusItems(for: .insert) == PanelStatusItem.allCases)
 
         settings.commitKey = nil
-        #expect(settings.panelStatusItems == [.close, .lineBreak, .commitAndSend, .characterCount, .lineCount])
+        #expect(settings.panelStatusItems(for: .insert) == [.close, .lineBreak, .commitAndSend, .characterCount, .lineCount])
 
         settings.commitKey = .shiftReturn
-        #expect(settings.panelStatusItems == PanelStatusItem.allCases)
+        #expect(settings.panelStatusItems(for: .insert) == PanelStatusItem.allCases)
 
         settings.setPanelStatusItem(.close, isVisible: false)
         #expect(settings.hiddenPanelStatusItems == [.close])
-        #expect(settings.panelStatusItems == [.lineBreak, .commit, .commitAndSend, .characterCount, .lineCount])
+        #expect(settings.panelStatusItems(for: .insert) == [.lineBreak, .commit, .commitAndSend, .characterCount, .lineCount])
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).hiddenPanelStatusItems == [.close])
 
         settings.setPanelStatusItem(.close, isVisible: false)
         #expect(settings.hiddenPanelStatusItems == [.close])
         settings.setPanelStatusItem(.close, isVisible: true)
         #expect(settings.hiddenPanelStatusItems.isEmpty)
-        #expect(settings.panelStatusItems == PanelStatusItem.allCases)
+        #expect(settings.panelStatusItems(for: .insert) == PanelStatusItem.allCases)
         #expect(AppSettings(store: SettingsStore(defaults: defaults)).hiddenPanelStatusItems.isEmpty)
 
         settings.commitAndSendKey = nil
         #expect(settings.hiddenPanelStatusItems.isEmpty)
-        #expect(settings.panelStatusItems == [.close, .lineBreak, .commit, .characterCount, .lineCount])
+        #expect(settings.panelStatusItems(for: .insert) == [.close, .lineBreak, .commit, .characterCount, .lineCount])
 
         for item in PanelStatusItem.allCases {
             settings.setPanelStatusItem(item, isVisible: false)
         }
         #expect(settings.hiddenPanelStatusItems == Set(PanelStatusItem.allCases))
-        #expect(settings.panelStatusItems.isEmpty)
-        #expect(AppSettings(store: SettingsStore(defaults: defaults)).panelStatusItems.isEmpty)
+        #expect(settings.panelStatusItems(for: .insert).isEmpty)
+        #expect(settings.panelStatusItems(for: .note).isEmpty)
+        #expect(AppSettings(store: SettingsStore(defaults: defaults)).panelStatusItems(for: .insert).isEmpty)
+    }
+
+    @Test("AC-16: 帯に出す項目は、ノートの書きかけでは確定+挿入・確定+送信を除き、閉じる・改行・文字数・行数は「帯に出す項目」のオン・オフどおり。インサートでは今と同じ")
+    func panelStatusItemsInNoteDraft() throws {
+        let name = UUID().uuidString
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let settings = AppSettings(store: SettingsStore(defaults: defaults))
+
+        #expect(settings.panelStatusItems(for: .insert) == PanelStatusItem.allCases)
+        #expect(settings.panelStatusItems(for: .note) == [.close, .lineBreak, .characterCount, .lineCount])
+
+        settings.setPanelStatusItem(.lineBreak, isVisible: false)
+        #expect(settings.panelStatusItems(for: .note) == [.close, .characterCount, .lineCount])
+
+        settings.setPanelStatusItem(.lineBreak, isVisible: true)
+        settings.setPanelStatusItem(.characterCount, isVisible: false)
+        #expect(settings.panelStatusItems(for: .note) == [.close, .lineBreak, .lineCount])
+        #expect(settings.panelStatusItems(for: .insert) == [.close, .lineBreak, .commit, .commitAndSend, .lineCount])
+        #expect(settings.commitKey == .commandShiftReturn)
     }
 
     @Test("AC-14: 既定の大きさの幅・高さに代入すると範囲(幅 320〜4000・高さ 160〜4000)に丸めて保存し、NaN・無限大は初期値。panelDefaultSize は幅と高さの組")
     func panelDefaultSizeIsClampedOnAssignment() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
 
@@ -467,7 +488,7 @@ struct AppSettingsTests {
     @Test("AC-10: 今の版が保存した設定値は、同じ保存先で作った AppSettings で同じ値に読める")
     func storedValuesFromCurrentVersionAreRead() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         defaults.set(PanelScreen.mouse.rawValue, forKey: SettingsStore.Key.panelScreen)
@@ -502,7 +523,7 @@ struct AppSettingsTests {
     @Test("AC-9: アイコンを出すか(isMenuBarIconShown)は隠すか(hidesMenuBarIcon)の逆で、初期値は出す。書くと隠すかが逆の値で保存され、作り直しても残る")
     func menuBarIconShownIsInverseOfHides() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         let settings = AppSettings(store: SettingsStore(defaults: defaults))

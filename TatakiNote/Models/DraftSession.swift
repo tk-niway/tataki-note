@@ -15,13 +15,6 @@ enum DocumentSwitch: Equatable {
     case history(UUID)
 }
 
-/// 保存していない文章の確認での選び方。
-enum UnsavedTextChoice {
-    case save
-    case discard
-    case cancel
-}
-
 /// 保存の知らせ。
 struct DraftSaveEvent: Equatable {
     enum Kind: Equatable {
@@ -31,62 +24,96 @@ struct DraftSaveEvent: Equatable {
 
     let sequence: Int
     let kind: Kind
+
+    /// 保存のトーストを出す知らせか。新しく下書きにしたときだけ。
+    var showsToast: Bool {
+        switch kind {
+        case .created: true
+        case .overwritten: false
+        }
+    }
 }
 
 /// パネルの文章と、下書き・履歴との結びつき。
 @Observable final class DraftSession {
     private(set) var document: PanelDocument = .scratch
-    private(set) var pendingSwitch: DocumentSwitch? {
-        didSet {
-            guard pendingSwitch != oldValue else { return }
-            confirmationFocus = pendingSwitch == nil ? nil : (isKeyboardNavigationEnabled() ? .save : nil)
-        }
-    }
     private(set) var lastSaveEvent: DraftSaveEvent?
 
-    /// 確認で、キーボードで選んでいるボタン。確認が無いときと、キーボードナビゲーションがオフのときは nil。
-    private(set) var confirmationFocus: UnsavedTextChoice?
+    /// 切り替えで書きかけを履歴へ移した回数。
+    private(set) var archivedScratchCount = 0
 
-    /// 確認のボタンの、Tab で進む順。
-    static let confirmationFocusOrder: [UnsavedTextChoice] = [.discard, .cancel, .save]
+    /// 今の書きかけのモード。
+    private(set) var mode: DraftMode
+
+    /// 「新しい書きかけのモード」の設定を読む。
+    @ObservationIgnored let newDraftMode: () -> DraftMode
+
+    /// チュートリアルを開いている間、新しい書きかけをインサートで始めるか。
+    @ObservationIgnored private(set) var isInsertModeForced = false
 
     @ObservationIgnored private let panel: PanelModel
     @ObservationIgnored private let library: DraftLibrary
     @ObservationIgnored private let ownProcessIdentifier: pid_t
-    @ObservationIgnored private let isKeyboardNavigationEnabled: () -> Bool
     @ObservationIgnored private var isReplacingText = false
     @ObservationIgnored private var saveEventSequence = 0
-    @ObservationIgnored private var insertingDocument: (document: PanelDocument, text: String)?
+    @ObservationIgnored private var scratchSourceText: String?
+    @ObservationIgnored private var viewedHistoryText: String?
+    @ObservationIgnored private var insertingDocument: InsertingDocument?
+
+    private struct InsertingDocument {
+        let document: PanelDocument
+        let text: String
+        let scratchSourceText: String?
+        let viewedHistoryText: String?
+    }
 
     init(
         panel: PanelModel,
         library: DraftLibrary,
         ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier,
-        isKeyboardNavigationEnabled: @escaping () -> Bool = { false }
+        newDraftMode: @escaping () -> DraftMode = { .insert }
     ) {
         self.panel = panel
         self.library = library
         self.ownProcessIdentifier = ownProcessIdentifier
-        self.isKeyboardNavigationEnabled = isKeyboardNavigationEnabled
+        self.newDraftMode = newDraftMode
+        self.mode = newDraftMode()
         panel.onTextChange = { [weak self] text in
             self?.panelTextDidChange(text)
         }
     }
 
-    /// 保存していない文章がパネルにあるか。
-    var hasUnsavedText: Bool {
-        if case .savedDraft = document { return false }
-        return !panel.text.isEmpty
+    /// 空白と改行だけの文字列か。
+    static func isBlank(_ text: String) -> Bool {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    /// 保存のアイコンを押せるか。
+    /// 保存できる本文があるか。
     var isSaveAvailable: Bool {
         !panel.text.isEmpty
     }
 
-    /// 新規作成のアイコンを押せるか。
-    var isNewDraftAvailable: Bool {
-        !(document == .scratch && panel.text.isEmpty)
+    // MARK: - モード
+
+    /// インサートとノートを入れ替える。
+    func toggleMode() {
+        mode = mode.toggled
+    }
+
+    /// 今の書きかけをインサートにする。インサートなら何もしない。
+    func switchToInsert() {
+        mode = .insert
+    }
+
+    /// チュートリアルを開いたとき、今の書きかけをインサートにし、閉じるまで新しい書きかけもインサートで始める。
+    func beginInsertModeForTutorial() {
+        isInsertModeForced = true
+        mode = .insert
+    }
+
+    /// チュートリアルを閉じたとき、新しい書きかけを設定どおりに戻す。今の書きかけのモードは変えない。
+    func endInsertModeForTutorial() {
+        isInsertModeForced = false
     }
 
     // MARK: - 保存
@@ -98,6 +125,8 @@ struct DraftSaveEvent: Equatable {
         case .scratch, .fromHistory:
             guard let draft = library.addDraft(text: panel.text) else { return }
             document = .savedDraft(draft.id)
+            scratchSourceText = nil
+            viewedHistoryText = nil
             emitSaveEvent(.created(draft.id))
         case .savedDraft(let id):
             library.flush()
@@ -107,48 +136,22 @@ struct DraftSaveEvent: Equatable {
 
     // MARK: - 切り替え
 
-    /// 別の文章への切り替えを求める。保存していない文章があれば確認を立てる。
+    /// 別の文章へすぐ切り替える。書きかけがあれば、切り替える前に挿入していない履歴へ移す。
     func request(_ target: DocumentSwitch) {
-        guard !isCurrent(target), exists(target) else { return }
-        if hasUnsavedText {
-            pendingSwitch = target
-            return
+        if target == .newScratch {
+            resetModeForNewDraft()
         }
+        guard !isCurrent(target), let text = targetText(target) else { return }
         library.flush()
-        perform(target)
-    }
-
-    /// 切り替えの確認への答えを受けて切り替える。
-    func resolvePendingSwitch(_ choice: UnsavedTextChoice) {
-        guard let target = pendingSwitch else { return }
-        switch choice {
-        case .save:
-            if let draft = library.addDraft(text: panel.text) {
-                document = .savedDraft(draft.id)
-                emitSaveEvent(.created(draft.id))
-            }
-            library.flush()
-            perform(target)
-        case .discard:
-            library.flush()
-            perform(target)
-        case .cancel:
-            pendingSwitch = nil
+        if archiveScratchIfNeeded() {
+            archivedScratchCount += 1
         }
+        perform(target, text: text)
     }
 
-    /// 選んでいるボタンを、Tab で進む順に offset だけ動かす。端では反対の端へ回る。選んでいるボタンが無ければ何もしない。
-    func moveConfirmationFocus(by offset: Int) {
-        let order = Self.confirmationFocusOrder
-        guard let focus = confirmationFocus, let index = order.firstIndex(of: focus) else { return }
-        let count = order.count
-        confirmationFocus = order[((index + offset) % count + count) % count]
-    }
-
-    /// 選んでいるボタンで確認に答える。選んでいるボタンが無ければ何もしない。
-    func resolveFocusedConfirmation() {
-        guard let focus = confirmationFocus else { return }
-        resolvePendingSwitch(focus)
+    /// 終了の前に、書きかけがあれば挿入していない履歴へ移す。
+    func prepareForTermination() {
+        _ = archiveScratchIfNeeded()
     }
 
     // MARK: - 削除
@@ -158,6 +161,7 @@ struct DraftSaveEvent: Equatable {
         library.deleteDraft(id: id)
         if document == .savedDraft(id) {
             document = .scratch
+            scratchSourceText = nil
         }
     }
 
@@ -176,8 +180,15 @@ struct DraftSaveEvent: Equatable {
         if case .savedDraft = documentBefore {
             library.flush()
         }
-        insertingDocument = (document: documentBefore, text: text)
+        insertingDocument = InsertingDocument(
+            document: documentBefore,
+            text: text,
+            scratchSourceText: scratchSourceText,
+            viewedHistoryText: viewedHistoryText
+        )
         document = .scratch
+        scratchSourceText = nil
+        viewedHistoryText = nil
         return plan
     }
 
@@ -188,6 +199,7 @@ struct DraftSaveEvent: Equatable {
         guard case .insert(let text, let target) = plan else { return }
         switch outcome {
         case .inserted:
+            resetModeForNewDraft()
             guard !target.isOwnApp(ownProcessIdentifier) else { return }
             library.recordInsertion(text: text, appName: target.localizedName, bundleIdentifier: target.bundleIdentifier)
         case .notInserted:
@@ -199,17 +211,39 @@ struct DraftSaveEvent: Equatable {
                 }
             case .fromHistory:
                 document = inserting.document
+                viewedHistoryText = inserting.viewedHistoryText
             case .scratch:
-                break
+                scratchSourceText = inserting.scratchSourceText
             }
         }
     }
 
     // MARK: - 内部
 
+    private func resetModeForNewDraft() {
+        mode = DraftMode.forNewDraft(setting: newDraftMode(), isInsertForced: isInsertModeForced)
+    }
+
     private func panelTextDidChange(_ text: String) {
-        guard !isReplacingText, case .savedDraft(let id) = document else { return }
-        library.updateDraft(id: id, text: text)
+        guard !isReplacingText else { return }
+        switch document {
+        case .savedDraft(let id):
+            library.updateDraft(id: id, text: text)
+        case .fromHistory:
+            document = .scratch
+            scratchSourceText = viewedHistoryText
+            viewedHistoryText = nil
+        case .scratch:
+            break
+        }
+    }
+
+    private func archiveScratchIfNeeded() -> Bool {
+        guard document == .scratch,
+              !Self.isBlank(panel.text),
+              panel.text != scratchSourceText else { return false }
+        library.recordUnsentText(panel.text)
+        return true
     }
 
     private func replacingText<Result>(_ body: () -> Result) -> Result {
@@ -223,37 +257,34 @@ struct DraftSaveEvent: Equatable {
         switch target {
         case .newScratch: document == .scratch && panel.text.isEmpty
         case .draft(let id): document == .savedDraft(id)
-        case .history: false
+        case .history(let id): document == .fromHistory(id)
         }
     }
 
-    private func exists(_ target: DocumentSwitch) -> Bool {
+    private func targetText(_ target: DocumentSwitch) -> String? {
         switch target {
-        case .newScratch: true
-        case .draft(let id): library.draft(id: id) != nil
-        case .history(let id): library.historyEntry(id: id) != nil
+        case .newScratch: ""
+        case .draft(let id): library.draft(id: id)?.text
+        case .history(let id): library.historyEntry(id: id)?.text
         }
     }
 
-    private func perform(_ target: DocumentSwitch) {
-        pendingSwitch = nil
-        guard exists(target) else { return }
+    private func perform(_ target: DocumentSwitch, text: String) {
         replacingText {
             switch target {
             case .newScratch:
                 document = .scratch
-                panel.text = ""
+                viewedHistoryText = nil
             case .draft(let id):
-                guard let draft = library.draft(id: id) else { return }
                 document = .savedDraft(id)
-                panel.text = draft.text
+                viewedHistoryText = nil
             case .history(let id):
-                guard let entry = library.historyEntry(id: id) else { return }
                 document = .fromHistory(id)
-                panel.text = entry.text
+                viewedHistoryText = text
             }
+            scratchSourceText = nil
+            panel.text = text
         }
-        panel.requestFocus()
     }
 
     private func emitSaveEvent(_ kind: DraftSaveEvent.Kind) {

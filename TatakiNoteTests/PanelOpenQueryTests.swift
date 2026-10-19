@@ -52,7 +52,7 @@ struct PanelOpenQueryTests {
         _ body: (PanelController) throws -> Void
     ) throws {
         let suiteName = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.panelScreen = mode
@@ -66,6 +66,7 @@ struct PanelOpenQueryTests {
             exposeWebContent: { _ in },
             locateTargetWindowFrame: { recorder.locate($0) },
             ownProcessIdentifier: Self.ownPid,
+            beep: {},
             makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: fieldProbe, ownProcessIdentifier: Self.ownPid)
         )
         controller.targetOverride = { target }

@@ -93,7 +93,7 @@ struct SettingsSeedTests {
     @Test("AC-13: 書いた値は、その suite の設定として読まれる")
     func appliedValuesAreReadAsSettings() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         try SettingsSeed.apply(
@@ -115,7 +115,7 @@ struct SettingsSeedTests {
     @Test("AC-13: 環境変数が無ければ、suite に何も書かない")
     func applyWithoutSeedWritesNothing() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         try SettingsSeed.apply(environment: [:], to: defaults)
@@ -125,7 +125,7 @@ struct SettingsSeedTests {
     @Test("AC-13: 使えない型の値が1つでもあれば、ほかのキーも suite に書かずにエラーにする")
     func applyWithInvalidSeedWritesNothing() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         #expect(throws: SettingsSeed.SeedError.unsupportedValue(key: "a")) {
@@ -139,7 +139,7 @@ struct SettingsSeedTests {
     @Test("AC-13: suite の指定と設定の値があれば、起動時に選ぶ suite にその値が書かれる")
     func settingsDefaultsAppliesSeedToSuite() throws {
         let name = UUID().uuidString
-        let suite = try #require(UserDefaults(suiteName: name))
+        let suite = try #require(InMemoryDefaults(suiteName: name))
         defer { suite.removePersistentDomain(forName: name) }
 
         let defaults = AppLaunchContext.settingsDefaults(environment: [

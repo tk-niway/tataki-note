@@ -37,8 +37,13 @@ struct SidebarModelTests {
             return library.history[0].id
         }
 
-        func press(_ key: SidebarKey, _ modifiers: NSEvent.ModifierFlags = [], hasMarkedText: Bool = false) -> Bool {
-            model.handleKey(key, modifiers: modifiers, hasMarkedText: hasMarkedText)
+        func press(
+            _ key: SidebarKey,
+            _ modifiers: NSEvent.ModifierFlags = [],
+            source: SidebarKeySource = .searchField,
+            hasMarkedText: Bool = false
+        ) -> Bool {
+            model.handleKey(key, source: source, modifiers: modifiers, hasMarkedText: hasMarkedText)
         }
 
         func cleanUp() {
@@ -191,7 +196,7 @@ struct SidebarModelTests {
 
     // MARK: - 選択とキー
 
-    @Test("AC-23: ↑ ↓ で選択が動いて端で止まる。先頭の行が最初の選択")
+    @Test("AC-23: ハイライトが無いときの ↑ ↓ は先頭の行から始まり、動いた先の行の中身がパネルに出る。端で止まる")
     func arrowKeysMoveSelectionAndStopAtEnds() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
@@ -199,27 +204,35 @@ struct SidebarModelTests {
         let second = try fixture.addDraft("two")
         let third = try fixture.addDraft("three")
         #expect(fixture.model.rows.map(\.id) == [third, second, first])
-        #expect(fixture.model.selection == third)
+        #expect(fixture.model.selection == nil)
 
         #expect(fixture.press(.up))
         #expect(fixture.model.selection == third)
+        #expect(fixture.panel.text == "three")
+        #expect(fixture.press(.up))
+        #expect(fixture.model.selection == third)
         #expect(fixture.press(.down))
         #expect(fixture.model.selection == second)
+        #expect(fixture.panel.text == "two")
         #expect(fixture.press(.down))
         #expect(fixture.model.selection == first)
+        #expect(fixture.panel.text == "one")
         #expect(fixture.press(.down))
         #expect(fixture.model.selection == first)
+        #expect(fixture.panel.text == "one")
         #expect(fixture.press(.up))
         #expect(fixture.model.selection == second)
+        #expect(fixture.panel.text == "two")
     }
 
-    @Test("AC-23: ↩ で選んだものを呼び出して本文へフォーカスを戻す。履歴の側では履歴を読み込む")
+    @Test("AC-23: ↓ で読み込んだ後の ↩ は本文へフォーカスを戻す。履歴の側では履歴を読み込む")
     func returnActivatesSelection() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
         let draft = try fixture.addDraft("saved text")
         let focusBefore = fixture.model.bodyFocusRequest
 
+        #expect(fixture.press(.down))
         #expect(fixture.press(.returnKey))
 
         #expect(fixture.panel.text == "saved text")
@@ -228,11 +241,13 @@ struct SidebarModelTests {
 
         let entry = fixture.addHistory("from history")
         fixture.model.tab = .history
-        fixture.session.request(.newScratch)
+        #expect(fixture.press(.down))
+        let historyFocusBefore = fixture.model.bodyFocusRequest
         #expect(fixture.press(.returnKey))
 
         #expect(fixture.panel.text == "from history")
         #expect(fixture.session.document == .fromHistory(entry))
+        #expect(fixture.model.bodyFocusRequest == historyFocusBefore + 1)
     }
 
     @Test("AC-23: 修飾キー付きの ↩(確定キー ⇧⌘↩・確定+送信キー ⌘↩ など)では呼び出さず、飲み込む")
@@ -252,37 +267,47 @@ struct SidebarModelTests {
         #expect(fixture.model.query.isEmpty)
     }
 
-    @Test("AC-23: 文字を変えると選択は先頭の行に戻る")
-    func queryChangeResetsSelectionToFirstRow() throws {
+    @Test("AC-23: 文字を変えてもパネルの文章は変わらず、パネルに出ている行が当たっていればその行、無ければ先頭の行がハイライトされる")
+    func queryChangeKeepsPanelTextAndHighlightsShownOrFirstRow() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
         try fixture.addDraft("aa")
         let middle = try fixture.addDraft("ab")
         let top = try fixture.addDraft("ac")
         fixture.model.moveSelection(by: 1)
+        fixture.model.moveSelection(by: 1)
         #expect(fixture.model.selection == middle)
+        #expect(fixture.panel.text == "ab")
 
         fixture.model.query = "a"
 
         #expect(fixture.model.rows.contains { $0.id == middle })
+        #expect(fixture.model.selection == middle)
+        #expect(fixture.panel.text == "ab")
+
+        fixture.model.query = "ac"
+
         #expect(fixture.model.selection == top)
+        #expect(fixture.panel.text == "ab")
     }
 
-    @Test("AC-23: 表示中の側を変えても選択は新しい側の先頭に置き直される")
-    func tabChangeResetsSelection() throws {
+    @Test("AC-23: 側を変えると、その側でパネルに出ている行がハイライトされ、無ければハイライト無し")
+    func tabChangeHighlightsShownRowOfThatSide() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
         try fixture.addDraft("draft")
         let entry = fixture.addHistory("older")
-        let newest = fixture.addHistory("newer")
+        fixture.addHistory("newer")
         fixture.model.tab = .history
+        fixture.model.moveSelection(by: 1)
         fixture.model.moveSelection(by: 1)
         #expect(fixture.model.selection == entry)
 
         fixture.model.tab = .drafts
+        #expect(fixture.model.selection == nil)
         fixture.model.tab = .history
 
-        #expect(fixture.model.selection == newest)
+        #expect(fixture.model.selection == entry)
     }
 
     @Test("AC-23: esc は本文へ戻る。修飾キー付きの ↑ ↓ esc は検索欄に渡す")
@@ -305,10 +330,13 @@ struct SidebarModelTests {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
         try fixture.addDraft("saved text")
+        let focusBefore = fixture.model.bodyFocusRequest
+
+        #expect(fixture.press(.down, [.capsLock]))
+        #expect(fixture.panel.text == "saved text")
 
         #expect(fixture.press(.returnKey, [.capsLock]))
-
-        #expect(fixture.panel.text == "saved text")
+        #expect(fixture.model.bodyFocusRequest == focusBefore + 1)
     }
 
     @Test("AC-23: 検索欄に未確定の文字があるときの ↑ ↓ ↩ esc ⌘⌫ は入力メソッドに渡り、選択・呼び出し・本文へ戻る、のどれも起こさない")
@@ -316,16 +344,16 @@ struct SidebarModelTests {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
         try fixture.addDraft("one")
-        let top = try fixture.addDraft("two")
+        try fixture.addDraft("two")
         let focusBefore = fixture.model.bodyFocusRequest
 
         #expect(!fixture.press(.up, hasMarkedText: true))
         #expect(!fixture.press(.down, hasMarkedText: true))
         #expect(!fixture.press(.returnKey, hasMarkedText: true))
         #expect(!fixture.press(.escape, hasMarkedText: true))
-        #expect(!fixture.press(.deleteBackward, [.command], hasMarkedText: true))
+        #expect(!fixture.press(.deleteBackward, [.command], source: .list, hasMarkedText: true))
 
-        #expect(fixture.model.selection == top)
+        #expect(fixture.model.selection == nil)
         #expect(fixture.panel.text.isEmpty)
         #expect(fixture.session.document == .scratch)
         #expect(fixture.model.bodyFocusRequest == focusBefore)
@@ -334,7 +362,7 @@ struct SidebarModelTests {
 
     // MARK: - 行の表示
 
-    @Test("AC-24: 下書きの行は1行目だけ(先頭の空行は飛ばす)。本文が空・空白だけなら「(空の下書き)」")
+    @Test("AC-22: 下書きの行の1段目は最初の行(先頭の空行は飛ばす)、2段目は日時と本文の続き。本文が空・空白だけなら「(空の下書き)」で続きは無い")
     func draftRowsShowFirstLine() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
@@ -344,8 +372,76 @@ struct SidebarModelTests {
 
         #expect(rows.count == 2)
         #expect(rows[0].title == "(空の下書き)")
+        #expect(rows[0].isUntitled)
+        #expect(rows[0].preview == nil)
         #expect(rows[1].title == "タイトル")
-        #expect(rows.allSatisfy { $0.kind == .draft && $0.detail == nil })
+        #expect(rows[1].preview == "二行目")
+        #expect(rows.allSatisfy { $0.kind == .draft && $0.detail == "10月6日 14:32" })
+    }
+
+    @Test("AC-22: 履歴の行も2段で、2段目に本文の続きが入る。続きが無ければ入らない")
+    func historyRowsShowPreview() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        fixture.addHistory("one line")
+        fixture.addHistory("題\n\n 本文 \n続き")
+        fixture.model.tab = .history
+        let rows = fixture.model.rows
+
+        #expect(rows.count == 2)
+        #expect(rows[0].title == "題")
+        #expect(rows[0].preview == "本文 続き")
+        #expect(rows[1].title == "one line")
+        #expect(rows[1].preview == nil)
+    }
+
+    @Test("AC-22: 本文の続きは、最初の行より後の空でない行を半角スペースでつなぐ")
+    func previewJoinsLinesAfterTheFirst() {
+        #expect(DraftListing.preview(of: "") == nil)
+        #expect(DraftListing.preview(of: "a") == nil)
+        #expect(DraftListing.preview(of: "\n\nT\n") == nil)
+        #expect(DraftListing.preview(of: "a\n\n  b \n c") == "b c")
+        #expect(DraftListing.preview(of: "  \n題\n本文") == "本文")
+        #expect(DraftListing.preview(of: "a\r\nb\r\nc") == "b c")
+    }
+
+    @Test("AC-22: 本文の続きは先頭の 200 文字で切る。ちょうど 200 文字ならそのまま")
+    func previewIsCappedAt200Characters() {
+        let exact = String(repeating: "あ", count: 200)
+        let over = String(repeating: "あ", count: 201)
+
+        #expect(DraftListing.preview(of: "T\n\(exact)") == exact)
+        #expect(DraftListing.preview(of: "T\n\(over)") == exact)
+
+        let first = String(repeating: "a", count: 150)
+        let second = String(repeating: "b", count: 100)
+        let joined = DraftListing.preview(of: "T\n\(first)\n\(second)")
+        #expect(joined == String("\(first) \(second)".prefix(200)))
+        #expect(joined?.count == 200)
+    }
+
+    @Test("AC-23: 下書きの行の日時は最後に書き換えた日時で、書き換えると新しい日時になる")
+    func draftRowDetailFollowsUpdatedAt() throws {
+        let defaults = try TemporaryDefaults()
+        defer { defaults.remove() }
+        var clock = Date(timeIntervalSince1970: 1_700_000_000)
+        let library = DraftLibrary(store: .inMemory, now: { clock })
+        let session = DraftSession(panel: PanelModel(), library: library, ownProcessIdentifier: 777)
+        let model = SidebarModel(
+            settings: defaults.makeSettings(),
+            library: library,
+            session: session,
+            dateFormatter: { ISO8601DateFormatter().string(from: $0) }
+        )
+        let id = try #require(library.addDraft(text: "first")).id
+        let createdText = ISO8601DateFormatter().string(from: clock)
+        #expect(model.rows.first?.detail == createdText)
+
+        clock = clock.addingTimeInterval(3_600)
+        library.updateDraft(id: id, text: "first edited")
+
+        #expect(model.rows.first?.detail == ISO8601DateFormatter().string(from: clock))
+        #expect(model.rows.first?.detail != createdText)
     }
 
     @Test("AC-24: 履歴の行は「挿入日時 · 挿入先のアプリ名」と1行目を出す。アプリ名が無ければ「不明なアプリ」")
@@ -362,7 +458,38 @@ struct SidebarModelTests {
         #expect(rows[0].detail == "10月6日 14:32 · 不明なアプリ")
         #expect(rows[1].title == "本文の一行目")
         #expect(rows[1].detail == "10月6日 14:32 · チャットノート")
+        #expect(rows[1].preview == "二行目")
         #expect(rows.allSatisfy { $0.kind == .history && !$0.isShownInPanel })
+    }
+
+    @Test("AC-24: 挿入していない書きかけの履歴の2段目は日時だけで、アプリ名は付かない")
+    func unsentHistoryDetailHasNoAppName() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        fixture.library.recordUnsentText("書きかけ")
+        fixture.model.tab = .history
+        let rows = fixture.model.rows
+
+        #expect(rows.count == 1)
+        #expect(rows[0].detail == "10月6日 14:32")
+    }
+
+    @Test("AC-26: 行の読み上げの文字は、1段目・日時(とアプリ名)・本文の続きをつなぐ。続きが無ければ入らない")
+    func accessibilityTextJoinsTitleDetailAndPreview() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        try fixture.addDraft("題名\n続きの文")
+        try fixture.addDraft("だけ")
+        fixture.addHistory("履歴の題\n履歴の続き", appName: "チャットノート")
+
+        let drafts = fixture.model.rows
+        #expect(drafts[0].accessibilityText == "だけ 10月6日 14:32")
+        #expect(drafts[1].accessibilityText == "題名 10月6日 14:32 続きの文")
+        #expect(drafts[1].accessibilityText.contains(drafts[1].title))
+
+        fixture.model.tab = .history
+        let history = fixture.model.rows
+        #expect(history[0].accessibilityText == "履歴の題 10月6日 14:32 · チャットノート 履歴の続き")
     }
 
     @Test("AC-24: パネルに出している下書きの行は分かる。切り替えると印も移る")
@@ -390,16 +517,62 @@ struct SidebarModelTests {
         #expect(text.contains(":") || text.contains("時"))
     }
 
+    // MARK: - 切り替えの件数
+
+    @Test("AC-18: 切り替えの件数は、その側の全件の数。表示中の側に関係なく両方を返す")
+    func countsEachSide() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        try fixture.addDraft("one")
+        try fixture.addDraft("two")
+        fixture.addHistory("old")
+
+        #expect(fixture.model.count(of: .drafts) == 2)
+        #expect(fixture.model.count(of: .history) == 1)
+        fixture.model.tab = .history
+        #expect(fixture.model.count(of: .drafts) == 2)
+        #expect(fixture.model.count(of: .history) == 1)
+    }
+
+    @Test("AC-18: 検索で絞っても件数は変わらない")
+    func countsIgnoreQuery() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        try fixture.addDraft("apple")
+        try fixture.addDraft("banana")
+        fixture.addHistory("apple pie")
+
+        fixture.model.query = "apple"
+
+        #expect(fixture.model.rows.count == 1)
+        #expect(fixture.model.count(of: .drafts) == 2)
+        #expect(fixture.model.count(of: .history) == 1)
+    }
+
+    @Test("AC-18: 何も無ければ件数は 0。増えたり消したりすると追従する")
+    func countsFollowLibrary() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        #expect(fixture.model.count(of: .drafts) == 0)
+        #expect(fixture.model.count(of: .history) == 0)
+
+        let id = try fixture.addDraft("one")
+        #expect(fixture.model.count(of: .drafts) == 1)
+
+        fixture.model.requestDelete(id)
+        #expect(fixture.model.count(of: .drafts) == 0)
+    }
+
     // MARK: - 空の説明
 
-    @Test("AC-25: 下書きが 0 件なら「⌘S で今の文章を取っておけます」、履歴が 0 件なら「挿入した文章がここに残ります(最新 50 件)」")
+    @Test("AC-25: 下書きが 0 件なら「⌘S で今の文章を取っておけます」、履歴が 0 件なら「挿入した文章がここに残ります(最新 200 件)」")
     func emptyMessagesPerSide() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
 
         #expect(fixture.model.emptyMessage == "⌘S で今の文章を取っておけます")
         fixture.model.tab = .history
-        #expect(fixture.model.emptyMessage == "挿入した文章がここに残ります(最新 50 件)")
+        #expect(fixture.model.emptyMessage == "挿入した文章がここに残ります(最新 200 件)")
 
         fixture.addHistory("x")
         #expect(fixture.model.emptyMessage == nil)
@@ -422,7 +595,7 @@ struct SidebarModelTests {
 
     // MARK: - 削除
 
-    @Test("AC-1: 下書きの削除は確認なしですぐ消え、右クリックした行に働き、選択は動かさない。保存先から読み直しても無い。選んでいた行を消すと選択は先頭の行になる")
+    @Test("AC-1: 下書きの削除は確認なしですぐ消え、右クリックした行に働き、ハイライトは動かさない。保存先から読み直しても無い。表示中の行を消すと、本文はパネルに残り、ハイライトは無くなる")
     func draftDeletionIsImmediate() throws {
         let directory = DraftLibraryTestDirectory()
         defer { directory.remove() }
@@ -431,6 +604,7 @@ struct SidebarModelTests {
         let bottom = try fixture.addDraft("bottom")
         let middle = try fixture.addDraft("middle")
         let top = try fixture.addDraft("top")
+        fixture.model.moveSelection(by: 1)
         #expect(fixture.model.selection == top)
 
         fixture.model.requestDelete(bottom)
@@ -440,14 +614,15 @@ struct SidebarModelTests {
         let reloaded = DraftLibrary(store: DraftLibraryStore(directory: directory.dataDirectory))
         #expect(reloaded.drafts.map(\.id) == [top, middle])
 
-        fixture.model.select(middle)
+        fixture.model.show(middle)
         fixture.model.requestDelete(middle)
 
         #expect(fixture.library.drafts.map(\.id) == [top])
-        #expect(fixture.model.selection == top)
+        #expect(fixture.model.selection == nil)
+        #expect(fixture.panel.text == "middle")
     }
 
-    @Test("AC-1: 一覧での ⌘⌫ は選んでいる行をすぐ消し、保存先から読み直しても無い")
+    @Test("AC-1: 一覧での ⌘⌫ はハイライトしている行をすぐ消す。ハイライトが無ければ何も消さない。保存先から読み直しても同じ")
     func commandDeleteDeletesSelection() throws {
         let directory = DraftLibraryTestDirectory()
         defer { directory.remove() }
@@ -455,12 +630,18 @@ struct SidebarModelTests {
         defer { fixture.cleanUp() }
         let bottom = try fixture.addDraft("bottom")
         let top = try fixture.addDraft("top")
-        #expect(fixture.model.selection == top)
+        #expect(fixture.model.selection == nil)
 
-        #expect(fixture.press(.deleteBackward, [.command]))
+        #expect(fixture.press(.deleteBackward, [.command], source: .list))
+
+        #expect(fixture.library.drafts.map(\.id) == [top, bottom])
+
+        #expect(fixture.press(.down, source: .list))
+        #expect(fixture.press(.deleteBackward, [.command], source: .list))
 
         #expect(fixture.library.drafts.map(\.id) == [bottom])
-        #expect(fixture.model.selection == bottom)
+        #expect(fixture.panel.text == "top")
+        #expect(fixture.model.selection == nil)
         let reloaded = DraftLibrary(store: DraftLibraryStore(directory: directory.dataDirectory))
         #expect(reloaded.drafts.map(\.id) == [bottom])
     }
@@ -488,36 +669,10 @@ struct SidebarModelTests {
         fixture.model.requestDelete(older)
 
         #expect(fixture.library.history.map(\.id) == [newer])
-        #expect(fixture.model.selection == newer)
+        #expect(fixture.model.selection == nil)
     }
 
-    @Test("AC-5: 保存していない文章の切り替えの確認中は、削除の項目は押せず、requestDelete も ⌘⌫ も受けない(下書きも履歴も消えない)")
-    func deletionIsUnavailableWhileSwitchConfirmationIsShown() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanUp() }
-        let draft = try fixture.addDraft("saved")
-        let entry = fixture.addHistory("history")
-        fixture.panel.text = "unsaved"
-        #expect(fixture.model.isDeleteAvailable)
-
-        fixture.session.request(.draft(draft))
-        #expect(fixture.session.pendingSwitch == .draft(draft))
-        #expect(!fixture.model.isDeleteAvailable)
-
-        fixture.model.requestDelete(draft)
-        #expect(fixture.library.drafts.map(\.id) == [draft])
-        #expect(fixture.press(.deleteBackward, [.command]))
-        #expect(fixture.library.drafts.map(\.id) == [draft])
-
-        fixture.model.tab = .history
-        fixture.model.requestDelete(entry)
-        #expect(fixture.library.history.map(\.id) == [entry])
-
-        fixture.session.resolvePendingSwitch(.cancel)
-        #expect(fixture.model.isDeleteAvailable)
-    }
-
-    @Test("AC-26: activate・activateSelection・requestDelete は、文章を変える前に beforeUserAction を呼ぶ")
+    @Test("AC-26: show・confirmSelection・requestDelete は、文章を変える前に beforeUserAction を呼ぶ")
     func userActionsCallBeforeUserActionFirst() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
@@ -527,8 +682,8 @@ struct SidebarModelTests {
             calls.append("before:\(fixture.panel.text.isEmpty ? "empty" : "text")")
         }
 
-        fixture.model.activate(draft)
-        fixture.model.activateSelection()
+        fixture.model.show(draft)
+        fixture.model.confirmSelection()
         fixture.model.requestDelete(draft)
 
         #expect(calls == ["before:empty", "before:text", "before:text"])
@@ -539,7 +694,7 @@ struct SidebarModelTests {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
         let draft = try fixture.addDraft("shown")
-        fixture.model.activate(draft)
+        fixture.model.show(draft)
 
         fixture.model.requestDelete(draft)
 

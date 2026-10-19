@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 
 /// 案内を開いた理由。
@@ -49,6 +50,9 @@ enum PermissionGuideButton: Equatable {
     var allowsClosing: Bool {
         state != .readyForTutorial
     }
+
+    /// 初回起動で許可が無いときに添える、チュートリアルの開き方の案内文。
+    static let tutorialNoteText = String(localized: "チュートリアルは、設定の「情報」からいつでも開けます。")
 
     var showsTutorialNote: Bool {
         state == .notGranted(.firstLaunch)

@@ -56,10 +56,24 @@ xcodebuild build -project TatakiNote.xcodeproj -scheme TatakiNote -destination '
 
 - 単体テストは Swift Testing。`@Test("AC-1: タイトルが空なら保存できない")` のように、確かめる条件を名前に入れる
 - `@testable import TatakiNote`
-- 保存のテストは、テストごとに一時ディレクトリと `UserDefaults(suiteName: UUID().uuidString)` を作って
-  渡し、最後に消す。**既定の `UserDefaults.standard` やアプリケーションサポートのディレクトリに触れない**
+- **単体テストは、Mac で共有する保存先に書かない。** 単体テストは並行に何本も流れ(複数のブランチで同時に)、
+  共有の保存先を取り合うと不安定になり、残ったものは消えずにたまる
+  - 設定はメモリだけの `InMemoryDefaults`(`TemporaryDefaults` が作る)を渡す。本物の `UserDefaults`
+    (`UserDefaults(suiteName:)`・`.standard`)は使わない。`removePersistentDomain` は中身を消すだけで、
+    `~/Library/Preferences` にファイルが残る
+  - ファイルに書くことを確かめるときは、テストごとに一時ディレクトリ(`FileManager.default.temporaryDirectory`
+    の下に UUID)を作って渡し、最後に消す。アプリケーションサポートなど、本物の保存場所に触れない
+  - 共有のクリップボード(`NSPasteboard.general`)に書かない。名前付きのクリップボードを作って渡し、`releaseGlobally()` で消す
+  - 本物の保存先でしか確かめられないことは、単体テストにしない(アプリを動かして確かめる)
+  - `TestStorageRuleTests` が、テストのファイルでの本物の `UserDefaults`・共有のクリップボードへの書き込みを見つける
 - UI テストは XCTest の `XCUIApplication`。要素は `accessibilityIdentifier` で探す。UI テストは画面の配線だけを
   確かめ、保存・検証・並び順は単体テストで確かめる
+- UI テストは流すのに時間がかかり、その間 Mac を使えないので、次のものは書かない:
+  - 既存の UI テストと同じ流れのテスト(新しく作らず、既存のシナリオに手順を足す)
+  - 並び順・ラベル・説明文・グループ名・余白・レイアウトだけを確かめるテスト(単体で確かめる)
+  - 単体テストと同じ条件を確かめるテスト(検証・キーの規則・保存・計算)
+  - アプリに無い識別子が「無いこと」を確かめるテスト(必ず通り、何も確かめない)
+  - XCUITest から安定して動かせない操作(送ったキーがアプリに届かないなど)。手で確かめる
 - テストを弱める書き方(`.disabled`・`withKnownIssue`・`XCTSkip`・`XCTExpectFailure`)を足さない
 
 ## コメント

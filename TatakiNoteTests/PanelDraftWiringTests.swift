@@ -20,12 +20,11 @@ struct PanelDraftWiringTests {
 
         init(
             isTrusted: Bool = true,
-            isSidebarOpen: Bool = false,
-            isKeyboardNavigationEnabled: @escaping () -> Bool = { false }
+            isSidebarOpen: Bool = false
         ) throws {
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
             let defaultsName = UUID().uuidString
-            let defaults = try #require(UserDefaults(suiteName: defaultsName))
+            let defaults = try #require(InMemoryDefaults(suiteName: defaultsName))
             let settings = AppSettings(store: SettingsStore(defaults: defaults))
             settings.isSidebarOpen = isSidebarOpen
             let library = DraftLibrary(store: DraftLibraryStore(directory: directory))
@@ -44,11 +43,11 @@ struct PanelDraftWiringTests {
                 permission: PermissionStub(isTrusted: isTrusted),
                 fieldProbe: probe,
                 library: library,
+                beep: {},
                 makeTargetMonitor: InsertionTargetMonitor.testFactory(
                     probe: probe,
                     ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier
-                ),
-                isKeyboardNavigationEnabled: isKeyboardNavigationEnabled
+                )
             )
         }
 
@@ -59,7 +58,7 @@ struct PanelDraftWiringTests {
         func cleanup() {
             controller.close()
             try? FileManager.default.removeItem(at: directory)
-            UserDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName)
+            InMemoryDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName)
         }
 
         func reloadedLibrary() -> DraftLibrary {
@@ -127,12 +126,6 @@ struct PanelDraftWiringTests {
         )
     }
 
-    private static let returnKey = key(keyCode: KeyCode.returnKey)
-    private static let escapeKey = key(keyCode: KeyCode.escape)
-    private static let tabKey = key(keyCode: KeyCode.tab)
-    private static let shiftTabKey = key(keyCode: KeyCode.tab, modifiers: [.shift])
-    private static let spaceKey = key(" ", keyCode: KeyCode.space)
-
     private func markText(_ text: String, in textView: PromptTextView) {
         textView.setSelectedRange(NSRange(location: (textView.string as NSString).length, length: 0))
         textView.setMarkedText(
@@ -142,25 +135,9 @@ struct PanelDraftWiringTests {
         )
     }
 
-    // MARK: - 確認中のキー
+    // MARK: - ボタンとキー
 
-    @Test("AC-33: ⌘N で確認を出したとき、本文へフォーカスを戻す")
-    func newDraftKeyReturnsFocusToBodyWhenConfirming() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanup() }
-        fixture.model.present(target: nil)
-        fixture.model.text = "typed"
-        let onKeyEquivalent = try #require(fixture.controller.panel.onKeyEquivalent)
-        let before = fixture.model.focusRequest
-
-        let handled = onKeyEquivalent(Self.key("n", keyCode: 45, modifiers: [.command]))
-
-        #expect(handled)
-        #expect(fixture.session.pendingSwitch == .newScratch)
-        #expect(fixture.model.focusRequest > before)
-    }
-
-    @Test("⌘B を押すたびにサイドバーが開閉し、開閉は設定に残り、本文へフォーカスを戻す")
+    @Test("⌘B を押すたびにサイドバーが開閉し、開閉は設定に残り、開くと一覧へ・閉じると本文へフォーカスを求める")
     func sidebarToggleKeyOpensAndClosesSidebar() throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
@@ -171,22 +148,26 @@ struct PanelDraftWiringTests {
 
         #expect(onKeyEquivalent(Self.key("b", keyCode: 11, modifiers: [.command])))
         #expect(fixture.sidebarModel.isOpen)
-        #expect(fixture.model.focusRequest > before)
+        #expect(fixture.sidebarModel.hasPendingListFocus)
+        #expect(fixture.model.focusRequest == before)
         #expect(fixture.settings.isSidebarOpen)
 
         #expect(onKeyEquivalent(Self.key("b", keyCode: 11, modifiers: [.command])))
         #expect(!fixture.sidebarModel.isOpen)
+        #expect(fixture.model.focusRequest > before)
         #expect(!fixture.settings.isSidebarOpen)
     }
 
-    @Test("サイドバーの歯車のボタンと ⌘, は、書いた文章を残してパネルを閉じてから設定を開く処理を呼ぶ", arguments: [false, true])
-    func settingsButtonAndKeyClosePanelThenOpenSettings(byKey: Bool) throws {
+    @Test("AC-18: サイドバーの歯車のボタンと ⌘, は、パネルを開いたまま文章をそのままにして、設定を開く処理を1回呼ぶ", arguments: [false, true])
+    func settingsButtonAndKeyOpenSettingsKeepingPanel(byKey: Bool) throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
         fixture.model.present(target: nil)
         fixture.model.text = "typed"
+        var openCount = 0
         var wasPresentedWhenOpening: Bool?
         fixture.controller.onOpenSettings = { [model = fixture.model] in
+            openCount += 1
             wasPresentedWhenOpening = model.isPresented
         }
 
@@ -197,28 +178,71 @@ struct PanelDraftWiringTests {
             fixture.controller.openSettings()
         }
 
-        #expect(wasPresentedWhenOpening == false)
-        #expect(!fixture.model.isPresented)
+        #expect(openCount == 1)
+        #expect(wasPresentedWhenOpening == true)
+        #expect(fixture.model.isPresented)
         #expect(fixture.model.text == "typed")
+        #expect(fixture.library.drafts.isEmpty)
     }
 
-    @Test("AC-33: 新規作成のアイコンで確認を出したとき、本文へフォーカスを戻す")
-    func newDraftButtonReturnsFocusToBodyWhenConfirming() throws {
+    @Test("AC-18: 変換中の文字があるとき、設定を開く処理を呼ぶ前に確定される", arguments: [false, true])
+    func openingSettingsCommitsMarkedTextFirst(byKey: Bool) throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
         fixture.model.present(target: nil)
-        fixture.model.text = "typed"
-        let before = fixture.model.focusRequest
+        fixture.model.text = "abc"
+        let textView = try fixture.attachEditor()
+        Self.settle(fixture.controller) { textView.string == "abc" }
+        markText("にほんご", in: textView)
+        #expect(textView.hasMarkedText())
+        var textWhenOpening: String?
+        var hadMarkedTextWhenOpening: Bool?
+        fixture.controller.onOpenSettings = { [model = fixture.model] in
+            textWhenOpening = model.text
+            hadMarkedTextWhenOpening = textView.hasMarkedText()
+        }
 
-        fixture.controller.newDraftFromButton()
+        if byKey {
+            let onKeyEquivalent = try #require(fixture.controller.panel.onKeyEquivalent)
+            #expect(onKeyEquivalent(Self.key(",", keyCode: 43, modifiers: [.command])))
+        } else {
+            fixture.controller.openSettings()
+        }
 
-        #expect(fixture.session.pendingSwitch == .newScratch)
-        #expect(fixture.model.focusRequest > before)
+        #expect(hadMarkedTextWhenOpening == false)
+        #expect(textWhenOpening == "abcにほんご")
+        #expect(fixture.model.isPresented)
+        #expect(fixture.model.text == "abcにほんご")
     }
 
-    @Test("AC-33: 開閉ボタンと保存のアイコンを押すと、本文へフォーカスを戻す")
-    func sidebarToggleAndSaveButtonsReturnFocusToBody() throws {
+    @Test("AC-19: パネルが開いているときに設定ウィンドウが閉じたと知らされると、フォーカスの要求が1回増える")
+    func settingsWindowDidCloseReturnsInputWhenPresented() throws {
         let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        fixture.model.present(target: nil)
+        let before = fixture.model.focusRequest
+
+        fixture.controller.settingsWindowDidClose()
+
+        #expect(fixture.model.focusRequest == before + 1)
+        #expect(fixture.model.isPresented)
+    }
+
+    @Test("AC-19: パネルが閉じているときに設定ウィンドウが閉じたと知らされても、何も起きず開きもしない")
+    func settingsWindowDidCloseDoesNothingWhenClosed() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanup() }
+        let before = fixture.model.focusRequest
+
+        fixture.controller.settingsWindowDidClose()
+
+        #expect(fixture.model.focusRequest == before)
+        #expect(!fixture.model.isPresented)
+    }
+
+    @Test("AC-33: 開閉ボタンで閉じるときと保存のアイコンを押したときは、本文へフォーカスを戻す")
+    func sidebarToggleAndSaveButtonsReturnFocusToBody() throws {
+        let fixture = try Fixture(isSidebarOpen: true)
         defer { fixture.cleanup() }
         fixture.model.present(target: nil)
         fixture.model.text = "typed"
@@ -230,370 +254,6 @@ struct PanelDraftWiringTests {
 
         #expect(afterToggle > beforeToggle)
         #expect(fixture.model.focusRequest > afterToggle)
-    }
-
-    @Test("AC-33: 確認を出している間、↩ は「保存」になり、保存してから切り替わる")
-    func confirmationReturnSavesAndSwitches() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanup() }
-        let existing = try fixture.addDraft("saved")
-        fixture.model.present(target: nil)
-        fixture.model.text = "typed"
-        fixture.session.request(.draft(existing.id))
-        #expect(fixture.session.pendingSwitch == .draft(existing.id))
-
-        let handled = fixture.controller.handleKey(Self.returnKey)
-
-        #expect(handled)
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.library.drafts.contains { $0.text == "typed" })
-        #expect(fixture.session.document == .savedDraft(existing.id))
-        #expect(fixture.model.text == "saved")
-    }
-
-    @Test("AC-33: 確認を出している間、⌘D は「保存しない」になり、捨てて切り替わる")
-    func confirmationCommandDDiscardsAndSwitches() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanup() }
-        let existing = try fixture.addDraft("saved")
-        fixture.model.present(target: nil)
-        fixture.model.text = "typed"
-        fixture.session.request(.draft(existing.id))
-
-        let handled = fixture.controller.handleKey(Self.key("d", keyCode: 2, modifiers: [.command]))
-
-        #expect(handled)
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.library.drafts.count == 1)
-        #expect(fixture.model.text == "saved")
-        #expect(fixture.session.document == .savedDraft(existing.id))
-    }
-
-    @Test("AC-33: 確認を出している間、esc は「キャンセル」になり、パネルは閉じず、本文はそのまま")
-    func confirmationEscapeCancelsWithoutClosing() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanup() }
-        let existing = try fixture.addDraft("saved")
-        fixture.model.present(target: nil)
-        fixture.model.text = "typed"
-        fixture.session.request(.draft(existing.id))
-
-        let handled = fixture.controller.handleKey(Self.escapeKey)
-
-        #expect(handled)
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.model.isPresented)
-        #expect(fixture.model.text == "typed")
-        #expect(fixture.session.document == .scratch)
-    }
-
-    @Test("AC-33: 確認を出している間、それ以外のキー(文字・確定キー)は飲み込まれ、本文に入らず確定もしない")
-    func confirmationSwallowsOtherKeys() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanup() }
-        let existing = try fixture.addDraft("saved")
-        fixture.model.present(target: Self.textEdit)
-        fixture.model.text = "typed"
-        fixture.session.request(.draft(existing.id))
-
-        let characterHandled = fixture.controller.handleKey(Self.key("x", keyCode: 7))
-        let commitHandled = fixture.controller.handleKey(Self.key(keyCode: KeyCode.returnKey, modifiers: [.command, .shift]))
-
-        #expect(characterHandled)
-        #expect(commitHandled)
-        #expect(fixture.session.pendingSwitch == .draft(existing.id))
-        #expect(fixture.model.text == "typed")
-        #expect(fixture.model.isPresented)
-        #expect(fixture.inserter.calls.isEmpty)
-    }
-
-    @Test("AC-33: 確認を出している間に未確定の文字があると、キーは入力メソッドに渡り、確認は変わらない")
-    func confirmationPassesMarkedTextKeysThrough() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanup() }
-        let existing = try fixture.addDraft("saved")
-        fixture.model.present(target: nil)
-        fixture.model.text = "typed"
-        fixture.session.request(.draft(existing.id))
-
-        let returnHandled = fixture.controller.handleKey(Self.key(keyCode: KeyCode.returnKey, hasMarkedText: true))
-        let escapeHandled = fixture.controller.handleKey(Self.key(keyCode: KeyCode.escape, hasMarkedText: true))
-
-        #expect(!returnHandled)
-        #expect(!escapeHandled)
-        #expect(fixture.session.pendingSwitch == .draft(existing.id))
-    }
-
-    @Test("AC-33: 確認を出している間にパネルが閉じられると「キャンセル」と同じになり、本文はそのままで、開き直したときに確認は出ていない")
-    func closingCancelsPendingConfirmation() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanup() }
-        let existing = try fixture.addDraft("saved")
-        fixture.model.present(target: nil)
-        fixture.model.text = "typed"
-        fixture.session.request(.draft(existing.id))
-        #expect(fixture.session.pendingSwitch != nil)
-
-        fixture.controller.close()
-
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.model.text == "typed")
-        #expect(fixture.session.document == .scratch)
-        #expect(!fixture.model.isPresented)
-
-        fixture.model.present(target: nil)
-
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.model.text == "typed")
-    }
-
-    // MARK: - 確認で選んでいるボタン
-
-    private func confirmingFixture(isKeyboardNavigationEnabled: @escaping () -> Bool) throws -> (Fixture, SavedDraft) {
-        let fixture = try Fixture(isKeyboardNavigationEnabled: isKeyboardNavigationEnabled)
-        let existing = try fixture.addDraft("saved")
-        fixture.model.present(target: nil)
-        fixture.model.text = "typed"
-        fixture.session.request(.draft(existing.id))
-        return (fixture, existing)
-    }
-
-    @Test("AC-7: キーボードナビゲーションがオンの確認中、Tab で「保存しない」「キャンセル」「保存」の順に移り、⇧Tab で逆に移り、どれも本文を変えない")
-    func confirmationTabMovesFocus() throws {
-        let (fixture, existing) = try confirmingFixture(isKeyboardNavigationEnabled: { true })
-        defer { fixture.cleanup() }
-        #expect(fixture.session.confirmationFocus == .save)
-
-        var forward: [UnsavedTextChoice?] = []
-        for _ in 0..<3 {
-            #expect(fixture.controller.handleKey(Self.tabKey))
-            forward.append(fixture.session.confirmationFocus)
-        }
-        var backward: [UnsavedTextChoice?] = []
-        for _ in 0..<3 {
-            #expect(fixture.controller.handleKey(Self.shiftTabKey))
-            backward.append(fixture.session.confirmationFocus)
-        }
-
-        #expect(forward == [.discard, .cancel, .save])
-        #expect(backward == [.cancel, .discard, .save])
-        #expect(fixture.session.pendingSwitch == .draft(existing.id))
-        #expect(fixture.model.text == "typed")
-    }
-
-    @Test("AC-7: 確認中の左右の矢印キーと修飾キー付きの Tab では選んでいるボタンは移らず、本文も変わらない")
-    func confirmationArrowsAndModifiedTabDoNotMoveFocus() throws {
-        let (fixture, existing) = try confirmingFixture(isKeyboardNavigationEnabled: { true })
-        defer { fixture.cleanup() }
-        let others = [
-            Self.key(keyCode: 123),
-            Self.key(keyCode: 124),
-            Self.key(keyCode: KeyCode.tab, modifiers: [.control]),
-            Self.key(keyCode: KeyCode.tab, modifiers: [.option]),
-            Self.key(keyCode: KeyCode.tab, modifiers: [.command]),
-            Self.key(" ", keyCode: KeyCode.space, modifiers: [.shift]),
-        ]
-
-        for input in others {
-            #expect(fixture.controller.handleKey(input), "\(input)")
-            #expect(fixture.session.confirmationFocus == .save, "\(input)")
-        }
-
-        #expect(fixture.session.pendingSwitch == .draft(existing.id))
-        #expect(fixture.model.text == "typed")
-    }
-
-    @Test("AC-7: キーボードナビゲーションがオフの確認中、Tab・⇧Tab では何も選ばれず、本文にもタブが入らない")
-    func confirmationTabDoesNothingWhenKeyboardNavigationIsOff() throws {
-        let (fixture, existing) = try confirmingFixture(isKeyboardNavigationEnabled: { false })
-        defer { fixture.cleanup() }
-        #expect(fixture.session.confirmationFocus == nil)
-
-        let tabHandled = fixture.controller.handleKey(Self.tabKey)
-        let shiftTabHandled = fixture.controller.handleKey(Self.shiftTabKey)
-
-        #expect(tabHandled)
-        #expect(shiftTabHandled)
-        #expect(fixture.session.confirmationFocus == nil)
-        #expect(fixture.session.pendingSwitch == .draft(existing.id))
-        #expect(fixture.model.text == "typed")
-    }
-
-    @Test("AC-8: キーボードナビゲーションがオンの確認中、Space は選んでいるボタンを押す(「保存」なら保存して切り替わる)")
-    func confirmationSpacePressesFocusedSave() throws {
-        let (fixture, existing) = try confirmingFixture(isKeyboardNavigationEnabled: { true })
-        defer { fixture.cleanup() }
-
-        let handled = fixture.controller.handleKey(Self.spaceKey)
-
-        #expect(handled)
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.library.drafts.contains { $0.text == "typed" })
-        #expect(fixture.session.document == .savedDraft(existing.id))
-        #expect(fixture.model.text == "saved")
-    }
-
-    @Test("AC-8: Tab で「保存しない」を選んで Space を押すと、捨てて切り替わる")
-    func confirmationSpacePressesFocusedDiscard() throws {
-        let (fixture, existing) = try confirmingFixture(isKeyboardNavigationEnabled: { true })
-        defer { fixture.cleanup() }
-
-        _ = fixture.controller.handleKey(Self.tabKey)
-        let handled = fixture.controller.handleKey(Self.spaceKey)
-
-        #expect(handled)
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.library.drafts.count == 1)
-        #expect(fixture.session.document == .savedDraft(existing.id))
-        #expect(fixture.model.text == "saved")
-    }
-
-    @Test("AC-8: ⇧Tab で「キャンセル」を選んで Space を押すと、切り替えず文章もそのまま(パネルは閉じない)")
-    func confirmationSpacePressesFocusedCancel() throws {
-        let (fixture, _) = try confirmingFixture(isKeyboardNavigationEnabled: { true })
-        defer { fixture.cleanup() }
-
-        _ = fixture.controller.handleKey(Self.shiftTabKey)
-        let handled = fixture.controller.handleKey(Self.spaceKey)
-
-        #expect(handled)
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.model.text == "typed")
-        #expect(fixture.session.document == .scratch)
-        #expect(fixture.model.isPresented)
-        #expect(fixture.library.drafts.count == 1)
-    }
-
-    @Test("AC-8: キーボードナビゲーションがオフの確認中、Space は何もせず、確認も本文も変わらない")
-    func confirmationSpaceDoesNothingWhenKeyboardNavigationIsOff() throws {
-        let (fixture, existing) = try confirmingFixture(isKeyboardNavigationEnabled: { false })
-        defer { fixture.cleanup() }
-
-        let handled = fixture.controller.handleKey(Self.spaceKey)
-
-        #expect(handled)
-        #expect(fixture.session.pendingSwitch == .draft(existing.id))
-        #expect(fixture.model.text == "typed")
-        #expect(fixture.library.drafts.count == 1)
-    }
-
-    @Test("AC-9: 確認中の ↩(テンキーの Enter も)は、選んでいるボタンにかかわらず「保存」になる")
-    func confirmationReturnSavesRegardlessOfFocus() throws {
-        for keyCode in [KeyCode.returnKey, KeyCode.keypadEnter] {
-            let (fixture, existing) = try confirmingFixture(isKeyboardNavigationEnabled: { true })
-            defer { fixture.cleanup() }
-            _ = fixture.controller.handleKey(Self.tabKey)
-            #expect(fixture.session.confirmationFocus == .discard)
-
-            let handled = fixture.controller.handleKey(Self.key(keyCode: keyCode))
-
-            #expect(handled, "keyCode \(keyCode)")
-            #expect(fixture.session.pendingSwitch == nil, "keyCode \(keyCode)")
-            #expect(fixture.library.drafts.contains { $0.text == "typed" }, "keyCode \(keyCode)")
-            #expect(fixture.session.document == .savedDraft(existing.id), "keyCode \(keyCode)")
-        }
-    }
-
-    @Test("AC-9: 確認中の esc は、選んでいるボタンにかかわらず「キャンセル」になり、パネルは閉じない")
-    func confirmationEscapeCancelsRegardlessOfFocus() throws {
-        let (fixture, _) = try confirmingFixture(isKeyboardNavigationEnabled: { true })
-        defer { fixture.cleanup() }
-        _ = fixture.controller.handleKey(Self.shiftTabKey)
-        _ = fixture.controller.handleKey(Self.shiftTabKey)
-        #expect(fixture.session.confirmationFocus == .discard)
-
-        let handled = fixture.controller.handleKey(Self.escapeKey)
-
-        #expect(handled)
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.model.isPresented)
-        #expect(fixture.model.text == "typed")
-        #expect(fixture.library.drafts.count == 1)
-    }
-
-    @Test("AC-9: 確認中の ⌘D は、選んでいるボタンにかかわらず「保存しない」になる")
-    func confirmationCommandDDiscardsRegardlessOfFocus() throws {
-        let (fixture, existing) = try confirmingFixture(isKeyboardNavigationEnabled: { true })
-        defer { fixture.cleanup() }
-        #expect(fixture.session.confirmationFocus == .save)
-
-        let handled = fixture.controller.handleKey(Self.key("d", keyCode: 2, modifiers: [.command]))
-
-        #expect(handled)
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.library.drafts.count == 1)
-        #expect(fixture.session.document == .savedDraft(existing.id))
-        #expect(fixture.model.text == "saved")
-    }
-
-    @Test("AC-9: キーボードナビゲーションがオフでも、確認中の ↩・esc・⌘D は同じに働く")
-    func confirmationChoiceKeysWorkWhenKeyboardNavigationIsOff() throws {
-        let keys = [
-            (Self.returnKey, UnsavedTextChoice.save),
-            (Self.escapeKey, .cancel),
-            (Self.key("d", keyCode: 2, modifiers: [.command]), .discard),
-        ]
-        for (input, choice) in keys {
-            let (fixture, existing) = try confirmingFixture(isKeyboardNavigationEnabled: { false })
-            defer { fixture.cleanup() }
-
-            let handled = fixture.controller.handleKey(input)
-
-            #expect(handled, "\(choice)")
-            #expect(fixture.session.pendingSwitch == nil, "\(choice)")
-            switch choice {
-            case .save:
-                #expect(fixture.library.drafts.contains { $0.text == "typed" }, "\(choice)")
-                #expect(fixture.session.document == .savedDraft(existing.id), "\(choice)")
-            case .discard:
-                #expect(fixture.library.drafts.count == 1, "\(choice)")
-                #expect(fixture.model.text == "saved", "\(choice)")
-            case .cancel:
-                #expect(fixture.model.text == "typed", "\(choice)")
-                #expect(fixture.model.isPresented, "\(choice)")
-            }
-        }
-    }
-
-    @Test("AC-10: 確認中にパネルを閉じると「キャンセル」と同じになり、選んでいるボタンも無くなり、確認を出し直すと「保存」から")
-    func closingClearsFocusAndNextConfirmationStartsOnSave() throws {
-        let (fixture, existing) = try confirmingFixture(isKeyboardNavigationEnabled: { true })
-        defer { fixture.cleanup() }
-        _ = fixture.controller.handleKey(Self.tabKey)
-        #expect(fixture.session.confirmationFocus == .discard)
-
-        fixture.controller.close()
-
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.session.confirmationFocus == nil)
-        #expect(fixture.model.text == "typed")
-        #expect(fixture.session.document == .scratch)
-        #expect(fixture.library.drafts.count == 1)
-
-        fixture.model.present(target: nil)
-        fixture.session.request(.draft(existing.id))
-
-        #expect(fixture.session.pendingSwitch == .draft(existing.id))
-        #expect(fixture.session.confirmationFocus == .save)
-    }
-
-    @Test("AC-11: 確認中に未確定の文字があるときの Tab・⇧Tab・Space は入力メソッドに渡り、選んでいるボタンも確認も変わらない")
-    func confirmationFocusKeysPassMarkedTextThrough() throws {
-        let (fixture, existing) = try confirmingFixture(isKeyboardNavigationEnabled: { true })
-        defer { fixture.cleanup() }
-        let composing = [
-            Self.key(keyCode: KeyCode.tab, hasMarkedText: true),
-            Self.key(keyCode: KeyCode.tab, modifiers: [.shift], hasMarkedText: true),
-            Self.key(" ", keyCode: KeyCode.space, hasMarkedText: true),
-        ]
-
-        for input in composing {
-            #expect(!fixture.controller.handleKey(input), "\(input)")
-        }
-
-        #expect(fixture.session.confirmationFocus == .save)
-        #expect(fixture.session.pendingSwitch == .draft(existing.id))
-        #expect(fixture.model.text == "typed")
     }
 
     // MARK: - 書き出し
@@ -615,8 +275,8 @@ struct PanelDraftWiringTests {
         #expect(fixture.reloadedLibrary().draft(id: draft.id)?.text == "two")
     }
 
-    @Test("AC-34: アプリを終了するとき(flushDrafts)、書き換え途中の下書きが保存先に書き出される")
-    func flushDraftsWritesPendingDraft() throws {
+    @Test("AC-34: アプリを終了するとき(prepareForTermination)、書き換え途中の下書きが保存先に書き出される")
+    func prepareForTerminationWritesPendingDraft() throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
         let draft = try fixture.addDraft("one")
@@ -625,7 +285,7 @@ struct PanelDraftWiringTests {
         fixture.model.text = "two"
         #expect(fixture.reloadedLibrary().draft(id: draft.id)?.text == "one")
 
-        fixture.controller.flushDrafts()
+        fixture.controller.prepareForTermination()
 
         #expect(fixture.reloadedLibrary().draft(id: draft.id)?.text == "two")
     }
@@ -636,7 +296,7 @@ struct PanelDraftWiringTests {
         defer { fixture.cleanup() }
         let draft = try fixture.addDraft("one")
         fixture.settings.panelScreen = .main
-        fixture.settings.isPanelAnimationEnabled = false
+        fixture.settings.animationMode = .off
         fixture.probe.result = FocusedElementProbe(
             element: AXUIElementCreateApplication(pid_t.max),
             lookup: WatcherFixture.textFieldLookup,
@@ -707,7 +367,7 @@ struct PanelDraftWiringTests {
         #expect(!PromptPanel.firstResponderHasMarkedText(NSResponder()))
     }
 
-    @Test("AC-50: panelCommandInput は ⌘S・⌘K・⌘N だけを値にし(Caps Lock が入っていても)、⌘J や修飾キーの違うものは nil")
+    @Test("AC-1: panelCommandInput は ⌘S・⌘K・⌘N・⇧⌘S だけを値にし(Caps Lock が入っていても)、⌘J や修飾キーの違うものは nil")
     func panelCommandInputRecognizesOnlyReservedKeys() throws {
         let saveEvent = try Self.keyEvent("s", keyCode: 1, modifiers: [.command])
         let searchEvent = try Self.keyEvent("k", keyCode: 40, modifiers: [.command])
@@ -715,6 +375,9 @@ struct PanelDraftWiringTests {
         let capsLockEvent = try Self.keyEvent("s", keyCode: 1, modifiers: [.command, .capsLock])
         let otherLetterEvent = try Self.keyEvent("j", keyCode: 38, modifiers: [.command])
         let shiftedEvent = try Self.keyEvent("s", keyCode: 1, modifiers: [.command, .shift])
+        let shiftedCapsLockEvent = try Self.keyEvent("s", keyCode: 1, modifiers: [.command, .shift, .capsLock])
+        let shiftedSearchEvent = try Self.keyEvent("k", keyCode: 40, modifiers: [.command, .shift])
+        let optionEvent = try Self.keyEvent("s", keyCode: 1, modifiers: [.command, .option])
         let plainEvent = try Self.keyEvent("s", keyCode: 1, modifiers: [])
 
         let save = try #require(PromptPanel.panelCommandInput(for: saveEvent, hasMarkedText: false))
@@ -730,7 +393,15 @@ struct PanelDraftWiringTests {
         #expect(newDraft.hasMarkedText)
         #expect(capsLockSave.characters == "s")
         #expect(PromptPanel.panelCommandInput(for: otherLetterEvent, hasMarkedText: false) == nil)
-        #expect(PromptPanel.panelCommandInput(for: shiftedEvent, hasMarkedText: false) == nil)
+        let export = try #require(PromptPanel.panelCommandInput(for: shiftedEvent, hasMarkedText: false))
+        let capsLockExport = try #require(PromptPanel.panelCommandInput(for: shiftedCapsLockEvent, hasMarkedText: true))
+        #expect(export.characters == "s")
+        #expect(export.modifiers.intersection(PanelShortcut.relevantModifiers) == [.command, .shift])
+        #expect(!export.hasMarkedText)
+        #expect(capsLockExport.characters == "s")
+        #expect(capsLockExport.hasMarkedText)
+        #expect(PromptPanel.panelCommandInput(for: shiftedSearchEvent, hasMarkedText: false) == nil)
+        #expect(PromptPanel.panelCommandInput(for: optionEvent, hasMarkedText: false) == nil)
         #expect(PromptPanel.panelCommandInput(for: plainEvent, hasMarkedText: false) == nil)
     }
 
@@ -751,14 +422,13 @@ struct PanelDraftWiringTests {
         #expect(!newHandled)
         #expect(!searchHandled)
         #expect(fixture.library.drafts.isEmpty)
-        #expect(fixture.session.pendingSwitch == nil)
         #expect(fixture.session.document == .scratch)
         #expect(fixture.model.text == "typed")
         #expect(!fixture.sidebarModel.isOpen)
         #expect(fixture.sidebarModel.searchFocusRequest == searchRequestBefore)
     }
 
-    @Test("AC-50: 変換中でなければ、PromptPanel に届いた ⌘S は保存になり、⌘K はサイドバーを開いて検索へ、⌘N は確認になる")
+    @Test("AC-50: 変換中でなければ、PromptPanel に届いた ⌘S は保存になり、⌘K はサイドバーを開いて検索へ、⌘N は新しい書きかけになる")
     func commandKeysWorkWithoutMarkedText() throws {
         let fixture = try Fixture()
         defer { fixture.cleanup() }
@@ -784,7 +454,7 @@ struct PanelDraftWiringTests {
         fixture.model.text = "second"
         let confirmingHandled = onKeyEquivalent(Self.key("n", keyCode: 45, modifiers: [.command]))
         #expect(confirmingHandled)
-        #expect(fixture.session.pendingSwitch == .newScratch)
+        #expect(fixture.model.text.isEmpty)
     }
 
     @Test("AC-50: PromptPanel.performKeyEquivalent は、変換中でなければ ⌘S を処理して true を返す")
@@ -816,7 +486,7 @@ struct PanelDraftWiringTests {
         markText("にほんご", in: textView)
         #expect(textView.hasMarkedText())
 
-        fixture.sidebarModel.activate(bravo.id)
+        fixture.sidebarModel.show(bravo.id)
 
         #expect(fixture.library.draft(id: alpha.id)?.text == "Alphaにほんご")
         #expect(fixture.model.text == "Bravo")
@@ -848,31 +518,6 @@ struct PanelDraftWiringTests {
         #expect(textView.string.isEmpty)
         #expect(fixture.model.text.isEmpty)
         #expect(fixture.library.draft(id: alpha.id)?.text == "Alphaにほんご")
-    }
-
-    @Test("AC-51: 本文で変換中に確認の「保存しない」を押すと、変換中の文字が確定してから切り替わり、切り替え後の本文は変わらない")
-    func confirmationButtonCommitsMarkedTextFirst() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanup() }
-        let alpha = try fixture.addDraft("Alpha")
-        fixture.model.present(target: nil)
-        fixture.model.text = "abc"
-        let textView = try fixture.attachEditor()
-        Self.settle(fixture.controller) { textView.string == "abc" }
-        markText("にほんご", in: textView)
-        fixture.session.request(.draft(alpha.id))
-        #expect(fixture.session.pendingSwitch == .draft(alpha.id))
-
-        fixture.controller.resolveConfirmationFromButton(.discard)
-
-        #expect(!textView.hasMarkedText())
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.model.text == "Alpha")
-        #expect(fixture.library.draft(id: alpha.id)?.text == "Alpha")
-        Self.settle(fixture.controller) { textView.string == "Alpha" }
-        #expect(textView.string == "Alpha")
-        #expect(fixture.model.text == "Alpha")
-        #expect(fixture.library.draft(id: alpha.id)?.text == "Alpha")
     }
 
     @Test("AC-51: 本文で変換中に保存のアイコンを押すと、変換中の文字が確定してから、その文章が下書きに保存される")
@@ -909,23 +554,6 @@ struct PanelDraftWiringTests {
         #expect(fixture.library.draft(id: alpha.id)?.text == "Alphaにほんご")
         #expect(fixture.library.draft(id: bravo.id) == nil)
         #expect(!textView.hasMarkedText())
-    }
-
-    @Test("AC-51: 確認を出している間は、新規作成・保存のアイコンの操作は受けない")
-    func buttonsAreIgnoredWhileConfirming() throws {
-        let fixture = try Fixture()
-        defer { fixture.cleanup() }
-        let alpha = try fixture.addDraft("Alpha")
-        fixture.model.present(target: nil)
-        fixture.model.text = "typed"
-        fixture.session.request(.draft(alpha.id))
-
-        fixture.controller.saveDraftFromButton()
-        fixture.controller.newDraftFromButton()
-
-        #expect(fixture.library.drafts.count == 1)
-        #expect(fixture.session.pendingSwitch == .draft(alpha.id))
-        #expect(fixture.model.text == "typed")
     }
 
     // MARK: - 窓の枠(サイドバーの幅)

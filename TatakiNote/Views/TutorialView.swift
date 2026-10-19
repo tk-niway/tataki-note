@@ -30,7 +30,7 @@ private struct TutorialContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(model.introductionText)
+            Text(TutorialModel.introduction)
                 .fixedSize(horizontal: false, vertical: true)
             if model.isShowingOtherTargetWarning {
                 TutorialOtherTargetWarning()
@@ -42,11 +42,7 @@ private struct TutorialContent: View {
                     }
                 }
             }
-            if model.showsPracticeChat {
-                PracticeChatView(model: model)
-            } else {
-                Spacer(minLength: 0)
-            }
+            PracticeChatView(model: model)
             HStack {
                 Spacer()
                 if model.showsFinishButton {
@@ -99,6 +95,8 @@ private struct PracticeChatView: View {
 private struct PracticeChatMessageList: View {
     let messages: [PracticeChatMessage]
 
+    @Environment(\.isAppAnimationReduced) private var reduceMotion
+
     var body: some View {
         GeometryReader { proxy in
             ScrollViewReader { reader in
@@ -113,7 +111,11 @@ private struct PracticeChatMessageList: View {
                 }
                 .onChange(of: messages.count) {
                     guard let last = messages.last else { return }
-                    withAnimation { reader.scrollTo(last.id, anchor: .bottom) }
+                    if reduceMotion {
+                        reader.scrollTo(last.id, anchor: .bottom)
+                    } else {
+                        withAnimation { reader.scrollTo(last.id, anchor: .bottom) }
+                    }
                 }
             }
         }
@@ -296,7 +298,6 @@ private struct TutorialStepRow: View {
         case .writeWithNewline: "Enter で改行しながら書く"
         case .send: "送る"
         case .nextSteps: "次の一歩"
-        case .saveDraft: "書いて保存する"
         }
     }
 
@@ -306,7 +307,6 @@ private struct TutorialStepRow: View {
         case .writeWithNewline: "tutorial.step.writeWithNewline"
         case .send: "tutorial.step.send"
         case .nextSteps: "tutorial.step.nextSteps"
-        case .saveDraft: "tutorial.step.saveDraft"
         }
     }
 
@@ -324,9 +324,6 @@ private struct TutorialStepRow: View {
                 .fixedSize(horizontal: false, vertical: true)
         case .nextSteps:
             TutorialNextSteps()
-        case .saveDraft:
-            Text(model.saveDraftInstruction)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

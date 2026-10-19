@@ -27,12 +27,16 @@ class PanelDraftsUITestCase: XCTestCase {
 
     /// 履歴を書いた保存先と専用の設定で起動する。
     @MainActor
-    func launchApp(history: [String] = [], showsTutorial: Bool = false) throws -> XCUIApplication {
+    func launchApp(history: [String] = [], showsTutorial: Bool = false, seed: [String: Any] = [:]) throws -> XCUIApplication {
         if !history.isEmpty {
             try writeHistory(history)
         }
         let app = XCUIApplication()
         app.launchEnvironment["TATAKINOTE_SETTINGS_SUITE"] = settingsSuiteName
+        if !seed.isEmpty {
+            let data = try JSONSerialization.data(withJSONObject: seed, options: [.sortedKeys])
+            app.launchEnvironment["TATAKINOTE_SETTINGS_SEED"] = String(decoding: data, as: UTF8.self)
+        }
         app.launchEnvironment["TATAKINOTE_DATA_DIRECTORY"] = dataDirectory?.path
         app.launchEnvironment[AccessibilityOverride.key] = AccessibilityOverride.trusted
         if showsTutorial {

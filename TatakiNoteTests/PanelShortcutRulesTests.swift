@@ -196,17 +196,18 @@ struct PanelShortcutRulesTests {
         #expect(rejection == .usedByHotkey)
     }
 
-    @Test("AC-3, AC-5: 確定+挿入キーの説明文は、初期値が ⇧⌘↩ と伝える全文になる")
+    @Test("AC-4: 確定+挿入キーの説明文は、初期値が ⇧⌘↩ と伝える全文になる")
     func commitDescriptionStatesNewDefault() {
-        #expect(PanelShortcutRole.commit.settingDescription == "パネルでこのキーを押すと、書いた文章を元のアプリに挿入します(送信はしません)。修飾キー(⌘・⌥・⌃・⇧)と組み合わせたキーを登録できます。登録していない Enter は改行になります。初期値は ⇧⌘↩ です。登録していないときは、確定+送信キーでだけ挿入します。")
+        #expect(PanelShortcutRole.commit.settingDescription == "書いた文章を元のアプリに挿入します(送信はしません)。初期値は ⇧⌘↩ です。")
     }
 
-    @Test("AC-3, AC-5: 確定+送信キーの説明文は、初期値が ⌘↩ と伝え、確定+挿入キーを使うよう勧める全文になる")
-    func commitAndSendDescriptionDoesNotAskToRegisterCommitKey() {
-        #expect(PanelShortcutRole.commitAndSend.settingDescription == "パネルでこのキーを押すと、書いた文章を挿入したあと、挿入先で Enter を送って送信します。初期値は ⌘↩ です。送信は取り消せないので、送信せずに挿入したいときは確定+挿入キーを使ってください。")
+    @Test("AC-4, AC-5: 確定+送信キーの説明文は、初期値が ⌘↩ と伝え、送信は取り消せないことを残す全文になる")
+    func commitAndSendDescriptionKeepsIrreversibleNote() {
+        #expect(PanelShortcutRole.commitAndSend.settingDescription == "挿入したあと Enter を送って送信します。送信は取り消せません。初期値は ⌘↩ です。")
+        #expect(PanelShortcutRole.commitAndSend.settingDescription.contains("送信は取り消せません"))
     }
 
-    @Test("AC-3: 説明文の初期値は役割の初期値の定数から出し、渡したキーに従って変わる(登録なしは「登録なし」)")
+    @Test("AC-4: 説明文の初期値は役割の初期値の定数から出し、渡したキーに従って変わる(登録なしは「登録なし」)")
     func descriptionFollowsInitialKey() {
         #expect(PanelShortcutRole.commit.initialKey == PanelShortcut.defaultCommitKey)
         #expect(PanelShortcutRole.commitAndSend.initialKey == PanelShortcut.defaultCommitAndSendKey)
@@ -233,12 +234,16 @@ struct PanelShortcutRulesTests {
         )
     }
 
-    @Test("AC-7: ⌘K・⌘S・⌘N・⌘B・⌘, は両方の役割で reservedForPanelCommands になり、理由の文面は「パネルの検索・下書きの保存・新しい書きかけ・サイドバーの開閉・設定を開く操作」")
+    @Test("AC-13: ⌘K・⌘S・⌘N・⌘E・⌘B・⌘,・⇧⌘S は両方の役割で reservedForPanelCommands になり、理由の文面は「パネルの検索・下書きの保存・新しい書きかけ・モードの切り替え・サイドバーの開閉・設定を開く・ファイルへの書き出しの操作」")
     func panelCommandKeysAreRejected() {
-        let keys: [(UInt16, String)] = [(40, "k"), (1, "s"), (45, "n"), (11, "b"), (43, ",")]
+        let keys: [(UInt16, NSEvent.ModifierFlags, String, String)] = [
+            (40, [.command], "k", "⌘K"), (1, [.command], "s", "⌘S"), (45, [.command], "n", "⌘N"),
+            (14, [.command], "e", "⌘E"), (11, [.command], "b", "⌘B"), (43, [.command], ",", "⌘,"),
+            (1, [.command, .shift], "s", "⇧⌘S"),
+        ]
         for role in PanelShortcutRole.allCases {
-            for (keyCode, characters) in keys {
-                let key = PanelShortcut(keyCode: keyCode, modifiers: [.command])
+            for (keyCode, modifiers, characters, label) in keys {
+                let key = PanelShortcut(keyCode: keyCode, modifiers: modifiers)
                 let rejection = PanelShortcutRules.rejection(
                     for: PanelShortcutCandidate(shortcut: key, characters: characters),
                     role: role,
@@ -246,19 +251,21 @@ struct PanelShortcutRulesTests {
                     commitKey: nil,
                     commitAndSendKey: nil
                 )
-                #expect(rejection == .reservedForPanelCommands, "\(role) ⌘\(characters)")
+                #expect(rejection == .reservedForPanelCommands, "\(role) \(label)")
                 #expect(
                     rejection?.message(for: key)
-                        == "⌘\(characters.uppercased()) はパネルの検索・下書きの保存・新しい書きかけ・サイドバーの開閉・設定を開く操作(⌘K・⌘S・⌘N・⌘B・⌘,)で使っているため、登録できません。"
+                        == "\(label) はパネルの検索・下書きの保存・新しい書きかけ・モードの切り替え・サイドバーの開閉・設定を開く・ファイルへの書き出しの操作(⌘K・⌘S・⌘N・⌘E・⌘B・⌘,・⇧⌘S)で使っているため、登録できません。"
                 )
             }
         }
     }
 
-    @Test("AC-7: ⇧⌘S などの修飾キーが違うキーと、⌘J など別の文字は受け付ける")
+    @Test("AC-13: ⇧⌘K・⌥⌘S など修飾キーが違うキーと、⌘J など別の文字は受け付ける")
     func panelCommandKeysWithOtherModifiersAreAccepted() {
         let accepted: [(UInt16, NSEvent.ModifierFlags, String)] = [
-            (1, [.command, .shift], "s"), (40, [.command, .option], "k"), (45, [.command, .control], "n"), (38, [.command], "j"),
+            (1, [.command, .option], "s"), (40, [.command, .shift], "k"), (40, [.command, .option], "k"),
+            (45, [.command, .control], "n"), (38, [.command], "j"),
+            (14, [.command, .shift], "e"), (14, [.command, .option], "e"),
         ]
         for role in PanelShortcutRole.allCases {
             for (keyCode, modifiers, characters) in accepted {

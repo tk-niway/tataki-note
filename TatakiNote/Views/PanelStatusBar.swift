@@ -3,6 +3,18 @@ import SwiftUI
 /// パネルの下の帯。
 struct PanelStatusBar: View {
     let content: PanelStatusBarContent
+    let onCommit: () -> Void
+    let onCommitAndSend: () -> Void
+
+    init(
+        content: PanelStatusBarContent,
+        onCommit: @escaping () -> Void = {},
+        onCommitAndSend: @escaping () -> Void = {}
+    ) {
+        self.content = content
+        self.onCommit = onCommit
+        self.onCommitAndSend = onCommitAndSend
+    }
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
@@ -19,12 +31,12 @@ struct PanelStatusBar: View {
 
     private func row(_ layout: LabelLayout) -> some View {
         HStack(spacing: 0) {
-            HStack(spacing: 14) {
+            HStack(spacing: layout.itemSpacing) {
                 ForEach(keyEntries) { entry in
                     entryView(entry, layout: layout)
                 }
             }
-            Spacer(minLength: 14)
+            Spacer(minLength: layout.minimumSpacerLength)
             HStack(spacing: 10) {
                 ForEach(countEntries) { entry in
                     entryView(entry, layout: layout)
@@ -38,8 +50,29 @@ struct PanelStatusBar: View {
     private func entryView(_ entry: PanelStatusBarContent.Entry, layout: LabelLayout) -> some View {
         switch entry {
         case .keyHint(let item, let key, let label):
-            KeyHint(key: key, label: label, showsLabel: layout.showsLabel(for: item))
+            switch item {
+            case .commit:
+                StatusKeyButton(
+                    key: key,
+                    label: label,
+                    showsLabel: layout.showsLabel(for: item),
+                    horizontalPadding: layout.buttonHorizontalPadding,
+                    action: onCommit
+                )
                 .accessibilityIdentifier(Self.identifier(for: item))
+            case .commitAndSend:
+                StatusKeyButton(
+                    key: key,
+                    label: label,
+                    showsLabel: layout.showsLabel(for: item),
+                    horizontalPadding: layout.buttonHorizontalPadding,
+                    action: onCommitAndSend
+                )
+                .accessibilityIdentifier(Self.identifier(for: item))
+            case .close, .lineBreak, .characterCount, .lineCount:
+                StatusKeyHint(key: key, label: label, showsLabel: layout.showsLabel(for: item))
+                    .accessibilityIdentifier(Self.identifier(for: item))
+            }
         case .count(let item, let text):
             Text(verbatim: text)
                 .font(.system(size: 11))
@@ -86,6 +119,123 @@ private enum LabelLayout {
         case .keysOnly:
             false
         }
+    }
+
+    var itemSpacing: CGFloat {
+        self == .keysOnly ? 10 : 14
+    }
+
+    var minimumSpacerLength: CGFloat {
+        self == .keysOnly ? 8 : 14
+    }
+
+    var buttonHorizontalPadding: CGFloat {
+        self == .keysOnly ? 3 : 7
+    }
+}
+
+private struct Keycap: View {
+    let text: String
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let palette = StatusKeycapPalette.palette(isDark: colorScheme == .dark)
+        Text(verbatim: text)
+            .font(.system(size: 10.5, weight: .semibold))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .padding(.horizontal, 4)
+            .frame(minWidth: 18, minHeight: 18)
+            .background {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.primary.opacity(palette.shadowOpacity))
+                        .offset(y: 1.5)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color(white: palette.faceWhite))
+                }
+            }
+            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Color.primary.opacity(palette.edgeOpacity), lineWidth: 0.5))
+            .fixedSize()
+    }
+}
+
+private struct Keycaps: View {
+    let key: String
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(Array(KeycapText.keys(of: key).enumerated()), id: \.offset) { _, part in
+                Keycap(text: part)
+            }
+        }
+    }
+}
+
+private struct StatusKeyHint: View {
+    let key: String
+    let label: String
+    let showsLabel: Bool
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Keycaps(key: key)
+            if showsLabel {
+                Text(verbatim: label)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .fixedSize()
+        .lineLimit(1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: "\(key) \(label)"))
+    }
+}
+
+private struct StatusKeyButton: View {
+    let key: String
+    let label: String
+    let showsLabel: Bool
+    let horizontalPadding: CGFloat
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Keycaps(key: key)
+                if showsLabel {
+                    Text(verbatim: label)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .fixedSize()
+            .lineLimit(1)
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(StatusKeyButtonStyle())
+        .focusable(false)
+        .help(Text(verbatim: "\(label)(\(key))"))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: "\(key) \(label)"))
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+private struct StatusKeyButtonStyle: ButtonStyle {
+    @State private var isHovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background {
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(Color.primary.opacity(configuration.isPressed ? 0.24 : (isHovering ? 0.14 : 0)))
+            }
+            .onHover { isHovering = $0 }
     }
 }
 

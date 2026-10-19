@@ -23,12 +23,16 @@ struct SettingsStore {
         static let hasShownFirstLaunchTutorial = "hasShownFirstLaunchTutorial"
         static let sidebarIsOpen = "sidebarIsOpen"
         static let sidebarTab = "sidebarTab"
-        static let panelAnimationEnabled = "panelAnimationEnabled"
+        static let animationMode = "animationMode"
         static let insertionTargetOutlineShown = "insertionTargetOutlineShown"
-        static let appMode = "appMode"
+        static let newDraftMode = "newDraftMode"
+        static let historyLimit = "historyLimit"
+        static let showsDockIcon = "showsDockIcon"
+        static let confirmsQuit = "confirmsQuit"
+        static let lastExportDirectory = "lastExportDirectory"
     }
 
-    let defaults: UserDefaults
+    let defaults: any SettingsStorage
 
     // MARK: - 確定+挿入キー・確定+送信キー(新しい保存形式)
 
@@ -82,15 +86,12 @@ struct SettingsStore {
 
     // MARK: - モード
 
-    func loadAppMode() -> AppMode {
-        if let stored = loadStringEnum(AppMode.self, forKey: Key.appMode) {
-            return stored
-        }
-        return loadCommitShortcut() == nil && loadCommitAndSendShortcut() == nil ? .note : .insert
+    func loadNewDraftMode() -> DraftMode {
+        loadStringEnum(DraftMode.self, forKey: Key.newDraftMode) ?? .insert
     }
 
-    func saveAppMode(_ mode: AppMode) {
-        saveStringEnum(mode, forKey: Key.appMode)
+    func saveNewDraftMode(_ mode: DraftMode) {
+        saveStringEnum(mode, forKey: Key.newDraftMode)
     }
 
     func loadPanelScreen() -> PanelScreen {
@@ -196,14 +197,14 @@ struct SettingsStore {
         defaults.set(hides, forKey: Key.hidesMenuBarIcon)
     }
 
-    // MARK: - パネルの開閉の動き
+    // MARK: - アニメーション
 
-    func loadIsPanelAnimationEnabled() -> Bool {
-        boolean(forKey: Key.panelAnimationEnabled) ?? true
+    func loadAnimationMode() -> AnimationMode {
+        loadStringEnum(AnimationMode.self, forKey: Key.animationMode) ?? .defaultValue
     }
 
-    func saveIsPanelAnimationEnabled(_ isEnabled: Bool) {
-        defaults.set(isEnabled, forKey: Key.panelAnimationEnabled)
+    func saveAnimationMode(_ mode: AnimationMode) {
+        saveStringEnum(mode, forKey: Key.animationMode)
     }
 
     // MARK: - 挿入先の枠線
@@ -214,6 +215,37 @@ struct SettingsStore {
 
     func saveIsInsertionTargetOutlineShown(_ isShown: Bool) {
         defaults.set(isShown, forKey: Key.insertionTargetOutlineShown)
+    }
+
+    // MARK: - Dock のアイコン
+
+    func loadShowsDockIcon() -> Bool {
+        boolean(forKey: Key.showsDockIcon) ?? true
+    }
+
+    func saveShowsDockIcon(_ shows: Bool) {
+        defaults.set(shows, forKey: Key.showsDockIcon)
+    }
+
+    // MARK: - 終了の確かめ
+
+    func loadConfirmsQuit() -> Bool {
+        boolean(forKey: Key.confirmsQuit) ?? true
+    }
+
+    func saveConfirmsQuit(_ confirms: Bool) {
+        defaults.set(confirms, forKey: Key.confirmsQuit)
+    }
+
+    // MARK: - 書き出し
+
+    /// 前回書き出したフォルダのパスを読む。無い・文字列でない・空文字は nil。
+    func loadLastExportDirectoryPath() -> String? {
+        loadNonEmptyString(forKey: Key.lastExportDirectory)
+    }
+
+    func saveLastExportDirectoryPath(_ path: String?) {
+        saveNonEmptyString(path, forKey: Key.lastExportDirectory)
     }
 
     // MARK: - 初回起動のチュートリアル
@@ -242,6 +274,22 @@ struct SettingsStore {
 
     func saveSidebarTab(_ tab: SidebarTab) {
         saveStringEnum(tab, forKey: Key.sidebarTab)
+    }
+
+    // MARK: - 履歴の上限
+
+    /// 履歴に残す件数の上限を読む。数値でない・無い・有限でない値は初期値、範囲外は端に丸める。
+    func loadHistoryLimit() -> Int {
+        guard let value = number(forKey: Key.historyLimit)?.doubleValue, value.isFinite else {
+            return HistoryLimit.defaultValue
+        }
+        let lower = Double(HistoryLimit.range.lowerBound)
+        let upper = Double(HistoryLimit.range.upperBound)
+        return Int(min(max(value, lower), upper))
+    }
+
+    func saveHistoryLimit(_ limit: Int) {
+        defaults.set(HistoryLimit.clamped(limit), forKey: Key.historyLimit)
     }
 
     // MARK: - パネルの既定の大きさ

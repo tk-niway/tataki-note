@@ -55,7 +55,7 @@ struct AppLaunchContextTests {
     @Test("AC-14: suite の指定があれば、その名前の suite に保存し、標準の保存先は使わない")
     func settingsDefaultsUsesNamedSuite() throws {
         let name = UUID().uuidString
-        let suite = try #require(UserDefaults(suiteName: name))
+        let suite = try #require(InMemoryDefaults(suiteName: name))
         defer { suite.removePersistentDomain(forName: name) }
 
         var requestedNames: [String] = []
@@ -258,9 +258,77 @@ struct AppLaunchContextTests {
         }
     }
 
-    @Test("AC-10: アイコンを隠しているときだけ、もう一度開かれたら設定画面を開く(出しているときは何もしない)")
-    func settingsOnReopen() {
-        #expect(AppLaunchContext.shouldOpenSettingsOnReopen(hidesMenuBarIcon: true) == true)
-        #expect(AppLaunchContext.shouldOpenSettingsOnReopen(hidesMenuBarIcon: false) == false)
+    // MARK: - アイコンから開く動きの抑止
+
+    private static let suite = "TATAKINOTE_SETTINGS_SUITE"
+    private static let launchKey = "TATAKINOTE_OPEN_PANEL_ON_LAUNCH"
+    private static let reopenKey = "TATAKINOTE_OPEN_PANEL_ON_REOPEN"
+
+    @Test("AC-9: suite を指定した起動は、enabled が無ければ起動の後にパネルを開かず、もう一方の環境変数だけ enabled でも開かない")
+    func suiteLaunchSuppressesOpenPanelOnLaunch() {
+        let environments: [[String: String]] = [
+            [Self.suite: "TatakiNoteUITests.abc"],
+            [Self.suite: "TatakiNoteUITests.abc", Self.launchKey: ""],
+            [Self.suite: "TatakiNoteUITests.abc", Self.launchKey: "1"],
+            [Self.suite: "TatakiNoteUITests.abc", Self.reopenKey: "enabled"],
+        ]
+        for environment in environments {
+            #expect(AppLaunchContext.isOpenPanelOnLaunchSuppressed(environment: environment) == true, "\(environment)")
+        }
+    }
+
+    @Test("AC-9: suite を指定して TATAKINOTE_OPEN_PANEL_ON_LAUNCH=enabled を付けた起動は、起動の後にパネルを開く")
+    func suiteLaunchWithEnabledOpensPanelOnLaunch() {
+        let environment = [Self.suite: "TatakiNoteUITests.abc", Self.launchKey: "enabled"]
+
+        #expect(AppLaunchContext.isOpenPanelOnLaunchSuppressed(environment: environment) == false)
+    }
+
+    @Test("AC-9: suite を指定しない起動は、起動の後にパネルを開く動きを抑止しない")
+    func launchWithoutSuiteDoesNotSuppressOpenPanelOnLaunch() {
+        let environments: [[String: String]] = [
+            [:],
+            [Self.suite: ""],
+            [Self.launchKey: "enabled"],
+            [Self.launchKey: "other"],
+            ["HOME": "/Users/test"],
+        ]
+        for environment in environments {
+            #expect(AppLaunchContext.isOpenPanelOnLaunchSuppressed(environment: environment) == false, "\(environment)")
+        }
+    }
+
+    @Test("AC-9: suite を指定した起動は、enabled が無ければもう一度開かれてもパネルを開かず、もう一方の環境変数だけ enabled でも開かない")
+    func suiteLaunchSuppressesOpenPanelOnReopen() {
+        let environments: [[String: String]] = [
+            [Self.suite: "TatakiNoteUITests.abc"],
+            [Self.suite: "TatakiNoteUITests.abc", Self.reopenKey: ""],
+            [Self.suite: "TatakiNoteUITests.abc", Self.reopenKey: "1"],
+            [Self.suite: "TatakiNoteUITests.abc", Self.launchKey: "enabled"],
+        ]
+        for environment in environments {
+            #expect(AppLaunchContext.isOpenPanelOnReopenSuppressed(environment: environment) == true, "\(environment)")
+        }
+    }
+
+    @Test("AC-9: suite を指定して TATAKINOTE_OPEN_PANEL_ON_REOPEN=enabled を付けた起動は、もう一度開かれたらパネルを開く")
+    func suiteLaunchWithEnabledOpensPanelOnReopen() {
+        let environment = [Self.suite: "TatakiNoteUITests.abc", Self.reopenKey: "enabled"]
+
+        #expect(AppLaunchContext.isOpenPanelOnReopenSuppressed(environment: environment) == false)
+    }
+
+    @Test("AC-9: suite を指定しない起動は、もう一度開かれたときにパネルを開く動きを抑止しない")
+    func launchWithoutSuiteDoesNotSuppressOpenPanelOnReopen() {
+        let environments: [[String: String]] = [
+            [:],
+            [Self.suite: ""],
+            [Self.reopenKey: "enabled"],
+            [Self.reopenKey: "other"],
+            ["HOME": "/Users/test"],
+        ]
+        for environment in environments {
+            #expect(AppLaunchContext.isOpenPanelOnReopenSuppressed(environment: environment) == false, "\(environment)")
+        }
     }
 }

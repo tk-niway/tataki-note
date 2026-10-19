@@ -2,7 +2,7 @@ import AppKit
 
 /// プロンプトを書くパネル。
 final class PromptPanel: NSPanel {
-    /// ビューの階層が受けなかった `⌘K` `⌘S` `⌘N` を受け取る処理。処理したら `true` を返す。
+    /// ビューの階層が受けなかった `⌘K` `⌘S` `⌘N` `⌘E` を受け取る処理。処理したら `true` を返す。
     var onKeyEquivalent: ((PanelKeyInput) -> Bool)?
 
     init(contentRect: NSRect) {
@@ -37,8 +37,26 @@ final class PromptPanel: NSPanel {
     /// ⌘H を受け取る処理。true を返すと標準の「隠す」には渡さない。
     var onHideKey: (() -> Bool)?
 
+    /// 入力欄の外(一覧・検索欄)で押されたキーを受け取る処理。処理したら `true` を返す。
+    var onKeyDownOutsideEditor: ((PanelKeyInput) -> Bool)?
+
     override var canBecomeKey: Bool { acceptsKey }
     override var canBecomeMain: Bool { false }
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown,
+           !(firstResponder is PromptTextView),
+           let handler = onKeyDownOutsideEditor {
+            let input = PanelKeyInput(
+                keyCode: event.keyCode,
+                modifiers: event.modifierFlags.intersection(.deviceIndependentFlagsMask),
+                hasMarkedText: Self.firstResponderHasMarkedText(firstResponder),
+                characters: event.charactersIgnoringModifiers?.lowercased() ?? ""
+            )
+            if handler(input) { return }
+        }
+        super.sendEvent(event)
+    }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if event.type == .keyDown,
@@ -61,12 +79,11 @@ final class PromptPanel: NSPanel {
         (responder as? NSTextInputClient)?.hasMarkedText() ?? false
     }
 
-    /// `⌘K` `⌘S` `⌘N` `⌘B` `⌘,` のキーの値。どれでもなければ `nil`。
+    /// `⌘K` `⌘S` `⌘N` `⌘E` `⌘B` `⌘,` `⇧⌘S` のキーの値。どれでもなければ `nil`。
     static func panelCommandInput(for event: NSEvent, hasMarkedText: Bool) -> PanelKeyInput? {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard modifiers.intersection(PanelShortcut.relevantModifiers) == [.command] else { return nil }
         let characters = event.charactersIgnoringModifiers?.lowercased() ?? ""
-        guard ReservedPanelKeys.characters.contains(characters) else { return nil }
+        guard ReservedPanelKeys.contains(modifiers: modifiers, character: characters) else { return nil }
         return PanelKeyInput(
             keyCode: event.keyCode,
             modifiers: modifiers,

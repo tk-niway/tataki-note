@@ -13,6 +13,7 @@ struct PanelControllerTests {
             inserter: InserterStub(result: .inserted),
             permission: PermissionStub(isTrusted: true),
             fieldProbe: probe,
+            beep: {},
             makeTargetMonitor: InsertionTargetMonitor.testFactory(
                 probe: probe,
                 ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier
@@ -22,7 +23,7 @@ struct PanelControllerTests {
 
     private func withSettings(_ body: (AppSettings) throws -> Void) throws {
         let suiteName = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
         try body(AppSettings(store: SettingsStore(defaults: defaults)))
     }

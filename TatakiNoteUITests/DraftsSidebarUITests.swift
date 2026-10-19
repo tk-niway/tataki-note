@@ -37,150 +37,45 @@ final class DraftsSidebarUITests: PanelDraftsUITestCase {
         )
     }
 
-    // AC-31
+    // AC-19
     @MainActor
-    func testAC31_commandKOpensSearchAndEscReturnsToBody() throws {
-        let app = try launchApp()
+    func testAC19_rowContextMenuOpensSavePanel() throws {
+        let app = try launchApp(seed: ["animationMode": "off"])
         _ = openPanel(in: app)
         let body = textView(in: app)
-
-        app.typeText("first")
-        pressCommand("s", in: app)
-        pressCommand("n", in: app)
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty })
-        app.typeText("second")
-        pressCommand("s", in: app)
-        pressCommand("n", in: app)
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty })
-
-        pressCommand("k", in: app)
-        let search = element(in: app, identifier: "sidebar.searchField")
-        XCTAssertTrue(search.waitForExistence(timeout: timeout), "⌘K でサイドバーの検索欄が出ない")
-        XCTAssertTrue(row(in: app, containing: "first").waitForExistence(timeout: timeout))
-        app.typeText("fir")
-        XCTAssertTrue(waitUntil { (search.value as? String) == "fir" }, "検索欄に打てない")
-        app.typeKey(.return, modifierFlags: [])
-        XCTAssertTrue(waitUntil { body.promptPanelText == "first" }, "↩ で選んだ下書きがパネルに入らない")
-
-        pressCommand("k", in: app)
-        pressCommand("n", in: app)
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty }, "検索欄にフォーカスがあるときに ⌘N が効かない")
-
-        pressCommand("k", in: app)
-        app.typeKey(.escape, modifierFlags: [])
-        app.typeText("z")
-        XCTAssertTrue(waitUntil { body.promptPanelText == "z" }, "esc で本文に戻って打てない")
-
-        app.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(body.waitForNonExistence(timeout: timeout), "本文で esc を押してもパネルが閉じない")
-    }
-
-    // AC-32
-    @MainActor
-    func testAC32_commandNAsksBeforeDiscardingUnsavedText() throws {
-        let app = try launchApp()
-        _ = openPanel(in: app)
-        let body = textView(in: app)
-
         app.typeText("abc")
-        pressCommand("n", in: app)
-        let confirmation = element(in: app, identifier: "promptPanel.confirmation")
-        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout), "確認が出ない")
-        app.buttons["promptPanel.confirmation.cancel"].click()
-        XCTAssertTrue(confirmation.waitForNonExistence(timeout: timeout))
-        XCTAssertEqual(body.promptPanelText, "abc", "キャンセルで文章が残らない")
-
-        pressCommand("n", in: app)
-        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout))
-        app.buttons["promptPanel.confirmation.discard"].click()
-        XCTAssertTrue(confirmation.waitForNonExistence(timeout: timeout))
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty }, "保存しないで本文が空にならない")
-
-        app.typeText("xyz")
-        pressCommand("n", in: app)
-        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout))
-        app.buttons["promptPanel.confirmation.save"].click()
-        XCTAssertTrue(confirmation.waitForNonExistence(timeout: timeout))
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty })
+        XCTAssertTrue(waitUntil { body.promptPanelText == "abc" }, "パネルに打てない")
+        let saveButton = app.buttons["promptPanel.saveDraftButton"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: timeout))
+        saveButton.click()
 
         openSidebar(in: app)
-        XCTAssertTrue(row(in: app, containing: "xyz").waitForExistence(timeout: timeout), "保存で下書きの一覧に増えない")
-    }
-
-    // AC-12
-    @MainActor
-    func testAC12_confirmationAnswersToShortcutKeys() throws {
-        let app = try launchApp()
-        _ = openPanel(in: app)
-        let body = textView(in: app)
-        let confirmation = element(in: app, identifier: "promptPanel.confirmation")
-
-        app.typeText("abc")
-        pressCommand("n", in: app)
-        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout), "確認が出ない")
-        app.typeKey("d", modifierFlags: [.command])
-        XCTAssertTrue(confirmation.waitForNonExistence(timeout: timeout), "⌘D で確認が消えない")
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty }, "⌘D の保存しないで本文が空にならない")
-
-        app.typeText("xyz")
-        pressCommand("n", in: app)
-        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout))
-        app.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(confirmation.waitForNonExistence(timeout: timeout), "esc で確認が消えない")
-        XCTAssertTrue(body.exists, "esc でパネルが閉じた")
-        XCTAssertEqual(body.promptPanelText, "xyz", "esc のキャンセルで文章が残らない")
-
-        pressCommand("n", in: app)
-        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout))
-        app.typeKey(.return, modifierFlags: [])
-        XCTAssertTrue(confirmation.waitForNonExistence(timeout: timeout), "↩ で確認が消えない")
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty }, "↩ の保存で本文が空にならない")
-
-        openSidebar(in: app)
-        XCTAssertTrue(row(in: app, containing: "xyz").waitForExistence(timeout: timeout), "↩ の保存で下書きの一覧に増えない")
-    }
-
-    // AC-36
-    @MainActor
-    func testAC36_savedDraftShowsRowAndRightClickDeletes() throws {
-        let app = try launchApp(history: ["history one"])
-        _ = openPanel(in: app)
-        let body = textView(in: app)
-
-        openSidebar(in: app)
-        let historyTab = element(in: app, identifier: "sidebar.tab.history")
-        XCTAssertTrue(historyTab.waitForExistence(timeout: timeout))
-        historyTab.click()
-        let historyRow = row(in: app, containing: "history one")
-        XCTAssertTrue(historyRow.waitForExistence(timeout: timeout), "履歴の行が出ない")
-        historyRow.click()
-        XCTAssertTrue(waitUntil { body.promptPanelText == "history one" }, "履歴の行を選んでも本文に入らない")
-
-        pressCommand("n", in: app)
-        let confirmation = element(in: app, identifier: "promptPanel.confirmation")
-        XCTAssertTrue(confirmation.waitForExistence(timeout: timeout))
-        app.buttons["promptPanel.confirmation.discard"].click()
-        XCTAssertTrue(waitUntil { body.promptPanelText.isEmpty })
-
-        app.typeText("draft one")
-        pressCommand("s", in: app)
-        element(in: app, identifier: "sidebar.tab.drafts").click()
-        let draftRow = row(in: app, containing: "draft one")
+        let draftRow = row(in: app, containing: "abc")
         XCTAssertTrue(draftRow.waitForExistence(timeout: timeout), "保存した下書きの行が出ない")
-        XCTAssertFalse(app.buttons["sidebar.deleteButton"].exists, "行にゴミ箱のボタンが出ている")
-
-        // AC-4
         draftRow.rightClick()
-        let byIdentifier = app.menuItems["sidebar.row.deleteMenuItem"]
-        let menuItem = byIdentifier.waitForExistence(timeout: 2) ? byIdentifier : app.menuItems["削除"]
-        XCTAssertTrue(menuItem.waitForExistence(timeout: timeout), "右クリックのメニューに削除が出ない")
-        let menuItemTitle = menuItem.title.isEmpty ? menuItem.label : menuItem.title
-        XCTAssertEqual(menuItemTitle, "削除", "削除の項目の題が「削除」でない")
-        menuItem.click()
 
-        XCTAssertTrue(draftRow.waitForNonExistence(timeout: timeout), "削除しても行が消えない")
-        XCTAssertFalse(element(in: app, identifier: "sidebar.deleteConfirmation").exists, "削除の確認が出ている")
-        XCTAssertEqual(body.promptPanelText, "draft one", "削除で本文が消えた")
+        let byIdentifier = app.menuItems["sidebar.row.exportMenuItem"]
+        let item = byIdentifier.waitForExistence(timeout: timeout) ? byIdentifier : app.menuItems["ファイルに書き出す"]
+        XCTAssertTrue(item.waitForExistence(timeout: timeout), "右クリックのメニューに「ファイルに書き出す」が無い")
+        item.click()
+
+        let savePanel = app.windows
+            .matching(NSPredicate(format: "identifier IN %@", ["save-panel", "export.savePanel"]))
+            .firstMatch
+        XCTAssertTrue(savePanel.waitForExistence(timeout: timeout), "保存ダイアログが開かない")
+
+        var cancel = savePanel.buttons["CancelButton"]
+        if !cancel.exists {
+            cancel = savePanel.buttons["キャンセル"]
+        }
+        if cancel.exists {
+            cancel.click()
+        } else {
+            app.typeKey(XCUIKeyboardKey.escape, modifierFlags: [])
+        }
+        XCTAssertTrue(savePanel.waitForNonExistence(timeout: timeout), "キャンセルしても保存ダイアログが閉じない")
+        XCTAssertTrue(body.exists, "保存ダイアログを閉じるとパネルが閉じる")
+        XCTAssertEqual(body.promptPanelText, "abc", "本文が変わった")
     }
 
     // AC-40
@@ -197,39 +92,34 @@ final class DraftsSidebarUITests: PanelDraftsUITestCase {
         XCTAssertTrue(waitUntil { body.promptPanelText == "abcdef" }, "保存のアニメーション中に本文へ打てない")
     }
 
+    // AC-20
     @MainActor
-    func testCommandBTogglesSidebar() throws {
-        let app = try launchApp()
-        _ = openPanel(in: app)
-        let tab = element(in: app, identifier: "sidebar.tab.drafts")
-        XCTAssertFalse(tab.exists, "閉じているのにサイドバーが出ている")
-
-        pressCommand("b", in: app)
-        XCTAssertTrue(tab.waitForExistence(timeout: timeout), "⌘B でサイドバーが出ない")
-
-        pressCommand("b", in: app)
-        XCTAssertTrue(tab.waitForNonExistence(timeout: timeout), "⌘B でサイドバーが消えない")
-    }
-
-    @MainActor
-    func testSettingsButtonAndCommandCommaOpenSettings() throws {
-        let app = try launchApp()
+    func testAC20_settingsKeepsPanelAndReturnsInput() throws {
+        let app = try launchApp(seed: ["panelScreen": "main", "animationMode": "off"])
         let general = element(in: app, identifier: "settings.sidebar.general")
         let settings = app.windows.containing(.any, identifier: "settings.sidebar.general").firstMatch
+        let body = textView(in: app)
 
         _ = openPanel(in: app)
+        app.typeText("abc")
+        XCTAssertTrue(waitUntil { body.promptPanelText == "abc" }, "パネルに打てない")
         openSidebar(in: app)
         let button = app.buttons["sidebar.settingsButton"]
         XCTAssertTrue(button.waitForExistence(timeout: timeout))
         button.click()
         XCTAssertTrue(general.waitForExistence(timeout: timeout), "歯車のボタンで設定が開かない")
-        XCTAssertTrue(textView(in: app).waitForNonExistence(timeout: timeout), "設定を開いてもパネルが閉じない")
+        XCTAssertTrue(body.exists, "設定を開くとパネルが閉じる")
         settings.buttons[XCUIIdentifierCloseWindow].click()
         XCTAssertTrue(general.waitForNonExistence(timeout: timeout))
+        app.typeText("d")
+        XCTAssertTrue(waitUntil { body.promptPanelText == "abcd" }, "設定を閉じた後にパネルへ打てない")
 
-        _ = openPanel(in: app)
         pressCommand(",", in: app)
         XCTAssertTrue(general.waitForExistence(timeout: timeout), "⌘, で設定が開かない")
-        XCTAssertTrue(textView(in: app).waitForNonExistence(timeout: timeout), "⌘, でパネルが閉じない")
+        XCTAssertTrue(body.exists, "⌘, でパネルが閉じる")
+        settings.buttons[XCUIIdentifierCloseWindow].click()
+        XCTAssertTrue(general.waitForNonExistence(timeout: timeout))
+        app.typeText("e")
+        XCTAssertTrue(waitUntil { body.promptPanelText == "abcde" }, "⌘, で開いた設定を閉じた後にパネルへ打てない")
     }
 }

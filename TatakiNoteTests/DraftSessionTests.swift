@@ -13,23 +13,18 @@ struct DraftSessionTests {
         let library: DraftLibrary
         let session: DraftSession
 
-        init(store: DraftLibraryStore, target: InsertionTarget?, isKeyboardNavigationEnabled: @escaping () -> Bool = { false }) {
+        init(store: DraftLibraryStore, target: InsertionTarget?) {
             library = DraftLibrary(store: store)
             session = DraftSession(
                 panel: panel,
                 library: library,
-                ownProcessIdentifier: DraftSessionTests.ownProcessIdentifier,
-                isKeyboardNavigationEnabled: isKeyboardNavigationEnabled
+                ownProcessIdentifier: DraftSessionTests.ownProcessIdentifier
             )
             panel.present(target: target)
         }
 
         convenience init() {
             self.init(store: .inMemory, target: DraftSessionTests.safari)
-        }
-
-        convenience init(isKeyboardNavigationEnabled: @escaping () -> Bool) {
-            self.init(store: .inMemory, target: DraftSessionTests.safari, isKeyboardNavigationEnabled: isKeyboardNavigationEnabled)
         }
 
         convenience init(store: DraftLibraryStore) {
@@ -173,11 +168,10 @@ struct DraftSessionTests {
 
         fixture.session.request(.newScratch)
 
-        #expect(fixture.session.pendingSwitch == nil)
         #expect(fixture.panel.text == "")
         #expect(fixture.session.document == .scratch)
         #expect(fixture.library.draft(id: id)?.text == "keep me")
-        #expect(fixture.panel.focusRequest == focusBefore + 1)
+        #expect(fixture.panel.focusRequest == focusBefore)
     }
 
     @Test("AC-13: 本文が空の新しい書きかけでの ⌘N は何も起こらない")
@@ -187,91 +181,11 @@ struct DraftSessionTests {
 
         fixture.session.request(.newScratch)
 
-        #expect(fixture.session.pendingSwitch == nil)
         #expect(fixture.session.document == .scratch)
         #expect(fixture.panel.focusRequest == focusBefore)
     }
 
-    // MARK: - 保存していない文章の確認
-
-    @Test("AC-14: 保存していない書きかけがあるまま ⌘N を押すと確認になり、文章は変わらない")
-    func newScratchWithUnsavedTextAsksFirst() {
-        let fixture = Fixture()
-        fixture.panel.text = "unsaved"
-
-        fixture.session.request(.newScratch)
-
-        #expect(fixture.session.pendingSwitch == .newScratch)
-        #expect(fixture.panel.text == "unsaved")
-        #expect(fixture.session.document == .scratch)
-        #expect(fixture.library.drafts.isEmpty)
-    }
-
-    @Test("AC-14: 確認で「保存」を選ぶと、下書きに保存してから切り替わる")
-    func resolveSaveSavesThenSwitches() throws {
-        let fixture = Fixture()
-        fixture.panel.text = "unsaved"
-        fixture.session.request(.newScratch)
-
-        fixture.session.resolvePendingSwitch(.save)
-
-        let draft = try #require(fixture.library.drafts.first)
-        #expect(fixture.library.drafts.count == 1)
-        #expect(draft.text == "unsaved")
-        #expect(fixture.session.lastSaveEvent?.kind == .created(draft.id))
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.panel.text == "")
-        #expect(fixture.session.document == .scratch)
-    }
-
-    @Test("AC-14: 確認で「保存しない」を選ぶと、文章を捨てて切り替わる")
-    func resolveDiscardSwitchesWithoutSaving() throws {
-        let fixture = Fixture()
-        fixture.panel.text = "first"
-        fixture.session.saveCurrent()
-        let draftID = try #require(fixture.savedDraftID())
-        fixture.session.request(.newScratch)
-        fixture.panel.text = "unsaved"
-
-        fixture.session.request(.draft(draftID))
-        #expect(fixture.session.pendingSwitch == .draft(draftID))
-        fixture.session.resolvePendingSwitch(.discard)
-
-        #expect(fixture.library.drafts.count == 1)
-        #expect(fixture.panel.text == "first")
-        #expect(fixture.session.document == .savedDraft(draftID))
-        #expect(fixture.session.pendingSwitch == nil)
-    }
-
-    @Test("AC-14: 確認で「キャンセル」を選ぶと、切り替えず文章もそのまま")
-    func resolveCancelKeepsEverything() {
-        let fixture = Fixture()
-        fixture.panel.text = "unsaved"
-        fixture.session.request(.newScratch)
-
-        fixture.session.resolvePendingSwitch(.cancel)
-
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.panel.text == "unsaved")
-        #expect(fixture.session.document == .scratch)
-        #expect(fixture.library.drafts.isEmpty)
-    }
-
-    @Test("AC-14: 履歴から読み込んだ文章も保存していない文章なので、別の下書きの呼び出しは確認になる")
-    func fromHistoryTextAsksBeforeSwitching() throws {
-        let fixture = Fixture()
-        fixture.panel.text = "draft"
-        fixture.session.saveCurrent()
-        let draftID = try #require(fixture.savedDraftID())
-        fixture.library.recordInsertion(text: "history", appName: nil, bundleIdentifier: nil)
-        fixture.session.request(.history(fixture.library.history[0].id))
-        #expect(fixture.panel.text == "history")
-
-        fixture.session.request(.draft(draftID))
-
-        #expect(fixture.session.pendingSwitch == .draft(draftID))
-        #expect(fixture.panel.text == "history")
-    }
+    // MARK: - 切り替え
 
     @Test("AC-14: 本文が空・保存した下書きの表示中なら、確認なしで切り替わる")
     func switchingWithoutUnsavedTextHasNoConfirmation() throws {
@@ -287,23 +201,20 @@ struct DraftSessionTests {
         let historyID = fixture.library.history[0].id
 
         fixture.session.request(.draft(firstID))
-        #expect(fixture.session.pendingSwitch == nil)
         #expect(fixture.panel.text == "first")
 
         fixture.session.request(.history(historyID))
-        #expect(fixture.session.pendingSwitch == nil)
         #expect(fixture.panel.text == "old")
         #expect(fixture.session.document == .fromHistory(historyID))
 
         fixture.session.request(.newScratch)
-        #expect(fixture.session.pendingSwitch == .newScratch)
-        fixture.session.resolvePendingSwitch(.discard)
+        #expect(fixture.panel.text == "")
+        #expect(fixture.session.document == .scratch)
         fixture.session.request(.draft(secondID))
-        #expect(fixture.session.pendingSwitch == nil)
         #expect(fixture.panel.text == "second")
     }
 
-    @Test("AC-14: 切り替え先が消えているときは確認も切り替えもしない")
+    @Test("AC-14: 切り替え先が消えているときは切り替えない")
     func missingTargetDoesNothing() {
         let fixture = Fixture()
         fixture.panel.text = "unsaved"
@@ -311,175 +222,8 @@ struct DraftSessionTests {
         fixture.session.request(.draft(UUID()))
         fixture.session.request(.history(UUID()))
 
-        #expect(fixture.session.pendingSwitch == nil)
         #expect(fixture.panel.text == "unsaved")
         #expect(fixture.session.document == .scratch)
-    }
-
-    // MARK: - 確認で選んでいるボタン
-
-    @Test("AC-6: 確認が出たとき、キーボードナビゲーションがオンなら選んでいるボタンは「保存」、オフなら無し")
-    func confirmationFocusStartsOnSaveOnlyWhenKeyboardNavigationIsOn() {
-        let on = Fixture(isKeyboardNavigationEnabled: { true })
-        let off = Fixture(isKeyboardNavigationEnabled: { false })
-        for fixture in [on, off] {
-            fixture.panel.text = "typed"
-            #expect(fixture.session.confirmationFocus == nil)
-            fixture.session.request(.newScratch)
-        }
-
-        #expect(on.session.pendingSwitch == .newScratch)
-        #expect(on.session.confirmationFocus == .save)
-        #expect(off.session.pendingSwitch == .newScratch)
-        #expect(off.session.confirmationFocus == nil)
-    }
-
-    @Test("AC-6: 確認中に別の切り替え先で確認を出し直すと、選んでいるボタンは「保存」に戻る")
-    func reissuedConfirmationResetsFocusToSave() throws {
-        let fixture = Fixture(isKeyboardNavigationEnabled: { true })
-        let draft = try #require(fixture.library.addDraft(text: "saved"))
-        fixture.panel.text = "typed"
-        fixture.session.request(.newScratch)
-        fixture.session.moveConfirmationFocus(by: 1)
-        #expect(fixture.session.confirmationFocus == .discard)
-
-        fixture.session.request(.draft(draft.id))
-
-        #expect(fixture.session.pendingSwitch == .draft(draft.id))
-        #expect(fixture.session.confirmationFocus == .save)
-    }
-
-    @Test("AC-6: 確認に答える・取り消すと、選んでいるボタンは無くなる", arguments: [UnsavedTextChoice.save, .discard, .cancel])
-    func resolvingConfirmationClearsFocus(choice: UnsavedTextChoice) {
-        let fixture = Fixture(isKeyboardNavigationEnabled: { true })
-        fixture.panel.text = "typed"
-        fixture.session.request(.newScratch)
-        #expect(fixture.session.confirmationFocus == .save)
-
-        fixture.session.resolvePendingSwitch(choice)
-
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.session.confirmationFocus == nil)
-    }
-
-    @Test("AC-6: キーボードナビゲーションの設定は確認が出た時点の値を使い、確認の途中で変わっても、その確認の間は変わらない")
-    func keyboardNavigationIsReadWhenConfirmationAppears() {
-        var isOn = true
-        let fixture = Fixture(isKeyboardNavigationEnabled: { isOn })
-        fixture.panel.text = "typed"
-        fixture.session.request(.newScratch)
-
-        isOn = false
-
-        #expect(fixture.session.confirmationFocus == .save)
-        fixture.session.moveConfirmationFocus(by: 1)
-        #expect(fixture.session.confirmationFocus == .discard)
-    }
-
-    @Test("AC-7: Tab の順に「保存」→「保存しない」→「キャンセル」→「保存」と移り、逆向きでは逆に回る")
-    func confirmationFocusMovesAndWraps() {
-        let fixture = Fixture(isKeyboardNavigationEnabled: { true })
-        fixture.panel.text = "typed"
-        fixture.session.request(.newScratch)
-
-        var forward: [UnsavedTextChoice?] = []
-        for _ in 0..<4 {
-            fixture.session.moveConfirmationFocus(by: 1)
-            forward.append(fixture.session.confirmationFocus)
-        }
-        #expect(forward == [.discard, .cancel, .save, .discard])
-
-        var backward: [UnsavedTextChoice?] = []
-        for _ in 0..<4 {
-            fixture.session.moveConfirmationFocus(by: -1)
-            backward.append(fixture.session.confirmationFocus)
-        }
-        #expect(backward == [.save, .cancel, .discard, .save])
-        #expect(fixture.session.pendingSwitch == .newScratch)
-        #expect(fixture.panel.text == "typed")
-    }
-
-    @Test("AC-7: キーボードナビゲーションがオフのとき、選んでいるボタンを動かしても何も選ばれない")
-    func confirmationFocusDoesNotMoveWhenKeyboardNavigationIsOff() {
-        let fixture = Fixture(isKeyboardNavigationEnabled: { false })
-        fixture.panel.text = "typed"
-        fixture.session.request(.newScratch)
-
-        fixture.session.moveConfirmationFocus(by: 1)
-        fixture.session.moveConfirmationFocus(by: -1)
-
-        #expect(fixture.session.confirmationFocus == nil)
-        #expect(fixture.session.pendingSwitch == .newScratch)
-        #expect(fixture.panel.text == "typed")
-    }
-
-    @Test("AC-7: 確認が無いときに選んでいるボタンを動かしても何も起きない")
-    func confirmationFocusDoesNotMoveWithoutConfirmation() {
-        let fixture = Fixture(isKeyboardNavigationEnabled: { true })
-
-        fixture.session.moveConfirmationFocus(by: 1)
-
-        #expect(fixture.session.confirmationFocus == nil)
-        #expect(fixture.session.pendingSwitch == nil)
-    }
-
-    @Test("AC-8: 選んでいるボタンが「保存」なら、押すと保存して切り替わる")
-    func resolveFocusedSaveSavesAndSwitches() throws {
-        let fixture = Fixture(isKeyboardNavigationEnabled: { true })
-        fixture.panel.text = "typed"
-        fixture.session.request(.newScratch)
-
-        fixture.session.resolveFocusedConfirmation()
-
-        let draft = try #require(fixture.library.drafts.first)
-        #expect(draft.text == "typed")
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.panel.text == "")
-        #expect(fixture.session.document == .scratch)
-    }
-
-    @Test("AC-8: 選んでいるボタンが「保存しない」なら、押すと捨てて切り替わる")
-    func resolveFocusedDiscardDiscardsAndSwitches() {
-        let fixture = Fixture(isKeyboardNavigationEnabled: { true })
-        fixture.panel.text = "typed"
-        fixture.session.request(.newScratch)
-        fixture.session.moveConfirmationFocus(by: 1)
-        #expect(fixture.session.confirmationFocus == .discard)
-
-        fixture.session.resolveFocusedConfirmation()
-
-        #expect(fixture.library.drafts.isEmpty)
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.panel.text == "")
-    }
-
-    @Test("AC-8: 選んでいるボタンが「キャンセル」なら、押すと切り替えず文章もそのまま")
-    func resolveFocusedCancelKeepsEverything() {
-        let fixture = Fixture(isKeyboardNavigationEnabled: { true })
-        fixture.panel.text = "typed"
-        fixture.session.request(.newScratch)
-        fixture.session.moveConfirmationFocus(by: -1)
-        #expect(fixture.session.confirmationFocus == .cancel)
-
-        fixture.session.resolveFocusedConfirmation()
-
-        #expect(fixture.library.drafts.isEmpty)
-        #expect(fixture.session.pendingSwitch == nil)
-        #expect(fixture.panel.text == "typed")
-        #expect(fixture.session.document == .scratch)
-    }
-
-    @Test("AC-8: キーボードナビゲーションがオフのとき、選んでいるボタンを押しても何もせず、確認も文章も変わらない")
-    func resolveFocusedDoesNothingWhenKeyboardNavigationIsOff() {
-        let fixture = Fixture(isKeyboardNavigationEnabled: { false })
-        fixture.panel.text = "typed"
-        fixture.session.request(.newScratch)
-
-        fixture.session.resolveFocusedConfirmation()
-
-        #expect(fixture.session.pendingSwitch == .newScratch)
-        #expect(fixture.panel.text == "typed")
-        #expect(fixture.library.drafts.isEmpty)
     }
 
     // MARK: - 挿入
@@ -498,7 +242,6 @@ struct DraftSessionTests {
         #expect(fixture.library.draft(id: id)?.text == "send this")
         #expect(fixture.panel.text == "")
         #expect(fixture.session.document == .scratch)
-        #expect(!fixture.session.isNewDraftAvailable)
     }
 
     @Test("AC-15: 挿入のために本文が空になっても、保存した下書きは空で上書きされない")
@@ -578,7 +321,7 @@ struct DraftSessionTests {
         let plan = fixture.commit()
         fixture.session.finishCommit(plan, outcome: .inserted)
 
-        #expect(plan == .dismissOnly)
+        #expect(plan == .emptyText)
         #expect(fixture.library.history.isEmpty)
     }
 
@@ -696,9 +439,9 @@ struct DraftSessionTests {
         fixture.session.deleteDraft(id: id)
 
         #expect(fixture.library.drafts.isEmpty)
+        #expect(fixture.library.history.isEmpty)
         #expect(fixture.panel.text == "shown")
         #expect(fixture.session.document == .scratch)
-        #expect(fixture.session.hasUnsavedText)
         fixture.panel.text = "shown, edited"
         #expect(fixture.library.drafts.isEmpty)
     }
@@ -723,7 +466,7 @@ struct DraftSessionTests {
 
     // MARK: - 履歴の読み込み
 
-    @Test("AC-19: 履歴を選ぶと、その文章の写しがパネルに入り、保存していない文章の扱いになる")
+    @Test("AC-19: 履歴を選ぶと、その文章の写しがパネルに入り、見ているだけでは履歴に足さない")
     func loadingHistoryCopiesTextIntoPanel() {
         let fixture = Fixture()
         fixture.library.recordInsertion(text: "past text", appName: "Notes", bundleIdentifier: nil)
@@ -733,7 +476,8 @@ struct DraftSessionTests {
 
         #expect(fixture.panel.text == "past text")
         #expect(fixture.session.document == .fromHistory(id))
-        #expect(fixture.session.hasUnsavedText)
+        fixture.session.request(.newScratch)
+        #expect(fixture.library.history.count == 1)
     }
 
     @Test("AC-19: 読み込んだ文章をパネルで書き換えても履歴は変わらず、⌘S で下書きにできる")
@@ -765,7 +509,6 @@ struct DraftSessionTests {
 
         #expect(fixture.panel.text == "")
         #expect(fixture.session.document == .scratch)
-        #expect(!fixture.session.isNewDraftAvailable)
         #expect(fixture.library.history.count == 2)
     }
 
@@ -853,27 +596,5 @@ struct DraftSessionTests {
 
         fixture.panel.text = ""
         #expect(!fixture.session.isSaveAvailable)
-    }
-
-    @Test("AC-28: 新規作成のアイコンは、本文が空の新しい書きかけを表示しているときだけ押せない")
-    func newDraftIsUnavailableOnlyForEmptyScratch() throws {
-        let fixture = Fixture()
-        #expect(!fixture.session.isNewDraftAvailable)
-
-        fixture.panel.text = "x"
-        #expect(fixture.session.isNewDraftAvailable)
-
-        fixture.session.saveCurrent()
-        #expect(fixture.session.isNewDraftAvailable)
-
-        fixture.panel.text = ""
-        #expect(fixture.session.isNewDraftAvailable)
-
-        fixture.session.request(.newScratch)
-        #expect(!fixture.session.isNewDraftAvailable)
-
-        fixture.library.recordInsertion(text: "past", appName: nil, bundleIdentifier: nil)
-        fixture.session.request(.history(fixture.library.history[0].id))
-        #expect(fixture.session.isNewDraftAvailable)
     }
 }

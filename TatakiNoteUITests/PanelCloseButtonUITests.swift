@@ -48,17 +48,22 @@ final class PanelCloseButtonUITests: XCTestCase {
     // AC-3
     @MainActor
     func testAC3_closeButtonKeepsDraggedSize() throws {
-        let app = try launchApp(seed: ["panelAnimationEnabled": false])
+        let app = try launchApp(seed: ["animationMode": "off"])
         let panel = openPanel(in: app)
 
         dragBottomRightCorner(of: panel, by: CGVector(dx: -100, dy: -60))
         let draggedSize = panel.frame.size
 
+        app.typeText("abc")
+        let textView = app.textViews["promptPanel.textView"]
+        XCTAssertTrue(waitUntil { textView.promptPanelText == "abc" }, "打った文字が入力欄に入らない")
+
         app.buttons["promptPanel.closeButton"].click()
-        XCTAssertTrue(app.textViews["promptPanel.textView"].waitForNonExistence(timeout: timeout))
+        XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
 
         let reopened = openPanel(in: app)
         assertSize(reopened.frame.size, equals: draggedSize)
+        clearText(in: app)
     }
 
     // MARK: - 起動と要素の探し方(PanelSizeUITests・PanelStatusBarUITests と同じ方法)
@@ -103,6 +108,22 @@ final class PanelCloseButtonUITests: XCTestCase {
             previous = current
         }
         XCTFail("パネルの枠が止まらない")
+    }
+
+    @MainActor
+    private func waitUntil(_ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return condition()
+    }
+
+    @MainActor
+    private func clearText(in app: XCUIApplication) {
+        app.typeKey("a", modifierFlags: [.command])
+        app.typeKey(.delete, modifierFlags: [])
+        XCTAssertTrue(waitUntil { app.textViews["promptPanel.textView"].promptPanelText.isEmpty }, "文章を消せない")
     }
 
     @MainActor

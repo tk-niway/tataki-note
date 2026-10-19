@@ -13,23 +13,27 @@ final class AutoShowSettingsUITests: XCTestCase {
         UserDefaults(suiteName: settingsSuiteName)?.removePersistentDomain(forName: settingsSuiteName)
     }
 
-    // AC-1
-    // AC-3
-    // AC-10
-    // AC-5
-    // AC-8
+    // AC-22
+    // AC-23
+    // AC-24
+    // AC-25
     @MainActor
-    func testAC1_AC3_AC5_AC8_AC10_autoShowSettingsScenario() throws {
+    func testAC22_AC23_AC24_AC25_autoShowSettingsScenario() throws {
         let app = XCUIApplication()
         launch(app)
 
-        // AC-1
+        // AC-22
         openSettingsFromMenu(in: app)
+        element(in: app, identifier: "settings.sidebar.general").click()
+        XCTAssertFalse(element(in: app, identifier: "settings.autoShowModePicker").exists)
+        XCTAssertFalse(element(in: app, identifier: "settings.autoShowAppList").exists)
+        element(in: app, identifier: "settings.sidebar.keys").click()
         let modePicker = element(in: app, identifier: "settings.autoShowModePicker")
         XCTAssertTrue(modePicker.waitForExistence(timeout: timeout))
-        let off = app.radioButtons["オフ"]
-        let allApps = app.radioButtons["全アプリ"]
-        let selectedApps = app.radioButtons["選んだアプリのみ"]
+        app.revealInSettings(modePicker)
+        let off = segment("オフ", in: modePicker)
+        let allApps = segment("全アプリ", in: modePicker)
+        let selectedApps = segment("選んだアプリのみ", in: modePicker)
         XCTAssertTrue(off.waitForExistence(timeout: timeout))
         XCTAssertTrue(allApps.exists)
         XCTAssertTrue(selectedApps.exists)
@@ -39,43 +43,37 @@ final class AutoShowSettingsUITests: XCTestCase {
 
         let list = element(in: app, identifier: "settings.autoShowAppList")
         let addButton = element(in: app, identifier: "settings.autoShowAppAdd")
-        let removeButton = element(in: app, identifier: "settings.autoShowAppRemove")
         XCTAssertTrue(list.exists)
         XCTAssertTrue(addButton.exists)
-        XCTAssertTrue(removeButton.exists)
-        XCTAssertEqual(rowCount(in: list), 0)
+        XCTAssertEqual(chipCount(in: app), 0)
         XCTAssertFalse(addButton.isEnabled)
-        XCTAssertFalse(removeButton.isEnabled)
 
         selectedApps.click()
         XCTAssertTrue(isChecked(selectedApps))
         XCTAssertFalse(isChecked(off))
         XCTAssertTrue(waitUntil { addButton.isEnabled })
-        XCTAssertFalse(removeButton.isEnabled)
 
-        // AC-3
+        // AC-25
+        app.revealInSettings(addButton)
         try addFirstRunningApp(in: app, addButton: addButton)
-        XCTAssertTrue(waitUntil { self.rowCount(in: list) == 1 })
+        XCTAssertTrue(waitUntil { self.chipCount(in: app) == 1 })
 
-        // AC-10
-        XCTAssertFalse(removeButton.isEnabled)
+        // AC-23
+        let remove = removeButton(in: app)
+        XCTAssertTrue(remove.exists)
+        XCTAssertTrue(remove.isEnabled)
+        remove.click()
+        XCTAssertTrue(waitUntil { self.chipCount(in: app) == 0 })
 
-        // AC-5
-        firstRow(in: list).click()
-        XCTAssertTrue(waitUntil { removeButton.isEnabled })
-        removeButton.click()
-        XCTAssertTrue(waitUntil { self.rowCount(in: list) == 0 })
-        XCTAssertFalse(removeButton.isEnabled)
-
-        // AC-8
+        // AC-24
         try addFirstRunningApp(in: app, addButton: addButton)
-        XCTAssertTrue(waitUntil { self.rowCount(in: list) == 1 })
+        XCTAssertTrue(waitUntil { self.chipCount(in: app) == 1 })
         allApps.click()
         XCTAssertTrue(isChecked(allApps))
         XCTAssertFalse(isChecked(selectedApps))
         XCTAssertTrue(waitUntil { !addButton.isEnabled })
-        XCTAssertEqual(rowCount(in: list), 1)
-        XCTAssertFalse(removeButton.isEnabled)
+        XCTAssertEqual(chipCount(in: app), 1)
+        XCTAssertFalse(removeButton(in: app).isEnabled)
 
         closeSettings(in: app, picker: modePicker)
     }
@@ -88,18 +86,27 @@ final class AutoShowSettingsUITests: XCTestCase {
         app.dismissPermissionGuideIfPresent()
     }
 
-    // MARK: - 対象のアプリの一覧
+    // MARK: - 対象のアプリのチップ
 
     @MainActor
-    private func rowCount(in list: XCUIElement) -> Int {
-        let cells = list.cells.count
-        return cells > 0 ? cells : list.staticTexts.count
+    private func chipCount(in app: XCUIApplication) -> Int {
+        let predicate = NSPredicate(
+            format: "identifier BEGINSWITH %@ AND NOT (identifier ENDSWITH %@)",
+            "settings.autoShowApp.", ".remove"
+        )
+        return app.descendants(matching: .any).matching(predicate).count
     }
 
     @MainActor
-    private func firstRow(in list: XCUIElement) -> XCUIElement {
-        let cell = list.cells.firstMatch
-        return cell.exists ? cell : list.staticTexts.firstMatch
+    private func removeButton(in app: XCUIApplication) -> XCUIElement {
+        let predicate = NSPredicate(format: "identifier BEGINSWITH %@ AND identifier ENDSWITH %@", "settings.autoShowApp.", ".remove")
+        return app.descendants(matching: .any).matching(predicate).firstMatch
+    }
+
+    @MainActor
+    private func segment(_ name: String, in picker: XCUIElement) -> XCUIElement {
+        let predicate = NSPredicate(format: "label == %@ OR title == %@", name, name)
+        return picker.descendants(matching: .any).matching(predicate).firstMatch
     }
 
     @MainActor
@@ -144,11 +151,11 @@ final class AutoShowSettingsUITests: XCTestCase {
     }
 
     @MainActor
-    private func isChecked(_ radioButton: XCUIElement) -> Bool {
-        if let value = radioButton.value as? NSNumber {
+    private func isChecked(_ segment: XCUIElement) -> Bool {
+        if let value = segment.value as? NSNumber {
             return value.boolValue
         }
-        return radioButton.isSelected
+        return segment.isSelected
     }
 
     @MainActor
@@ -162,7 +169,7 @@ final class AutoShowSettingsUITests: XCTestCase {
 
     @MainActor
     private func closeSettings(in app: XCUIApplication, picker: XCUIElement) {
-        let window = app.windows.containing(.any, identifier: "settings.autoShowModePicker").firstMatch
+        let window = app.windows.containing(.any, identifier: "settings.sidebar.general").firstMatch
         XCTAssertTrue(window.exists)
         let closeButton = window.buttons[XCUIIdentifierCloseWindow]
         XCTAssertTrue(closeButton.exists)
@@ -186,7 +193,7 @@ final class AutoShowSettingsUITests: XCTestCase {
         let item = menuItem(in: app, identifier: "menu.settings", title: "設定")
         XCTAssertTrue(item.waitForExistence(timeout: timeout))
         clickShownMenuItem(item)
-        app.revealInSettings(element(in: app, identifier: "settings.autoShowAppRemove"))
+        XCTAssertTrue(element(in: app, identifier: "settings.sidebar.general").waitForExistence(timeout: timeout))
     }
 
     @MainActor

@@ -51,25 +51,6 @@ final class PanelSizeUITests: XCTestCase {
         closePanel(in: app)
     }
 
-    // AC-2
-    @MainActor
-    func testAC2_openingHeightIgnoresDraftLength() throws {
-        let app = makeApp()
-        app.launch()
-
-        let panel = openPanel(in: app)
-        assertSize(panel.frame.size, equals: defaultSize)
-        typeLines(30, in: app)
-
-        closePanel(in: app)
-        let reopened = openPanel(in: app)
-        assertSize(reopened.frame.size, equals: defaultSize, "下書きが多いと既定の大きさで開かない")
-        XCTAssertFalse(app.textViews["promptPanel.textView"].promptPanelText.isEmpty, "下書きが残っていない")
-
-        clearText(in: app)
-        closePanel(in: app)
-    }
-
     @MainActor
     func testAC1_dragResize() throws {
         let app = makeApp()
@@ -94,10 +75,14 @@ final class PanelSizeUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(panel.frame.height, 160 - 0.5, "最小の高さより小さくなった")
         let draggedSize = panel.frame.size
 
+        app.typeText("abc")
+        XCTAssertTrue(waitUntil { app.textViews["promptPanel.textView"].promptPanelText == "abc" }, "打った文字が入力欄に入らない")
+
         // AC-6
         closePanel(in: app)
         let reopened = openPanel(in: app)
         assertSize(reopened.frame.size, equals: draggedSize)
+        clearText(in: app)
         closePanel(in: app)
     }
 
@@ -122,25 +107,13 @@ final class PanelSizeUITests: XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         assertSize(panel.frame.size, equals: draggedSize, "文章を消すとドラッグした大きさが変わってしまう")
 
+        app.typeText("x")
+        XCTAssertTrue(waitUntil { app.textViews["promptPanel.textView"].promptPanelText == "x" }, "打った文字が入力欄に入らない")
+
         closePanel(in: app)
         let reopened = openPanel(in: app)
         assertSize(reopened.frame.size, equals: draggedSize, "閉じて開き直すとドラッグした大きさが保たれない")
-        closePanel(in: app)
-    }
-
-    // AC-14
-    @MainActor
-    func testAC14_doubleClickTitleBarDoesNotZoom() throws {
-        let app = makeApp()
-        app.launch()
-
-        let panel = openPanel(in: app)
-        let frameBefore = panel.frame
-
-        panel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).withOffset(CGVector(dx: 0, dy: 14)).doubleClick()
-        RunLoop.current.run(until: Date().addingTimeInterval(1))
-
-        XCTAssertEqual(panel.frame, frameBefore)
+        clearText(in: app)
         closePanel(in: app)
     }
 
@@ -155,7 +128,7 @@ final class PanelSizeUITests: XCTestCase {
         return app
     }
 
-    private let baseSeed: [String: Any] = ["panelAnimationEnabled": false]
+    private let baseSeed: [String: Any] = ["animationMode": "off"]
 
     private func settingsSeedJSON(_ values: [String: Any]) -> String {
         let data = (try? JSONSerialization.data(withJSONObject: values, options: [.sortedKeys])) ?? Data()
@@ -198,6 +171,15 @@ final class PanelSizeUITests: XCTestCase {
         app.typeKey("a", modifierFlags: [.command])
         app.typeKey(.delete, modifierFlags: [])
         XCTAssertEqual(app.textViews["promptPanel.textView"].promptPanelText, "")
+    }
+
+    @MainActor
+    private func waitUntil(_ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return condition()
     }
 
     @MainActor

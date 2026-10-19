@@ -1,6 +1,33 @@
 import Foundation
 import Observation
 
+/// 記録ボックスに出す中身。
+enum PanelShortcutRecorderDisplay: Equatable {
+    case recording
+    case registered(text: String, caps: [String])
+    case unregistered
+
+    /// 読み上げに使う値。
+    var accessibilityValue: String {
+        switch self {
+        case .recording: String(localized: "ショートカットを押す")
+        case .registered(let text, _): text
+        case .unregistered: String(localized: "登録なし")
+        }
+    }
+}
+
+/// 記録ボックスが受け付けた・受け付けなかった合図。`sequence` は合図のたびに増える。
+struct RecorderFeedback: Equatable {
+    enum Kind: Equatable {
+        case accepted
+        case rejected
+    }
+
+    let kind: Kind
+    let sequence: Int
+}
+
 /// 設定画面の「確定+挿入キー」「確定+送信キー」の記録ボックスの状態。
 @Observable final class PanelKeySettingsModel {
     @ObservationIgnored private let settings: AppSettings
@@ -9,9 +36,12 @@ import Observation
     @ObservationIgnored private let resumeHotkey: () -> Void
     @ObservationIgnored private let setHotkey: (PanelShortcut?) -> Void
     @ObservationIgnored private var lastAcceptedHotkey: PanelShortcut?
+    @ObservationIgnored private var feedbackSequence = 0
 
     private(set) var recordingRole: PanelShortcutRole?
     private(set) var hotkeyRejectionMessage: String?
+    private(set) var feedback: [PanelShortcutRole: RecorderFeedback] = [:]
+    private(set) var hotkeyFeedback: RecorderFeedback?
 
     private var rejectionMessages: [PanelShortcutRole: String] = [:]
 
@@ -30,11 +60,12 @@ import Observation
         self.lastAcceptedHotkey = hotkey()
     }
 
-    /// 「パネルを開く・閉じる」の記録ボックスの変更を受け、⌘K・⌘S・⌘N・⌘B・⌘, なら直前のキーに戻して理由を出す。
+    /// 「パネルを開く・閉じる」の記録ボックスの変更を受け、⌘K・⌘S・⌘N・⌘E・⌘B・⌘,・⇧⌘S なら直前のキーに戻して理由を出す。
     func hotkeyDidChange(to shortcut: PanelShortcut?) {
         guard shortcut != lastAcceptedHotkey else { return }
         if let shortcut, ReservedPanelKeys.isReserved(shortcut) {
             hotkeyRejectionMessage = PanelShortcutRejection.reservedForPanelCommands.message(for: shortcut)
+            hotkeyFeedback = makeFeedback(.rejected)
             setHotkey(lastAcceptedHotkey)
             return
         }
@@ -57,6 +88,22 @@ import Observation
         rejectionMessages[role]
     }
 
+    /// 記録ボックスに出す中身(記録中・登録あり・登録なし)。
+    func recorderDisplay(for role: PanelShortcutRole) -> PanelShortcutRecorderDisplay {
+        if recordingRole == role {
+            return .recording
+        }
+        guard let text = displayText(for: role) else {
+            return .unregistered
+        }
+        return .registered(text: text, caps: KeyCaps.caps(in: text))
+    }
+
+    private func makeFeedback(_ kind: RecorderFeedback.Kind) -> RecorderFeedback {
+        feedbackSequence += 1
+        return RecorderFeedback(kind: kind, sequence: feedbackSequence)
+    }
+
     func beginRecording(_ role: PanelShortcutRole) {
         rejectionMessages[role] = nil
         if recordingRole == nil {
@@ -76,6 +123,7 @@ import Observation
         )
         if let rejection {
             rejectionMessages[role] = rejection.message(for: candidate.shortcut)
+            feedback[role] = makeFeedback(.rejected)
             return false
         }
         rejectionMessages[role] = nil
@@ -83,17 +131,19 @@ import Observation
         case .commit: settings.selectCommitKey(candidate.shortcut)
         case .commitAndSend: settings.selectCommitAndSendKey(candidate.shortcut)
         }
+        feedback[role] = makeFeedback(.accepted)
         endRecording(role)
         return true
     }
 
     /// 確定+挿入キーと確定+送信キーの最後の1つを消そうとしたときの理由。
-    static let lastKeyClearMessage = String(localized: "確定+挿入キーと確定+送信キーの両方を未登録にはできません。挿入せずに使うときは、ノートモードにしてください。")
+    static let lastKeyClearMessage = String(localized: "確定+挿入キーと確定+送信キーの両方を未登録にはできません。挿入せずに書くときは、パネルで ⌘E を押してノートにしてください。")
 
     func clear(_ role: PanelShortcutRole) {
         let otherRole: PanelShortcutRole = role == .commit ? .commitAndSend : .commit
         if shortcut(for: otherRole) == nil {
             rejectionMessages[role] = Self.lastKeyClearMessage
+            feedback[role] = makeFeedback(.rejected)
             endRecording(role)
             return
         }

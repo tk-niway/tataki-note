@@ -5,12 +5,12 @@ import Testing
 
 @MainActor
 struct SettingsStoreTests {
-    private func makeSuite() throws -> (UserDefaults, String) {
+    private func makeSuite() throws -> (InMemoryDefaults, String) {
         let temp = try TemporaryDefaults()
         return (temp.defaults, temp.name)
     }
 
-    private func removeSuite(_ defaults: UserDefaults, name: String) {
+    private func removeSuite(_ defaults: InMemoryDefaults, name: String) {
         TemporaryDefaults.remove(named: name)
     }
 
@@ -197,7 +197,7 @@ struct SettingsStoreTests {
 
     private let existingKeys = ["commitKey", "commitAndSendKey", "panelScreen", "autoShowMode", "autoShowApps"]
 
-    private func storedNumber(_ defaults: UserDefaults, forKey key: String) -> Double? {
+    private func storedNumber(_ defaults: InMemoryDefaults, forKey key: String) -> Double? {
         (defaults.object(forKey: key) as? NSNumber)?.doubleValue
     }
 

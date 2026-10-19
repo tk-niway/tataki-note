@@ -24,6 +24,16 @@ struct InsertionTargetBadgeTests {
         #expect(InsertionTargetBadge.make(for: nil) == nil)
     }
 
+    @Test("AC-12: 「挿入先なし」の合図の横のずれは、動きを使うなら今の揺れの値、使わないならすべて 0で、数はどちらも6つ")
+    func noTargetShakeOffsets() {
+        let animated = InsertionTargetBadge.noTargetShakeOffsets(isAnimationEnabled: true)
+        let still = InsertionTargetBadge.noTargetShakeOffsets(isAnimationEnabled: false)
+
+        #expect(animated == [-4, 4, -4, 4, -2, 0])
+        #expect(still == [0, 0, 0, 0, 0, 0])
+        #expect(animated.count == still.count)
+    }
+
     @Test("AC-20: 挿入先なしの文字は「挿入先なし」で、挿入先が無いときはアイコンの表示の中身が作られず、合図のたびに合図の数が1増える")
     func noTargetLabelAndAlertCount() {
         #expect(InsertionTargetBadge.noTargetLabel == "挿入先なし")

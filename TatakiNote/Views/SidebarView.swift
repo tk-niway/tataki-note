@@ -4,13 +4,22 @@ import SwiftUI
 /// パネルの左側に出す、下書きと履歴の一覧。
 struct SidebarView: View {
     @Bindable var model: SidebarModel
-    var highlightedDraftID: UUID?
+    var glowingDraftID: UUID?
+    var glowCount: Int = 0
+    var saveArrival = SaveArrival()
     var onOpenSettings: () -> Void = {}
 
+    @Environment(\.isAppAnimationReduced) private var reduceMotion
     @State private var isSearchFocused = false
     @FocusState private var isListFocused: Bool
+    @State private var glowingRowID: UUID?
+    @State private var glowGeneration = 0
 
     private static let rowCornerRadius: CGFloat = 5
+    private static let rowHeight: CGFloat = 46
+    private static let rowSpacing: CGFloat = 2
+    private static let rowLineSpacing: CGFloat = 3
+    private static let rowTopInset: CGFloat = 6.5
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,6 +42,22 @@ struct SidebarView: View {
         .frame(width: SidebarLayout.width)
         .frame(maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
+        .onChange(of: glowCount) { _, _ in
+            guard let glowingDraftID else { return }
+            startGlow(on: glowingDraftID)
+        }
+    }
+
+    private func startGlow(on id: UUID) {
+        glowGeneration += 1
+        let generation = glowGeneration
+        glowingRowID = id
+        Task {
+            try? await Task.sleep(for: SavedRowHighlight.duration)
+            if generation == glowGeneration {
+                glowingRowID = nil
+            }
+        }
     }
 
     // MARK: - 切り替えと検索
@@ -56,23 +81,32 @@ struct SidebarView: View {
         return Button {
             model.tab = tab
         } label: {
-            Image(systemName: tab.systemImageName)
-                .font(.system(size: 13))
-                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color(nsColor: .controlBackgroundColor))
-                            .shadow(color: .black.opacity(0.15), radius: 1, y: 0.5)
-                    }
+            HStack(spacing: 5) {
+                Text(verbatim: tab.title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(isSelected ? Color.white : Color.secondary)
+                Text(verbatim: String(model.count(of: tab)))
+                    .font(.system(size: 10.5))
+                    .monospacedDigit()
+                    .foregroundStyle(isSelected ? AnyShapeStyle(Color.white.opacity(0.75)) : AnyShapeStyle(.tertiary))
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.accentColor)
+                        .shadow(color: .black.opacity(0.15), radius: 1, y: 0.5)
                 }
-                .contentShape(Rectangle())
+            }
+            .contentShape(Rectangle())
+            .saveArrivalBounce(for: tab == .drafts ? .draftsTab : nil, arrival: saveArrival)
         }
         .buttonStyle(.plain)
         .focusable(false)
+        .modifier(DraftsTabAnchor(isDraftsTab: tab == .drafts))
         .help(tab.title)
         .accessibilityLabel(tab.title)
+        .accessibilityValue("\(model.count(of: tab)) 件")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("sidebar.tab.\(tab.rawValue)")
     }
@@ -85,7 +119,12 @@ struct SidebarView: View {
             onFocusHandled: { model.markSearchFocusHandled() },
             onFocusChange: { isSearchFocused = $0 },
             onKey: { key, modifiers, hasMarkedText in
-                model.handleKey(key, modifiers: modifiers, hasMarkedText: hasMarkedText || model.markedTextProbe())
+                model.handleKey(
+                    key,
+                    source: .searchField,
+                    modifiers: modifiers,
+                    hasMarkedText: hasMarkedText || model.markedTextProbe()
+                )
             }
         )
         .frame(height: 22)
@@ -120,7 +159,7 @@ struct SidebarView: View {
     @ViewBuilder
     private var listArea: some View {
         let rows = model.rows
-        Group {
+        ZStack {
             if rows.isEmpty {
                 emptyState
             } else {
@@ -128,6 +167,23 @@ struct SidebarView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .focusable()
+        .focusEffectDisabled()
+        .focused($isListFocused)
+        .onKeyPress(phases: [.down, .repeat]) { press in
+            handleListKeyPress(press)
+        }
+        .onAppear { applyPendingListFocus() }
+        .onChange(of: model.listFocusRequest) { _, _ in applyPendingListFocus() }
+    }
+
+    private func applyPendingListFocus() {
+        guard model.hasPendingListFocus else { return }
+        DispatchQueue.main.async {
+            guard model.hasPendingListFocus else { return }
+            isListFocused = true
+            model.markListFocusHandled()
+        }
     }
 
     private func list(_ rows: [SidebarRow]) -> some View {
@@ -135,14 +191,12 @@ struct SidebarView: View {
         let isEmphasized = isSearchFocused || isListFocused
         return ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 0) {
+                LazyVStack(spacing: Self.rowSpacing) {
                     ForEach(rows) { row in
                         rowView(row, isSelected: row.id == selection, isEmphasized: isEmphasized)
                             .id(row.id)
-                            .transition(.move(edge: .top).combined(with: .opacity))
                     }
                 }
-                .animation(.easeOut(duration: 0.25), value: rows.map(\.id))
                 .padding(.horizontal, 6)
                 .padding(.bottom, 6)
             }
@@ -150,12 +204,6 @@ struct SidebarView: View {
                 guard let newValue else { return }
                 proxy.scrollTo(newValue)
             }
-        }
-        .focusable()
-        .focusEffectDisabled()
-        .focused($isListFocused)
-        .onKeyPress(phases: [.down, .repeat]) { press in
-            handleListKeyPress(press)
         }
         .accessibilityIdentifier("sidebar.list")
     }
@@ -165,52 +213,75 @@ struct SidebarView: View {
         let foreground: Color = isHighlighted ? .white : .primary
         let secondaryForeground: Color = isHighlighted ? .white.opacity(0.85) : .secondary
         return HStack(spacing: 6) {
-            if row.kind == .draft {
-                Circle()
-                    .fill(isHighlighted ? Color.white : Color.accentColor)
-                    .frame(width: 6, height: 6)
-                    .opacity(row.isShownInPanel ? 1 : 0)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                if let detail = row.detail {
-                    Text(verbatim: detail)
-                        .font(.system(size: 11))
-                        .foregroundStyle(secondaryForeground)
+            HStack(alignment: .top, spacing: 6) {
+                VStack(alignment: .leading, spacing: Self.rowLineSpacing) {
+                    Text(verbatim: row.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(titleStyle(for: row, isHighlighted: isHighlighted, foreground: foreground))
                         .lineLimit(1)
+                        .truncationMode(.tail)
+                    HStack(spacing: 6) {
+                        if let detail = row.detail {
+                            Text(verbatim: detail)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .layoutPriority(1)
+                        }
+                        if let preview = row.preview {
+                            Text(verbatim: preview)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                    }
+                    .font(.system(size: 11))
+                    .foregroundStyle(secondaryForeground)
                 }
-                Text(verbatim: row.title)
-                    .font(.system(size: 13, weight: row.isShownInPanel ? .medium : .regular))
-                    .foregroundStyle(titleStyle(for: row, isHighlighted: isHighlighted, foreground: foreground))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                .padding(.top, Self.rowTopInset)
             }
+            .saveArrivalBounce(
+                for: row.kind == .draft ? .draftRow(row.id) : nil,
+                arrival: saveArrival,
+                anchor: .leading
+            )
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: row.kind == .draft ? 28 : 40)
+        .frame(height: Self.rowHeight, alignment: .top)
         .background {
             ZStack {
                 RoundedRectangle(cornerRadius: Self.rowCornerRadius)
                     .fill(rowBackground(isSelected: isSelected, isEmphasized: isEmphasized))
-                if row.id == highlightedDraftID {
-                    SavedRowHighlight(cornerRadius: Self.rowCornerRadius)
+                if row.id == glowingRowID {
+                    SavedRowHighlight(cornerRadius: Self.rowCornerRadius, fades: !reduceMotion)
+                        .id(glowGeneration)
                 }
             }
         }
+        .modifier(DraftRowAnchor(rowID: row.kind == .draft ? row.id : nil))
         .contentShape(Rectangle())
         .onTapGesture {
-            model.activate(row.id)
+            model.show(row.id)
         }
         .contextMenu {
+            Button("ファイルに書き出す") {
+                model.requestExport(row.id)
+            }
+            .disabled(!model.canExport(row.id))
+            .accessibilityIdentifier("sidebar.row.exportMenuItem")
+            Button("共有") {
+                model.requestShare(row.id)
+            }
+            .disabled(!model.canExport(row.id))
+            .accessibilityIdentifier("sidebar.row.shareMenuItem")
+            Divider()
             Button("削除") {
                 model.requestDelete(row.id)
             }
-            .disabled(!model.isDeleteAvailable)
             .accessibilityIdentifier("sidebar.row.deleteMenuItem")
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: [row.detail, row.title].compactMap { $0 }.joined(separator: " ")))
+        .accessibilityLabel(Text(verbatim: row.accessibilityText))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .accessibilityValue(row.isShownInPanel ? "パネルに表示中" : "")
         .accessibilityAction(named: "削除") {
@@ -255,10 +326,15 @@ struct SidebarView: View {
     private var footer: some View {
         HStack(spacing: 0) {
             Button(action: onOpenSettings) {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 14))
-                    .frame(width: 20, height: 20)
-                    .contentShape(Rectangle())
+                HStack(spacing: 5) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 14))
+                    Text("設定")
+                        .font(.system(size: 12))
+                }
+                .padding(.vertical, 3)
+                .padding(.horizontal, 6)
+                .contentShape(Rectangle())
             }
             .buttonStyle(PanelIconButtonStyle())
             .focusable(false)
@@ -277,24 +353,18 @@ struct SidebarView: View {
     // MARK: - キー
 
     private func handleListKeyPress(_ press: KeyPress) -> KeyPress.Result {
-        guard let key = Self.sidebarKey(for: press.key) else { return .ignored }
+        guard let key = SidebarKeyResolver.key(for: press.key) else { return .ignored }
+        var modifiers = Self.modifierFlags(for: press.modifiers)
+        if press.key == SidebarKeyResolver.backTab {
+            modifiers.insert(.shift)
+        }
         let handled = model.handleKey(
             key,
-            modifiers: Self.modifierFlags(for: press.modifiers),
+            source: .list,
+            modifiers: modifiers,
             hasMarkedText: model.markedTextProbe()
         )
         return handled ? .handled : .ignored
-    }
-
-    private static func sidebarKey(for key: KeyEquivalent) -> SidebarKey? {
-        switch key {
-        case .upArrow: .up
-        case .downArrow: .down
-        case .return: .returnKey
-        case .escape: .escape
-        case .delete: .deleteBackward
-        default: nil
-        }
     }
 
     private static func modifierFlags(for modifiers: EventModifiers) -> NSEvent.ModifierFlags {
@@ -307,17 +377,44 @@ struct SidebarView: View {
     }
 }
 
+private struct DraftsTabAnchor: ViewModifier {
+    let isDraftsTab: Bool
+
+    func body(content: Content) -> some View {
+        if isDraftsTab {
+            content.saveFlightAnchor(.draftsTab)
+        } else {
+            content
+        }
+    }
+}
+
+private struct DraftRowAnchor: ViewModifier {
+    let rowID: UUID?
+
+    func body(content: Content) -> some View {
+        if let rowID {
+            content.saveFlightAnchor(.draftRow(rowID))
+        } else {
+            content
+        }
+    }
+}
+
 private struct SavedRowHighlight: View {
     let cornerRadius: CGFloat
+    let fades: Bool
 
-    @Environment(\.colorScheme) private var colorScheme
     @State private var isFaded = false
+
+    static let duration: Duration = .milliseconds(1100)
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius)
-            .fill(Color.yellow.opacity(isFaded ? 0 : (colorScheme == .dark ? 0.25 : 0.45)))
+            .fill(Color.accentColor.opacity(isFaded ? 0 : 0.22))
             .onAppear {
-                withAnimation(.linear(duration: SaveAnimationModel.highlightDuration.seconds)) {
+                guard fades else { return }
+                withAnimation(.linear(duration: Self.duration.seconds)) {
                     isFaded = true
                 }
             }
