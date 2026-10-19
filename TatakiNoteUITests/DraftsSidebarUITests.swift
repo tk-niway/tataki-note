@@ -59,12 +59,14 @@ final class DraftsSidebarUITests: PanelDraftsUITestCase {
         XCTAssertTrue(item.waitForExistence(timeout: timeout), "右クリックのメニューに「ファイルに書き出す」が無い")
         item.click()
 
-        let savePanel = element(in: app, identifier: "export.savePanel")
+        let savePanel = app.windows
+            .matching(NSPredicate(format: "identifier IN %@", ["save-panel", "export.savePanel"]))
+            .firstMatch
         XCTAssertTrue(savePanel.waitForExistence(timeout: timeout), "保存ダイアログが開かない")
 
-        var cancel = savePanel.buttons["キャンセル"]
+        var cancel = savePanel.buttons["CancelButton"]
         if !cancel.exists {
-            cancel = savePanel.buttons["Cancel"]
+            cancel = savePanel.buttons["キャンセル"]
         }
         if cancel.exists {
             cancel.click()
