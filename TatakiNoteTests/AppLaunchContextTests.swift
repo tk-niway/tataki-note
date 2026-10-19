@@ -52,6 +52,28 @@ struct AppLaunchContextTests {
         }
     }
 
+    @Test("AC-14: suite の指定があれば、その名前の suite に保存し、標準の保存先は使わない")
+    func settingsDefaultsUsesNamedSuite() throws {
+        let name = UUID().uuidString
+        let suite = try #require(InMemoryDefaults(suiteName: name))
+        defer { suite.removePersistentDomain(forName: name) }
+
+        var requestedNames: [String] = []
+        let defaults = AppLaunchContext.settingsDefaults(environment: ["TATAKINOTE_SETTINGS_SUITE": name]) { requested in
+            requestedNames.append(requested)
+            return suite
+        }
+
+        #expect(requestedNames == [name])
+        #expect(defaults === suite)
+        #expect(defaults !== UserDefaults.standard)
+
+        SettingsStore(defaults: defaults).saveCommitShortcut(.commandReturn)
+        SettingsStore(defaults: defaults).savePanelScreen(.main)
+        #expect(suite.array(forKey: "commitShortcut") as? [Int] == [36, 1_048_576])
+        #expect(suite.string(forKey: "panelScreen") == "main")
+    }
+
     @Test("AC-14: suite の指定が無い・空なら、suite を作らず標準の保存先を使う")
     func settingsDefaultsUsesStandardWithoutSuite() {
         let environments: [[String: String]] = [

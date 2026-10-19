@@ -136,6 +136,24 @@ struct SettingsSeedTests {
 
     // MARK: - AppLaunchContext.settingsDefaults
 
+    @Test("AC-13: suite の指定と設定の値があれば、起動時に選ぶ suite にその値が書かれる")
+    func settingsDefaultsAppliesSeedToSuite() throws {
+        let name = UUID().uuidString
+        let suite = try #require(InMemoryDefaults(suiteName: name))
+        defer { suite.removePersistentDomain(forName: name) }
+
+        let defaults = AppLaunchContext.settingsDefaults(environment: [
+            "TATAKINOTE_SETTINGS_SUITE": name,
+            SettingsSeed.environmentKey: #"{"commitKey":"none","panelFontSize":18}"#,
+        ]) { _ in suite }
+
+        #expect(defaults === suite)
+        #expect(suite.string(forKey: "commitKey") == "none")
+        let settings = AppSettings(store: SettingsStore(defaults: defaults))
+        #expect(settings.commitKey == nil)
+        #expect(settings.panelFontSize == 18)
+    }
+
     @Test("AC-13: suite の指定が無ければ、設定の値があっても suite を作らず標準の保存先を返し、何も書かない")
     func settingsDefaultsDoesNotSeedStandard() {
         var requestedNames: [String] = []
