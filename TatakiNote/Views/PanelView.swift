@@ -17,6 +17,8 @@ struct PanelView: View {
     let onSaveDraft: () -> Void
     let onOpenSettings: () -> Void
     let onSwitchToInsert: () -> Void
+    let onShare: () -> Void
+    let sharingAnchorRegistry: SharingAnchorRegistry?
     let appIcon: @MainActor (InsertionTarget) -> NSImage
 
     init(
@@ -34,6 +36,8 @@ struct PanelView: View {
         onSaveDraft: @escaping () -> Void = {},
         onOpenSettings: @escaping () -> Void = {},
         onSwitchToInsert: @escaping () -> Void = {},
+        onShare: @escaping () -> Void = {},
+        sharingAnchorRegistry: SharingAnchorRegistry? = nil,
         appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = { InsertionTargetBadge.systemIcon(for: $0) }
     ) {
         self.model = model
@@ -50,6 +54,8 @@ struct PanelView: View {
         self.onSaveDraft = onSaveDraft
         self.onOpenSettings = onOpenSettings
         self.onSwitchToInsert = onSwitchToInsert
+        self.onShare = onShare
+        self.sharingAnchorRegistry = sharingAnchorRegistry
         self.appIcon = appIcon
     }
 
@@ -102,6 +108,8 @@ struct PanelView: View {
                 onNewDraft: onNewDraft,
                 onSaveDraft: onSaveDraft,
                 onSwitchToInsert: onSwitchToInsert,
+                onShare: onShare,
+                sharingAnchorRegistry: sharingAnchorRegistry,
                 appIcon: appIcon
             )
             .ignoresSafeArea(edges: .top)
@@ -170,7 +178,7 @@ struct PanelView: View {
         .background(Color(nsColor: .textBackgroundColor))
         .overlay(alignment: .bottom) {
             if let saveAnimation, let message = saveAnimation.toastMessage {
-                PanelToastView(message: message)
+                PanelToastView(message: message, style: saveAnimation.toastStyle)
                     .id(saveAnimation.toastCount)
                     .padding(.bottom, saveToastBottomInset)
                     .allowsHitTesting(false)

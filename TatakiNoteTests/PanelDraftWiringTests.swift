@@ -367,7 +367,7 @@ struct PanelDraftWiringTests {
         #expect(!PromptPanel.firstResponderHasMarkedText(NSResponder()))
     }
 
-    @Test("AC-50: panelCommandInput は ⌘S・⌘K・⌘N だけを値にし(Caps Lock が入っていても)、⌘J や修飾キーの違うものは nil")
+    @Test("AC-1: panelCommandInput は ⌘S・⌘K・⌘N・⇧⌘S だけを値にし(Caps Lock が入っていても)、⌘J や修飾キーの違うものは nil")
     func panelCommandInputRecognizesOnlyReservedKeys() throws {
         let saveEvent = try Self.keyEvent("s", keyCode: 1, modifiers: [.command])
         let searchEvent = try Self.keyEvent("k", keyCode: 40, modifiers: [.command])
@@ -375,6 +375,9 @@ struct PanelDraftWiringTests {
         let capsLockEvent = try Self.keyEvent("s", keyCode: 1, modifiers: [.command, .capsLock])
         let otherLetterEvent = try Self.keyEvent("j", keyCode: 38, modifiers: [.command])
         let shiftedEvent = try Self.keyEvent("s", keyCode: 1, modifiers: [.command, .shift])
+        let shiftedCapsLockEvent = try Self.keyEvent("s", keyCode: 1, modifiers: [.command, .shift, .capsLock])
+        let shiftedSearchEvent = try Self.keyEvent("k", keyCode: 40, modifiers: [.command, .shift])
+        let optionEvent = try Self.keyEvent("s", keyCode: 1, modifiers: [.command, .option])
         let plainEvent = try Self.keyEvent("s", keyCode: 1, modifiers: [])
 
         let save = try #require(PromptPanel.panelCommandInput(for: saveEvent, hasMarkedText: false))
@@ -390,7 +393,15 @@ struct PanelDraftWiringTests {
         #expect(newDraft.hasMarkedText)
         #expect(capsLockSave.characters == "s")
         #expect(PromptPanel.panelCommandInput(for: otherLetterEvent, hasMarkedText: false) == nil)
-        #expect(PromptPanel.panelCommandInput(for: shiftedEvent, hasMarkedText: false) == nil)
+        let export = try #require(PromptPanel.panelCommandInput(for: shiftedEvent, hasMarkedText: false))
+        let capsLockExport = try #require(PromptPanel.panelCommandInput(for: shiftedCapsLockEvent, hasMarkedText: true))
+        #expect(export.characters == "s")
+        #expect(export.modifiers.intersection(PanelShortcut.relevantModifiers) == [.command, .shift])
+        #expect(!export.hasMarkedText)
+        #expect(capsLockExport.characters == "s")
+        #expect(capsLockExport.hasMarkedText)
+        #expect(PromptPanel.panelCommandInput(for: shiftedSearchEvent, hasMarkedText: false) == nil)
+        #expect(PromptPanel.panelCommandInput(for: optionEvent, hasMarkedText: false) == nil)
         #expect(PromptPanel.panelCommandInput(for: plainEvent, hasMarkedText: false) == nil)
     }
 

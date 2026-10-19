@@ -37,6 +37,12 @@ struct SaveFlight: Equatable {
     let destination: SaveFlightDestination
 }
 
+/// トーストの印の種類。
+enum PanelToastStyle: Equatable {
+    case done
+    case notice
+}
+
 /// 保存の演出の段。
 enum SaveAnimationPhase: Equatable {
     case idle
@@ -74,6 +80,9 @@ extension Duration {
     static let toastDuration: Duration = .milliseconds(1900)
     static let savedMessage = "下書きに保存しました"
     static let archivedMessage = "書きかけを履歴に残しました"
+    static let exportedMessage = "書き出しました"
+    static let nothingToExportMessage = "書き出す文章がありません"
+    static let nothingToShareMessage = "共有する文章がありません"
 
     private(set) var phase: SaveAnimationPhase = .idle
     /// 着いたときに 1 つ進む。着いた所が弾むきっかけ。
@@ -84,6 +93,8 @@ extension Duration {
     private(set) var glowCount = 0
     /// パネルの中に出しているトーストの文。出していなければ nil。
     private(set) var toastMessage: String?
+    /// 出しているトーストの印の種類。
+    private(set) var toastStyle: PanelToastStyle = .done
     /// トーストを出すたびに 1 つ進む。
     private(set) var toastCount = 0
     private(set) var playCount = 0
@@ -119,7 +130,7 @@ extension Duration {
             glowingDraftID = id
             glowCount += 1
         }
-        let toast = showsToast ? presentToast(Self.savedMessage) : nil
+        let toast = showsToast ? presentToast(Self.savedMessage, style: .done) : nil
         await sleep(Self.arrivalDuration)
         guard generation == playCount else { return }
         phase = .idle
@@ -131,8 +142,8 @@ extension Duration {
     }
 
     /// 写しの動きとは別に、トーストだけを出して読み上げ、一定時間で消す。
-    func showToast(_ message: String) async {
-        let toast = presentToast(message)
+    func showToast(_ message: String, style: PanelToastStyle = .done) async {
+        let toast = presentToast(message, style: style)
         await sleep(Self.toastDuration)
         dismissToast(numbered: toast)
     }
@@ -144,6 +155,7 @@ extension Duration {
         phase = .idle
         glowingDraftID = nil
         toastMessage = nil
+        toastStyle = .done
     }
 
     private func playWithoutMotion(destination: SaveFlightDestination, generation: Int) async {
@@ -152,7 +164,7 @@ extension Duration {
             glowingDraftID = id
             glowCount += 1
         }
-        let toast = presentToast(Self.savedMessage)
+        let toast = presentToast(Self.savedMessage, style: .done)
         await sleep(Self.arrivalDuration)
         guard generation == playCount else { return }
         glowingDraftID = nil
@@ -161,9 +173,10 @@ extension Duration {
         dismissToast(numbered: toast)
     }
 
-    private func presentToast(_ message: String) -> Int {
+    private func presentToast(_ message: String, style: PanelToastStyle) -> Int {
         toastCount += 1
         toastMessage = message
+        toastStyle = style
         announce(message)
         return toastCount
     }

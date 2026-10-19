@@ -16,6 +16,10 @@ struct SidebarView: View {
     @State private var glowGeneration = 0
 
     private static let rowCornerRadius: CGFloat = 5
+    private static let rowHeight: CGFloat = 46
+    private static let rowSpacing: CGFloat = 2
+    private static let rowLineSpacing: CGFloat = 3
+    private static let rowTopInset: CGFloat = 6.5
 
     var body: some View {
         VStack(spacing: 0) {
@@ -187,7 +191,7 @@ struct SidebarView: View {
         let isEmphasized = isSearchFocused || isListFocused
         return ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 0) {
+                LazyVStack(spacing: Self.rowSpacing) {
                     ForEach(rows) { row in
                         rowView(row, isSelected: row.id == selection, isEmphasized: isEmphasized)
                             .id(row.id)
@@ -209,26 +213,30 @@ struct SidebarView: View {
         let foreground: Color = isHighlighted ? .white : .primary
         let secondaryForeground: Color = isHighlighted ? .white.opacity(0.85) : .secondary
         return HStack(spacing: 6) {
-            HStack(spacing: 6) {
-                if row.kind == .draft {
-                    Circle()
-                        .fill(isHighlighted ? Color.white : Color.accentColor)
-                        .frame(width: 6, height: 6)
-                        .opacity(row.isShownInPanel ? 1 : 0)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    if let detail = row.detail {
-                        Text(verbatim: detail)
-                            .font(.system(size: 11))
-                            .foregroundStyle(secondaryForeground)
-                            .lineLimit(1)
-                    }
+            HStack(alignment: .top, spacing: 6) {
+                VStack(alignment: .leading, spacing: Self.rowLineSpacing) {
                     Text(verbatim: row.title)
-                        .font(.system(size: 13, weight: row.isShownInPanel ? .medium : .regular))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(titleStyle(for: row, isHighlighted: isHighlighted, foreground: foreground))
                         .lineLimit(1)
                         .truncationMode(.tail)
+                    HStack(spacing: 6) {
+                        if let detail = row.detail {
+                            Text(verbatim: detail)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .layoutPriority(1)
+                        }
+                        if let preview = row.preview {
+                            Text(verbatim: preview)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                    }
+                    .font(.system(size: 11))
+                    .foregroundStyle(secondaryForeground)
                 }
+                .padding(.top, Self.rowTopInset)
             }
             .saveArrivalBounce(
                 for: row.kind == .draft ? .draftRow(row.id) : nil,
@@ -239,7 +247,7 @@ struct SidebarView: View {
         }
         .padding(.horizontal, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: row.kind == .draft ? 28 : 40)
+        .frame(height: Self.rowHeight, alignment: .top)
         .background {
             ZStack {
                 RoundedRectangle(cornerRadius: Self.rowCornerRadius)
@@ -256,13 +264,24 @@ struct SidebarView: View {
             model.show(row.id)
         }
         .contextMenu {
+            Button("ファイルに書き出す") {
+                model.requestExport(row.id)
+            }
+            .disabled(!model.canExport(row.id))
+            .accessibilityIdentifier("sidebar.row.exportMenuItem")
+            Button("共有") {
+                model.requestShare(row.id)
+            }
+            .disabled(!model.canExport(row.id))
+            .accessibilityIdentifier("sidebar.row.shareMenuItem")
+            Divider()
             Button("削除") {
                 model.requestDelete(row.id)
             }
             .accessibilityIdentifier("sidebar.row.deleteMenuItem")
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: [row.detail, row.title].compactMap { $0 }.joined(separator: " ")))
+        .accessibilityLabel(Text(verbatim: row.accessibilityText))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .accessibilityValue(row.isShownInPanel ? "パネルに表示中" : "")
         .accessibilityAction(named: "削除") {

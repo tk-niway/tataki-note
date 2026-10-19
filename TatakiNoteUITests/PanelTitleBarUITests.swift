@@ -2,8 +2,9 @@ import XCTest
 
 final class PanelTitleBarUITests: PanelDraftsUITestCase {
     // AC-46
+    // AC-17
     @MainActor
-    func testAC46_titleBarLayoutAndSaveAndNewDraftIcons() throws {
+    func testAC46_AC17_titleBarLayoutSaveNewDraftAndShareIcons() throws {
         let app = try launchApp()
         let panel = openPanel(in: app)
         let body = textView(in: app)
@@ -12,7 +13,8 @@ final class PanelTitleBarUITests: PanelDraftsUITestCase {
         let toggle = app.buttons["promptPanel.sidebarToggle"]
         let newDraft = app.buttons["promptPanel.newDraftButton"]
         let save = app.buttons["promptPanel.saveDraftButton"]
-        for button in [closeButton, toggle, newDraft, save] {
+        let share = app.buttons["promptPanel.shareButton"]
+        for button in [closeButton, toggle, newDraft, save, share] {
             XCTAssertTrue(button.waitForExistence(timeout: timeout), "タイトルバーのボタンが無い")
         }
         let middle = panel.frame.midX
@@ -23,6 +25,11 @@ final class PanelTitleBarUITests: PanelDraftsUITestCase {
         let titleText = panel.descendants(matching: .staticText)
             .matching(NSPredicate(format: "label == %@ OR value == %@", "TatakiNote", "TatakiNote"))
         XCTAssertEqual(titleText.count, 0, "タイトルの文字が出ている")
+
+        share.click()
+        let toast = element(in: app, identifier: "promptPanel.saveToast")
+        XCTAssertTrue(toast.waitForExistence(timeout: timeout), "空のパネルでシェアのボタンを押してもトーストが出ない")
+        XCTAssertEqual(toast.label, "共有する文章がありません")
 
         app.typeText("abc")
         XCTAssertTrue(waitUntil { save.isEnabled })

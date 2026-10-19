@@ -27,6 +27,7 @@ enum PanelKeyAction: Equatable {
     case toggleMode
     case toggleSidebar
     case openSettings
+    case exportToFile
     case insertNewline
 }
 
@@ -71,7 +72,11 @@ enum PanelKeyResolver {
     }
 
     private static func panelCommandAction(for input: PanelKeyInput) -> PanelKeyAction? {
-        guard input.modifiers.intersection(PanelShortcut.relevantModifiers) == [.command] else { return nil }
+        let modifiers = input.modifiers.intersection(PanelShortcut.relevantModifiers)
+        if modifiers == [.command, .shift] {
+            return input.characters == "s" ? .exportToFile : nil
+        }
+        guard modifiers == [.command] else { return nil }
         switch input.characters {
         case "k": return .openSearch
         case "s": return .saveDraft

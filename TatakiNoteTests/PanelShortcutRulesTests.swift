@@ -234,12 +234,16 @@ struct PanelShortcutRulesTests {
         )
     }
 
-    @Test("AC-10: ⌘K・⌘S・⌘N・⌘E・⌘B・⌘, は両方の役割で reservedForPanelCommands になり、理由の文面は「パネルの検索・下書きの保存・新しい書きかけ・モードの切り替え・サイドバーの開閉・設定を開く操作」")
+    @Test("AC-13: ⌘K・⌘S・⌘N・⌘E・⌘B・⌘,・⇧⌘S は両方の役割で reservedForPanelCommands になり、理由の文面は「パネルの検索・下書きの保存・新しい書きかけ・モードの切り替え・サイドバーの開閉・設定を開く・ファイルへの書き出しの操作」")
     func panelCommandKeysAreRejected() {
-        let keys: [(UInt16, String)] = [(40, "k"), (1, "s"), (45, "n"), (14, "e"), (11, "b"), (43, ",")]
+        let keys: [(UInt16, NSEvent.ModifierFlags, String, String)] = [
+            (40, [.command], "k", "⌘K"), (1, [.command], "s", "⌘S"), (45, [.command], "n", "⌘N"),
+            (14, [.command], "e", "⌘E"), (11, [.command], "b", "⌘B"), (43, [.command], ",", "⌘,"),
+            (1, [.command, .shift], "s", "⇧⌘S"),
+        ]
         for role in PanelShortcutRole.allCases {
-            for (keyCode, characters) in keys {
-                let key = PanelShortcut(keyCode: keyCode, modifiers: [.command])
+            for (keyCode, modifiers, characters, label) in keys {
+                let key = PanelShortcut(keyCode: keyCode, modifiers: modifiers)
                 let rejection = PanelShortcutRules.rejection(
                     for: PanelShortcutCandidate(shortcut: key, characters: characters),
                     role: role,
@@ -247,19 +251,20 @@ struct PanelShortcutRulesTests {
                     commitKey: nil,
                     commitAndSendKey: nil
                 )
-                #expect(rejection == .reservedForPanelCommands, "\(role) ⌘\(characters)")
+                #expect(rejection == .reservedForPanelCommands, "\(role) \(label)")
                 #expect(
                     rejection?.message(for: key)
-                        == "⌘\(characters.uppercased()) はパネルの検索・下書きの保存・新しい書きかけ・モードの切り替え・サイドバーの開閉・設定を開く操作(⌘K・⌘S・⌘N・⌘E・⌘B・⌘,)で使っているため、登録できません。"
+                        == "\(label) はパネルの検索・下書きの保存・新しい書きかけ・モードの切り替え・サイドバーの開閉・設定を開く・ファイルへの書き出しの操作(⌘K・⌘S・⌘N・⌘E・⌘B・⌘,・⇧⌘S)で使っているため、登録できません。"
                 )
             }
         }
     }
 
-    @Test("AC-7: ⇧⌘S などの修飾キーが違うキーと、⌘J など別の文字は受け付ける")
+    @Test("AC-13: ⇧⌘K・⌥⌘S など修飾キーが違うキーと、⌘J など別の文字は受け付ける")
     func panelCommandKeysWithOtherModifiersAreAccepted() {
         let accepted: [(UInt16, NSEvent.ModifierFlags, String)] = [
-            (1, [.command, .shift], "s"), (40, [.command, .option], "k"), (45, [.command, .control], "n"), (38, [.command], "j"),
+            (1, [.command, .option], "s"), (40, [.command, .shift], "k"), (40, [.command, .option], "k"),
+            (45, [.command, .control], "n"), (38, [.command], "j"),
             (14, [.command, .shift], "e"), (14, [.command, .option], "e"),
         ]
         for role in PanelShortcutRole.allCases {

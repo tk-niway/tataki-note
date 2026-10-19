@@ -21,6 +21,10 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let outlineController: InsertionTargetOutlineController
     private let shaker: PanelShaking
     private let beep: () -> Void
+    private let exporter: TextExporter
+    private let presentExportFailure: (String, NSWindow?, @escaping () -> Void) -> Void
+    private let sharer: TextSharing
+    private let sharingAnchorRegistry = SharingAnchorRegistry()
 
     let session: DraftSession
     let sidebarModel: SidebarModel
@@ -85,7 +89,11 @@ final class PanelController: NSObject, NSWindowDelegate {
         shaker: PanelShaking = PanelShaker(),
         beep: @escaping () -> Void = { NSSound.beep() },
         hideApplication: @escaping () -> Void = { NSApp.hide(nil) },
-        makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil
+        makeTargetMonitor: ((PanelModel) -> InsertionTargetMonitor)? = nil,
+        exportChooser: ExportDestinationChoosing = SavePanelDestinationChooser(),
+        writeTextFile: @escaping (String, URL) throws -> Void = TextFileWriter.write,
+        sharer: TextSharing? = nil,
+        presentExportFailure: ((String, NSWindow?, @escaping () -> Void) -> Void)? = nil
     ) {
         let panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
         self.model = model
@@ -94,6 +102,11 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.animator = animator
         self.shaker = shaker
         self.beep = beep
+        self.exporter = TextExporter(settings: settings, chooser: exportChooser, write: writeTextFile)
+        self.sharer = sharer ?? SharingServicePresenter(panel: panel, anchorRegistry: sharingAnchorRegistry)
+        self.presentExportFailure = presentExportFailure ?? { message, window, completion in
+            ExportFailureAlert.show(message: message, attachedTo: window, completion: completion)
+        }
         self.hideApplication = hideApplication
         self.targetTracker = targetTracker
         self.permission = permission
@@ -144,7 +157,9 @@ final class PanelController: NSObject, NSWindowDelegate {
                 onNewDraft: { [weak self] in self?.newDraftFromButton() },
                 onSaveDraft: { [weak self] in self?.saveDraftFromButton() },
                 onOpenSettings: { [weak self] in self?.openSettings() },
-                onSwitchToInsert: { [weak self] in self?.switchToInsertFromButton() }
+                onSwitchToInsert: { [weak self] in self?.switchToInsertFromButton() },
+                onShare: { [weak self] in self?.shareFromButton() },
+                sharingAnchorRegistry: sharingAnchorRegistry
             )
         )
         hostingView.sizingOptions = []
@@ -246,6 +261,8 @@ final class PanelController: NSObject, NSWindowDelegate {
             }
         }
         sidebarModel.closePanel = { [weak self] in self?.close() }
+        sidebarModel.exportText = { [weak self] in self?.exportText($0) }
+        sidebarModel.shareText = { [weak self] in self?.sharer.share($0, from: .pointer) }
     }
 
     private func observeBodyFocusRequests() {
@@ -463,10 +480,47 @@ final class PanelController: NSObject, NSWindowDelegate {
         case .openSettings:
             openSettings()
             return true
+        case .exportToFile:
+            exportCurrentText()
+            return true
         case .insertNewline:
             return insertNewlineInEditor()
         case .passThrough:
             return false
+        }
+    }
+
+    // MARK: - ファイルへの書き出し
+
+    private func exportCurrentText() {
+        exportText(model.text)
+    }
+
+    private func exportText(_ text: String) {
+        exporter.export(text) { [weak self] outcome in
+            self?.handleExportOutcome(outcome)
+        }
+    }
+
+    private func handleExportOutcome(_ outcome: TextExportOutcome) {
+        let feedback = ExportFeedback.feedback(for: outcome, isPanelPresented: model.isPresented)
+        if feedback.signalsEmpty {
+            signalEmptyInput()
+        }
+        if let message = feedback.toastMessage {
+            let animation = saveAnimation
+            let style = feedback.toastStyle
+            Task { await animation.showToast(message, style: style) }
+        }
+        if let failure = feedback.failureMessage {
+            let shouldReturnInput = feedback.returnsInput
+            presentExportFailure(failure, model.isPresented ? panel : nil) { [weak self] in
+                if shouldReturnInput {
+                    self?.returnInputToPanel()
+                }
+            }
+        } else if feedback.returnsInput {
+            returnInputToPanel()
         }
     }
 
@@ -498,6 +552,19 @@ final class PanelController: NSObject, NSWindowDelegate {
             signalEmptyInput()
         }
         model.requestFocus()
+    }
+
+    /// タイトルバーのシェアのボタン。変換中の文字を確定してから、パネルの文章でシェアのメニューを出す。
+    func shareFromButton() {
+        Self.commitMarkedText(in: panel)
+        guard !ExportableText.isEmpty(model.text) else {
+            signalEmptyInput()
+            let animation = saveAnimation
+            Task { await animation.showToast(SaveAnimationModel.nothingToShareMessage, style: .notice) }
+            model.requestFocus()
+            return
+        }
+        sharer.share(model.text, from: .titleBarButton)
     }
 
     /// タイトルバーの「ノート」のボタン。今の書きかけをインサートにする。

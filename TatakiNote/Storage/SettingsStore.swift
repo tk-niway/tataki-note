@@ -29,6 +29,7 @@ struct SettingsStore {
         static let historyLimit = "historyLimit"
         static let showsDockIcon = "showsDockIcon"
         static let confirmsQuit = "confirmsQuit"
+        static let lastExportDirectory = "lastExportDirectory"
     }
 
     let defaults: UserDefaults
@@ -234,6 +235,17 @@ struct SettingsStore {
 
     func saveConfirmsQuit(_ confirms: Bool) {
         defaults.set(confirms, forKey: Key.confirmsQuit)
+    }
+
+    // MARK: - 書き出し
+
+    /// 前回書き出したフォルダのパスを読む。無い・文字列でない・空文字は nil。
+    func loadLastExportDirectoryPath() -> String? {
+        loadNonEmptyString(forKey: Key.lastExportDirectory)
+    }
+
+    func saveLastExportDirectoryPath(_ path: String?) {
+        saveNonEmptyString(path, forKey: Key.lastExportDirectory)
     }
 
     // MARK: - 初回起動のチュートリアル

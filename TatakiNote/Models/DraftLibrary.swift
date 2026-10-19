@@ -60,6 +60,33 @@ enum DraftListing {
         }
         return nil
     }
+
+    /// `preview(of:)` が返す文字数の上限。
+    nonisolated static let previewLimit = 200
+
+    /// 最初の行より後の、空でない行を半角スペースでつないだ文字(先頭の `previewLimit` 文字まで)。無ければ `nil`。
+    nonisolated static func preview(of text: String) -> String? {
+        var joined = ""
+        var hasFirstLine = false
+        var lineStart = text.startIndex
+        while lineStart < text.endIndex {
+            var lineEnd = lineStart
+            while lineEnd < text.endIndex, !text[lineEnd].isNewline {
+                lineEnd = text.index(after: lineEnd)
+            }
+            let line = text[lineStart..<lineEnd].trimmingCharacters(in: .whitespacesAndNewlines)
+            lineStart = lineEnd < text.endIndex ? text.index(after: lineEnd) : lineEnd
+            if line.isEmpty { continue }
+            if !hasFirstLine {
+                hasFirstLine = true
+                continue
+            }
+            if !joined.isEmpty { joined += " " }
+            joined += line
+            if joined.count >= previewLimit { break }
+        }
+        return joined.isEmpty ? nil : String(joined.prefix(previewLimit))
+    }
 }
 
 /// 下書き・履歴の保存と読み込みで今起きている問題。
