@@ -15,7 +15,7 @@ struct ImmediateSwitchTests {
         init() throws {
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
             let defaultsName = UUID().uuidString
-            let defaults = try #require(UserDefaults(suiteName: defaultsName))
+            let defaults = try #require(InMemoryDefaults(suiteName: defaultsName))
             let settings = AppSettings(store: SettingsStore(defaults: defaults))
             let library = DraftLibrary(store: DraftLibraryStore(directory: directory))
             let probe = FocusedElementProbeStub()
@@ -44,7 +44,7 @@ struct ImmediateSwitchTests {
         func cleanup() {
             controller.close()
             try? FileManager.default.removeItem(at: directory)
-            UserDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName)
+            InMemoryDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName)
         }
     }
 

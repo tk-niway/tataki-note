@@ -24,7 +24,7 @@ struct PanelDraftWiringTests {
         ) throws {
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
             let defaultsName = UUID().uuidString
-            let defaults = try #require(UserDefaults(suiteName: defaultsName))
+            let defaults = try #require(InMemoryDefaults(suiteName: defaultsName))
             let settings = AppSettings(store: SettingsStore(defaults: defaults))
             settings.isSidebarOpen = isSidebarOpen
             let library = DraftLibrary(store: DraftLibraryStore(directory: directory))
@@ -58,7 +58,7 @@ struct PanelDraftWiringTests {
         func cleanup() {
             controller.close()
             try? FileManager.default.removeItem(at: directory)
-            UserDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName)
+            InMemoryDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName)
         }
 
         func reloadedLibrary() -> DraftLibrary {

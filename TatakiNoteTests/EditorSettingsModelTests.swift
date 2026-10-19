@@ -15,7 +15,7 @@ struct EditorSettingsModelTests {
     // MARK: - フォントの名前の表示
 
     private func savedSettings(suite name: String, fontName: String?, familyName: String?) throws -> AppSettings {
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         let store = SettingsStore(defaults: defaults)
         store.savePanelFontName(fontName)
         store.savePanelFontFamilyName(familyName)
@@ -76,7 +76,7 @@ struct EditorSettingsModelTests {
         #expect(settings.panelFontSize == 20)
         #expect(settings.panelFont.fontName == NSFont.systemFont(ofSize: 20).fontName)
 
-        let defaults = try #require(UserDefaults(suiteName: suite))
+        let defaults = try #require(InMemoryDefaults(suiteName: suite))
         #expect(defaults.object(forKey: "panelFontName") == nil)
         #expect(defaults.object(forKey: "panelFontFamilyName") == nil)
     }
@@ -97,7 +97,7 @@ struct EditorSettingsModelTests {
         #expect(!model.isSystemFont)
         #expect(settings.panelFont.fontName == "Menlo-Regular")
 
-        let defaults = try #require(UserDefaults(suiteName: suite))
+        let defaults = try #require(InMemoryDefaults(suiteName: suite))
         #expect(defaults.string(forKey: "panelFontName") == "Menlo-TatakiNoteNoSuchFace")
         #expect(defaults.string(forKey: "panelFontFamilyName") == "Menlo")
     }
@@ -117,7 +117,7 @@ struct EditorSettingsModelTests {
         #expect(model.isSystemFont)
         #expect(settings.panelFont.fontName == NSFont.systemFont(ofSize: settings.panelFontSize).fontName)
 
-        let defaults = try #require(UserDefaults(suiteName: suite))
+        let defaults = try #require(InMemoryDefaults(suiteName: suite))
         #expect(defaults.string(forKey: "panelFontName") == "TatakiNoteNoSuchFont-Regular")
         #expect(defaults.string(forKey: "panelFontFamilyName") == "TatakiNoteNoSuchFamily")
     }

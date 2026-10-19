@@ -38,7 +38,7 @@ struct SettingsSectionTests {
     @Test("AC-9: 「ホットキーとキー操作」「パネル」「情報」のどれを出したまま設定画面の窓を閉じても「一般」に戻る")
     func closingWindowReturnsToGeneral() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
 
@@ -61,7 +61,7 @@ struct SettingsSectionTests {
         }
     }
 
-    private func makeController(library: DraftLibrary, defaults: UserDefaults) -> SettingsWindowController {
+    private func makeController(library: DraftLibrary, defaults: InMemoryDefaults) -> SettingsWindowController {
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         return SettingsWindowController(
             settings: settings,
@@ -78,7 +78,7 @@ struct SettingsSectionTests {
     @Test("AC-18: 履歴の削除の確認中に設定画面の窓を閉じると、確認は閉じて履歴は残る")
     func closingWindowClosesHistoryConfirmation() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let library = DraftLibrary(store: .inMemory)
         library.recordInsertion(text: "entry", appName: "Notes", bundleIdentifier: nil)
@@ -96,7 +96,7 @@ struct SettingsSectionTests {
     @Test("AC-18: 履歴を削除した後に設定画面の窓を閉じると、「削除しました」の段階は待ちに戻る")
     func closingWindowResetsClearedHistoryPhase() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let library = DraftLibrary(store: .inMemory)
         library.recordInsertion(text: "entry", appName: "Notes", bundleIdentifier: nil)
@@ -115,7 +115,7 @@ struct SettingsSectionTests {
     @Test("AC-19: 設定画面の窓が閉じると、その場ではなく次の main の回で onDidClose が1回呼ばれる")
     func closingWindowCallsOnDidCloseOnNextTurn() async throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let controller = makeController(library: DraftLibrary(store: .inMemory), defaults: defaults)
         var closeCount = 0
@@ -132,7 +132,7 @@ struct SettingsSectionTests {
     @Test("AC-19: onDidClose が無くても、設定画面の窓を閉じて落ちない")
     func closingWindowWithoutOnDidCloseDoesNotCrash() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let controller = makeController(library: DraftLibrary(store: .inMemory), defaults: defaults)
 

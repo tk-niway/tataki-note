@@ -23,7 +23,7 @@ struct TutorialModelTests {
         _ body: (TutorialModel, AppSettings, HotkeyBox) throws -> Void
     ) throws {
         let suiteName = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.commitKey = nil
@@ -689,7 +689,7 @@ struct TutorialModelTests {
     @Test("途中でリセットしても、保存される設定の値は変わらない")
     func resetDoesNotChangeStoredSettings() throws {
         let suiteName = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.commitKey = .commandReturn

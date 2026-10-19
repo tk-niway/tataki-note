@@ -4,9 +4,9 @@ import Testing
 
 @MainActor
 struct AnimationModeSettingTests {
-    private func withDefaults(_ body: (UserDefaults) throws -> Void) throws {
+    private func withDefaults(_ body: (InMemoryDefaults) throws -> Void) throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         try body(defaults)
     }

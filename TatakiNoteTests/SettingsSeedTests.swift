@@ -93,7 +93,7 @@ struct SettingsSeedTests {
     @Test("AC-13: 書いた値は、その suite の設定として読まれる")
     func appliedValuesAreReadAsSettings() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         try SettingsSeed.apply(
@@ -115,7 +115,7 @@ struct SettingsSeedTests {
     @Test("AC-13: 環境変数が無ければ、suite に何も書かない")
     func applyWithoutSeedWritesNothing() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         try SettingsSeed.apply(environment: [:], to: defaults)
@@ -125,7 +125,7 @@ struct SettingsSeedTests {
     @Test("AC-13: 使えない型の値が1つでもあれば、ほかのキーも suite に書かずにエラーにする")
     func applyWithInvalidSeedWritesNothing() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
 
         #expect(throws: SettingsSeed.SeedError.unsupportedValue(key: "a")) {
@@ -135,24 +135,6 @@ struct SettingsSeedTests {
     }
 
     // MARK: - AppLaunchContext.settingsDefaults
-
-    @Test("AC-13: suite の指定と設定の値があれば、起動時に選ぶ suite にその値が書かれる")
-    func settingsDefaultsAppliesSeedToSuite() throws {
-        let name = UUID().uuidString
-        let suite = try #require(UserDefaults(suiteName: name))
-        defer { suite.removePersistentDomain(forName: name) }
-
-        let defaults = AppLaunchContext.settingsDefaults(environment: [
-            "TATAKINOTE_SETTINGS_SUITE": name,
-            SettingsSeed.environmentKey: #"{"commitKey":"none","panelFontSize":18}"#,
-        ]) { _ in suite }
-
-        #expect(defaults === suite)
-        #expect(suite.string(forKey: "commitKey") == "none")
-        let settings = AppSettings(store: SettingsStore(defaults: defaults))
-        #expect(settings.commitKey == nil)
-        #expect(settings.panelFontSize == 18)
-    }
 
     @Test("AC-13: suite の指定が無ければ、設定の値があっても suite を作らず標準の保存先を返し、何も書かない")
     func settingsDefaultsDoesNotSeedStandard() {

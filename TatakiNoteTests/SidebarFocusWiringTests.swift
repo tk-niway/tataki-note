@@ -25,7 +25,7 @@ struct SidebarFocusWiringTests {
         init(isSidebarOpen: Bool = false) throws {
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
             let defaultsName = UUID().uuidString
-            let defaults = try #require(UserDefaults(suiteName: defaultsName))
+            let defaults = try #require(InMemoryDefaults(suiteName: defaultsName))
             let settings = AppSettings(store: SettingsStore(defaults: defaults))
             settings.isSidebarOpen = isSidebarOpen
             settings.panelScreen = .main
@@ -71,7 +71,7 @@ struct SidebarFocusWiringTests {
         func cleanup() {
             controller.close()
             try? FileManager.default.removeItem(at: directory)
-            UserDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName)
+            InMemoryDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName)
         }
     }
 

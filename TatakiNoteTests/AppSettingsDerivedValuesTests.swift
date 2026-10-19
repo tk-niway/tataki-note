@@ -6,9 +6,9 @@ import Testing
 
 @MainActor
 struct AppSettingsDerivedValuesTests {
-    private func withSettings(_ body: (AppSettings, UserDefaults) throws -> Void) throws {
+    private func withSettings(_ body: (AppSettings, InMemoryDefaults) throws -> Void) throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         try body(AppSettings(store: SettingsStore(defaults: defaults)), defaults)
     }

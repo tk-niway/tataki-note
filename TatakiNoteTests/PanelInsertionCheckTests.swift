@@ -43,7 +43,7 @@ struct PanelInsertionCheckTests {
         _ body: (Fixture) async throws -> Void
     ) async throws {
         let suiteName = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.panelScreen = .main

@@ -13,7 +13,7 @@ struct TutorialSettingsAccessTests {
         _ body: (TutorialModel, AppSettings) throws -> Void
     ) throws {
         let suiteName = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         let shortcut: PanelShortcut? = hasHotkey ? hotkey : nil

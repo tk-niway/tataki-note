@@ -8,12 +8,12 @@ struct AutoShowSettingsTests {
     private let slack = AutoShowApp(bundleIdentifier: "com.tinyspeck.slackmacgap", name: "Slack")
     private let vscode = AutoShowApp(bundleIdentifier: "com.microsoft.VSCode", name: "Visual Studio Code")
 
-    private func makeSuite() throws -> (UserDefaults, String) {
+    private func makeSuite() throws -> (InMemoryDefaults, String) {
         let temp = try TemporaryDefaults()
         return (temp.defaults, temp.name)
     }
 
-    private func removeSuite(_ defaults: UserDefaults, name: String) {
+    private func removeSuite(_ defaults: InMemoryDefaults, name: String) {
         TemporaryDefaults.remove(named: name)
     }
 

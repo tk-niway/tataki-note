@@ -19,7 +19,7 @@ struct PanelStatusBarContentTests {
     @Test("AC-2, AC-4, AC-6: 何も設定していなければ esc 閉じる・改行・⇧⌘↩ 挿入・⌘↩ 送信・0文字・0行が出て、閉じるに「(下書きは残ります)」は付かない")
     func defaultContent() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
 
@@ -99,7 +99,7 @@ struct PanelStatusBarContentTests {
     @Test("AC-20: 設定のキーを変えると、帯の確定・確定+送信の印が変わり、登録を消すと消える")
     func keyHintsFollowSettings() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
 
@@ -158,7 +158,7 @@ struct PanelStatusBarContentTests {
     @Test("AC-10: 非表示にした項目は出さず、残りを並びの順に詰める。すべて非表示なら空")
     func hiddenItemsAreNotShown() throws {
         let name = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: name))
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.commitKey = .commandReturn

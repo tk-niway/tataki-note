@@ -56,8 +56,12 @@ xcodebuild build -project TatakiNote.xcodeproj -scheme TatakiNote -destination '
 
 - 単体テストは Swift Testing。`@Test("AC-1: タイトルが空なら保存できない")` のように、確かめる条件を名前に入れる
 - `@testable import TatakiNote`
-- 保存のテストは、テストごとに一時ディレクトリと `UserDefaults(suiteName: UUID().uuidString)` を作って
-  渡し、最後に消す。**既定の `UserDefaults.standard` やアプリケーションサポートのディレクトリに触れない**
+- 保存のテストは、テストごとに一時ディレクトリと設定の保存先を作って渡し、最後に消す。設定の保存先は
+  メモリだけの `InMemoryDefaults`(`TemporaryDefaults` が作る)。**既定の `UserDefaults.standard` や
+  アプリケーションサポートのディレクトリに触れない**
+- 本物の `UserDefaults(suiteName:)` を作るのは `RealUserDefaultsTests` だけ(suite の名前は固定し、前後で消す)。
+  `removePersistentDomain` は中身を消すだけで `~/Library/Preferences` にファイルが残り、テストのたびに増える。
+  `TestStorageRuleTests` がほかのファイルでの使用を見つける
 - UI テストは XCTest の `XCUIApplication`。要素は `accessibilityIdentifier` で探す。UI テストは画面の配線だけを
   確かめ、保存・検証・並び順は単体テストで確かめる
 - UI テストは流すのに時間がかかり、その間 Mac を使えないので、次のものは書かない:

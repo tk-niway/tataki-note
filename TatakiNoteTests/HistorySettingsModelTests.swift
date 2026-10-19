@@ -14,7 +14,7 @@ struct HistorySettingsModelTests {
 
     private func makeModel(library: DraftLibrary) throws -> HistorySettingsModel {
         let suiteName = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         defaults.removePersistentDomain(forName: suiteName)
         return HistorySettingsModel(library: library, settings: settings)

@@ -77,12 +77,12 @@ final class WatcherFixture {
     let probe: FocusedElementProbeStub
     let environment: WatcherEnvironment
     let watcher: FocusedElementWatcher
-    private let defaults: UserDefaults
+    private let defaults: InMemoryDefaults
     private let suiteName: String
 
     init(isTrusted: Bool = true, exposeWebContent: ((InsertionTarget) -> Void)? = nil) throws {
         let suiteName = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.autoShowMode = .allApps
         let panelModel = PanelModel()
