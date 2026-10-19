@@ -6,7 +6,7 @@ import Testing
 struct HistoryLimitSettingsTests {
     private struct Harness {
         let suiteName: String
-        let defaults: UserDefaults
+        let defaults: InMemoryDefaults
         let directory: DraftLibraryTestDirectory
         let settings: AppSettings
         let library: DraftLibrary
@@ -20,7 +20,7 @@ struct HistoryLimitSettingsTests {
 
     private func makeHarness(limit: Int, entryCount: Int) throws -> Harness {
         let suiteName = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         let directory = DraftLibraryTestDirectory()
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.historyLimit = limit
@@ -50,7 +50,7 @@ struct HistoryLimitSettingsTests {
     @Test("AC-29: 保存したキーが無ければ、履歴の上限は 200 件")
     func defaultLimitWithoutStoredKey() throws {
         let suiteName = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let store = SettingsStore(defaults: defaults)
 
@@ -61,7 +61,7 @@ struct HistoryLimitSettingsTests {
     @Test("AC-29: 保存した上限は、設定を作り直して読んでも同じ。範囲外は丸めて保存する")
     func savedLimitSurvivesRecreation() throws {
         let suiteName = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let store = SettingsStore(defaults: defaults)
         let settings = AppSettings(store: store)
@@ -82,7 +82,7 @@ struct HistoryLimitSettingsTests {
     @Test("AC-29: 保存してある値が範囲外・数値でないときは、範囲の端か初期値になる(1e30 でも落ちない)")
     func storedValuesAreClampedOrFallBack() throws {
         let suiteName = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let store = SettingsStore(defaults: defaults)
         let cases: [(stored: Any, expected: Int)] = [

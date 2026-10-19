@@ -10,10 +10,10 @@ private final class PanelViewHarness {
     let panel: PromptPanel
     let hostingView: NSHostingView<PanelView>
     private let suiteName = UUID().uuidString
-    private let defaults: UserDefaults
+    private let defaults: InMemoryDefaults
 
     init(configure: (AppSettings) -> Void = { _ in }) throws {
-        defaults = try #require(UserDefaults(suiteName: suiteName))
+        defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         settings = AppSettings(store: SettingsStore(defaults: defaults))
         configure(settings)
         panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))

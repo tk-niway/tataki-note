@@ -80,7 +80,7 @@ struct ScratchArchiveTests {
         init(isTrusted: Bool = true, isAnimationEnabled: Bool = false) throws {
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
             let defaultsName = UUID().uuidString
-            let defaults = try #require(UserDefaults(suiteName: defaultsName))
+            let defaults = try #require(InMemoryDefaults(suiteName: defaultsName))
             let settings = AppSettings(store: SettingsStore(defaults: defaults))
             settings.panelScreen = .main
             settings.panelDefaultWidth = 600
@@ -120,7 +120,7 @@ struct ScratchArchiveTests {
             controller.close()
             controller.panel.orderOut(nil)
             try? FileManager.default.removeItem(at: directory)
-            UserDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName)
+            InMemoryDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName)
         }
     }
 

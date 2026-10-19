@@ -22,9 +22,9 @@ enum AppLaunchContext {
 
     static func settingsDefaults(
         environment: [String: String],
-        makeSuite: (String) -> UserDefaults? = { UserDefaults(suiteName: $0) }
-    ) -> UserDefaults {
-        guard let name = settingsSuiteName(environment: environment) else { return .standard }
+        makeSuite: (String) -> (any SettingsStorage)? = { UserDefaults(suiteName: $0) }
+    ) -> any SettingsStorage {
+        guard let name = settingsSuiteName(environment: environment) else { return UserDefaults.standard }
         guard let suite = makeSuite(name) else {
             preconditionFailure("設定の保存先の suite「\(name)」を作れません")
         }

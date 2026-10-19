@@ -55,7 +55,7 @@ struct AppLaunchContextTests {
     @Test("AC-14: suite の指定があれば、その名前の suite に保存し、標準の保存先は使わない")
     func settingsDefaultsUsesNamedSuite() throws {
         let name = UUID().uuidString
-        let suite = try #require(UserDefaults(suiteName: name))
+        let suite = try #require(InMemoryDefaults(suiteName: name))
         defer { suite.removePersistentDomain(forName: name) }
 
         var requestedNames: [String] = []

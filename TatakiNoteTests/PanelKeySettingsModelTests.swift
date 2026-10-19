@@ -25,7 +25,7 @@ private final class FakeHotkeyController {
 
 @MainActor
 struct PanelKeySettingsModelTests {
-    private func makeSettings() throws -> (settings: AppSettings, defaults: UserDefaults, name: String) {
+    private func makeSettings() throws -> (settings: AppSettings, defaults: InMemoryDefaults, name: String) {
         let temp = try TemporaryDefaults()
         return (temp.makeSettings(), temp.defaults, temp.name)
     }

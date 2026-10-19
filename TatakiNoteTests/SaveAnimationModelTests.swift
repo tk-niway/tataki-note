@@ -315,7 +315,7 @@ struct SaveAnimationPanelWiringTests {
             isTrusted: Bool = true,
             animationMode: AnimationMode = .on
         ) throws {
-            let defaults = try #require(UserDefaults(suiteName: defaultsName))
+            let defaults = try #require(InMemoryDefaults(suiteName: defaultsName))
             settings = AppSettings(store: SettingsStore(defaults: defaults))
             settings.panelScreen = .main
             settings.animationMode = animationMode
@@ -354,7 +354,7 @@ struct SaveAnimationPanelWiringTests {
         func cleanup() {
             recorder.releaseSleeps()
             controller.panel.orderOut(nil)
-            UserDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName)
+            InMemoryDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName)
         }
 
         func waitForSleeps(_ count: Int) async throws {

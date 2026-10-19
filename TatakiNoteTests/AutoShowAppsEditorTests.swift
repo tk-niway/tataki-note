@@ -24,12 +24,12 @@ struct AutoShowAppsEditorTests {
     private let notes = AutoShowApp(bundleIdentifier: "com.example.notes", name: "Notes")
     private let browser = AutoShowApp(bundleIdentifier: "com.example.browser", name: "Browser")
 
-    private func makeSuite() throws -> (UserDefaults, String) {
+    private func makeSuite() throws -> (InMemoryDefaults, String) {
         let temp = try TemporaryDefaults()
         return (temp.defaults, temp.name)
     }
 
-    private func removeSuite(_ defaults: UserDefaults, name: String) {
+    private func removeSuite(_ defaults: InMemoryDefaults, name: String) {
         TemporaryDefaults.remove(named: name)
     }
 
@@ -47,7 +47,7 @@ struct AutoShowAppsEditorTests {
         )
     }
 
-    private func savedApps(in defaults: UserDefaults) -> [AutoShowApp] {
+    private func savedApps(in defaults: InMemoryDefaults) -> [AutoShowApp] {
         AppSettings(store: SettingsStore(defaults: defaults)).autoShowApps
     }
 

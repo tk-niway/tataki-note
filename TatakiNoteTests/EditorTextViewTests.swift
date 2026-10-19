@@ -10,10 +10,10 @@ private final class EditorPanelHarness {
     let panel: PromptPanel
     let hostingView: NSHostingView<PanelView>
     private let suiteName = UUID().uuidString
-    private let defaults: UserDefaults
+    private let defaults: InMemoryDefaults
 
     init() throws {
-        defaults = try #require(UserDefaults(suiteName: suiteName))
+        defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         settings = AppSettings(store: SettingsStore(defaults: defaults))
         panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
         hostingView = NSHostingView(

@@ -4,7 +4,7 @@ import Testing
 
 @MainActor
 struct FirstLaunchFlowTests {
-    private func makeDefaults() throws -> (defaults: UserDefaults, cleanup: () -> Void) {
+    private func makeDefaults() throws -> (defaults: InMemoryDefaults, cleanup: () -> Void) {
         let temp = try TemporaryDefaults()
         return (temp.defaults, { temp.remove() })
     }

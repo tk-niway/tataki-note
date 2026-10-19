@@ -66,7 +66,7 @@ struct PanelToastTests {
 
         init(isHolding: Bool, isOpen: Bool = true) throws {
             recorder = SleepRecorder(isHolding: isHolding)
-            let defaults = try #require(UserDefaults(suiteName: defaultsName))
+            let defaults = try #require(InMemoryDefaults(suiteName: defaultsName))
             let settings = AppSettings(store: SettingsStore(defaults: defaults))
             settings.panelScreen = .main
             settings.animationMode = .on
@@ -106,7 +106,7 @@ struct PanelToastTests {
         func cleanup() {
             recorder.releaseAll()
             controller.panel.orderOut(nil)
-            UserDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName)
+            InMemoryDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName)
         }
 
         func settleObservation() async throws {

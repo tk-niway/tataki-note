@@ -23,7 +23,7 @@ struct PanelControllerTests {
 
     private func withSettings(_ body: (AppSettings) throws -> Void) throws {
         let suiteName = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = try #require(InMemoryDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
         try body(AppSettings(store: SettingsStore(defaults: defaults)))
     }

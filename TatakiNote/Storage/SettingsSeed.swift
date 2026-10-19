@@ -31,7 +31,7 @@ enum SettingsSeed {
         #endif
     }
 
-    static func apply(environment: [String: String], to defaults: UserDefaults) throws {
+    static func apply(environment: [String: String], to defaults: any SettingsStorage) throws {
         for (key, value) in try values(environment: environment) {
             defaults.set(value, forKey: key)
         }

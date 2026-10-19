@@ -32,7 +32,7 @@ struct SettingsStore {
         static let lastExportDirectory = "lastExportDirectory"
     }
 
-    let defaults: UserDefaults
+    let defaults: any SettingsStorage
 
     // MARK: - 確定+挿入キー・確定+送信キー(新しい保存形式)
 

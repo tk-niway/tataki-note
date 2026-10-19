@@ -59,7 +59,7 @@ struct FontPanelControllerTests {
         #expect(settings.panelFontName == nil)
         #expect(settings.panelFontFamilyName == nil)
         #expect(settings.panelFontSize == 18)
-        let defaults = try #require(UserDefaults(suiteName: suite))
+        let defaults = try #require(InMemoryDefaults(suiteName: suite))
         #expect(defaults.object(forKey: "panelFontName") == nil)
         #expect(defaults.object(forKey: "panelFontFamilyName") == nil)
     }
