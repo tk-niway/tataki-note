@@ -659,7 +659,7 @@ struct ClipboardTextInserterTests {
         #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
     }
 
-    @Test("AC-14: 写し取るたびにクリップボードが変わり続けても、写し直しは3回で止まり、⌘V は1回送られ、最後に写し取った内容に戻る", .timeLimit(.minutes(1)))
+    @Test("AC-14: 写し取るたびにクリップボードが変わり続けても、写し直しは3回で止まり、⌘V は1回送られ、最後に写し取った内容に戻る", .untilStuck)
     func stopsRecapturingAtLimitWhenPasteboardKeepsChanging() async {
         let pasteboard = PasteboardFixture.makePasteboard()
         defer { pasteboard.releaseGlobally() }

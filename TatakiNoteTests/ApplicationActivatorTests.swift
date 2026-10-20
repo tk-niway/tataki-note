@@ -44,7 +44,7 @@ struct ApplicationActivatorTests {
 
     // MARK: - 前面になった通知で進む
 
-    @Test("AC-8: 前面でないとき前面にする依頼をし、前面になった通知が届いたら上限を待たずに true を返す", .timeLimit(.minutes(1)))
+    @Test("AC-8: 前面でないとき前面にする依頼をし、前面になった通知が届いたら上限を待たずに true を返す", .untilStuck)
     func returnsTrueOnActivationNotification() async {
         let center = NotificationCenter()
         let requester = ActivationRequesterStub()
@@ -101,7 +101,7 @@ struct ApplicationActivatorTests {
 
     // MARK: - 上限・他のアプリの通知
 
-    @Test("AC-10: 上限の時間が過ぎても前面にならなければ false を返す", .timeLimit(.minutes(1)))
+    @Test("AC-10: 上限の時間が過ぎても前面にならなければ false を返す", .untilStuck)
     func returnsFalseAfterTimeout() async {
         let timeout: Duration = .milliseconds(150)
         let requester = ActivationRequesterStub()
@@ -122,7 +122,7 @@ struct ApplicationActivatorTests {
         #expect(elapsed >= timeout)
     }
 
-    @Test("AC-10: 他のアプリが前面になった通知では進まず、上限で false を返す", .timeLimit(.minutes(1)))
+    @Test("AC-10: 他のアプリが前面になった通知では進まず、上限で false を返す", .untilStuck)
     func ignoresActivationOfOtherApplications() async {
         let timeout: Duration = .milliseconds(300)
         let center = NotificationCenter()
@@ -145,7 +145,7 @@ struct ApplicationActivatorTests {
         #expect(elapsed >= timeout)
     }
 
-    @Test("AC-10: 上限の時点で前面になっていれば、通知が無くても true を返す", .timeLimit(.minutes(1)))
+    @Test("AC-10: 上限の時点で前面になっていれば、通知が無くても true を返す", .untilStuck)
     func returnsTrueAtTimeoutWhenFrontmostWithoutNotification() async {
         let pid = currentApp.processIdentifier
         let clock = ContinuousClock()
@@ -164,7 +164,7 @@ struct ApplicationActivatorTests {
 
     // MARK: - 終了・取り消し
 
-    @Test("AC-11: 待っている間に挿入先が終了した通知が届いたら、上限を待たずに false を返す", .timeLimit(.minutes(1)))
+    @Test("AC-11: 待っている間に挿入先が終了した通知が届いたら、上限を待たずに false を返す", .untilStuck)
     func returnsFalseWhenTargetTerminates() async {
         let center = NotificationCenter()
         let requester = ActivationRequesterStub()
@@ -182,7 +182,7 @@ struct ApplicationActivatorTests {
         #expect(requester.requestCount == 1)
     }
 
-    @Test("AC-11: 待っているタスクが取り消されたら false を返す", .timeLimit(.minutes(1)))
+    @Test("AC-11: 待っているタスクが取り消されたら false を返す", .untilStuck)
     func returnsFalseWhenCancelled() async {
         let (requested, requestedContinuation) = AsyncStream<Void>.makeStream()
         let requester = ActivationRequesterStub()
@@ -208,7 +208,7 @@ struct ApplicationActivatorTests {
 
     // MARK: - 依頼の直後の確認・既定の上限
 
-    @Test("AC-12: 依頼の直後に(通知が来る前に)前面になっていたら、通知を待たずに true を返す", .timeLimit(.minutes(1)))
+    @Test("AC-12: 依頼の直後に(通知が来る前に)前面になっていたら、通知を待たずに true を返す", .untilStuck)
     func returnsTrueWhenFrontmostRightAfterRequest() async {
         let pid = currentApp.processIdentifier
         var frontmostPid: pid_t?
