@@ -6,8 +6,13 @@
 #   select-xcode     CI 用。/Applications/Xcode_<XCODE_MAJOR>*.app の一番新しいもの(無ければ、ある中で一番新しい Xcode)を選ぶ(sudo を使う)
 #   test             単体テスト(TatakiNoteTests)を署名なしで流す
 #   build [--keychain <キーチェーン>]
-#                    Release ビルド → 証明書で署名 → 検証 → dist/ に TatakiNote.app と
-#                    TatakiNote-<版>.zip(と .sha256)を作る。キーチェーン省略時は既定の検索リスト
+#                    Release ビルド → Developer ID で署名(hardened runtime・時刻印)→ 検証 → dist/ に
+#                    TatakiNote.app と TatakiNote-<版>.zip(と .sha256)を作る。キーチェーン省略時は既定の検索リスト。
+#                    時刻印に Apple のサーバーへの接続が要る
+#   notarize         dist/ の .app を Apple の公証に出し、結果を .app に付けて(staple)zip を作り直す。
+#                    資格情報は NOTARY_KEY_PATH・NOTARY_KEY_ID・NOTARY_ISSUER_ID(App Store Connect API キー)、
+#                    無ければキーチェーンのプロファイル NOTARY_KEYCHAIN_PROFILE(既定 TatakiNote)。
+#                    NOTARY_SUBMISSION_ID を付けると、出し直さずにその提出の結果を待つ(同じ .app のときだけ)
 #   upload           dist/ の zip と release-notes/v<版>.md で、GitHub にリリースを公開する
 #                    (下書きがあれば本文と添付を差し替えて公開し、公開済みなら何もしない)。gh が要る
 # 版は VERSION(x.y.z)、リリースノートは release-notes/v<版>.md、設定は scripts/release.conf。
@@ -113,7 +118,7 @@ cmd_build() {
 
   echo "==> ビルド (Release, $VERSION)"
   cd "$APP_ROOT"
-  # 署名は後で codesign で行う(Xcode の署名は、信頼設定の無い自己署名証明書を使えないため)
+  # 署名は後で codesign で行う(Xcode に任せると、ビルド設定の開発用の署名 ID と CI の一時キーチェーンに左右されるため)
   xcodebuild build \
     -project "$APP_NAME.xcodeproj" \
     -scheme "$APP_NAME" \
@@ -134,27 +139,25 @@ cmd_build() {
   ditto "$built" "$app"
 
   echo "==> 署名"
+  local sign_args=(--force --options runtime --timestamp --sign "$SIGN_IDENTITY" ${kc_args[@]+"${kc_args[@]}"})
   # 中に入っているコード(あれば)を先に、最後に .app 本体を署名する
   local item
   while IFS= read -r item; do
     [ -n "$item" ] || continue
-    codesign --force --timestamp=none --sign "$CERT_SHA1" ${kc_args[@]+"${kc_args[@]}"} "$item"
+    codesign "${sign_args[@]}" "$item"
   done <<EOF
 $(find "$app/Contents" -depth \( -name '*.framework' -o -name '*.dylib' -o -name '*.appex' -o -name '*.xpc' \) 2>/dev/null)
 EOF
-  codesign --force --timestamp=none --sign "$CERT_SHA1" ${kc_args[@]+"${kc_args[@]}"} "$app"
+  codesign "${sign_args[@]}" "$app"
 
   echo "==> 検証"
-  local sha1 req
-  sha1="$(echo "$CERT_SHA1" | tr '[:upper:]' '[:lower:]')"
-  req="identifier \"$BUNDLE_ID\" and certificate leaf = H\"$sha1\""
-  if ! codesign --verify --strict --deep -R="$req" "$app"; then
+  if ! codesign --verify --strict --deep -R="$(designated_requirement)" "$app"; then
     echo "署名を検証できませんでした。次を確かめてください:" >&2
-    echo "  - 証明書(SHA-1 $CERT_SHA1)がキーチェーンにあり、コード署名用に信頼されていること" >&2
-    echo "    (CSSMERR_TP_NOT_TRUSTED のときは信頼設定が無い)" >&2
-    echo "  - scripts/release.conf の CERT_SHA1 が、配布に使ってきた証明書のものであること" >&2
+    echo "  - Developer ID Application 証明書(SHA-1 $SIGN_IDENTITY)が秘密鍵ごとキーチェーンにあること" >&2
+    echo "  - scripts/release.conf の TEAM_ID($TEAM_ID)が、その証明書のチームのものであること" >&2
     exit 1
   fi
+  codesign -d --verbose=2 "$app" 2>&1 | grep -E '^(Authority|TeamIdentifier|Timestamp|CodeDirectory)' || true
   local plist="$app/Contents/Info.plist" short bundle_version
   short="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")"
   bundle_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist")"
@@ -162,10 +165,75 @@ EOF
     || die "Info.plist の版が VERSION と違います(CFBundleShortVersionString=$short, CFBundleVersion=$bundle_version)"
   codesign -d -r- "$app" 2>&1 | grep designated || true
 
+  make_zip "$app"
+  echo "完了(未公証。配る前に notarize を実行する):"
+  echo "  $app"
+  echo "  $ZIP"
+}
+
+# designated_requirement … 配布物が満たすべき署名の条件(このチームの Developer ID で、このバンドル ID)
+designated_requirement() {
+  echo "identifier \"$BUNDLE_ID\" and anchor apple generic and certificate leaf[subject.OU] = \"$TEAM_ID\""
+}
+
+make_zip() {
+  local app="$1"
   echo "==> zip"
+  rm -f "$ZIP" "$ZIP.sha256"
   ditto -c -k --keepParent "$app" "$ZIP"
   (cd "$DIST" && shasum -a 256 "$(basename "$ZIP")" > "$(basename "$ZIP").sha256")
-  echo "完了:"
+}
+
+cmd_notarize() {
+  read_version
+  local app="$DIST/$APP_NAME.app"
+  [ -d "$app" ] || die "配布物がありません。先に build を実行してください: $app"
+  codesign --verify --strict --deep -R="$(designated_requirement)" "$app" \
+    || die "署名が Developer ID のものではありません。build からやり直してください"
+
+  local auth_args
+  if [ -n "${NOTARY_KEY_PATH:-}" ]; then
+    [ -f "$NOTARY_KEY_PATH" ] || die "API キーのファイルがありません: $NOTARY_KEY_PATH"
+    auth_args=(--key "$NOTARY_KEY_PATH" --key-id "${NOTARY_KEY_ID:?NOTARY_KEY_ID を指定してください}" \
+      --issuer "${NOTARY_ISSUER_ID:?NOTARY_ISSUER_ID を指定してください}")
+  else
+    auth_args=(--keychain-profile "${NOTARY_KEYCHAIN_PROFILE:-TatakiNote}")
+  fi
+
+  echo "==> 公証に出す(数分、初回は数時間かかることがある)"
+  local work submission result status id
+  work="$(mktemp -d)"
+  submission="$work/$APP_NAME.zip"
+  [ -n "${NOTARY_SUBMISSION_ID:-}" ] || ditto -c -k --keepParent "$app" "$submission"
+  result="$work/result.log"
+  local notary_cmd
+  if [ -n "${NOTARY_SUBMISSION_ID:-}" ]; then
+    echo "提出済みの $NOTARY_SUBMISSION_ID の結果を待つ"
+    notary_cmd=(wait "$NOTARY_SUBMISSION_ID")
+  else
+    notary_cmd=(submit "$submission" --wait)
+  fi
+  if ! xcrun notarytool "${notary_cmd[@]}" "${auth_args[@]}" 2>&1 | tee "$result"; then
+    rm -rf "$work"
+    die "公証に出せませんでした(資格情報とネットワークを確かめてください)"
+  fi
+  status="$(awk '/^ *status:/ { s = $2 } END { print s }' "$result")"
+  id="$(awk '/^ *id:/ { i = $2 } END { print i }' "$result")"
+  echo "公証の結果: ${status:-不明}(ID ${id:-不明})"
+  if [ "$status" != "Accepted" ]; then
+    [ -n "$id" ] && xcrun notarytool log "$id" "${auth_args[@]}" >&2 || true
+    rm -rf "$work"
+    die "公証に通りませんでした"
+  fi
+  rm -rf "$work"
+
+  echo "==> 公証の結果を .app に付ける"
+  xcrun stapler staple "$app"
+  xcrun stapler validate "$app"
+  spctl --assess --type execute --verbose=2 "$app"
+
+  make_zip "$app"
+  echo "完了(公証済み):"
   echo "  $app"
   echo "  $ZIP"
 }
@@ -174,6 +242,8 @@ cmd_upload() {
   read_version
   require_notes
   [ -f "$ZIP" ] && [ -f "$ZIP.sha256" ] || die "配布物がありません。先に build を実行してください: $ZIP"
+  xcrun stapler validate -q "$DIST/$APP_NAME.app" \
+    || die "配布物が公証されていません。先に notarize を実行してください"
   command -v gh >/dev/null || die "gh がありません"
   local target="${GITHUB_SHA:-$(git -C "$APP_ROOT" rev-parse HEAD)}"
   local state
@@ -195,13 +265,14 @@ cmd_upload() {
   esac
 }
 
-[ $# -ge 1 ] || { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+[ $# -ge 1 ] || { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 cmd="$1"; shift
 case "$cmd" in
   check) cmd_check "$@" ;;
   select-xcode) cmd_select_xcode "$@" ;;
   test) cmd_test "$@" ;;
   build) cmd_build "$@" ;;
+  notarize) cmd_notarize "$@" ;;
   upload) cmd_upload "$@" ;;
-  *) die "不明なコマンド: $cmd(check / select-xcode / test / build / upload)" ;;
+  *) die "不明なコマンド: $cmd(check / select-xcode / test / build / notarize / upload)" ;;
 esac
