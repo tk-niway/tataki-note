@@ -11,7 +11,8 @@
 #                    時刻印に Apple のサーバーへの接続が要る
 #   notarize         dist/ の .app を Apple の公証に出し、結果を .app に付けて(staple)zip を作り直す。
 #                    資格情報は NOTARY_KEY_PATH・NOTARY_KEY_ID・NOTARY_ISSUER_ID(App Store Connect API キー)、
-#                    無ければキーチェーンのプロファイル NOTARY_KEYCHAIN_PROFILE(既定 TatakiNote)
+#                    無ければキーチェーンのプロファイル NOTARY_KEYCHAIN_PROFILE(既定 TatakiNote)。
+#                    NOTARY_SUBMISSION_ID を付けると、出し直さずにその提出の結果を待つ(同じ .app のときだけ)
 #   upload           dist/ の zip と release-notes/v<版>.md で、GitHub にリリースを公開する
 #                    (下書きがあれば本文と添付を差し替えて公開し、公開済みなら何もしない)。gh が要る
 # 版は VERSION(x.y.z)、リリースノートは release-notes/v<版>.md、設定は scripts/release.conf。
@@ -199,19 +200,25 @@ cmd_notarize() {
     auth_args=(--keychain-profile "${NOTARY_KEYCHAIN_PROFILE:-TatakiNote}")
   fi
 
-  echo "==> 公証に出す(数分かかる)"
+  echo "==> 公証に出す(数分、初回は数時間かかることがある)"
   local work submission result status id
   work="$(mktemp -d)"
   submission="$work/$APP_NAME.zip"
-  ditto -c -k --keepParent "$app" "$submission"
-  result="$work/result.json"
-  if ! xcrun notarytool submit "$submission" "${auth_args[@]}" --wait --output-format json > "$result"; then
-    cat "$result" >&2
+  [ -n "${NOTARY_SUBMISSION_ID:-}" ] || ditto -c -k --keepParent "$app" "$submission"
+  result="$work/result.log"
+  local notary_cmd
+  if [ -n "${NOTARY_SUBMISSION_ID:-}" ]; then
+    echo "提出済みの $NOTARY_SUBMISSION_ID の結果を待つ"
+    notary_cmd=(wait "$NOTARY_SUBMISSION_ID")
+  else
+    notary_cmd=(submit "$submission" --wait)
+  fi
+  if ! xcrun notarytool "${notary_cmd[@]}" "${auth_args[@]}" 2>&1 | tee "$result"; then
     rm -rf "$work"
     die "公証に出せませんでした(資格情報とネットワークを確かめてください)"
   fi
-  status="$(plutil -extract status raw -o - "$result" 2>/dev/null || true)"
-  id="$(plutil -extract id raw -o - "$result" 2>/dev/null || true)"
+  status="$(awk '/^ *status:/ { s = $2 } END { print s }' "$result")"
+  id="$(awk '/^ *id:/ { i = $2 } END { print i }' "$result")"
   echo "公証の結果: ${status:-不明}(ID ${id:-不明})"
   if [ "$status" != "Accepted" ]; then
     [ -n "$id" ] && xcrun notarytool log "$id" "${auth_args[@]}" >&2 || true
@@ -258,7 +265,7 @@ cmd_upload() {
   esac
 }
 
-[ $# -ge 1 ] || { sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+[ $# -ge 1 ] || { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 cmd="$1"; shift
 case "$cmd" in
   check) cmd_check "$@" ;;
