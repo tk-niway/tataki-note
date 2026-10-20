@@ -2,6 +2,11 @@ import Foundation
 import Testing
 @testable import TatakiNote
 
+extension Trait where Self == TimeLimitTrait {
+    /// 待ちが終わらないテストを止める上限。単体テスト全体を流し終えるより長い。
+    static var untilStuck: Self { .timeLimit(.minutes(10)) }
+}
+
 /// テストごとの一時的な設定の保存先(メモリだけ)。`remove()` で消す。
 @MainActor
 struct TemporaryDefaults {
