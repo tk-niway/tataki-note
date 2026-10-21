@@ -322,6 +322,33 @@ struct UpdateModelTests {
         #expect(fixture.updater.backgroundCheckCount == 0)
     }
 
+    @Test("AC-7: メニューの新しい版の項目は、新しい版があるときだけ「新しい版があります(<版>)」になる")
+    func menuTitleAppearsOnlyWhenUpdateIsPending() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+
+        #expect(fixture.model.menuTitleForPendingUpdate == nil)
+
+        fixture.updater.send(.foundInBackground(version: "9.9.9"))
+        #expect(fixture.model.menuTitleForPendingUpdate == "新しい版があります(9.9.9)")
+
+        fixture.updater.send(.userAttended)
+        #expect(fixture.model.menuTitleForPendingUpdate == nil)
+    }
+
+    @Test("AC-7: 新しい版の項目を押しても、変更点の窓を出す前は項目が残り、押すたびに呼び出しが行われる")
+    func showPendingUpdateKeepsItemUntilAttended() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+
+        fixture.updater.send(.foundInBackground(version: "1.3.0"))
+        fixture.model.showPendingUpdate()
+        fixture.model.showPendingUpdate()
+
+        #expect(fixture.updater.userCheckCount == 2)
+        #expect(fixture.model.menuTitleForPendingUpdate == "新しい版があります(1.3.0)")
+    }
+
     @Test("AC-7: 新しい版の項目を押すと、変更点の窓を出す呼び出しが1回行われる")
     func showPendingUpdateCallsUser() throws {
         let fixture = try Fixture()
