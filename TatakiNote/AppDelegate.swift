@@ -131,6 +131,29 @@ enum AppLaunchContext {
         return false
         #endif
     }
+
+    enum UpdaterKind: Equatable {
+        case sparkle
+        case inert
+        case preview
+    }
+
+    static var isDebugBuild: Bool {
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
+    }
+
+    static func updaterKind(
+        environment: [String: String],
+        isDebugBuild: Bool = AppLaunchContext.isDebugBuild
+    ) -> UpdaterKind {
+        if isRunningUnitTests(environment: environment) { return .inert }
+        guard isDebugBuild else { return .sparkle }
+        return environment["TATAKINOTE_UPDATE_OVERRIDE"] == "available" ? .preview : .inert
+    }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -220,11 +243,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var focusedElementWatcher: FocusedElementWatcher?
 
+    private(set) lazy var updates: UpdateModel = {
+        let model = UpdateModel(
+            settings: settings,
+            updater: AppDelegate.makeUpdater(kind: AppLaunchContext.updaterKind(environment: ProcessInfo.processInfo.environment))
+        )
+        model.onWillRelaunch = { [weak self] in self?.markRelaunching() }
+        return model
+    }()
+
+    private lazy var networkMonitor: NetworkReachability = NetworkPathMonitor()
+
+    private var wakeObserver: NSObjectProtocol?
+
+    private lazy var updateBadge = UpdateBadgeController(
+        updates: updates,
+        setBadgeLabel: { NSApp.dockTile.badgeLabel = $0 }
+    )
+
     private lazy var dockIcon = DockIconController(
         settings: settings,
         setActivationPolicy: { NSApp.setActivationPolicy($0) },
-        didHideIcon: { [weak self] in self?.settingsWindow.bringToFrontIfVisible() }
+        didHideIcon: { [weak self] in self?.settingsWindow.bringToFrontIfVisible() },
+        didApplyPolicy: { [weak self] in self?.updateBadge.reapply() }
     )
+
+    private static func makeUpdater(kind: AppLaunchContext.UpdaterKind) -> UpdaterDriving {
+        switch kind {
+        case .sparkle:
+            #if canImport(Sparkle)
+            return SparkleUpdaterDriver()
+            #else
+            return InertUpdater()
+            #endif
+        case .preview:
+            #if DEBUG
+            return PreviewUpdater()
+            #else
+            return InertUpdater()
+            #endif
+        case .inert:
+            return InertUpdater()
+        }
+    }
 
     private lazy var quitConfirmation = QuitConfirmationController(
         model: QuitConfirmationModel(settings: settings, terminate: { NSApp.terminate(nil) }),
@@ -275,6 +336,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let environment = ProcessInfo.processInfo.environment
         if AppLaunchContext.shouldApplyDockIcon(environment: environment) {
             dockIcon.start()
+            updateBadge.start()
         }
         if !AppLaunchContext.isRunningUnitTests(environment: environment) {
             quitConfirmation.start()
@@ -315,6 +377,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 isSuppressed: AppLaunchContext.isOpenPanelOnLaunchSuppressed(environment: environment)
             ) {
                 panelController.openWithoutTarget()
+            }
+        }
+        if !AppLaunchContext.isRunningUnitTests(environment: environment) {
+            startUpdates()
+        }
+    }
+
+    private func startUpdates() {
+        updates.start()
+        networkMonitor.start { [weak self] isOnline in
+            self?.updates.networkDidChange(isOnline: isOnline)
+        }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.updates.evaluate()
             }
         }
     }

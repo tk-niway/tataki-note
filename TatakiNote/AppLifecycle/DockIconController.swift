@@ -5,17 +5,20 @@ final class DockIconController {
     private let settings: AppSettings
     private let setActivationPolicy: (NSApplication.ActivationPolicy) -> Void
     private let didHideIcon: () -> Void
+    private let didApplyPolicy: () -> Void
     private var appliedShowsIcon: Bool?
     private var isStarted = false
 
     init(
         settings: AppSettings,
         setActivationPolicy: @escaping (NSApplication.ActivationPolicy) -> Void,
-        didHideIcon: @escaping () -> Void = {}
+        didHideIcon: @escaping () -> Void = {},
+        didApplyPolicy: @escaping () -> Void = {}
     ) {
         self.settings = settings
         self.setActivationPolicy = setActivationPolicy
         self.didHideIcon = didHideIcon
+        self.didApplyPolicy = didApplyPolicy
     }
 
     /// 設定の値に合うアクティベーションポリシー。出すなら `.regular`、出さないなら `.accessory`。
@@ -45,6 +48,7 @@ final class DockIconController {
         let isFirstApply = appliedShowsIcon == nil
         appliedShowsIcon = showsDockIcon
         setActivationPolicy(Self.activationPolicy(showsDockIcon: showsDockIcon))
+        didApplyPolicy()
         if !showsDockIcon && !isFirstApply {
             didHideIcon()
         }
