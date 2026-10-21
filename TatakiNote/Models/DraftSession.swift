@@ -154,6 +154,75 @@ struct DraftSaveEvent: Equatable {
         _ = archiveScratchIfNeeded()
     }
 
+    /// 終了の理由に応じて書きかけを扱う。開き直しなら履歴へ移さずファイルへ残し、書けなければ履歴へ移す。
+    @discardableResult
+    func prepareForTermination(reason: TerminationReason, store: RelaunchDraftStore) -> TerminationOutcome {
+        switch reason {
+        case .normal:
+            prepareForTermination()
+            return .archivedToHistory
+        case .relaunch:
+            guard let draft = relaunchDraft() else {
+                prepareForTermination()
+                return .archivedToHistory
+            }
+            do {
+                try store.save(draft)
+                return .savedForRelaunch
+            } catch {
+                prepareForTermination()
+                return .archivedToHistory
+            }
+        }
+    }
+
+    // MARK: - 開き直し
+
+    /// 開き直しで残すパネルの書きかけ。本文が空白だけなら `nil`。
+    func relaunchDraft() -> RelaunchDraft? {
+        guard !Self.isBlank(panel.text) else { return nil }
+        let relaunchDocument: RelaunchDraft.Document = switch document {
+        case .scratch: .scratch
+        case .savedDraft(let id): .savedDraft(id)
+        case .fromHistory(let id): .fromHistory(id)
+        }
+        return RelaunchDraft(
+            version: RelaunchDraft.currentVersion,
+            text: panel.text,
+            document: relaunchDocument,
+            mode: mode
+        )
+    }
+
+    /// 開き直しで残した書きかけをパネルに戻す。本文が空白だけなら何もしない。
+    func restore(_ draft: RelaunchDraft) {
+        guard !Self.isBlank(draft.text) else { return }
+        replacingText {
+            switch draft.document {
+            case .savedDraft(let id):
+                if let saved = library.draft(id: id) {
+                    document = .savedDraft(id)
+                    viewedHistoryText = nil
+                    panel.text = saved.text
+                } else {
+                    restoreAsScratch(draft.text)
+                }
+            case .fromHistory(let id):
+                if let entry = library.historyEntry(id: id), entry.text == draft.text {
+                    document = .fromHistory(id)
+                    viewedHistoryText = entry.text
+                    panel.text = entry.text
+                } else {
+                    restoreAsScratch(draft.text)
+                }
+            case .scratch:
+                restoreAsScratch(draft.text)
+            }
+            scratchSourceText = nil
+            mode = draft.mode
+        }
+    }
+
     // MARK: - 削除
 
     /// 下書きを消す。表示中の下書きなら、本文は残して保存していない書きかけにする。
@@ -244,6 +313,12 @@ struct DraftSaveEvent: Equatable {
               panel.text != scratchSourceText else { return false }
         library.recordUnsentText(panel.text)
         return true
+    }
+
+    private func restoreAsScratch(_ text: String) {
+        document = .scratch
+        viewedHistoryText = nil
+        panel.text = text
     }
 
     private func replacingText<Result>(_ body: () -> Result) -> Result {

@@ -382,6 +382,18 @@ final class PanelController: NSObject, NSWindowDelegate {
         library.flush()
     }
 
+    /// 終了の理由に応じて書きかけを扱い、遅らせている下書きの書き出しを今行う。
+    func prepareForTermination(reason: TerminationReason, store: RelaunchDraftStore) {
+        session.prepareForTermination(reason: reason, store: store)
+        library.flush()
+    }
+
+    /// 開き直しで残した書きかけがあれば、パネルを開かずに戻す。
+    func restoreRelaunchDraft(from store: RelaunchDraftStore) {
+        guard let draft = store.take() else { return }
+        session.restore(draft)
+    }
+
     /// アプリが隠れたときに、動きなしでパネルを閉じて枠を本来の枠に戻す。
     func closeImmediately() {
         prepareToClose()

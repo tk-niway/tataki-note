@@ -250,6 +250,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     )
 
+    private(set) var terminationReason: TerminationReason = .normal
+
+    private let relaunchDraftStore = RelaunchDraftStore(
+        directory: AppLaunchContext.dataDirectory(environment: ProcessInfo.processInfo.environment)
+    )
+
+    /// 書きかけを残して開き直すために、終了の理由を記録して終了する。
+    func terminateForRelaunch() {
+        markRelaunching()
+        NSApp.terminate(nil)
+    }
+
+    /// 次の終了が開き直しのためだと記録する。
+    func markRelaunching() {
+        terminationReason = .relaunch
+    }
+
     private var isConfirmingQuit: Bool {
         quitConfirmation.model.isConfirming
     }
@@ -261,6 +278,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if !AppLaunchContext.isRunningUnitTests(environment: environment) {
             quitConfirmation.start()
+            panelController.restoreRelaunchDraft(from: relaunchDraftStore)
         }
         if AppLaunchContext.shouldRegisterHotkeys(environment: environment) {
             ReservedPanelKeys.apply(
@@ -338,7 +356,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        panelController.prepareForTermination()
+        panelController.prepareForTermination(reason: terminationReason, store: relaunchDraftStore)
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
