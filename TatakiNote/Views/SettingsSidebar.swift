@@ -5,17 +5,30 @@ struct SettingsSidebar: View {
     static let trafficLightsInset: CGFloat = 28
 
     @Bindable var model: SettingsWindowModel
+    var badgedSections: Set<SettingsSection> = []
     let onQuit: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(spacing: 2) {
                 ForEach(SettingsSection.allCases) { section in
-                    SettingsSidebarRow(
-                        section: section,
-                        isSelected: model.selectedSection == section,
-                        action: { select(section) }
-                    )
+                    ZStack(alignment: .trailing) {
+                        SettingsSidebarRow(
+                            section: section,
+                            isSelected: model.selectedSection == section,
+                            action: { select(section) }
+                        )
+                        if badgedSections.contains(section) {
+                            Circle()
+                                .fill(Color(nsColor: .systemRed))
+                                .frame(width: 8, height: 8)
+                                .padding(.trailing, 10)
+                                .allowsHitTesting(false)
+                                .accessibilityElement()
+                                .accessibilityLabel("新しい版があります")
+                                .accessibilityIdentifier("settings.sidebar.updateBadge")
+                        }
+                    }
                 }
             }
             Spacer(minLength: 0)

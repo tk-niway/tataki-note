@@ -90,7 +90,14 @@ jobs:
 
       - name: Publish release
         if: steps.check.outputs.release == 'yes'
-        run: ./scripts/release.sh upload
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          if [ -z "$SPARKLE_ED_PRIVATE_KEY" ]; then
+            echo "::error::secret SPARKLE_ED_PRIVATE_KEY is not set"
+            exit 1
+          fi
+          ./scripts/release.sh upload
 
       - name: Remove signing keychain
         if: always()

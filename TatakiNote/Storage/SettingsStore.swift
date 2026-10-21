@@ -30,6 +30,9 @@ struct SettingsStore {
         static let showsDockIcon = "showsDockIcon"
         static let confirmsQuit = "confirmsQuit"
         static let lastExportDirectory = "lastExportDirectory"
+        static let checksForUpdatesAutomatically = "checksForUpdatesAutomatically"
+        static let lastUpdateCheckDate = "lastUpdateCheckDate"
+        static let suppressesMoveToApplicationsPrompt = "suppressesMoveToApplicationsPrompt"
     }
 
     let defaults: any SettingsStorage
@@ -235,6 +238,38 @@ struct SettingsStore {
 
     func saveConfirmsQuit(_ confirms: Bool) {
         defaults.set(confirms, forKey: Key.confirmsQuit)
+    }
+
+    // MARK: - アップデート
+
+    func loadChecksForUpdatesAutomatically() -> Bool {
+        boolean(forKey: Key.checksForUpdatesAutomatically) ?? true
+    }
+
+    func saveChecksForUpdatesAutomatically(_ checks: Bool) {
+        defaults.set(checks, forKey: Key.checksForUpdatesAutomatically)
+    }
+
+    /// 前回アップデートを確かめた日時を読む。無い・数値でない・有限でない値は nil。
+    func loadLastUpdateCheckDate() -> Date? {
+        guard let seconds = number(forKey: Key.lastUpdateCheckDate)?.doubleValue, seconds.isFinite else { return nil }
+        return Date(timeIntervalSince1970: seconds)
+    }
+
+    func saveLastUpdateCheckDate(_ date: Date?) {
+        guard let date, date.timeIntervalSince1970.isFinite else {
+            defaults.removeObject(forKey: Key.lastUpdateCheckDate)
+            return
+        }
+        defaults.set(date.timeIntervalSince1970, forKey: Key.lastUpdateCheckDate)
+    }
+
+    func loadSuppressesMoveToApplicationsPrompt() -> Bool {
+        boolean(forKey: Key.suppressesMoveToApplicationsPrompt) ?? false
+    }
+
+    func saveSuppressesMoveToApplicationsPrompt(_ suppresses: Bool) {
+        defaults.set(suppresses, forKey: Key.suppressesMoveToApplicationsPrompt)
     }
 
     // MARK: - 書き出し

@@ -131,6 +131,38 @@ enum AppLaunchContext {
         return false
         #endif
     }
+
+    enum UpdaterKind: Equatable {
+        case sparkle
+        case inert
+        case preview
+    }
+
+    static var isDebugBuild: Bool {
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
+    }
+
+    static func updaterKind(
+        environment: [String: String],
+        isDebugBuild: Bool = AppLaunchContext.isDebugBuild
+    ) -> UpdaterKind {
+        if isRunningUnitTests(environment: environment) { return .inert }
+        guard isDebugBuild else { return .sparkle }
+        return environment["TATAKINOTE_UPDATE_OVERRIDE"] == "available" ? .preview : .inert
+    }
+
+    static func shouldOfferMoveToApplications(
+        environment: [String: String],
+        isDebugBuild: Bool = AppLaunchContext.isDebugBuild
+    ) -> Bool {
+        if isRunningUnitTests(environment: environment) { return false }
+        guard isDebugBuild else { return true }
+        return environment["TATAKINOTE_MOVE_PROMPT"] == "enabled"
+    }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -174,7 +206,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 settings: self.settings,
                 currentPanelSize: { [weak self] in self?.panelController.heldPanelSize }
             ),
-            library: self.library
+            library: self.library,
+            updates: self.updates
         )
         controller.onDidClose = { [weak self] in
             self?.panelController.settingsWindowDidClose()
@@ -220,11 +253,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var focusedElementWatcher: FocusedElementWatcher?
 
+    private(set) lazy var updates: UpdateModel = {
+        let model = UpdateModel(
+            settings: settings,
+            updater: AppDelegate.makeUpdater(kind: AppLaunchContext.updaterKind(environment: ProcessInfo.processInfo.environment))
+        )
+        model.onWillRelaunch = { [weak self] in self?.markRelaunching() }
+        return model
+    }()
+
+    private lazy var networkMonitor: NetworkReachability = NetworkPathMonitor()
+
+    private var wakeObserver: NSObjectProtocol?
+
+    private lazy var updateBadge = UpdateBadgeController(
+        updates: updates,
+        setBadgeLabel: { NSApp.dockTile.badgeLabel = $0 }
+    )
+
     private lazy var dockIcon = DockIconController(
         settings: settings,
         setActivationPolicy: { NSApp.setActivationPolicy($0) },
-        didHideIcon: { [weak self] in self?.settingsWindow.bringToFrontIfVisible() }
+        didHideIcon: { [weak self] in self?.settingsWindow.bringToFrontIfVisible() },
+        didApplyPolicy: { [weak self] in self?.updateBadge.reapply() }
     )
+
+    private static func makeUpdater(kind: AppLaunchContext.UpdaterKind) -> UpdaterDriving {
+        switch kind {
+        case .sparkle:
+            #if canImport(Sparkle)
+            return SparkleUpdaterDriver()
+            #else
+            return InertUpdater()
+            #endif
+        case .preview:
+            #if DEBUG
+            return PreviewUpdater()
+            #else
+            return InertUpdater()
+            #endif
+        case .inert:
+            return InertUpdater()
+        }
+    }
 
     private lazy var quitConfirmation = QuitConfirmationController(
         model: QuitConfirmationModel(settings: settings, terminate: { NSApp.terminate(nil) }),
@@ -250,6 +321,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     )
 
+    private(set) var terminationReason: TerminationReason = .normal
+
+    private let relaunchDraftStore = RelaunchDraftStore(
+        directory: AppLaunchContext.dataDirectory(environment: ProcessInfo.processInfo.environment)
+    )
+
+    /// 書きかけを残して開き直すために、終了の理由を記録して終了する。
+    func terminateForRelaunch() {
+        markRelaunching()
+        NSApp.terminate(nil)
+    }
+
+    /// 次の終了が開き直しのためだと記録する。
+    func markRelaunching() {
+        terminationReason = .relaunch
+    }
+
+    private lazy var moveToApplications = MoveToApplicationsController(
+        settings: settings,
+        terminateForRelaunch: { [weak self] in self?.terminateForRelaunch() }
+    )
+
     private var isConfirmingQuit: Bool {
         quitConfirmation.model.isConfirming
     }
@@ -258,9 +351,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let environment = ProcessInfo.processInfo.environment
         if AppLaunchContext.shouldApplyDockIcon(environment: environment) {
             dockIcon.start()
+            updateBadge.start()
         }
         if !AppLaunchContext.isRunningUnitTests(environment: environment) {
             quitConfirmation.start()
+            if AppLaunchContext.shouldOfferMoveToApplications(environment: environment),
+               moveToApplications.offerIfNeeded() {
+                return
+            }
+            panelController.restoreRelaunchDraft(from: relaunchDraftStore)
         }
         if AppLaunchContext.shouldRegisterHotkeys(environment: environment) {
             ReservedPanelKeys.apply(
@@ -297,6 +396,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 isSuppressed: AppLaunchContext.isOpenPanelOnLaunchSuppressed(environment: environment)
             ) {
                 panelController.openWithoutTarget()
+            }
+        }
+        if !AppLaunchContext.isRunningUnitTests(environment: environment) {
+            startUpdates()
+        }
+    }
+
+    private func startUpdates() {
+        updates.start()
+        networkMonitor.start { [weak self] isOnline in
+            self?.updates.networkDidChange(isOnline: isOnline)
+        }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.updates.evaluate()
             }
         }
     }
@@ -338,7 +456,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        panelController.prepareForTermination()
+        panelController.prepareForTermination(reason: terminationReason, store: relaunchDraftStore)
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
