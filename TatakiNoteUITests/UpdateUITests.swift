@@ -30,6 +30,40 @@ final class UpdateUITests: XCTestCase {
         XCTAssertTrue(settingsItem.exists)
         clickShownMenuItem(settingsItem)
         XCTAssertTrue(element(in: app, identifier: "settings.sidebar.general").waitForExistence(timeout: timeout))
+
+        let badge = element(in: app, identifier: "settings.sidebar.updateBadge")
+        // AC-10
+        XCTAssertTrue(badge.waitForExistence(timeout: timeout))
+
+        let appInfo = element(in: app, identifier: "settings.sidebar.appInfo")
+        XCTAssertTrue(appInfo.waitForExistence(timeout: timeout))
+        appInfo.click()
+
+        let status = element(in: app, identifier: "settings.appInfo.updateStatus")
+        let toggle = element(in: app, identifier: "settings.appInfo.automaticUpdateToggle")
+        let check = element(in: app, identifier: "settings.appInfo.checkForUpdates")
+        app.revealInSettings(status)
+        app.revealInSettings(toggle)
+        // AC-12
+        app.revealInSettings(check)
+        XCTAssertTrue(check.isEnabled)
+
+        let showUpdate = element(in: app, identifier: "settings.appInfo.showUpdate")
+        app.revealInSettings(showUpdate)
+        showUpdate.click()
+        // AC-10
+        XCTAssertTrue(status.waitForNonExistence(timeout: timeout))
+        XCTAssertTrue(badge.waitForNonExistence(timeout: timeout))
+
+        closeSettings(in: app)
+
+        openMenu(in: app)
+        let reopenedCheckItem = menuItem(in: app, identifier: "menu.checkForUpdates", title: "アップデートを確認…")
+        XCTAssertTrue(reopenedCheckItem.waitForExistence(timeout: timeout))
+        // AC-7
+        XCTAssertFalse(app.menuItems["menu.updateAvailable"].exists)
+        XCTAssertFalse(app.menuItems["新しい版があります(9.9.9)"].exists)
+        app.typeKey(.escape, modifierFlags: [])
     }
 
     // MARK: - 起動
@@ -69,6 +103,16 @@ final class UpdateUITests: XCTestCase {
         }
         XCTAssertFalse(item.frame.isEmpty, "メニューが表示されていない(項目の枠が空)")
         item.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+    }
+
+    @MainActor
+    private func closeSettings(in app: XCUIApplication) {
+        let window = app.windows.containing(.any, identifier: "settings.sidebar.general").firstMatch
+        XCTAssertTrue(window.exists)
+        let closeButton = window.buttons[XCUIIdentifierCloseWindow]
+        XCTAssertTrue(closeButton.exists)
+        closeButton.click()
+        XCTAssertTrue(element(in: app, identifier: "settings.sidebar.general").waitForNonExistence(timeout: timeout))
     }
 
     @MainActor

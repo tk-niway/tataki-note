@@ -3,7 +3,141 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
+private final class SettingsFakeUpdater: UpdaterDriving {
+    var onEvent: ((UpdaterEvent) -> Void)?
+    var onCanCheckChange: ((Bool) -> Void)?
+    var canCheckForUpdates = true
+    var isSessionInProgress = false
+    private(set) var userCheckCount = 0
+
+    func start() {}
+
+    func checkInBackground() {}
+
+    func checkByUser() {
+        userCheckCount += 1
+    }
+
+    func send(_ event: UpdaterEvent) {
+        onEvent?(event)
+    }
+}
+
+@MainActor
 struct UpdateSettingsTests {
+    @Test("AC-10: 新しい版が無いとき、設定の印も状態の文言も無い")
+    func noBadgeWithoutPendingUpdate() throws {
+        let temporary = try TemporaryDefaults()
+        defer { temporary.remove() }
+
+        let model = UpdateModel(settings: temporary.makeSettings(), updater: SettingsFakeUpdater())
+
+        #expect(model.badgedSettingsSections.isEmpty)
+        #expect(model.settingsStatusText == nil)
+    }
+
+    @Test("AC-10: 新しい版があるとき、「情報」に印が付き、状態の文言に版が入る")
+    func badgeAndStatusTextForPendingUpdate() throws {
+        let temporary = try TemporaryDefaults()
+        defer { temporary.remove() }
+
+        let updater = SettingsFakeUpdater()
+        let model = UpdateModel(settings: temporary.makeSettings(), updater: updater)
+        updater.send(.foundInBackground(version: "9.9.9"))
+
+        #expect(model.badgedSettingsSections == [.appInfo])
+        #expect(model.settingsStatusText == "新しい版 9.9.9 があります")
+    }
+
+    @Test("AC-10: 「詳しく見る…」で変更点の窓を出す処理を呼び、窓を見たら印と文言が消える")
+    func showingPendingUpdateClearsBadge() throws {
+        let temporary = try TemporaryDefaults()
+        defer { temporary.remove() }
+
+        let updater = SettingsFakeUpdater()
+        let model = UpdateModel(settings: temporary.makeSettings(), updater: updater)
+        updater.send(.foundInBackground(version: "1.3.0"))
+
+        model.showPendingUpdate()
+        #expect(updater.userCheckCount == 1)
+
+        updater.send(.userAttended)
+        #expect(model.badgedSettingsSections.isEmpty)
+        #expect(model.settingsStatusText == nil)
+    }
+
+    @Test("AC-10: 自動の確認をオフにしても、見つけた版の印は残る")
+    func badgeStaysWhenAutomaticCheckIsOff() throws {
+        let temporary = try TemporaryDefaults()
+        defer { temporary.remove() }
+
+        let updater = SettingsFakeUpdater()
+        let model = UpdateModel(settings: temporary.makeSettings(), updater: updater)
+        updater.send(.foundInBackground(version: "1.3.0"))
+        model.isAutomaticCheckEnabled = false
+
+        #expect(model.badgedSettingsSections == [.appInfo])
+        #expect(model.settingsStatusText == "新しい版 1.3.0 があります")
+    }
+
+    @Test("AC-10: 自動の確認の説明文は、通信が確認のときだけで文章が送られないことを伝える")
+    func automaticCheckHelpTextMentionsNoTextIsSent() {
+        #expect(
+            SettingsHelpText.automaticUpdateCheck
+                == "1日に1回、新しい版があるかを確かめます。確かめるときだけ通信し、書いた文章が送られることはありません。"
+        )
+    }
+
+    @Test("AC-12: 更新の仕組みの「確認できるか」が、画面に出す値に写る")
+    func canCheckForUpdatesFollowsUpdater() throws {
+        let temporary = try TemporaryDefaults()
+        defer { temporary.remove() }
+
+        let updater = SettingsFakeUpdater()
+        let model = UpdateModel(settings: temporary.makeSettings(), updater: updater)
+        #expect(model.canCheckForUpdates)
+
+        updater.onCanCheckChange?(false)
+        #expect(!model.canCheckForUpdates)
+
+        updater.onCanCheckChange?(true)
+        #expect(model.canCheckForUpdates)
+    }
+
+    @Test("AC-12: 確認できない更新の仕組みで始めると、最初から確認できない")
+    func canCheckForUpdatesStartsFromUpdater() throws {
+        let temporary = try TemporaryDefaults()
+        defer { temporary.remove() }
+
+        let updater = SettingsFakeUpdater()
+        updater.canCheckForUpdates = false
+        let model = UpdateModel(settings: temporary.makeSettings(), updater: updater)
+
+        #expect(!model.canCheckForUpdates)
+    }
+
+    @Test("AC-12: 何もしない更新の仕組みでは、確認できない")
+    func inertModelCannotCheck() throws {
+        let temporary = try TemporaryDefaults()
+        defer { temporary.remove() }
+
+        #expect(!UpdateModel.inert(settings: temporary.makeSettings()).canCheckForUpdates)
+    }
+
+    @Test("AC-12: 自動の確認がオフでも、「アップデートを確認…」は手の確認を始める")
+    func manualCheckWorksWhenAutomaticCheckIsOff() throws {
+        let temporary = try TemporaryDefaults()
+        defer { temporary.remove() }
+
+        let updater = SettingsFakeUpdater()
+        let model = UpdateModel(settings: temporary.makeSettings(), updater: updater)
+        model.isAutomaticCheckEnabled = false
+
+        model.checkByUser()
+
+        #expect(updater.userCheckCount == 1)
+    }
+
     @Test("AC-1: 自動の確認の初期値はオン")
     func automaticCheckDefaultsToOn() throws {
         let temporary = try TemporaryDefaults()

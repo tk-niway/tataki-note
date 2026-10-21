@@ -197,7 +197,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 settings: self.settings,
                 currentPanelSize: { [weak self] in self?.panelController.heldPanelSize }
             ),
-            library: self.library
+            library: self.library,
+            updates: self.updates
         )
         controller.onDidClose = { [weak self] in
             self?.panelController.settingsWindowDidClose()

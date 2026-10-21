@@ -15,6 +15,7 @@ struct SettingsView: View {
     let launchAtLogin: LaunchAtLoginModel
     let appInfo: AppInfoModel
     let panelDefaultSize: PanelDefaultSizeModel
+    let updates: UpdateModel
     let onShowFontPanel: () -> Void
     let onQuit: () -> Void
 
@@ -30,6 +31,7 @@ struct SettingsView: View {
         panelDefaultSize: PanelDefaultSizeModel,
         library: DraftLibrary = DraftLibrary(store: .inMemory),
         history: HistorySettingsModel? = nil,
+        updates: UpdateModel? = nil,
         onShowFontPanel: @escaping () -> Void,
         onQuit: @escaping () -> Void
     ) {
@@ -38,6 +40,7 @@ struct SettingsView: View {
         self.launchAtLogin = launchAtLogin
         self.appInfo = appInfo
         self.panelDefaultSize = panelDefaultSize
+        self.updates = updates ?? UpdateModel.inert(settings: settings)
         self.onShowFontPanel = onShowFontPanel
         self.onQuit = onQuit
         _editorModel = State(initialValue: EditorSettingsModel(settings: settings))
@@ -47,7 +50,7 @@ struct SettingsView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            SettingsSidebar(model: model, onQuit: onQuit)
+            SettingsSidebar(model: model, badgedSections: updates.badgedSettingsSections, onQuit: onQuit)
             Divider()
             VStack(spacing: 0) {
                 Text(model.selectedSection.displayName)
@@ -95,7 +98,7 @@ struct SettingsView: View {
                 onShowFontPanel: onShowFontPanel
             )
         case .appInfo:
-            AppInfoSettingsView(model: appInfo)
+            AppInfoSettingsView(model: appInfo, updates: updates)
         }
     }
 
