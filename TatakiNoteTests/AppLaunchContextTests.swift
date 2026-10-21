@@ -365,4 +365,37 @@ struct AppLaunchContextTests {
         #expect(AppLaunchContext.updaterKind(environment: [Self.updateOverride: "available"], isDebugBuild: false) == .sparkle)
         #expect(AppLaunchContext.updaterKind(environment: [Self.updateOverride: "other"], isDebugBuild: false) == .sparkle)
     }
+
+    // MARK: - 移動の確認の抑止
+
+    private static let movePrompt = "TATAKINOTE_MOVE_PROMPT"
+
+    @Test("AC-22: 単体テストの起動は、ビルドの種類・環境変数に関係なく移動を聞かない", arguments: [true, false])
+    func moveToApplicationsIsNotOfferedWhileRunningUnitTests(isDebugBuild: Bool) {
+        let environments: [[String: String]] = [
+            [Self.unitTestMark: "/tmp/config.xctestconfiguration"],
+            [Self.unitTestMark: "/tmp/config.xctestconfiguration", Self.movePrompt: "enabled"],
+        ]
+        for environment in environments {
+            #expect(
+                AppLaunchContext.shouldOfferMoveToApplications(environment: environment, isDebugBuild: isDebugBuild) == false,
+                "\(environment)"
+            )
+        }
+    }
+
+    @Test("AC-22: DEBUG のビルドは、TATAKINOTE_MOVE_PROMPT=enabled のときだけ移動を聞く")
+    func moveToApplicationsInDebugBuild() {
+        #expect(AppLaunchContext.shouldOfferMoveToApplications(environment: [:], isDebugBuild: true) == false)
+        #expect(AppLaunchContext.shouldOfferMoveToApplications(environment: [Self.movePrompt: "enabled"], isDebugBuild: true) == true)
+        #expect(AppLaunchContext.shouldOfferMoveToApplications(environment: [Self.movePrompt: "other"], isDebugBuild: true) == false)
+        #expect(AppLaunchContext.shouldOfferMoveToApplications(environment: [Self.movePrompt: ""], isDebugBuild: true) == false)
+    }
+
+    @Test("AC-22: リリースのビルドは、環境変数に関係なく移動を聞く")
+    func moveToApplicationsInReleaseBuild() {
+        #expect(AppLaunchContext.shouldOfferMoveToApplications(environment: [:], isDebugBuild: false) == true)
+        #expect(AppLaunchContext.shouldOfferMoveToApplications(environment: [Self.movePrompt: "enabled"], isDebugBuild: false) == true)
+        #expect(AppLaunchContext.shouldOfferMoveToApplications(environment: [Self.movePrompt: "other"], isDebugBuild: false) == true)
+    }
 }

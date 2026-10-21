@@ -154,6 +154,15 @@ enum AppLaunchContext {
         guard isDebugBuild else { return .sparkle }
         return environment["TATAKINOTE_UPDATE_OVERRIDE"] == "available" ? .preview : .inert
     }
+
+    static func shouldOfferMoveToApplications(
+        environment: [String: String],
+        isDebugBuild: Bool = AppLaunchContext.isDebugBuild
+    ) -> Bool {
+        if isRunningUnitTests(environment: environment) { return false }
+        guard isDebugBuild else { return true }
+        return environment["TATAKINOTE_MOVE_PROMPT"] == "enabled"
+    }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -329,6 +338,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         terminationReason = .relaunch
     }
 
+    private lazy var moveToApplications = MoveToApplicationsController(
+        settings: settings,
+        terminateForRelaunch: { [weak self] in self?.terminateForRelaunch() }
+    )
+
     private var isConfirmingQuit: Bool {
         quitConfirmation.model.isConfirming
     }
@@ -341,6 +355,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if !AppLaunchContext.isRunningUnitTests(environment: environment) {
             quitConfirmation.start()
+            if AppLaunchContext.shouldOfferMoveToApplications(environment: environment),
+               moveToApplications.offerIfNeeded() {
+                return
+            }
             panelController.restoreRelaunchDraft(from: relaunchDraftStore)
         }
         if AppLaunchContext.shouldRegisterHotkeys(environment: environment) {
