@@ -3,6 +3,7 @@ import SwiftUI
 /// 設定画面の「情報」。
 struct AppInfoSettingsView: View {
     let model: AppInfoModel
+    @Bindable var updates: UpdateModel
 
     var body: some View {
         VStack(spacing: 18) {
@@ -10,6 +11,15 @@ struct AppInfoSettingsView: View {
             SettingsCard {
                 permissionRow
                 tutorialRow
+            }
+            SettingsGroup(title: "アップデート", identifier: "settings.group.updates") {
+                SettingsCard {
+                    if let status = updates.settingsStatusText {
+                        pendingUpdateRow(status: status)
+                    }
+                    automaticCheckRow
+                    checkNowRow
+                }
             }
             Text("アイコンを叩いてみてください")
                 .font(.system(size: 11.5))
@@ -72,6 +82,45 @@ struct AppInfoSettingsView: View {
             }
             .buttonStyle(.borderedProminent)
             .accessibilityIdentifier("settings.appInfo.openTutorial")
+        }
+    }
+
+    private func pendingUpdateRow(status: String) -> some View {
+        SettingsRow {
+            Text(verbatim: status)
+                .font(.system(size: 13, weight: .medium))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(status)
+                .accessibilityIdentifier("settings.appInfo.updateStatus")
+            Button("詳しく見る…") {
+                updates.showPendingUpdate()
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("settings.appInfo.showUpdate")
+        }
+    }
+
+    private var automaticCheckRow: some View {
+        SettingsRow(
+            title: "アップデートを自動で確認",
+            description: SettingsHelpText.automaticUpdateCheck
+        ) {
+            Toggle("アップデートを自動で確認", isOn: $updates.isAutomaticCheckEnabled)
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .accessibilityIdentifier("settings.appInfo.automaticUpdateToggle")
+        }
+    }
+
+    private var checkNowRow: some View {
+        SettingsRow {
+            Spacer()
+            Button("アップデートを確認…") {
+                updates.checkByUser()
+            }
+            .disabled(!updates.canCheckForUpdates)
+            .accessibilityIdentifier("settings.appInfo.checkForUpdates")
         }
     }
 }

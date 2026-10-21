@@ -182,6 +182,21 @@ import Observation
         didSet { store.saveNewDraftMode(newDraftMode) }
     }
 
+    /// 1日に1回、新しい版を自動で確かめるか。
+    var checksForUpdatesAutomatically: Bool {
+        didSet { store.saveChecksForUpdatesAutomatically(checksForUpdatesAutomatically) }
+    }
+
+    /// 前回アップデートの確認が済んだ日時。未確認なら nil。
+    var lastUpdateCheckDate: Date? {
+        didSet { store.saveLastUpdateCheckDate(lastUpdateCheckDate) }
+    }
+
+    /// 「アプリケーション」フォルダへの移動を聞かないか。
+    var suppressesMoveToApplicationsPrompt: Bool {
+        didSet { store.saveSuppressesMoveToApplicationsPrompt(suppressesMoveToApplicationsPrompt) }
+    }
+
     @ObservationIgnored private let store: SettingsStore
 
     @ObservationIgnored private let reducesMotion: () -> Bool
@@ -225,6 +240,9 @@ import Observation
         self.sidebarTab = store.loadSidebarTab()
         self.lastExportDirectoryPath = store.loadLastExportDirectoryPath()
         self.historyLimit = store.loadHistoryLimit()
+        self.checksForUpdatesAutomatically = store.loadChecksForUpdatesAutomatically()
+        self.lastUpdateCheckDate = store.loadLastUpdateCheckDate()
+        self.suppressesMoveToApplicationsPrompt = store.loadSuppressesMoveToApplicationsPrompt()
         self.commitKeyDisplayText = commitKey?.displayText
         self.commitAndSendKeyDisplayText = commitAndSendKey?.displayText
     }

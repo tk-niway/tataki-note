@@ -5,19 +5,21 @@ import SwiftUI
 
     var body: some Scene {
         let settings = appDelegate.settings
+        let updates = appDelegate.updates
 
         MenuBarExtra(
-            "TatakiNote",
-            image: MenuBarIcon.assetName,
             isInserted: Binding(
                 get: { settings.isMenuBarIconShown },
                 set: { settings.isMenuBarIconShown = $0 }
             )
         ) {
             MenuBarMenu(
+                updates: updates,
                 onOpenPanel: { appDelegate.panelController.open() },
                 onOpenSettings: { appDelegate.settingsWindow.show() }
             )
+        } label: {
+            MenuBarIconLabel(updates: updates)
         }
         .menuBarExtraStyle(.menu)
     }

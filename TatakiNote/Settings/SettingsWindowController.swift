@@ -14,6 +14,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let appInfo: AppInfoModel
     private let panelDefaultSize: PanelDefaultSizeModel
     private let library: DraftLibrary
+    private let updates: UpdateModel
     private var window: NSWindow?
 
     private(set) lazy var fontPanel = FontPanelController(settings: settings)
@@ -23,13 +24,15 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         launchAtLogin: LaunchAtLoginModel,
         appInfo: AppInfoModel,
         panelDefaultSize: PanelDefaultSizeModel,
-        library: DraftLibrary = DraftLibrary(store: .inMemory)
+        library: DraftLibrary = DraftLibrary(store: .inMemory),
+        updates: UpdateModel? = nil
     ) {
         self.settings = settings
         self.launchAtLogin = launchAtLogin
         self.appInfo = appInfo
         self.panelDefaultSize = panelDefaultSize
         self.library = library
+        self.updates = updates ?? UpdateModel.inert(settings: settings)
         self.history = HistorySettingsModel(library: library, settings: settings)
         super.init()
     }
@@ -82,6 +85,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 panelDefaultSize: panelDefaultSize,
                 library: library,
                 history: history,
+                updates: updates,
                 onShowFontPanel: { [weak self] in self?.fontPanel.show() },
                 onQuit: { NSApp.terminate(nil) }
             )

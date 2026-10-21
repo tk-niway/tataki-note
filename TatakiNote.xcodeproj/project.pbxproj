@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		D58F64263062AFC100327EAC /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = D58F64253062AFC100327EAC /* KeyboardShortcuts */; };
+		D5D2E0293088A9E300BAA3D4 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = D5D2E0283088A9E300BAA3D4 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -69,6 +70,7 @@
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				D58F64263062AFC100327EAC /* KeyboardShortcuts in Frameworks */,
+				D5D2E0293088A9E300BAA3D4 /* Sparkle in Frameworks */,
 			);
 		};
 		D5B337283064F3F30006B7DE /* Frameworks */ = {
@@ -123,6 +125,7 @@
 			name = TatakiNote;
 			packageProductDependencies = (
 				D58F64253062AFC100327EAC /* KeyboardShortcuts */,
+				D5D2E0283088A9E300BAA3D4 /* Sparkle */,
 			);
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* TatakiNote.app */;
@@ -204,6 +207,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				D58F64243062AFC100327EAC /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
+				D5D2E0273088A9E300BAA3D4 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
@@ -623,6 +627,14 @@
 				minimumVersion = 3.1.0;
 			};
 		};
+		D5D2E0273088A9E300BAA3D4 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.10.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -630,6 +642,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D58F64243062AFC100327EAC /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
 			productName = KeyboardShortcuts;
+		};
+		D5D2E0283088A9E300BAA3D4 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D5D2E0273088A9E300BAA3D4 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

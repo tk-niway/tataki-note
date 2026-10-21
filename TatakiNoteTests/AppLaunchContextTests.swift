@@ -331,4 +331,71 @@ struct AppLaunchContextTests {
             #expect(AppLaunchContext.isOpenPanelOnReopenSuppressed(environment: environment) == false, "\(environment)")
         }
     }
+
+    // MARK: - 更新の仕組みの選び分け
+
+    private static let updateOverride = "TATAKINOTE_UPDATE_OVERRIDE"
+    private static let unitTestMark = "XCTestConfigurationFilePath"
+
+    @Test("AC-21: 単体テストの起動は、ビルドの種類・環境変数に関係なく何もしない仕組みになる", arguments: [true, false])
+    func updaterKindIsInertWhileRunningUnitTests(isDebugBuild: Bool) {
+        let environments: [[String: String]] = [
+            [Self.unitTestMark: "/tmp/config.xctestconfiguration"],
+            [Self.unitTestMark: "/tmp/config.xctestconfiguration", Self.updateOverride: "available"],
+        ]
+        for environment in environments {
+            #expect(
+                AppLaunchContext.updaterKind(environment: environment, isDebugBuild: isDebugBuild) == .inert,
+                "\(environment)"
+            )
+        }
+    }
+
+    @Test("AC-21: DEBUG のビルドは、TATAKINOTE_UPDATE_OVERRIDE=available のときだけ新しい版ありの偽物、それ以外は何もしない仕組み")
+    func updaterKindInDebugBuild() {
+        #expect(AppLaunchContext.updaterKind(environment: [:], isDebugBuild: true) == .inert)
+        #expect(AppLaunchContext.updaterKind(environment: [Self.updateOverride: "available"], isDebugBuild: true) == .preview)
+        #expect(AppLaunchContext.updaterKind(environment: [Self.updateOverride: "other"], isDebugBuild: true) == .inert)
+        #expect(AppLaunchContext.updaterKind(environment: [Self.updateOverride: ""], isDebugBuild: true) == .inert)
+    }
+
+    @Test("AC-21: リリースのビルドは、環境変数に関係なく Sparkle になる")
+    func updaterKindInReleaseBuild() {
+        #expect(AppLaunchContext.updaterKind(environment: [:], isDebugBuild: false) == .sparkle)
+        #expect(AppLaunchContext.updaterKind(environment: [Self.updateOverride: "available"], isDebugBuild: false) == .sparkle)
+        #expect(AppLaunchContext.updaterKind(environment: [Self.updateOverride: "other"], isDebugBuild: false) == .sparkle)
+    }
+
+    // MARK: - 移動の確認の抑止
+
+    private static let movePrompt = "TATAKINOTE_MOVE_PROMPT"
+
+    @Test("AC-22: 単体テストの起動は、ビルドの種類・環境変数に関係なく移動を聞かない", arguments: [true, false])
+    func moveToApplicationsIsNotOfferedWhileRunningUnitTests(isDebugBuild: Bool) {
+        let environments: [[String: String]] = [
+            [Self.unitTestMark: "/tmp/config.xctestconfiguration"],
+            [Self.unitTestMark: "/tmp/config.xctestconfiguration", Self.movePrompt: "enabled"],
+        ]
+        for environment in environments {
+            #expect(
+                AppLaunchContext.shouldOfferMoveToApplications(environment: environment, isDebugBuild: isDebugBuild) == false,
+                "\(environment)"
+            )
+        }
+    }
+
+    @Test("AC-22: DEBUG のビルドは、TATAKINOTE_MOVE_PROMPT=enabled のときだけ移動を聞く")
+    func moveToApplicationsInDebugBuild() {
+        #expect(AppLaunchContext.shouldOfferMoveToApplications(environment: [:], isDebugBuild: true) == false)
+        #expect(AppLaunchContext.shouldOfferMoveToApplications(environment: [Self.movePrompt: "enabled"], isDebugBuild: true) == true)
+        #expect(AppLaunchContext.shouldOfferMoveToApplications(environment: [Self.movePrompt: "other"], isDebugBuild: true) == false)
+        #expect(AppLaunchContext.shouldOfferMoveToApplications(environment: [Self.movePrompt: ""], isDebugBuild: true) == false)
+    }
+
+    @Test("AC-22: リリースのビルドは、環境変数に関係なく移動を聞く")
+    func moveToApplicationsInReleaseBuild() {
+        #expect(AppLaunchContext.shouldOfferMoveToApplications(environment: [:], isDebugBuild: false) == true)
+        #expect(AppLaunchContext.shouldOfferMoveToApplications(environment: [Self.movePrompt: "enabled"], isDebugBuild: false) == true)
+        #expect(AppLaunchContext.shouldOfferMoveToApplications(environment: [Self.movePrompt: "other"], isDebugBuild: false) == true)
+    }
 }

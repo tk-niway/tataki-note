@@ -1,5 +1,5 @@
 /// 書きかけを挿入できるか(インサート)、挿入・送信しないか(ノート)。
-enum DraftMode: String, CaseIterable, Sendable {
+enum DraftMode: String, CaseIterable, Codable, Sendable {
     case insert
     case note
 
