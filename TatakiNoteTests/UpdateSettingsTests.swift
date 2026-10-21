@@ -80,12 +80,9 @@ struct UpdateSettingsTests {
         #expect(model.settingsStatusText == "新しい版 1.3.0 があります")
     }
 
-    @Test("AC-10: 自動の確認の説明文は、通信が確認のときだけで文章が送られないことを伝える")
-    func automaticCheckHelpTextMentionsNoTextIsSent() {
-        #expect(
-            SettingsHelpText.automaticUpdateCheck
-                == "1日に1回、新しい版があるかを確かめます。確かめるときだけ通信し、書いた文章が送られることはありません。"
-        )
+    @Test("AC-10: 自動の確認の説明文は、1日に1回新しい版を確かめることだけを伝える")
+    func automaticCheckHelpTextOnlyDescribesDailyCheck() {
+        #expect(SettingsHelpText.automaticUpdateCheck == "1日に1回、新しい版があるかを確かめます。")
     }
 
     @Test("AC-12: 更新の仕組みの「確認できるか」が、画面に出す値に写る")

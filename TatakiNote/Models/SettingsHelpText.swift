@@ -56,6 +56,6 @@ enum SettingsHelpText {
 
     /// 「アップデートを自動で確認」の下の説明文。
     static let automaticUpdateCheck = String(
-        localized: "1日に1回、新しい版があるかを確かめます。確かめるときだけ通信し、書いた文章が送られることはありません。"
+        localized: "1日に1回、新しい版があるかを確かめます。"
     )
 }

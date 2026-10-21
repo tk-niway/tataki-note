@@ -29,7 +29,7 @@ APP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 DIST="$APP_ROOT/dist"
 DERIVED="$APP_ROOT/.build/release"
-DMGBUILD_VERSION=1.6.5
+DMGBUILD_VERSION=1.6.7
 MINIMUM_SYSTEM_VERSION=14.0
 
 die() { echo "エラー: $*" >&2; exit 1; }
@@ -192,20 +192,56 @@ designated_requirement() {
   echo "identifier \"$BUNDLE_ID\" and anchor apple generic and certificate leaf[subject.OU] = \"$TEAM_ID\""
 }
 
+# is_python_310_or_newer <python> … その python が 3.10 以上なら成功
+is_python_310_or_newer() {
+  "$1" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1
+}
+
+# dmgbuild_venv_is_current <venv> … venv が Python 3.10 以上で、DMGBUILD_VERSION の dmgbuild が入っていれば成功
+dmgbuild_venv_is_current() {
+  local venv="$1"
+  [ -x "$venv/bin/dmgbuild" ] && [ -x "$venv/bin/python" ] || return 1
+  "$venv/bin/python" -c '
+import sys
+from importlib.metadata import version
+sys.exit(0 if sys.version_info >= (3, 10) and version("dmgbuild") == sys.argv[1] else 1)
+' "$DMGBUILD_VERSION" >/dev/null 2>&1
+}
+
+# create_dmgbuild_venv <venv> … Python 3.10 以上で venv を作り、dmgbuild を入れる(uv があれば uv、無ければ PATH の python)
+create_dmgbuild_venv() {
+  local venv="$1" candidate python=""
+  if command -v uv >/dev/null; then
+    uv venv --quiet --python 3.12 "$venv"
+    uv pip install --quiet --python "$venv/bin/python" "dmgbuild==$DMGBUILD_VERSION"
+  else
+    for candidate in python3.13 python3.12 python3.11 python3.10 python3; do
+      if command -v "$candidate" >/dev/null && is_python_310_or_newer "$candidate"; then
+        python="$candidate"
+        break
+      fi
+    done
+    [ -n "$python" ] || die "dmgbuild $DMGBUILD_VERSION には Python 3.10 以上が要ります。uv(brew install uv)か Python 3.10 以上(brew install python@3.12)を入れてください"
+    "$python" -m venv "$venv"
+    "$venv/bin/pip" install --quiet "dmgbuild==$DMGBUILD_VERSION"
+  fi
+  dmgbuild_venv_is_current "$venv" || die "dmgbuild $DMGBUILD_VERSION を Python 3.10 以上の venv に入れられませんでした: $venv"
+}
+
 # make_dmg <.app> [codesign に渡す引数…] … dist/ に署名した DMG を作る(公証はしない)
 make_dmg() {
   local app="$1"
   shift
   local volume_icon="$APP_ROOT/icon/VolumeIcon.icns"
   [ -s "$volume_icon" ] || die "icon/VolumeIcon.icns がありません"
-  command -v python3 >/dev/null || die "python3 がありません"
 
   local venv="$APP_ROOT/.build/dmgbuild-venv"
-  if [ ! -x "$venv/bin/dmgbuild" ]; then
+  if ! dmgbuild_venv_is_current "$venv"; then
     echo "==> dmgbuild $DMGBUILD_VERSION を用意する"
-    python3 -m venv "$venv"
-    "$venv/bin/pip" install --quiet "dmgbuild==$DMGBUILD_VERSION"
+    rm -rf "$venv"
+    create_dmgbuild_venv "$venv"
   fi
+  echo "==> dmgbuild $DMGBUILD_VERSION(Python $("$venv/bin/python" -c 'import platform; print(platform.python_version())'))"
 
   echo "==> DMG"
   local background_dir="$APP_ROOT/.build/dmg"

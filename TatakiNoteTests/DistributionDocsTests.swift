@@ -42,15 +42,13 @@ struct DistributionDocsTests {
         #expect(!update.contains("置き換えます"), "手で置き換える手順が残っています")
     }
 
-    @Test("AC-26: README のよくある質問に、書いた文章は送られず通信はアップデートの確認だけという説明がある")
-    func readmeFAQExplainsNetworkUse() throws {
+    @Test("AC-26: README に通信の範囲の説明(「通信はしますか?」・書いた文章は送られない旨)が無い")
+    func readmeDoesNotDescribeNetworkUse() throws {
         let readme = try read("README.md")
-        let faq = try section(titled: "よくある質問", in: readme)
 
-        #expect(faq.contains("**通信はしますか?**"), "「通信はしますか?」の質問がありません")
-        #expect(faq.contains("書いた文章が外へ送られることはありません"), "書いた文章が送られない旨がありません")
-        #expect(faq.contains("通信するのはアップデートの確認だけ"), "通信がアップデートの確認だけである旨がありません")
-        #expect(faq.contains("「アップデートを自動で確認」をオフ"), "設定でオフにできる旨がありません")
+        #expect(!readme.contains("通信はしますか"), "「通信はしますか?」の質問が残っています")
+        #expect(!readme.contains("書いた文章が外へ送られることはありません"), "書いた文章が送られない旨が残っています")
+        #expect(!readme.contains("通信するのはアップデートの確認だけ"), "通信がアップデートの確認だけである旨が残っています")
     }
 
     @Test("AC-27: 利用者ガイドにアップデートとインストールのページがあり、目次から辿れる")
@@ -74,6 +72,7 @@ struct DistributionDocsTests {
 
         #expect(info.contains("「アップデートを自動で確認」"))
         #expect(info.contains("「アップデートを確認…」"))
+        #expect(info.contains("説明文は「1日に1回、新しい版があるかを確かめます。」です"))
     }
 
     @Test("AC-27: パネルのページの「メニューバーのメニュー」の表に、新しい版の項目と「アップデートを確認…」がある")
@@ -91,5 +90,21 @@ struct DistributionDocsTests {
         let drafts = try read("docs/features/drafts-and-history.md")
 
         #expect(!drafts.contains("通信はしません"))
+    }
+
+    @Test("AC-27: 利用者ガイドのどのページにも、通信の範囲の説明が無い")
+    func docsDoNotDescribeNetworkUse() throws {
+        let docsRoot = Self.root.appendingPathComponent("docs")
+        let enumerator = try #require(FileManager.default.enumerator(at: docsRoot, includingPropertiesForKeys: nil))
+        let pages = enumerator.compactMap { $0 as? URL }.filter { $0.pathExtension == "md" }
+        #expect(!pages.isEmpty)
+
+        let phrases = ["通信", "外へ送られることはありません", "書いた文章は送られません"]
+        for page in pages {
+            let text = try String(contentsOf: page, encoding: .utf8)
+            for phrase in phrases {
+                #expect(!text.contains(phrase), "\(page.lastPathComponent) に「\(phrase)」が残っています")
+            }
+        }
     }
 }
