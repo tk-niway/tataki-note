@@ -4,43 +4,6 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-private final class SharerSpy: TextSharing {
-    private(set) var calls: [(text: String, anchor: SharingAnchor)] = []
-
-    func share(_ text: String, from anchor: SharingAnchor) {
-        calls.append((text, anchor))
-    }
-}
-
-@MainActor
-private final class ShareChooserSpy: ExportDestinationChoosing {
-    private(set) var requestCount = 0
-
-    func chooseDestination(initialName: String, directory: URL, completion: @escaping (URL?) -> Void) {
-        requestCount += 1
-    }
-
-    func bringToFront() {}
-}
-
-@MainActor
-private final class ShareHeldSleeper {
-    private var waiting: [CheckedContinuation<Void, Never>] = []
-
-    func sleep(_ duration: Duration) async {
-        await withCheckedContinuation { waiting.append($0) }
-    }
-
-    func releaseAll() {
-        let continuations = waiting
-        waiting = []
-        for continuation in continuations {
-            continuation.resume()
-        }
-    }
-}
-
-@MainActor
 private final class ShareFixture {
     private static let ownPid: pid_t = 4242
     private static let externalPid: pid_t = 777
@@ -48,12 +11,12 @@ private final class ShareFixture {
     let temp: TemporaryDefaults
     let settings: AppSettings
     let sharer = SharerSpy()
-    let chooser = ShareChooserSpy()
+    let chooser = ExportChooserSpy()
     let shaker = PanelShakerSpy()
     let beepSpy = BeepSpy()
     let library = DraftLibrary(store: .inMemory)
     let animator = FakePanelFrameAnimator()
-    let sleeper = ShareHeldSleeper()
+    let sleeper = HeldSleeper()
     let saveAnimation: SaveAnimationModel
     let controller: PanelController
 

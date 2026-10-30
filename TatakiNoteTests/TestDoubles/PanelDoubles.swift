@@ -29,6 +29,23 @@ final class BeepSpy {
 }
 
 @MainActor
+final class HeldSleeper {
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+
+    func sleep(_ duration: Duration) async {
+        await withCheckedContinuation { waiting.append($0) }
+    }
+
+    func releaseAll() {
+        let continuations = waiting
+        waiting = []
+        for continuation in continuations {
+            continuation.resume()
+        }
+    }
+}
+
+@MainActor
 final class FakePanelFrameAnimator: PanelFrameAnimating {
     struct Call {
         let window: NSWindow

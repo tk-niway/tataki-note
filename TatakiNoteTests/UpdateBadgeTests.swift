@@ -4,18 +4,6 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-private final class InertDriver: UpdaterDriving {
-    var onEvent: ((UpdaterEvent) -> Void)?
-    var onCanCheckChange: ((Bool) -> Void)?
-    var canCheckForUpdates = true
-    var isSessionInProgress = false
-
-    func start() {}
-    func checkInBackground() {}
-    func checkByUser() {}
-}
-
-@MainActor
 private final class CallLog {
     private(set) var entries: [String] = []
 
@@ -32,7 +20,7 @@ struct UpdateBadgeTests {
         let temporary = try TemporaryDefaults()
         defer { temporary.remove() }
         let settings = temporary.makeSettings()
-        let model = UpdateModel(settings: settings, updater: InertDriver())
+        let model = UpdateModel(settings: settings, updater: RecordingUpdater())
         let log = CallLog()
         let badge = UpdateBadgeController(updates: model, setBadgeLabel: { log.append("badge:\($0 ?? "")") })
         try await body(model, badge, log, settings)
@@ -118,7 +106,7 @@ struct UpdateBadgeTests {
         defer { temporary.remove() }
         let settings = temporary.makeSettings()
         settings.showsDockIcon = true
-        let model = UpdateModel(settings: settings, updater: InertDriver())
+        let model = UpdateModel(settings: settings, updater: RecordingUpdater())
         model.handle(.foundInBackground(version: "1.3.0"))
         let log = CallLog()
         let badge = UpdateBadgeController(updates: model, setBadgeLabel: { log.append("badge:\($0 ?? "")") })

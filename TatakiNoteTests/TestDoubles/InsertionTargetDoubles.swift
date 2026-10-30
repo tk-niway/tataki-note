@@ -110,6 +110,11 @@ final class MonitorFixture {
 }
 
 @MainActor
+final class MonitorBox {
+    var monitor: InsertionTargetMonitor?
+}
+
+@MainActor
 final class WindowFrameLocateRecorder {
     var frame: CGRect?
     private(set) var processIdentifiers: [pid_t] = []

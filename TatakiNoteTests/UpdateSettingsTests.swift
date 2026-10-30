@@ -3,34 +3,13 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-private final class SettingsFakeUpdater: UpdaterDriving {
-    var onEvent: ((UpdaterEvent) -> Void)?
-    var onCanCheckChange: ((Bool) -> Void)?
-    var canCheckForUpdates = true
-    var isSessionInProgress = false
-    private(set) var userCheckCount = 0
-
-    func start() {}
-
-    func checkInBackground() {}
-
-    func checkByUser() {
-        userCheckCount += 1
-    }
-
-    func send(_ event: UpdaterEvent) {
-        onEvent?(event)
-    }
-}
-
-@MainActor
 struct UpdateSettingsTests {
     @Test("AC-10: 新しい版が無いとき、設定の印も状態の文言も無い")
     func noBadgeWithoutPendingUpdate() throws {
         let temporary = try TemporaryDefaults()
         defer { temporary.remove() }
 
-        let model = UpdateModel(settings: temporary.makeSettings(), updater: SettingsFakeUpdater())
+        let model = UpdateModel(settings: temporary.makeSettings(), updater: RecordingUpdater())
 
         #expect(model.badgedSettingsSections.isEmpty)
         #expect(model.settingsStatusText == nil)
@@ -41,7 +20,7 @@ struct UpdateSettingsTests {
         let temporary = try TemporaryDefaults()
         defer { temporary.remove() }
 
-        let updater = SettingsFakeUpdater()
+        let updater = RecordingUpdater()
         let model = UpdateModel(settings: temporary.makeSettings(), updater: updater)
         updater.send(.foundInBackground(version: "9.9.9"))
 
@@ -54,7 +33,7 @@ struct UpdateSettingsTests {
         let temporary = try TemporaryDefaults()
         defer { temporary.remove() }
 
-        let updater = SettingsFakeUpdater()
+        let updater = RecordingUpdater()
         let model = UpdateModel(settings: temporary.makeSettings(), updater: updater)
         updater.send(.foundInBackground(version: "1.3.0"))
 
@@ -71,7 +50,7 @@ struct UpdateSettingsTests {
         let temporary = try TemporaryDefaults()
         defer { temporary.remove() }
 
-        let updater = SettingsFakeUpdater()
+        let updater = RecordingUpdater()
         let model = UpdateModel(settings: temporary.makeSettings(), updater: updater)
         updater.send(.foundInBackground(version: "1.3.0"))
         model.isAutomaticCheckEnabled = false
@@ -90,7 +69,7 @@ struct UpdateSettingsTests {
         let temporary = try TemporaryDefaults()
         defer { temporary.remove() }
 
-        let updater = SettingsFakeUpdater()
+        let updater = RecordingUpdater()
         let model = UpdateModel(settings: temporary.makeSettings(), updater: updater)
         #expect(model.canCheckForUpdates)
 
@@ -106,7 +85,7 @@ struct UpdateSettingsTests {
         let temporary = try TemporaryDefaults()
         defer { temporary.remove() }
 
-        let updater = SettingsFakeUpdater()
+        let updater = RecordingUpdater()
         updater.canCheckForUpdates = false
         let model = UpdateModel(settings: temporary.makeSettings(), updater: updater)
 
@@ -126,7 +105,7 @@ struct UpdateSettingsTests {
         let temporary = try TemporaryDefaults()
         defer { temporary.remove() }
 
-        let updater = SettingsFakeUpdater()
+        let updater = RecordingUpdater()
         let model = UpdateModel(settings: temporary.makeSettings(), updater: updater)
         model.isAutomaticCheckEnabled = false
 

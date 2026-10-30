@@ -4,53 +4,6 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-private final class RowChooserSpy: ExportDestinationChoosing {
-    private(set) var requests: [(initialName: String, directory: URL)] = []
-    private(set) var bringToFrontCount = 0
-    private var completions: [(URL?) -> Void] = []
-
-    func chooseDestination(initialName: String, directory: URL, completion: @escaping (URL?) -> Void) {
-        requests.append((initialName, directory))
-        completions.append(completion)
-    }
-
-    func bringToFront() {
-        bringToFrontCount += 1
-    }
-
-    func complete(with url: URL?) {
-        guard !completions.isEmpty else { return }
-        completions.removeFirst()(url)
-    }
-}
-
-@MainActor
-private final class RowSharerSpy: TextSharing {
-    private(set) var calls: [(text: String, anchor: SharingAnchor)] = []
-
-    func share(_ text: String, from anchor: SharingAnchor) {
-        calls.append((text, anchor))
-    }
-}
-
-@MainActor
-private final class RowHeldSleeper {
-    private var waiting: [CheckedContinuation<Void, Never>] = []
-
-    func sleep(_ duration: Duration) async {
-        await withCheckedContinuation { waiting.append($0) }
-    }
-
-    func releaseAll() {
-        let continuations = waiting
-        waiting = []
-        for continuation in continuations {
-            continuation.resume()
-        }
-    }
-}
-
-@MainActor
 private final class RowFixture {
     private static let ownPid: pid_t = 4242
     private static let externalPid: pid_t = 777
@@ -58,11 +11,11 @@ private final class RowFixture {
     let temp: TemporaryDefaults
     let settings: AppSettings
     let root: URL
-    let chooser = RowChooserSpy()
-    let sharer = RowSharerSpy()
+    let chooser = ExportChooserSpy()
+    let sharer = SharerSpy()
     let library = DraftLibrary(store: .inMemory)
     let animator = FakePanelFrameAnimator()
-    let sleeper = RowHeldSleeper()
+    let sleeper = HeldSleeper()
     let saveAnimation: SaveAnimationModel
     let controller: PanelController
 

@@ -4,17 +4,8 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-private final class HotkeyRecorder {
-    private(set) var pauseCount = 0
-    private(set) var resumeCount = 0
-
-    func pause() { pauseCount += 1 }
-    func resume() { resumeCount += 1 }
-}
-
-@MainActor
 struct NoteModeKeySettingsTests {
-    private func makeModel(settings: AppSettings, recorder: HotkeyRecorder) -> PanelKeySettingsModel {
+    private func makeModel(settings: AppSettings, recorder: FakeHotkeyController) -> PanelKeySettingsModel {
         PanelKeySettingsModel(
             settings: settings,
             hotkey: { nil },
@@ -36,7 +27,7 @@ struct NoteModeKeySettingsTests {
         defer { temp.remove() }
         let settings = temp.makeSettings()
         settings.selectCommitAndSendKey(nil)
-        let recorder = HotkeyRecorder()
+        let recorder = FakeHotkeyController()
         let model = makeModel(settings: settings, recorder: recorder)
 
         model.beginRecording(.commit)
@@ -58,7 +49,7 @@ struct NoteModeKeySettingsTests {
         defer { temp.remove() }
         let settings = temp.makeSettings()
         settings.selectCommitKey(nil)
-        let recorder = HotkeyRecorder()
+        let recorder = FakeHotkeyController()
         let model = makeModel(settings: settings, recorder: recorder)
 
         model.clear(.commitAndSend)
@@ -76,7 +67,7 @@ struct NoteModeKeySettingsTests {
         let temp = try TemporaryDefaults()
         defer { temp.remove() }
         let settings = temp.makeSettings()
-        let recorder = HotkeyRecorder()
+        let recorder = FakeHotkeyController()
         let model = makeModel(settings: settings, recorder: recorder)
 
         model.beginRecording(.commit)
@@ -95,7 +86,7 @@ struct NoteModeKeySettingsTests {
         defer { temp.remove() }
         let settings = temp.makeSettings()
         settings.selectCommitAndSendKey(nil)
-        let recorder = HotkeyRecorder()
+        let recorder = FakeHotkeyController()
         let model = makeModel(settings: settings, recorder: recorder)
 
         model.clear(.commit)

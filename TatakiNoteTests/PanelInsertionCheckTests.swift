@@ -10,11 +10,6 @@ private final class FrontApplicationBox {
 }
 
 @MainActor
-private final class MonitorBox {
-    var monitor: InsertionTargetMonitor?
-}
-
-@MainActor
 struct PanelInsertionCheckTests {
     private static let ownPid: pid_t = 4242
 

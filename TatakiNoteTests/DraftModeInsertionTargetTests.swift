@@ -12,11 +12,6 @@ private final class InsertionTargetEvents {
 }
 
 @MainActor
-private final class MonitorBox {
-    var monitor: InsertionTargetMonitor?
-}
-
-@MainActor
 private struct InsertionTargetFixture {
     static let ownPid: pid_t = 4242
     static let editor = WatcherFixture.editor

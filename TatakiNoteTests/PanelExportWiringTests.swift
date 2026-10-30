@@ -4,27 +4,6 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-private final class ExportChooserSpy: ExportDestinationChoosing {
-    private(set) var requests: [(initialName: String, directory: URL)] = []
-    private(set) var bringToFrontCount = 0
-    private var completions: [(URL?) -> Void] = []
-
-    func chooseDestination(initialName: String, directory: URL, completion: @escaping (URL?) -> Void) {
-        requests.append((initialName, directory))
-        completions.append(completion)
-    }
-
-    func bringToFront() {
-        bringToFrontCount += 1
-    }
-
-    func complete(with url: URL?) {
-        guard !completions.isEmpty else { return }
-        completions.removeFirst()(url)
-    }
-}
-
-@MainActor
 private final class FailureRecorder {
     private(set) var messages: [String] = []
     private(set) var windows: [NSWindow?] = []
@@ -39,23 +18,6 @@ private final class FailureRecorder {
     func dismissLast() {
         guard let completion = completions.popLast() else { return }
         completion()
-    }
-}
-
-@MainActor
-private final class HeldSleeper {
-    private var waiting: [CheckedContinuation<Void, Never>] = []
-
-    func sleep(_ duration: Duration) async {
-        await withCheckedContinuation { waiting.append($0) }
-    }
-
-    func releaseAll() {
-        let continuations = waiting
-        waiting = []
-        for continuation in continuations {
-            continuation.resume()
-        }
     }
 }
 

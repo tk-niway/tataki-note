@@ -74,6 +74,24 @@ struct ProjectLayoutTests {
         return false
     }
 
+    private static func conformingTypes(to protocolName: String, in source: String) -> [String] {
+        let typeKeywords = ["class", "struct", "enum", "actor"]
+        var names: [String] = []
+        for line in source.split(separator: "\n", omittingEmptySubsequences: true) {
+            let text = String(line)
+            guard let colon = text.firstIndex(of: ":") else { continue }
+            let head = text[text.startIndex..<colon]
+            let tail = text[text.index(after: colon)...]
+            guard let keyword = typeKeywords.first(where: { contains(word: $0, in: String(head)) }),
+                  contains(word: protocolName, in: String(tail))
+            else { continue }
+            let afterKeyword = head.components(separatedBy: keyword).last ?? ""
+            let name = afterKeyword.trimmingCharacters(in: .whitespaces)
+            names.append(name.isEmpty ? keyword : name)
+        }
+        return names
+    }
+
     @Test("AC-1: 単体テストのファイルの一覧は TestDoubles/ の下も含み、TestStorageRuleTests はその一覧を調べる")
     func testSourceFilesIncludeTestDoubles() throws {
         let files = try Self.testFiles()
@@ -125,5 +143,46 @@ struct ProjectLayoutTests {
             violations.isEmpty,
             "複数のファイルから使う宣言は TestDoubles/ に置いてください: \(violations.joined(separator: " / "))"
         )
+    }
+
+    @Test("AC-4: 同じ役割の偽物は TestDoubles/ に1つだけ宣言され、まとめる前の名前は残っていない")
+    func duplicateDoublesAreMerged() throws {
+        let files = try Self.testFiles().filter { $0 != Self.layoutTestsFile }
+        let sources = try Dictionary(uniqueKeysWithValues: files.map { ($0, try Self.source(of: $0)) })
+
+        for protocolName in ["ExportDestinationChoosing", "TextSharing", "UpdaterDriving"] {
+            var conformances: [String] = []
+            for file in files {
+                for name in Self.conformingTypes(to: protocolName, in: sources[file] ?? "") {
+                    conformances.append("\(file): \(name)")
+                }
+            }
+            #expect(conformances.count == 1, "\(protocolName) に準拠する偽物が1つではありません: \(conformances.joined(separator: ", "))")
+            #expect(
+                conformances.allSatisfy { $0.hasPrefix(Self.testDoublesPrefix) },
+                "\(protocolName) に準拠する偽物は TestDoubles/ に置いてください: \(conformances.joined(separator: ", "))"
+            )
+        }
+
+        for name in ["HeldSleeper", "MonitorBox", "FakeHotkeyController"] {
+            var declarations: [String] = []
+            for file in files {
+                let matches = Self.topLevelDeclarations(in: sources[file] ?? "").filter { $0.name == name }
+                declarations.append(contentsOf: matches.map { _ in file })
+            }
+            #expect(declarations.count == 1, "\(name) の宣言が1つではありません: \(declarations.joined(separator: ", "))")
+        }
+
+        let retiredNames = [
+            "RowChooserSpy", "FakeDestinationChooser", "ShareChooserSpy", "RowSharerSpy",
+            "RowHeldSleeper", "ShareHeldSleeper", "SettingsFakeUpdater", "InertDriver", "HotkeyRecorder",
+        ]
+        var leftovers: [String] = []
+        for file in files {
+            for name in retiredNames where Self.contains(word: name, in: sources[file] ?? "") {
+                leftovers.append("\(file): \(name)")
+            }
+        }
+        #expect(leftovers.isEmpty, "まとめる前の名前が残っています: \(leftovers.joined(separator: ", "))")
     }
 }
