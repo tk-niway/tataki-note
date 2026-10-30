@@ -33,15 +33,37 @@ xcodebuild build -project TatakiNote.xcodeproj -scheme TatakiNote -destination '
 
 ### 構成
 
-| 役割 | 置き場所の目安 | 書き方 |
-|---|---|---|
-| 画面 | `TatakiNote/Views/` | SwiftUI の `View`。表示と、モデルへの操作の呼び出しだけ。`body` に計算・保存を書かない |
-| 状態とロジック | `TatakiNote/Models/` | `@Observable final class`。画面の状態(読み込み中・エラー・入力エラー)もここに持つ |
-| データ | `TatakiNote/Models/` | 値型(`struct`)。保存するものは `Codable` |
-| 保存 | `TatakiNote/Storage/` | 保存先(ディレクトリ・`UserDefaults`)を**引数で受け取る**。テストで一時的な保存先に差し替えるため |
-| ショートカット | `TatakiNote/Shortcuts/` | `extension KeyboardShortcuts.Name { static let … }` はここに集める |
+アプリのソース(`TatakiNote/`)は機能ごとのフォルダに分け、1つの機能の画面・状態・保存は同じフォルダに置く。
 
-フォルダは必要になったときに作る(同期フォルダ方式なので、作れば入る)。
+| フォルダ | 機能 |
+|---|---|
+| `TatakiNote/App/` | 起動・終了の確認・Dock・メニューバーのアイコンとメニュー・アプリケーションフォルダへの移動・ログイン時に開く |
+| `TatakiNote/Panel/` | 入力パネルの窓・状態・画面(タイトルバー・帯・トースト・保存の動き・揺れ) |
+| `TatakiNote/Panel/Editor/` | パネルの入力欄(行の編集・入力欄のキー) |
+| `TatakiNote/Panel/Frame/` | パネルの大きさ・位置・出す画面・開閉の動き |
+| `TatakiNote/Drafts/` | 下書きと履歴・サイドバー・その保存・履歴の設定 |
+| `TatakiNote/Export/` | ファイルへの書き出しと共有 |
+| `TatakiNote/Keys/` | ホットキー・パネルのキー・キーの記録と表示・キーの設定のページ。`extension KeyboardShortcuts.Name { static let … }` はここに集める |
+| `TatakiNote/AutoShow/` | 自動表示(フォーカスの見張り・対象のアプリ・その設定) |
+| `TatakiNote/Insertion/` | 挿入(クリップボードの退避と戻し・貼り付け・送信のキー・Web の中身を見えるようにする) |
+| `TatakiNote/InsertionTarget/` | 挿入先(前面のアプリの見張り・挿入先の表示と枠線) |
+| `TatakiNote/Permission/` | アクセシビリティの許可と案内 |
+| `TatakiNote/Tutorial/` | チュートリアルと練習用のチャット |
+| `TatakiNote/Settings/` | 設定の窓と、複数の機能にまたがるページ(一般・パネル・情報) |
+| `TatakiNote/Updates/` | アップデートの確認と印 |
+| `TatakiNote/Storage/` | 設定の保存(`AppSettings` と保存先) |
+| `TatakiNote/Shared/` | 複数の機能で使う部品 |
+
+直下は `MyApp.swift`・`AppDelegate.swift`(と `Info.plist`・`Assets.xcassets`)だけ。1つの機能だけの設定のページはその機能のフォルダに、
+複数の機能にまたがるページは `Settings/` に置く。新しい機能はフォルダを作ってこの表に足す(同期フォルダ方式なので、作れば入る。
+表とフォルダは単体テスト `ProjectLayoutTests` が突き合わせる)。
+
+| 役割 | 書き方 |
+|---|---|
+| 画面 | SwiftUI の `View`。表示と、モデルへの操作の呼び出しだけ。`body` に計算・保存を書かない |
+| 状態とロジック | `@Observable final class`。画面の状態(読み込み中・エラー・入力エラー)もここに持つ |
+| データ | 値型(`struct`)。保存するものは `Codable` |
+| 保存 | 保存先(ディレクトリ・`UserDefaults`)を**引数で受け取る**。テストで一時的な保存先に差し替えるため |
 
 ### 書き方
 
@@ -56,6 +78,8 @@ xcodebuild build -project TatakiNote.xcodeproj -scheme TatakiNote -destination '
 
 - 単体テストは Swift Testing。`@Test("AC-1: タイトルが空なら保存できない")` のように、確かめる条件を名前に入れる
 - `@testable import TatakiNote`
+- 単体テストのファイルは `TatakiNoteTests/` の直下に置き、名前は確かめる型の名前で始める(`<型の名前>Tests.swift`、観点で分けるなら `<型の名前><観点>Tests.swift`)。スイートの名前はファイル名と同じにする
+- テスト用の偽物と補助のうち、複数のファイルから使うものは `TatakiNoteTests/TestDoubles/` に置く。同じ役割の偽物を新しく作らず、そこにあるものを使う
 - **単体テストは、Mac で共有する保存先に書かない。** 単体テストは並行に何本も流れ(複数のブランチで同時に)、
   共有の保存先を取り合うと不安定になり、残ったものは消えずにたまる
   - 設定はメモリだけの `InMemoryDefaults`(`TemporaryDefaults` が作る)を渡す。本物の `UserDefaults`
