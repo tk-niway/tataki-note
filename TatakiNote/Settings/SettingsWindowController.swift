@@ -40,6 +40,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     func show() {
         if window?.isVisible != true {
             model.prepareForOpen()
+            history.removeExpiredHistory()
         }
         launchAtLogin.refresh()
         appInfo.permissionStatus.refresh()

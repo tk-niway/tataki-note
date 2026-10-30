@@ -320,6 +320,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
         model.present(target: wasPresented ? app : start?.target)
         if !wasPresented {
+            library.pruneExpiredHistory()
             sidebarModel.discardPendingFocusRequests()
             stopMotion()
             sizing.beginOpening(defaultSize: settings.panelDefaultSize, hasText: !model.text.isEmpty)
