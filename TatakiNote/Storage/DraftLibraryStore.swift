@@ -1,13 +1,13 @@
 import Foundation
 
 /// 下書きと履歴のファイルの読み書きで起きる失敗。
-enum DraftLibraryStoreError: Error, Equatable {
+nonisolated enum DraftLibraryStoreError: Error, Equatable {
     case unreadable(fileName: String)
     case writeFailed(fileName: String)
 }
 
 /// 下書きと履歴の JSON ファイルの読み書き。`directory` が `nil` ならメモリだけで、ファイルに触れない。
-struct DraftLibraryStore {
+nonisolated struct DraftLibraryStore: Sendable {
     static let draftsFileName = "drafts.json"
     static let historyFileName = "history.json"
     static let inMemory = DraftLibraryStore(directory: nil)
@@ -100,16 +100,16 @@ struct DraftLibraryStore {
 
 // MARK: - 封筒
 
-private protocol VersionedEnvelope: Decodable {
+private nonisolated protocol VersionedEnvelope: Decodable {
     var version: Int { get }
 }
 
-private struct DraftsEnvelope: VersionedEnvelope, Codable {
+private nonisolated struct DraftsEnvelope: VersionedEnvelope, Codable {
     var version: Int
     var drafts: [SavedDraft]
 }
 
-private struct HistoryEnvelope: VersionedEnvelope, Codable {
+private nonisolated struct HistoryEnvelope: VersionedEnvelope, Codable {
     var version: Int
     var history: [HistoryEntry]
 }

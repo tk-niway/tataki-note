@@ -56,10 +56,32 @@ extension FocusedTextInputState {
         }
         return state
     }
+
+    /// パスワード欄(subrole が AXSecureTextField)か。
+    static func isSecureTextField(_ lookup: FocusedElementLookup) -> Bool {
+        if case .element(_, let subrole, _) = lookup {
+            return subrole == secureTextFieldSubrole
+        }
+        return false
+    }
+}
+
+/// 挿入の前に調べた、フォーカスのある要素。
+struct FocusedInputInspection: Equatable {
+    let state: FocusedTextInputState
+    let isSecureTextField: Bool
 }
 
 protocol FocusedTextInputInspecting {
     func focusedTextInputState(in target: InsertionTarget) -> FocusedTextInputState
+    /// 入力欄かと、パスワード欄かを1回の問い合わせで調べる。
+    func inspectFocusedInput(in target: InsertionTarget) -> FocusedInputInspection
+}
+
+extension FocusedTextInputInspecting {
+    func inspectFocusedInput(in target: InsertionTarget) -> FocusedInputInspection {
+        FocusedInputInspection(state: focusedTextInputState(in: target), isSecureTextField: false)
+    }
 }
 
 /// フォーカスのある要素を1回の問い合わせでまとめて取った結果。
@@ -96,6 +118,14 @@ struct AXFocusedTextInputInspector: FocusedTextInputInspecting, FocusedElementPr
         FocusedTextInputState.classifyForInsertion(
             probeFocusedElement(in: target, readsFrame: false).lookup,
             bundleIdentifier: target.bundleIdentifier
+        )
+    }
+
+    func inspectFocusedInput(in target: InsertionTarget) -> FocusedInputInspection {
+        let lookup = probeFocusedElement(in: target, readsFrame: false).lookup
+        return FocusedInputInspection(
+            state: FocusedTextInputState.classifyForInsertion(lookup, bundleIdentifier: target.bundleIdentifier),
+            isSecureTextField: FocusedTextInputState.isSecureTextField(lookup)
         )
     }
 

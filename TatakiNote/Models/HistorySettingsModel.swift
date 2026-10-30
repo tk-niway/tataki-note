@@ -16,6 +16,12 @@ import Observation
         let removedCount: Int
     }
 
+    /// 期間を短くする確認で待っている期間と、それで消える件数。
+    struct PendingHistoryRetention: Equatable {
+        let retention: HistoryRetention
+        let removedCount: Int
+    }
+
     @ObservationIgnored private let library: DraftLibrary
     @ObservationIgnored private let settings: AppSettings
 
@@ -27,6 +33,8 @@ import Observation
     private(set) var clearedSequence = 0
     /// 上限を縮める確認中なら、その内容。
     private(set) var pendingLimit: PendingHistoryLimit?
+    /// 期間を短くする確認中なら、その内容。
+    private(set) var pendingRetention: PendingHistoryRetention?
     /// 上限の入力欄を今の上限の表示に戻すたびに増える数。
     private(set) var limitFieldResetCount = 0
 
@@ -38,6 +46,11 @@ import Observation
     /// 今の履歴の上限。
     var historyLimit: Int {
         library.historyLimit
+    }
+
+    /// 今の履歴を残す期間。
+    var historyRetention: HistoryRetention {
+        library.historyRetention
     }
 
     /// 今の段階。削除の後でも履歴が1件以上になっていれば待ちになる。
@@ -64,11 +77,13 @@ import Observation
     func requestClear() {
         guard isClearAvailable else { return }
         pendingLimit = nil
+        pendingRetention = nil
         storedPhase = .confirming
     }
 
     /// 上限を変える。消える履歴が無ければすぐ変え、あれば確認に移る。
     func requestHistoryLimit(_ value: Int) {
+        pendingRetention = nil
         let limit = HistoryLimit.clamped(value)
         guard limit != library.historyLimit else {
             pendingLimit = nil
@@ -104,6 +119,47 @@ import Observation
         library.setHistoryLimit(limit)
     }
 
+    /// 期間を変える。消える履歴が無ければすぐ変え、あれば確認に移る。
+    func requestHistoryRetention(_ retention: HistoryRetention) {
+        pendingLimit = nil
+        if storedPhase == .confirming {
+            storedPhase = .idle
+        }
+        guard retention != library.historyRetention else {
+            pendingRetention = nil
+            return
+        }
+        let removedCount = library.expiredHistoryCount(for: retention)
+        guard removedCount > 0 else {
+            pendingRetention = nil
+            applyHistoryRetention(retention)
+            return
+        }
+        pendingRetention = PendingHistoryRetention(retention: retention, removedCount: removedCount)
+    }
+
+    /// 確認中なら、その期間に変えて古い履歴を消す。
+    func confirmHistoryRetention() {
+        guard let pendingRetention else { return }
+        applyHistoryRetention(pendingRetention.retention)
+        self.pendingRetention = nil
+    }
+
+    /// 確認中なら、期間を変えずに確認を閉じる。
+    func cancelHistoryRetention() {
+        pendingRetention = nil
+    }
+
+    /// 期間を過ぎた履歴を消す。
+    func removeExpiredHistory() {
+        library.pruneExpiredHistory()
+    }
+
+    private func applyHistoryRetention(_ retention: HistoryRetention) {
+        settings.historyRetention = retention
+        library.setHistoryRetention(retention)
+    }
+
     /// 確認中なら、履歴をすべて消して削除の後に移る。
     func confirmClear() {
         guard isConfirming else { return }
@@ -123,6 +179,7 @@ import Observation
     func resetPhase() {
         storedPhase = .idle
         pendingLimit = nil
+        pendingRetention = nil
     }
 
     /// 削除する前の件数から、0 までの件数の減り方(最初の件数は含めない)を返す。

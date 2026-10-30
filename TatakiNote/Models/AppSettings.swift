@@ -177,6 +177,11 @@ import Observation
         }
     }
 
+    /// 履歴を残す期間。
+    var historyRetention: HistoryRetention {
+        didSet { store.saveHistoryRetention(historyRetention) }
+    }
+
     /// 新しい書きかけを始めるモード。
     var newDraftMode: DraftMode {
         didSet { store.saveNewDraftMode(newDraftMode) }
@@ -240,6 +245,7 @@ import Observation
         self.sidebarTab = store.loadSidebarTab()
         self.lastExportDirectoryPath = store.loadLastExportDirectoryPath()
         self.historyLimit = store.loadHistoryLimit()
+        self.historyRetention = store.loadHistoryRetention()
         self.checksForUpdatesAutomatically = store.loadChecksForUpdatesAutomatically()
         self.lastUpdateCheckDate = store.loadLastUpdateCheckDate()
         self.suppressesMoveToApplicationsPrompt = store.loadSuppressesMoveToApplicationsPrompt()

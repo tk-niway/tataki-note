@@ -26,6 +26,7 @@ struct GeneralSettingsView: View {
                 SettingsCard {
                     HistoryRow(history: history)
                     HistoryLimitRow(history: history)
+                    HistoryRetentionRow(history: history)
                 }
             }
         }
@@ -320,6 +321,88 @@ private struct HistoryLimitRow: View {
         Binding(
             get: { history.historyLimit },
             set: { history.requestHistoryLimit($0) }
+        )
+    }
+
+    private var popAnimation: Animation {
+        .spring(duration: 0.3, bounce: 0.4)
+    }
+
+    private func animated(_ change: () -> Void) {
+        withAnimation(reduceMotion ? nil : popAnimation, change)
+    }
+}
+
+private struct HistoryRetentionRow: View {
+    let history: HistorySettingsModel
+
+    @Environment(\.isAppAnimationReduced) private var reduceMotion
+
+    var body: some View {
+        SettingsRow {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("履歴を残す期間")
+                        .font(.system(size: 13, weight: .medium))
+                    description
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                trailing
+            }
+            .animation(reduceMotion ? nil : popAnimation, value: history.pendingRetention)
+        }
+    }
+
+    @ViewBuilder
+    private var description: some View {
+        if let pending = history.pendingRetention {
+            let warning = SettingsHelpText.historyRetentionWarning(
+                retention: pending.retention,
+                removedCount: pending.removedCount
+            )
+            SettingDescription(warning)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(warning)
+                .accessibilityIdentifier("settings.historyRetentionWarning")
+        } else {
+            SettingDescription(SettingsHelpText.historyRetention)
+        }
+    }
+
+    @ViewBuilder
+    private var trailing: some View {
+        if history.pendingRetention != nil {
+            HStack(spacing: 6) {
+                Button("キャンセル") {
+                    animated { history.cancelHistoryRetention() }
+                }
+                .keyboardShortcut(.cancelAction)
+                .accessibilityIdentifier("settings.historyRetentionCancel")
+                Button("変更する") {
+                    animated { history.confirmHistoryRetention() }
+                }
+                .buttonStyle(DestructiveButtonStyle())
+                .keyboardShortcut(.defaultAction)
+                .accessibilityIdentifier("settings.historyRetentionConfirm")
+            }
+            .transition(.scale.combined(with: .opacity))
+        } else {
+            Picker("履歴を残す期間", selection: retentionBinding) {
+                ForEach(HistoryRetention.allCases, id: \.self) { retention in
+                    Text(retention.displayName).tag(retention)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            .accessibilityIdentifier("settings.historyRetentionPicker")
+        }
+    }
+
+    private var retentionBinding: Binding<HistoryRetention> {
+        Binding(
+            get: { history.historyRetention },
+            set: { history.requestHistoryRetention($0) }
         )
     }
 

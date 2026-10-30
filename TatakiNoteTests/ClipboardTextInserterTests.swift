@@ -51,17 +51,23 @@ final class PasteShortcutPosterStub: PasteShortcutPosting {
 @MainActor
 final class FocusInspectorStub: FocusedTextInputInspecting {
     var state: FocusedTextInputState
+    var isSecureTextField: Bool
     var onInspect: (() -> Void)?
     private(set) var targets: [InsertionTarget] = []
 
-    init(state: FocusedTextInputState) {
+    init(state: FocusedTextInputState, isSecureTextField: Bool = false) {
         self.state = state
+        self.isSecureTextField = isSecureTextField
     }
 
     func focusedTextInputState(in target: InsertionTarget) -> FocusedTextInputState {
         targets.append(target)
         onInspect?()
         return state
+    }
+
+    func inspectFocusedInput(in target: InsertionTarget) -> FocusedInputInspection {
+        FocusedInputInspection(state: focusedTextInputState(in: target), isSecureTextField: isSecureTextField)
     }
 }
 
@@ -385,6 +391,93 @@ struct ClipboardTextInserterTests {
         #expect(poster.records.last?.types == markerTypes)
         #expect(poster.records.last?.itemCount == 1)
         #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
+    }
+
+    // MARK: - パスワード欄
+
+    @Test("AC-1, AC-2: パスワード欄への挿入は .insertedIntoSecureField を返し、貼り付け・送信のキーとクリップボードの復元は通常どおり", arguments: [false, true])
+    func insertsIntoSecureFieldLikeNormalInsertion(shouldSend: Bool) async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        PasteboardFixture.writeRichContents(to: pasteboard)
+        let original = PasteboardSnapshot.capture(from: pasteboard)
+        let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
+        let submitSender = SubmitKeySenderStub(pasteboard: pasteboard)
+        let inserter = makeInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: true),
+            poster: poster,
+            focusInspector: FocusInspectorStub(state: .textInput, isSecureTextField: true),
+            submitSender: submitSender
+        )
+
+        let result = await inserter.insert("secret", into: target, shouldSendAfterInsert: shouldSend)
+
+        #expect(result == .insertedIntoSecureField)
+        #expect(poster.records.count == 1)
+        #expect(poster.records.first?.types == markerTypes)
+        #expect(poster.records.first?.string == "secret")
+        #expect(submitSender.records.count == (shouldSend ? 1 : 0))
+        #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
+    }
+
+    @Test("AC-3: パスワード欄でない入力欄への挿入は .inserted を返す")
+    func insertsIntoOrdinaryInputAsInserted() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        let inserter = makeInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: true),
+            poster: PasteShortcutPosterStub(pasteboard: pasteboard),
+            focusInspector: FocusInspectorStub(state: .textInput, isSecureTextField: false)
+        )
+
+        let result = await inserter.insert("hello", into: target, shouldSendAfterInsert: false)
+
+        #expect(result == .inserted)
+    }
+
+    @Test("AC-3: パスワード欄でも、入力欄と判定されなければ貼り付けない")
+    func secureFlagDoesNotOverrideNoTextInput() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
+        let inserter = makeInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: true),
+            poster: poster,
+            focusInspector: FocusInspectorStub(state: .notTextInput, isSecureTextField: true)
+        )
+
+        let result = await inserter.insert("hello", into: target, shouldSendAfterInsert: false)
+
+        #expect(result == .noTextInput)
+        #expect(poster.records.isEmpty)
+    }
+
+    @Test("AC-3: 自分のアプリへの挿入は調べず、.inserted を返す")
+    func ownTargetIsNeverSecure() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        let own = InsertionTarget(processIdentifier: 555, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
+        let focusInspector = FocusInspectorStub(state: .textInput, isSecureTextField: true)
+        let inserter = ClipboardTextInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: true),
+            poster: PasteShortcutPosterStub(pasteboard: pasteboard),
+            focusInspector: focusInspector,
+            submitSender: SubmitKeySenderStub(pasteboard: pasteboard),
+            submitDelay: .zero,
+            settleDelay: .zero,
+            restoreDelay: .zero,
+            ownProcessIdentifier: 555,
+            frontmostApp: FrontmostApplicationStub { own.processIdentifier }
+        )
+
+        let result = await inserter.insert("practice", into: own, shouldSendAfterInsert: false)
+
+        #expect(result == .inserted)
+        #expect(focusInspector.targets.isEmpty)
     }
 
     // MARK: - 確定+送信

@@ -2,6 +2,7 @@ import AppKit
 
 enum InsertionResult: Equatable {
     case inserted
+    case insertedIntoSecureField
     case targetNotActivated
     case noTextInput
 }
@@ -255,7 +256,8 @@ final class ClipboardTextInserter: TextInserting {
         try? await Task.sleep(for: settleDelay)
 
         let isOwnTarget = target.isOwnApp(ownProcessIdentifier)
-        if !isOwnTarget, focusInspector.focusedTextInputState(in: target) != .textInput {
+        let inspection = isOwnTarget ? nil : focusInspector.inspectFocusedInput(in: target)
+        if let inspection, inspection.state != .textInput {
             _ = await capturing.value
             return .noTextInput
         }
@@ -289,6 +291,6 @@ final class ClipboardTextInserter: TextInserting {
         try? await Task.sleep(for: restoreDelay)
 
         _ = await snapshotter.restore(captured.snapshot, ifChangeCountIs: changeCountAfterWrite)
-        return .inserted
+        return inspection?.isSecureTextField == true ? .insertedIntoSecureField : .inserted
     }
 }

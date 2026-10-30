@@ -27,6 +27,7 @@ struct SettingsStore {
         static let insertionTargetOutlineShown = "insertionTargetOutlineShown"
         static let newDraftMode = "newDraftMode"
         static let historyLimit = "historyLimit"
+        static let historyRetention = "historyRetention"
         static let showsDockIcon = "showsDockIcon"
         static let confirmsQuit = "confirmsQuit"
         static let lastExportDirectory = "lastExportDirectory"
@@ -325,6 +326,17 @@ struct SettingsStore {
 
     func saveHistoryLimit(_ limit: Int) {
         defaults.set(HistoryLimit.clamped(limit), forKey: Key.historyLimit)
+    }
+
+    // MARK: - 履歴を残す期間
+
+    /// 履歴を残す期間を読む。無い・文字列でない・知らない値は無期限。
+    func loadHistoryRetention() -> HistoryRetention {
+        loadStringEnum(HistoryRetention.self, forKey: Key.historyRetention) ?? .defaultValue
+    }
+
+    func saveHistoryRetention(_ retention: HistoryRetention) {
+        saveStringEnum(retention, forKey: Key.historyRetention)
     }
 
     // MARK: - パネルの既定の大きさ
