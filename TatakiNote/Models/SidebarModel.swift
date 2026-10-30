@@ -81,16 +81,29 @@ struct SidebarRow: Equatable, Identifiable {
     @ObservationIgnored private let session: DraftSession
     @ObservationIgnored private let dateFormatter: (Date) -> String
 
+    private struct RowsKey: Equatable {
+        let tab: SidebarTab
+        let query: String
+        let revision: Int
+        let document: PanelDocument
+    }
+
+    @ObservationIgnored private var cachedRowsKey: RowsKey?
+    @ObservationIgnored private var cachedRows: [SidebarRow] = []
+    @ObservationIgnored private var listingCache: SidebarListingCache
+
     init(
         settings: AppSettings,
         library: DraftLibrary,
         session: DraftSession,
-        dateFormatter: @escaping (Date) -> String = SidebarModel.defaultDateText
+        dateFormatter: @escaping (Date) -> String = SidebarModel.defaultDateText,
+        listingCache: SidebarListingCache = SidebarListingCache()
     ) {
         self.settings = settings
         self.library = library
         self.session = session
         self.dateFormatter = dateFormatter
+        self.listingCache = listingCache
     }
 
     /// 今年なら月日・時分、それ以外は年も付けた文字。
@@ -128,37 +141,19 @@ struct SidebarRow: Equatable, Identifiable {
 
     /// 表示中の側を `query` で絞った行。
     var rows: [SidebarRow] {
-        let needle = trimmedQuery
-        switch tab {
-        case .drafts:
-            return library.drafts
-                .filter { matches($0.text, needle) }
-                .map { draft in
-                    let firstLine = DraftListing.firstLine(of: draft.text)
-                    return SidebarRow(
-                        id: draft.id,
-                        kind: .draft,
-                        title: firstLine ?? Self.untitledDraftTitle,
-                        detail: dateFormatter(draft.updatedAt),
-                        isShownInPanel: session.document == .savedDraft(draft.id),
-                        isUntitled: firstLine == nil,
-                        preview: DraftListing.preview(of: draft.text)
-                    )
-                }
-        case .history:
-            return library.history
-                .filter { matches($0.text, needle) }
-                .map { entry in
-                    SidebarRow(
-                        id: entry.id,
-                        kind: .history,
-                        title: DraftListing.firstLine(of: entry.text) ?? "",
-                        detail: historyDetail(of: entry),
-                        isShownInPanel: session.document == .fromHistory(entry.id),
-                        preview: DraftListing.preview(of: entry.text)
-                    )
-                }
-        }
+        let currentTab = tab
+        let key = RowsKey(
+            tab: currentTab,
+            query: trimmedQuery,
+            revision: currentTab == .drafts ? library.draftsRevision : library.historyRevision,
+            document: session.document
+        )
+        if key == cachedRowsKey { return cachedRows }
+        let built = makeRows(for: key)
+        listingCache.keepOnly(Set(library.drafts.map(\.id)).union(library.history.map(\.id)))
+        cachedRowsKey = key
+        cachedRows = built
+        return built
     }
 
     /// ハイライトしている行。パネルに出ている行。無ければ、検索語があるときだけ先頭の行。
@@ -372,6 +367,41 @@ struct SidebarRow: Equatable, Identifiable {
 
     private var trimmedQuery: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func makeRows(for key: RowsKey) -> [SidebarRow] {
+        let needle = key.query
+        switch key.tab {
+        case .drafts:
+            return library.drafts
+                .filter { matches($0.text, needle) }
+                .map { draft in
+                    let listing = listingCache.listing(id: draft.id, text: draft.text)
+                    return SidebarRow(
+                        id: draft.id,
+                        kind: .draft,
+                        title: listing.firstLine ?? Self.untitledDraftTitle,
+                        detail: dateFormatter(draft.updatedAt),
+                        isShownInPanel: key.document == .savedDraft(draft.id),
+                        isUntitled: listing.firstLine == nil,
+                        preview: listing.preview
+                    )
+                }
+        case .history:
+            return library.history
+                .filter { matches($0.text, needle) }
+                .map { entry in
+                    let listing = listingCache.listing(id: entry.id, text: entry.text)
+                    return SidebarRow(
+                        id: entry.id,
+                        kind: .history,
+                        title: listing.firstLine ?? "",
+                        detail: historyDetail(of: entry),
+                        isShownInPanel: key.document == .fromHistory(entry.id),
+                        preview: listing.preview
+                    )
+                }
+        }
     }
 
     private func historyDetail(of entry: HistoryEntry) -> String {

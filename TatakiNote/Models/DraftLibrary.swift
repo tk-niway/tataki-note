@@ -100,8 +100,16 @@ enum DraftLibraryProblem: Equatable, Hashable {
 @Observable final class DraftLibrary {
     private(set) var historyLimit: Int
     private(set) var historyRetention: HistoryRetention
-    private(set) var drafts: [SavedDraft] = []
-    private(set) var history: [HistoryEntry] = []
+    private(set) var drafts: [SavedDraft] = [] {
+        didSet { draftsRevision += 1 }
+    }
+    private(set) var history: [HistoryEntry] = [] {
+        didSet { historyRevision += 1 }
+    }
+    /// `drafts` が変わるたびに増える数。
+    private(set) var draftsRevision = 0
+    /// `history` が変わるたびに増える数。
+    private(set) var historyRevision = 0
     private(set) var problems: Set<DraftLibraryProblem> = []
 
     private let store: DraftLibraryStore
