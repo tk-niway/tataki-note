@@ -18,6 +18,12 @@ struct ProjectLayoutTests {
         "SettingsDocsTests", "TestStorageRuleTests", "ProjectLayoutTests",
         "PublicCheckSecretsTests", "ReleaseAppcastSigningTests", "ReleaseHardeningTests",
     ]
+    private static let appRootFiles: Set<String> = ["MyApp.swift", "AppDelegate.swift"]
+    private static let featureFolders: Set<String> = [
+        "App", "AutoShow", "Drafts", "Export", "Insertion", "InsertionTarget", "Keys",
+        "Panel", "Panel/Editor", "Panel/Frame", "Permission", "Settings", "Shared",
+        "Storage", "Tutorial", "Updates",
+    ]
 
     private struct TopLevelDeclaration {
         let keyword: String
@@ -258,5 +264,52 @@ struct ProjectLayoutTests {
             violations.isEmpty,
             "アプリの型かソースのファイルの名前で始まる名前にしてください: \(violations.joined(separator: ", "))"
         )
+    }
+
+    @Test("AC-8: アプリのソースの直下は MyApp.swift と AppDelegate.swift だけで、他は決めた機能のフォルダにあり、どのフォルダも空でない")
+    func appSourcesLiveInFeatureFolders() throws {
+        let files = try TestSourceFiles.swiftFiles(in: TestSourceFiles.appSourceDirectory)
+        #expect(!files.isEmpty, "アプリのソースがありません")
+
+        var rootFiles: Set<String> = []
+        var outsideFolders: [String] = []
+        var filledFolders: Set<String> = []
+        for file in files {
+            guard let slash = file.lastIndex(of: "/") else {
+                rootFiles.insert(file)
+                continue
+            }
+            let folder = String(file[file.startIndex..<slash])
+            if Self.featureFolders.contains(folder) {
+                filledFolders.insert(folder)
+            } else {
+                outsideFolders.append(file)
+            }
+        }
+
+        #expect(rootFiles == Self.appRootFiles, "直下の Swift のファイルが MyApp.swift・AppDelegate.swift だけではありません: \(rootFiles.sorted().joined(separator: ", "))")
+        #expect(outsideFolders.isEmpty, "決めたフォルダの外にあるファイルがあります: \(outsideFolders.joined(separator: ", "))")
+        let emptyFolders = Self.featureFolders.subtracting(filledFolders)
+        #expect(emptyFolders.isEmpty, "Swift のファイルが無いフォルダがあります: \(emptyFolders.sorted().joined(separator: ", "))")
+    }
+
+    @Test("AC-9: CLAUDE.md の「構成」の表のフォルダは、アプリのソースの機能のフォルダと同じで、Models/・Views/ は載っていない")
+    func claudeMdListsTheFeatureFolders() throws {
+        let text = try Self.source(at: TestSourceFiles.repositoryRoot.appendingPathComponent("CLAUDE.md"))
+
+        let rowPrefix = "| `TatakiNote/"
+        var listed: Set<String> = []
+        for line in text.split(separator: "\n", omittingEmptySubsequences: true) where line.hasPrefix(rowPrefix) {
+            let rest = line.dropFirst(rowPrefix.count)
+            guard let end = rest.range(of: "/`") else { continue }
+            listed.insert(String(rest[rest.startIndex..<end.lowerBound]))
+        }
+
+        #expect(
+            listed == Self.featureFolders,
+            "「構成」の表のフォルダが機能のフォルダと違います。表にだけ: \(listed.subtracting(Self.featureFolders).sorted().joined(separator: ", ")) / 表に無い: \(Self.featureFolders.subtracting(listed).sorted().joined(separator: ", "))"
+        )
+        #expect(!text.contains("TatakiNote/Models/"), "CLAUDE.md に TatakiNote/Models/ が残っています")
+        #expect(!text.contains("TatakiNote/Views/"), "CLAUDE.md に TatakiNote/Views/ が残っています")
     }
 }
