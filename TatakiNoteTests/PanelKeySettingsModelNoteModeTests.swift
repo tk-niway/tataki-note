@@ -4,7 +4,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct NoteModeKeySettingsTests {
+struct PanelKeySettingsModelNoteModeTests {
     private func makeModel(settings: AppSettings, recorder: FakeHotkeyController) -> PanelKeySettingsModel {
         PanelKeySettingsModel(
             settings: settings,

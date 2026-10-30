@@ -12,7 +12,7 @@ enum SidebarOpeningWay: CaseIterable, Sendable {
 }
 
 @MainActor
-struct SidebarKeyNavigationTests {
+struct SidebarModelKeyNavigationTests {
     private static let dateText = "10月6日 14:32"
 
     @MainActor
@@ -33,7 +33,7 @@ struct SidebarKeyNavigationTests {
                 settings: settings,
                 library: library,
                 session: session,
-                dateFormatter: { _ in SidebarKeyNavigationTests.dateText }
+                dateFormatter: { _ in SidebarModelKeyNavigationTests.dateText }
             )
         }
 

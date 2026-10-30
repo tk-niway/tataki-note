@@ -4,7 +4,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct PermissionGuideFirstLaunchTests {
+struct PermissionGuideModelFirstLaunchTests {
     private func makeModel(isTrusted: Bool) -> (PermissionGuideModel, PermissionStub) {
         let permission = PermissionStub(isTrusted: isTrusted)
         return (PermissionGuideModel(permission: permission, opener: SettingsOpenerStub()), permission)

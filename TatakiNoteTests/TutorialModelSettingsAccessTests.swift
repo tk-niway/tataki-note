@@ -4,7 +4,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct TutorialSettingsAccessTests {
+struct TutorialModelSettingsAccessTests {
     private static let ownPid: pid_t = 4242
     private let hotkey = PanelShortcut(keyCode: 49, modifiers: [.option, .shift])
 

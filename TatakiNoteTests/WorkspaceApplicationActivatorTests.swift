@@ -19,7 +19,7 @@ final class ActivationRequesterStub: ApplicationActivationRequesting {
 }
 
 @MainActor
-struct ApplicationActivatorTests {
+struct WorkspaceApplicationActivatorTests {
     private let currentApp = NSRunningApplication.current
     private let unrelatedProcessIdentifier: pid_t = 999_999
 

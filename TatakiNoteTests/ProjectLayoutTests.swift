@@ -10,6 +10,14 @@ struct ProjectLayoutTests {
     private static let modifierKeywords: Set<String> = [
         "nonisolated", "final", "private", "fileprivate", "public", "internal",
     ]
+    private static let typeKeywords: Set<String> = [
+        "class", "struct", "enum", "actor", "protocol",
+    ]
+    private static let documentAndRuleTests: Set<String> = [
+        "UserDocsTests", "UserDocsWordingTests", "DistributionDocsTests",
+        "SettingsDocsTests", "TestStorageRuleTests", "ProjectLayoutTests",
+        "PublicCheckSecretsTests", "ReleaseAppcastSigningTests", "ReleaseHardeningTests",
+    ]
 
     private struct TopLevelDeclaration {
         let keyword: String
@@ -27,6 +35,17 @@ struct ProjectLayoutTests {
             try? String(contentsOf: url, encoding: .utf8),
             "\(url.path) を読めません"
         )
+    }
+
+    private static func source(at url: URL) throws -> String {
+        try #require(
+            try? String(contentsOf: url, encoding: .utf8),
+            "\(url.path) を読めません"
+        )
+    }
+
+    private static func fileStem(_ file: String) -> String {
+        URL(fileURLWithPath: file).deletingPathExtension().lastPathComponent
     }
 
     private static func isIdentifierCharacter(_ character: Character) -> Bool {
@@ -184,5 +203,60 @@ struct ProjectLayoutTests {
             }
         }
         #expect(leftovers.isEmpty, "まとめる前の名前が残っています: \(leftovers.joined(separator: ", "))")
+    }
+
+    @Test("AC-5: 単体テストのファイルは、ファイル名と同じ名前のスイートを1つだけ宣言している")
+    func everyTestFileDeclaresOneSuiteNamedLikeTheFile() throws {
+        let files = try Self.testFiles().filter { !$0.hasPrefix(Self.testDoublesPrefix) }
+        #expect(!files.isEmpty, "単体テストのファイルがありません")
+
+        var violations: [String] = []
+        for file in files {
+            let suites = Self.topLevelDeclarations(in: try Self.source(of: file))
+                .filter { Self.typeKeywords.contains($0.keyword) && $0.name.hasSuffix("Tests") }
+                .map(\.name)
+            if suites != [Self.fileStem(file)] {
+                violations.append("\(file): \(suites.joined(separator: ", "))")
+            }
+        }
+        #expect(
+            violations.isEmpty,
+            "ファイル名と同じ名前のスイートを1つだけ宣言してください: \(violations.joined(separator: " / "))"
+        )
+    }
+
+    @Test("AC-6: 単体テストのファイル名は、資料・規則・スクリプトを確かめるものを除いて、アプリの型かソースのファイルの名前で始まる")
+    func testFileNamesStartWithAppTypeOrSourceFileName() throws {
+        let appDirectory = TestSourceFiles.appSourceDirectory
+        var names: Set<String> = []
+        for file in try TestSourceFiles.swiftFiles(in: appDirectory) {
+            names.insert(Self.fileStem(file))
+            let source = try Self.source(at: appDirectory.appendingPathComponent(file))
+            for declaration in Self.topLevelDeclarations(in: source) where Self.typeKeywords.contains(declaration.keyword) {
+                names.insert(declaration.name)
+            }
+        }
+        #expect(!names.isEmpty, "アプリのソースの型が見つかりません")
+
+        let files = try Self.testFiles().filter { !$0.hasPrefix(Self.testDoublesPrefix) }
+        var violations: [String] = []
+        for file in files {
+            let stem = Self.fileStem(file)
+            if Self.documentAndRuleTests.contains(stem) { continue }
+            let base = stem.hasSuffix("Tests") ? String(stem.dropLast("Tests".count)) : stem
+            let matches = names.contains { name in
+                guard base.hasPrefix(name) else { return false }
+                guard base.count > name.count else { return true }
+                let next = base[base.index(base.startIndex, offsetBy: name.count)]
+                return next.isUppercase
+            }
+            if !matches {
+                violations.append(file)
+            }
+        }
+        #expect(
+            violations.isEmpty,
+            "アプリの型かソースのファイルの名前で始まる名前にしてください: \(violations.joined(separator: ", "))"
+        )
     }
 }

@@ -2,7 +2,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct AutoShowLaunchContextTests {
+struct AppLaunchContextAutoShowTests {
     @Test("AC-14: 単体テストのホストとして起動したときは、フォーカスの見張りを始めない")
     func unitTestHostDoesNotWatchFocusedElement() {
         let unitTestHosts: [[String: String]] = [

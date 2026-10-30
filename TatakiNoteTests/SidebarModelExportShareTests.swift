@@ -104,7 +104,7 @@ private final class RowFixture {
 }
 
 @MainActor
-struct SidebarExportShareTests {
+struct SidebarModelExportShareTests {
     @Test("AC-19: 下書きの行の「ファイルに書き出す」は、行の文章で保存ダイアログを名前「untitled」で開くよう頼む。パネルの文章・開いている下書き・選択は変わらない")
     func exportingDraftRowOpensSavePanelWithRowText() async throws {
         let fixture = try RowFixture()

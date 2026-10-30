@@ -13,7 +13,7 @@ private final class CallLog {
 }
 
 @MainActor
-struct UpdateBadgeTests {
+struct UpdateBadgeControllerTests {
     private func withBadge(
         _ body: (UpdateModel, UpdateBadgeController, CallLog, AppSettings) async throws -> Void
     ) async throws {

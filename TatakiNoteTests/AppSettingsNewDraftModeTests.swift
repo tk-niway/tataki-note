@@ -3,7 +3,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct NewDraftModeSettingTests {
+struct AppSettingsNewDraftModeTests {
     private func snapshot(_ defaults: InMemoryDefaults, keys: [String]) -> [String: String] {
         Dictionary(uniqueKeysWithValues: keys.map { ($0, String(describing: defaults.object(forKey: $0))) })
     }

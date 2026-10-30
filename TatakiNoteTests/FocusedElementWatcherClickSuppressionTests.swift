@@ -4,7 +4,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct AutoShowClickSuppressionTests {
+struct FocusedElementWatcherClickSuppressionTests {
     private let fieldE = AXUIElementCreateApplication(pid_t.max)
     private let fieldF = AXUIElementCreateApplication(4_242)
     private let otherElement = AXUIElementCreateSystemWide()

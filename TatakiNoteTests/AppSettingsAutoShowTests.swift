@@ -3,7 +3,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct AutoShowSettingsTests {
+struct AppSettingsAutoShowTests {
     private let chrome = AutoShowApp(bundleIdentifier: "com.google.Chrome", name: "Google Chrome")
     private let slack = AutoShowApp(bundleIdentifier: "com.tinyspeck.slackmacgap", name: "Slack")
     private let vscode = AutoShowApp(bundleIdentifier: "com.microsoft.VSCode", name: "Visual Studio Code")

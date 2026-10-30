@@ -4,7 +4,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct AppInfoTutorialTests {
+struct AppInfoModelTutorialTests {
     private func makeModel(onOpenTutorial: @escaping () -> Void) -> AppInfoModel {
         AppInfoModel(
             infoDictionary: [:],

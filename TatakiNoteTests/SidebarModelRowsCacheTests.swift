@@ -3,7 +3,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct SidebarRowsCacheTests {
+struct SidebarModelRowsCacheTests {
     private static let dateText = "10月6日 14:32"
 
     private final class Counter {
@@ -31,7 +31,7 @@ struct SidebarRowsCacheTests {
                 session: session,
                 dateFormatter: { _ in
                     dateCount.value += 1
-                    return SidebarRowsCacheTests.dateText
+                    return SidebarModelRowsCacheTests.dateText
                 },
                 listingCache: SidebarListingCache(makeListing: { text in
                     listingCount.value += 1

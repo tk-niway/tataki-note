@@ -4,9 +4,9 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct TutorialInsertModeTests {
+struct TutorialModelInsertModeTests {
     private static let ownPid: pid_t = 4242
-    private let own = InsertionTarget(processIdentifier: TutorialInsertModeTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
+    private let own = InsertionTarget(processIdentifier: TutorialModelInsertModeTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
     private let other = InsertionTarget(processIdentifier: pid_t.max - 1, bundleIdentifier: "com.example.Other", localizedName: "Other")
     private let hotkey = PanelShortcut(keyCode: 49, modifiers: [.option, .shift])
 
@@ -40,14 +40,14 @@ struct TutorialInsertModeTests {
             session = DraftSession(
                 panel: panelModel,
                 library: DraftLibrary(store: .inMemory),
-                ownProcessIdentifier: TutorialInsertModeTests.ownPid,
+                ownProcessIdentifier: TutorialModelInsertModeTests.ownPid,
                 newDraftMode: { settings.newDraftMode }
             )
             controller = TutorialWindowController(
                 settings: settings,
                 panelModel: panelModel,
                 draftSession: session,
-                ownProcessIdentifier: TutorialInsertModeTests.ownPid,
+                ownProcessIdentifier: TutorialModelInsertModeTests.ownPid,
                 focusWindow: { _ in }
             )
         }

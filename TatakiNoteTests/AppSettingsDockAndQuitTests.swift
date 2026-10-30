@@ -4,7 +4,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct DockAndQuitSettingsTests {
+struct AppSettingsDockAndQuitTests {
     private static let nonBooleanValues: [Any] = ["yes", "false", 1, 0, ["true"]]
 
     @Test("AC-1: Dock にアイコンを表示する設定は、何も保存されていなければオンで、作っただけでは保存しない")

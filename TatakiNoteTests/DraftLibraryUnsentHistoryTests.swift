@@ -3,7 +3,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct UnsentHistoryTests {
+struct DraftLibraryUnsentHistoryTests {
     private func makeLibrary(
         in directory: DraftLibraryTestDirectory,
         historyLimit: Int = HistoryLimit.defaultValue

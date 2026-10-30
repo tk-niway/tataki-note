@@ -4,7 +4,7 @@ import Testing
 
 @MainActor
 @Suite(.serialized)
-struct ShortcutRecordingStateTests {
+struct ShortcutRecordingMonitorTests {
     @Test("AC-24: 記録を始めると「どこかで記録中」になり、やめると戻る")
     func recordingStateFollowsView() {
         let view = ShortcutRecordingMonitorView()

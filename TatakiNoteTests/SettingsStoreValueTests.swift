@@ -4,7 +4,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct SettingsConsolidationTests {
+struct SettingsStoreValueTests {
     private struct ClampCase {
         let input: Double
         let expected: Double

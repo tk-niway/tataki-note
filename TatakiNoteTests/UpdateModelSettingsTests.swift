@@ -3,7 +3,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct UpdateSettingsTests {
+struct UpdateModelSettingsTests {
     @Test("AC-10: 新しい版が無いとき、設定の印も状態の文言も無い")
     func noBadgeWithoutPendingUpdate() throws {
         let temporary = try TemporaryDefaults()

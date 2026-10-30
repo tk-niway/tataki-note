@@ -4,7 +4,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct SettingsWindowThemeTests {
+struct SettingsWindowControllerThemeTests {
     private func waitUntilSettled(_ window: NSWindow, _ condition: () -> Bool) async throws {
         try await waitUntil(
             attempts: 40,

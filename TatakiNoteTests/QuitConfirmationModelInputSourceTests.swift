@@ -55,7 +55,7 @@ nonisolated struct QuitKeyScenario: Sendable, CustomTestStringConvertible {
 }
 
 @MainActor
-struct QuitKeyInputSourceTests {
+struct QuitConfirmationModelInputSourceTests {
     private static let keyCodeQ: UInt16 = 12
 
     private func makeEvent(_ scenario: QuitKeyScenario) throws -> NSEvent {
