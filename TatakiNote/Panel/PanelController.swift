@@ -67,7 +67,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         set { targetMonitor.isOwnTargetAvailable = newValue }
     }
 
-    /// サイドバーの歯車のボタンと ⌘, で、設定を開く処理。
+    /// 設定を開く処理。
     var onOpenSettings: (() -> Void)?
 
     /// 確定で挿入することになったとき、パネルを閉じた後・挿入の前に、文章・挿入先・送信もするかを知らせる。
@@ -147,18 +147,10 @@ final class PanelController: NSObject, NSWindowDelegate {
                 model: model,
                 settings: settings,
                 onKeyInput: { [weak self] in self?.handleKey($0) ?? false },
-                onClose: { [weak self] in self?.closeFromButton() },
-                onCommit: { [weak self] in self?.commitFromButton(shouldSendAfterInsert: false) },
-                onCommitAndSend: { [weak self] in self?.commitFromButton(shouldSendAfterInsert: true) },
+                onCommand: { [weak self] in self?.perform($0, from: .button) },
                 session: session,
                 sidebarModel: sidebarModel,
                 saveAnimation: saveAnimation,
-                onToggleSidebar: { [weak self] in self?.toggleSidebarFromButton() },
-                onNewDraft: { [weak self] in self?.newDraftFromButton() },
-                onSaveDraft: { [weak self] in self?.saveDraftFromButton() },
-                onOpenSettings: { [weak self] in self?.openSettings() },
-                onSwitchToInsert: { [weak self] in self?.switchToInsertFromButton() },
-                onShare: { [weak self] in self?.shareFromButton() },
                 sharingAnchorRegistry: sharingAnchorRegistry
             )
         )
@@ -443,10 +435,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
     }
 
-    func closeFromButton() {
-        perform(.close, from: .button)
-    }
-
     static func commitMarkedText(in window: NSWindow) {
         (window.firstResponder as? PromptTextView)?.commitMarkedText()
     }
@@ -559,49 +547,14 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     // MARK: - クリックの操作
 
-    /// タイトルバーの新規作成のアイコン。変換中の文字を確定してから新しい書きかけにする。
-    func newDraftFromButton() {
-        perform(.newDraft, from: .button)
-    }
-
     private func requestNewScratch() {
         session.request(.newScratch)
         model.requestFocus()
     }
 
-    /// タイトルバーの保存のアイコン。変換中の文字を確定してから下書きに保存する。
-    func saveDraftFromButton() {
-        perform(.saveDraft, from: .button)
-    }
-
-    /// タイトルバーのシェアのボタン。変換中の文字を確定してから、パネルの文章でシェアのメニューを出す。
-    func shareFromButton() {
-        perform(.share, from: .button)
-    }
-
-    /// タイトルバーの「ノート」のボタン。今の書きかけをインサートにする。
-    func switchToInsertFromButton() {
-        perform(.switchToInsert, from: .button)
-    }
-
-    /// 下の帯の「挿入」「送信」のボタン。ノートの書きかけでは何もしない。変換中の文字を確定してから確定する。
-    func commitFromButton(shouldSendAfterInsert: Bool) {
-        perform(shouldSendAfterInsert ? .commitAndSend : .commit, from: .button)
-    }
-
-    /// サイドバーの歯車のボタンと ⌘,。変換中の文字を確定し、パネルを開いたまま設定を開く処理を呼ぶ。
-    func openSettings() {
-        perform(.openSettings, from: .button)
-    }
-
     /// 設定ウィンドウが閉じたときに呼ぶ。パネルが開いていれば、キー入力をパネルへ戻す。
     func settingsWindowDidClose() {
         returnInputToPanel()
-    }
-
-    /// タイトルバーのサイドバーの開閉ボタン。
-    func toggleSidebarFromButton() {
-        perform(.toggleSidebar, from: .button)
     }
 
     private func toggleSidebarAndMoveFocus() {

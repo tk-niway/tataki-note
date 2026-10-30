@@ -5,8 +5,9 @@ final class DraftModePanelUITests: PanelDraftsUITestCase {
     private let targetIDs = ["promptPanel.insertionTarget", "promptPanel.noInsertionTarget"]
 
     // AC-17
+    // AC-12
     @MainActor
-    func testAC17_titleBarFollowsDraftMode() throws {
+    func testAC17_AC12_titleBarFollowsDraftMode() throws {
         let app = try launchApp()
         let panel = openPanel(in: app)
         let save = app.buttons["promptPanel.saveDraftButton"]
@@ -44,8 +45,9 @@ final class DraftModePanelUITests: PanelDraftsUITestCase {
     }
 
     // AC-4
+    // AC-12
     @MainActor
-    func testAC4_newDraftButtonWorksOnEmptyBodyAndLeavesNote() throws {
+    func testAC4_AC12_newDraftButtonWorksOnEmptyBodyAndLeavesNote() throws {
         let app = try launchApp()
         _ = openPanel(in: app)
         let newDraft = app.buttons["promptPanel.newDraftButton"]

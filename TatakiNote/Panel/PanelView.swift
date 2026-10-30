@@ -6,18 +6,10 @@ struct PanelView: View {
     @Bindable var model: PanelModel
     let settings: AppSettings
     let onKeyInput: (PanelKeyInput) -> Bool
-    let onClose: () -> Void
-    let onCommit: () -> Void
-    let onCommitAndSend: () -> Void
+    let onCommand: (PanelCommand) -> Void
     let session: DraftSession?
     let sidebarModel: SidebarModel?
     let saveAnimation: SaveAnimationModel?
-    let onToggleSidebar: () -> Void
-    let onNewDraft: () -> Void
-    let onSaveDraft: () -> Void
-    let onOpenSettings: () -> Void
-    let onSwitchToInsert: () -> Void
-    let onShare: () -> Void
     let sharingAnchorRegistry: SharingAnchorRegistry?
     let appIcon: @MainActor (InsertionTarget) -> NSImage
 
@@ -25,36 +17,20 @@ struct PanelView: View {
         model: PanelModel,
         settings: AppSettings,
         onKeyInput: @escaping (PanelKeyInput) -> Bool,
-        onClose: @escaping () -> Void,
-        onCommit: @escaping () -> Void = {},
-        onCommitAndSend: @escaping () -> Void = {},
+        onCommand: @escaping (PanelCommand) -> Void = { _ in },
         session: DraftSession? = nil,
         sidebarModel: SidebarModel? = nil,
         saveAnimation: SaveAnimationModel? = nil,
-        onToggleSidebar: @escaping () -> Void = {},
-        onNewDraft: @escaping () -> Void = {},
-        onSaveDraft: @escaping () -> Void = {},
-        onOpenSettings: @escaping () -> Void = {},
-        onSwitchToInsert: @escaping () -> Void = {},
-        onShare: @escaping () -> Void = {},
         sharingAnchorRegistry: SharingAnchorRegistry? = nil,
         appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = { InsertionTargetBadge.systemIcon(for: $0) }
     ) {
         self.model = model
         self.settings = settings
         self.onKeyInput = onKeyInput
-        self.onClose = onClose
-        self.onCommit = onCommit
-        self.onCommitAndSend = onCommitAndSend
+        self.onCommand = onCommand
         self.session = session
         self.sidebarModel = sidebarModel
         self.saveAnimation = saveAnimation
-        self.onToggleSidebar = onToggleSidebar
-        self.onNewDraft = onNewDraft
-        self.onSaveDraft = onSaveDraft
-        self.onOpenSettings = onOpenSettings
-        self.onSwitchToInsert = onSwitchToInsert
-        self.onShare = onShare
         self.sharingAnchorRegistry = sharingAnchorRegistry
         self.appIcon = appIcon
     }
@@ -78,7 +54,7 @@ struct PanelView: View {
                     glowingDraftID: saveAnimation?.glowingDraftID,
                     glowCount: saveAnimation?.glowCount ?? 0,
                     saveArrival: arrival,
-                    onOpenSettings: onOpenSettings
+                    onOpenSettings: { onCommand(.openSettings) }
                 )
                     .frame(
                         minWidth: 0,
@@ -103,12 +79,7 @@ struct PanelView: View {
                 session: session,
                 isSidebarOpen: isSidebarOpen,
                 saveArrival: arrival,
-                onClose: onClose,
-                onToggleSidebar: onToggleSidebar,
-                onNewDraft: onNewDraft,
-                onSaveDraft: onSaveDraft,
-                onSwitchToInsert: onSwitchToInsert,
-                onShare: onShare,
+                onCommand: onCommand,
                 sharingAnchorRegistry: sharingAnchorRegistry,
                 appIcon: appIcon
             )
@@ -171,7 +142,7 @@ struct PanelView: View {
                 }
             if !content.isEmpty {
                 Divider()
-                PanelStatusBar(content: content, onCommit: onCommit, onCommitAndSend: onCommitAndSend)
+                PanelStatusBar(content: content, onCommand: onCommand)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
