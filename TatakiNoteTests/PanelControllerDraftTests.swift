@@ -4,7 +4,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct PanelDraftWiringTests {
+struct PanelControllerDraftTests {
     private static let textEdit = InsertionTarget(processIdentifier: 101, bundleIdentifier: "com.apple.TextEdit", localizedName: "TextEdit")
     private static let noReplacement = NSRange(location: NSNotFound, length: 0)
 
@@ -71,8 +71,8 @@ struct PanelDraftWiringTests {
 
         func attachEditor() throws -> PromptTextView {
             let hostingView = try #require(controller.panel.contentView)
-            PanelDraftWiringTests.settle(controller)
-            let textView = try #require(PanelDraftWiringTests.firstSubview(of: PromptTextView.self, in: hostingView))
+            PanelControllerDraftTests.settle(controller)
+            let textView = try #require(PanelControllerDraftTests.firstSubview(of: PromptTextView.self, in: hostingView))
             controller.panel.makeFirstResponder(textView)
             return textView
         }

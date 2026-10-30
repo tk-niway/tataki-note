@@ -128,7 +128,7 @@ private final class ExportFixture {
 }
 
 @MainActor
-struct PanelExportWiringTests {
+struct PanelControllerExportTests {
     private static func shortcutEvent(modifiers: NSEvent.ModifierFlags) throws -> NSEvent {
         try #require(
             NSEvent.keyEvent(

@@ -4,7 +4,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct ImmediateSwitchTests {
+struct PanelControllerImmediateSwitchTests {
     @MainActor
     private final class Fixture {
         let directory: URL

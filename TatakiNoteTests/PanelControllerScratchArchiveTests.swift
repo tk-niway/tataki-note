@@ -31,7 +31,7 @@ enum ScratchArchiveLeaveWay: CaseIterable, Sendable {
 }
 
 @MainActor
-struct ScratchArchiveTests {
+struct PanelControllerScratchArchiveTests {
     private static let ownProcessIdentifier: pid_t = 777
     private static let safari = InsertionTarget(processIdentifier: 4242, bundleIdentifier: "com.apple.Safari", localizedName: "Safari")
     private static let textEdit = InsertionTarget(processIdentifier: 101, bundleIdentifier: "com.apple.TextEdit", localizedName: "TextEdit")
@@ -47,9 +47,9 @@ struct ScratchArchiveTests {
             session = DraftSession(
                 panel: panel,
                 library: library,
-                ownProcessIdentifier: ScratchArchiveTests.ownProcessIdentifier
+                ownProcessIdentifier: PanelControllerScratchArchiveTests.ownProcessIdentifier
             )
-            panel.present(target: ScratchArchiveTests.safari)
+            panel.present(target: PanelControllerScratchArchiveTests.safari)
         }
 
         func addDraft(_ text: String) throws -> SavedDraft {
@@ -106,7 +106,7 @@ struct ScratchArchiveTests {
                     ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier
                 )
             )
-            controller.targetOverride = { ScratchArchiveTests.textEdit }
+            controller.targetOverride = { PanelControllerScratchArchiveTests.textEdit }
         }
 
         var model: PanelModel { controller.model }

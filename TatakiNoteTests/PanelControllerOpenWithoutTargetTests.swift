@@ -13,7 +13,7 @@ private final class ClickEnvironment {
 }
 
 @MainActor
-struct PanelOpenWithoutTargetTests {
+struct PanelControllerOpenWithoutTargetTests {
     private static let ownPid: pid_t = 4242
 
     private let editor = MonitorFixture.editor

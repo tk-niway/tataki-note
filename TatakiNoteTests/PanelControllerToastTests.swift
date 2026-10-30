@@ -4,7 +4,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct PanelToastTests {
+struct PanelControllerToastTests {
     private static let ownPid: pid_t = 4242
     private static let commandN = PanelKeyInput(keyCode: 45, modifiers: [.command], hasMarkedText: false, characters: "n")
     private static let commandS = PanelKeyInput(keyCode: 1, modifiers: [.command], hasMarkedText: false, characters: "s")
@@ -79,18 +79,18 @@ struct PanelToastTests {
                 permission: PermissionStub(isTrusted: true),
                 fieldProbe: probe,
                 exposeWebContent: { _ in },
-                ownProcessIdentifier: PanelToastTests.ownPid,
+                ownProcessIdentifier: PanelControllerToastTests.ownPid,
                 library: library,
                 saveAnimation: recorder.model,
                 animator: animator,
                 beep: {},
                 makeTargetMonitor: InsertionTargetMonitor.testFactory(
                     probe: probe,
-                    ownProcessIdentifier: PanelToastTests.ownPid
+                    ownProcessIdentifier: PanelControllerToastTests.ownPid
                 )
             )
             controller.targetOverride = {
-                InsertionTarget(processIdentifier: PanelToastTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
+                InsertionTarget(processIdentifier: PanelControllerToastTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
             }
             if isOpen {
                 controller.open()

@@ -4,10 +4,10 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct PanelCommitButtonTests {
+struct PanelControllerCommitButtonTests {
     private static let ownPid: pid_t = 4242
     private static let noReplacement = NSRange(location: NSNotFound, length: 0)
-    private let own = InsertionTarget(processIdentifier: PanelCommitButtonTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
+    private let own = InsertionTarget(processIdentifier: PanelControllerCommitButtonTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
 
     private struct Fixture {
         let controller: PanelController

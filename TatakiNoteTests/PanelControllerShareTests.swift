@@ -90,7 +90,7 @@ private final class ShareFixture {
 }
 
 @MainActor
-struct PanelShareWiringTests {
+struct PanelControllerShareTests {
     @Test("AC-16: 文章があるときのシェアのボタンは、パネルの文章でシェアのメニューをボタンの所に出すよう頼む")
     func shareButtonSharesPanelTextFromTitleBarButton() throws {
         let fixture = try ShareFixture()

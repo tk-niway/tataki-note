@@ -4,12 +4,12 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct PanelOpeningSizeTests {
+struct PanelControllerOpeningSizeTests {
     private static let ownPid: pid_t = 4242
     private static let commitKey = PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.command, .shift], hasMarkedText: false)
     private static let defaultSize = CGSize(width: 600, height: 400)
     private static let draggedSize = CGSize(width: 700, height: 500)
-    private let target = InsertionTarget(processIdentifier: PanelOpeningSizeTests.ownPid, bundleIdentifier: "com.example.TextEdit", localizedName: "TextEdit")
+    private let target = InsertionTarget(processIdentifier: PanelControllerOpeningSizeTests.ownPid, bundleIdentifier: "com.example.TextEdit", localizedName: "TextEdit")
 
     private struct Fixture {
         let controller: PanelController

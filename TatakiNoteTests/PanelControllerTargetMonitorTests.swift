@@ -14,11 +14,11 @@ final class OpenEventLog {
 }
 
 @MainActor
-struct PanelTargetMonitorWiringTests {
+struct PanelControllerTargetMonitorTests {
     private static let ownPid: pid_t = 4242
 
     private let editor = WatcherFixture.editor
-    private let own = InsertionTarget(processIdentifier: PanelTargetMonitorWiringTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
+    private let own = InsertionTarget(processIdentifier: PanelControllerTargetMonitorTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
     private let element = AXUIElementCreateApplication(pid_t.max)
     private let fieldRect = CGRect(x: 100, y: 100, width: 200, height: 40)
     private let elementRect = CGRect(x: 120, y: 120, width: 180, height: 30)

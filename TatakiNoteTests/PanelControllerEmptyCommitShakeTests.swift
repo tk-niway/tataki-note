@@ -4,10 +4,10 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct EmptyCommitShakeTests {
+struct PanelControllerEmptyCommitShakeTests {
     private static let ownPid: pid_t = 4242
     private static let noReplacement = NSRange(location: NSNotFound, length: 0)
-    private let own = InsertionTarget(processIdentifier: EmptyCommitShakeTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
+    private let own = InsertionTarget(processIdentifier: PanelControllerEmptyCommitShakeTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
 
     private static let commitKey = PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.command, .shift], hasMarkedText: false)
     private static let commitAndSendKey = PanelKeyInput(keyCode: KeyCode.returnKey, modifiers: [.command], hasMarkedText: false)

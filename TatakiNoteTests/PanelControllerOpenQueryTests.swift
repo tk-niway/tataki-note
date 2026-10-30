@@ -6,11 +6,11 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct PanelOpenQueryTests {
+struct PanelControllerOpenQueryTests {
     private static let ownPid: pid_t = 4242
 
     private let editor = WatcherFixture.editor
-    private let own = InsertionTarget(processIdentifier: PanelOpenQueryTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
+    private let own = InsertionTarget(processIdentifier: PanelControllerOpenQueryTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
     private let element = AXUIElementCreateApplication(pid_t.max)
 
     private let screenA = ScreenGeometry(

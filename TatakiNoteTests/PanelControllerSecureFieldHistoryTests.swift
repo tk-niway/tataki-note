@@ -5,7 +5,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct SecureFieldHistoryTests {
+struct PanelControllerSecureFieldHistoryTests {
     private static let ownPid: pid_t = 777
     private static let safari = InsertionTarget(processIdentifier: 4242, bundleIdentifier: "com.apple.Safari", localizedName: "Safari")
     private static let own = InsertionTarget(processIdentifier: ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
@@ -20,7 +20,7 @@ struct SecureFieldHistoryTests {
             session = DraftSession(
                 panel: panel,
                 library: library,
-                ownProcessIdentifier: SecureFieldHistoryTests.ownPid,
+                ownProcessIdentifier: PanelControllerSecureFieldHistoryTests.ownPid,
                 newDraftMode: { setting }
             )
             panel.present(target: target)

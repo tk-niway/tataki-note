@@ -4,7 +4,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct PanelCloseButtonTests {
+struct PanelControllerCloseButtonTests {
     private let noReplacement = NSRange(location: NSNotFound, length: 0)
 
     private func withSettings(_ body: (AppSettings) throws -> Void) throws {

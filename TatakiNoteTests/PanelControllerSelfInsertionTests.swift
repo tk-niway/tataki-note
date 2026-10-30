@@ -4,9 +4,9 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct SelfInsertionTests {
+struct PanelControllerSelfInsertionTests {
     private static let ownPid: pid_t = 4242
-    private let own = InsertionTarget(processIdentifier: SelfInsertionTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
+    private let own = InsertionTarget(processIdentifier: PanelControllerSelfInsertionTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
     private let other = InsertionTarget(processIdentifier: pid_t.max - 1, bundleIdentifier: "com.example.Other", localizedName: "Other")
 
     private struct Fixture {

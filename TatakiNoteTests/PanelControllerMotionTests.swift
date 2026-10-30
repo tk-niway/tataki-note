@@ -27,9 +27,9 @@ enum PanelMotionCloseWay: CaseIterable, Sendable {
 }
 
 @MainActor
-struct PanelMotionControllerTests {
+struct PanelControllerMotionTests {
     private static let ownPid: pid_t = 4242
-    private let own = InsertionTarget(processIdentifier: PanelMotionControllerTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
+    private let own = InsertionTarget(processIdentifier: PanelControllerMotionTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
     private let defaultSize = CGSize(width: 600, height: 400)
 
     private struct Fixture {

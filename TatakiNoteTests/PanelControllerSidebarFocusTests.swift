@@ -4,7 +4,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct SidebarFocusWiringTests {
+struct PanelControllerSidebarFocusTests {
     private static let textEdit = InsertionTarget(processIdentifier: 101, bundleIdentifier: "com.apple.TextEdit", localizedName: "TextEdit")
 
     private struct InsertionRequest: Equatable {
@@ -64,7 +64,7 @@ struct SidebarFocusWiringTests {
                 lookup: WatcherFixture.textFieldLookup,
                 frame: nil
             )
-            controller.targetOverride = { SidebarFocusWiringTests.textEdit }
+            controller.targetOverride = { PanelControllerSidebarFocusTests.textEdit }
             controller.open()
         }
 

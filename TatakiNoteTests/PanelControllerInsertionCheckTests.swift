@@ -10,10 +10,10 @@ private final class FrontApplicationBox {
 }
 
 @MainActor
-struct PanelInsertionCheckTests {
+struct PanelControllerInsertionCheckTests {
     private static let ownPid: pid_t = 4242
 
-    private let own = InsertionTarget(processIdentifier: PanelInsertionCheckTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
+    private let own = InsertionTarget(processIdentifier: PanelControllerInsertionCheckTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
     private let other = InsertionTarget(processIdentifier: 7001, bundleIdentifier: "com.example.Other", localizedName: "Other")
     private let another = InsertionTarget(processIdentifier: 7002, bundleIdentifier: "com.example.Another", localizedName: "Another")
     private let fieldA = AXUIElementCreateApplication(pid_t.max)
