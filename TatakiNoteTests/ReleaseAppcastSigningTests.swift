@@ -232,6 +232,8 @@ struct ReleaseAppcastSigningTests {
         let result = try sandbox.run(["appcast"])
         #expect(result.status != 0)
         #expect(result.output.contains("sign_update がありません"), "出力: \(result.output)")
+        #expect(!result.output.contains("署名できませんでした"), "出力: \(result.output)")
+        #expect(!result.output.contains("署名を読めませんでした"), "出力: \(result.output)")
         #expect(!FileManager.default.fileExists(atPath: sandbox.appcast.path))
     }
 

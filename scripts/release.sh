@@ -371,7 +371,7 @@ appcast_is_signed() {
 # sign_appcast … $APPCAST に EdDSA の署名を埋め込む。失敗したら appcast.xml を消して止まる
 sign_appcast() {
   local tool
-  tool="$(sparkle_tool sign_update)"
+  tool="$(sparkle_tool sign_update)" || { rm -f "$APPCAST"; exit 1; }
   if [ -n "${SPARKLE_ED_PRIVATE_KEY:-}" ]; then
     printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$tool" "$APPCAST" --ed-key-file - >/dev/null \
       || { rm -f "$APPCAST"; die "appcast.xml に署名できませんでした(SPARKLE_ED_PRIVATE_KEY を確かめてください)"; }
@@ -386,7 +386,7 @@ sign_appcast() {
 # sign_dmg … DMG の EdDSA 署名(base64)を標準出力へ
 sign_dmg() {
   local tool out signature
-  tool="$(sparkle_tool sign_update)"
+  tool="$(sparkle_tool sign_update)" || exit 1
   if [ -n "${SPARKLE_ED_PRIVATE_KEY:-}" ]; then
     out="$(printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$tool" "$DMG" --ed-key-file -)" \
       || die "DMG に署名できませんでした(SPARKLE_ED_PRIVATE_KEY を確かめてください)"
