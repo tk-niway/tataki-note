@@ -444,8 +444,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func closeFromButton() {
-        Self.commitMarkedText(in: panel)
-        close()
+        perform(.close, from: .button)
     }
 
     static func commitMarkedText(in window: NSWindow) {
@@ -453,54 +452,69 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func handleKey(_ input: PanelKeyInput) -> Bool {
-        switch PanelKeyResolver.action(
+        let action = PanelKeyResolver.action(
             for: input,
             commitKey: settings.commitKey,
             commitAndSendKey: settings.commitAndSendKey,
             mode: session.mode
-        ) {
-        case .cancel:
-            close()
-            return true
-        case .commit:
-            commit(shouldSendAfterInsert: false)
-            return true
-        case .commitAndSend:
-            commit(shouldSendAfterInsert: true)
-            return true
-        case .openSearch:
-            if !sidebarModel.isOpen {
-                setSidebarOpen(true)
-            }
-            sidebarModel.openForSearch()
-            return true
-        case .saveDraft:
-            if session.isSaveAvailable {
-                session.saveCurrent()
-            } else {
-                signalEmptyInput()
-            }
-            return true
-        case .newDraft:
-            requestNewScratch()
-            return true
-        case .toggleMode:
-            session.toggleMode()
-            return true
-        case .toggleSidebar:
-            toggleSidebarAndMoveFocus()
-            return true
-        case .openSettings:
-            openSettings()
-            return true
-        case .exportToFile:
-            exportCurrentText()
-            return true
-        case .insertNewline:
-            return insertNewlineInEditor()
-        case .passThrough:
-            return false
+        )
+        if let command = action.command {
+            return perform(command, from: .key)
         }
+        return action == .insertNewline && insertNewlineInEditor()
+    }
+
+    /// パネルの操作を行う。キーでもボタンでも、ここを通る。行ったら `true` を返す。
+    @discardableResult
+    func perform(_ command: PanelCommand, from source: PanelCommandSource) -> Bool {
+        guard command.isAvailable(in: session.mode, from: source) else { return false }
+        if command.commitsMarkedTextFirst(from: source) {
+            Self.commitMarkedText(in: panel)
+        }
+        switch command {
+        case .close: close()
+        case .commit: commit(shouldSendAfterInsert: false)
+        case .commitAndSend: commit(shouldSendAfterInsert: true)
+        case .openSearch: openSearch()
+        case .saveDraft: saveDraftOrSignalEmpty()
+        case .newDraft: requestNewScratch()
+        case .toggleMode: session.toggleMode()
+        case .switchToInsert: session.switchToInsert()
+        case .toggleSidebar: toggleSidebarAndMoveFocus()
+        case .openSettings: onOpenSettings?()
+        case .exportToFile: exportCurrentText()
+        case .share: shareCurrentText()
+        }
+        if command.requestsEditorFocusAfterward(from: source) {
+            model.requestFocus()
+        }
+        return true
+    }
+
+    private func openSearch() {
+        if !sidebarModel.isOpen {
+            setSidebarOpen(true)
+        }
+        sidebarModel.openForSearch()
+    }
+
+    private func saveDraftOrSignalEmpty() {
+        if session.isSaveAvailable {
+            session.saveCurrent()
+        } else {
+            signalEmptyInput()
+        }
+    }
+
+    private func shareCurrentText() {
+        guard !ExportableText.isEmpty(model.text) else {
+            signalEmptyInput()
+            let animation = saveAnimation
+            Task { await animation.showToast(SaveAnimationModel.nothingToShareMessage, style: .notice) }
+            model.requestFocus()
+            return
+        }
+        sharer.share(model.text, from: .titleBarButton)
     }
 
     // MARK: - ファイルへの書き出し
@@ -547,8 +561,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// タイトルバーの新規作成のアイコン。変換中の文字を確定してから新しい書きかけにする。
     func newDraftFromButton() {
-        Self.commitMarkedText(in: panel)
-        requestNewScratch()
+        perform(.newDraft, from: .button)
     }
 
     private func requestNewScratch() {
@@ -558,44 +571,27 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// タイトルバーの保存のアイコン。変換中の文字を確定してから下書きに保存する。
     func saveDraftFromButton() {
-        Self.commitMarkedText(in: panel)
-        if session.isSaveAvailable {
-            session.saveCurrent()
-        } else {
-            signalEmptyInput()
-        }
-        model.requestFocus()
+        perform(.saveDraft, from: .button)
     }
 
     /// タイトルバーのシェアのボタン。変換中の文字を確定してから、パネルの文章でシェアのメニューを出す。
     func shareFromButton() {
-        Self.commitMarkedText(in: panel)
-        guard !ExportableText.isEmpty(model.text) else {
-            signalEmptyInput()
-            let animation = saveAnimation
-            Task { await animation.showToast(SaveAnimationModel.nothingToShareMessage, style: .notice) }
-            model.requestFocus()
-            return
-        }
-        sharer.share(model.text, from: .titleBarButton)
+        perform(.share, from: .button)
     }
 
     /// タイトルバーの「ノート」のボタン。今の書きかけをインサートにする。
     func switchToInsertFromButton() {
-        session.switchToInsert()
+        perform(.switchToInsert, from: .button)
     }
 
     /// 下の帯の「挿入」「送信」のボタン。ノートの書きかけでは何もしない。変換中の文字を確定してから確定する。
     func commitFromButton(shouldSendAfterInsert: Bool) {
-        guard session.mode == .insert else { return }
-        Self.commitMarkedText(in: panel)
-        commit(shouldSendAfterInsert: shouldSendAfterInsert)
+        perform(shouldSendAfterInsert ? .commitAndSend : .commit, from: .button)
     }
 
     /// サイドバーの歯車のボタンと ⌘,。変換中の文字を確定し、パネルを開いたまま設定を開く処理を呼ぶ。
     func openSettings() {
-        Self.commitMarkedText(in: panel)
-        onOpenSettings?()
+        perform(.openSettings, from: .button)
     }
 
     /// 設定ウィンドウが閉じたときに呼ぶ。パネルが開いていれば、キー入力をパネルへ戻す。
@@ -605,7 +601,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// タイトルバーのサイドバーの開閉ボタン。
     func toggleSidebarFromButton() {
-        toggleSidebarAndMoveFocus()
+        perform(.toggleSidebar, from: .button)
     }
 
     private func toggleSidebarAndMoveFocus() {
@@ -627,11 +623,9 @@ final class PanelController: NSObject, NSWindowDelegate {
             mode: session.mode
         ) {
         case .commit:
-            commit(shouldSendAfterInsert: false)
-            return true
+            return perform(.commit, from: .key)
         case .commitAndSend:
-            commit(shouldSendAfterInsert: true)
-            return true
+            return perform(.commitAndSend, from: .key)
         default:
             return false
         }
