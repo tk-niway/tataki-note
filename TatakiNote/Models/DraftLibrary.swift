@@ -2,14 +2,14 @@ import Foundation
 import Observation
 
 /// 保存した下書き。
-struct SavedDraft: Codable, Equatable, Identifiable {
+nonisolated struct SavedDraft: Codable, Equatable, Identifiable, Sendable {
     let id: UUID
     var text: String
     var updatedAt: Date
 }
 
 /// 履歴の1件。挿入した文章と、挿入していない文章がある。
-struct HistoryEntry: Equatable, Identifiable {
+nonisolated struct HistoryEntry: Equatable, Identifiable, Sendable {
     let id: UUID
     let text: String
     let insertedAt: Date
@@ -34,7 +34,7 @@ struct HistoryEntry: Equatable, Identifiable {
     }
 }
 
-extension HistoryEntry: Codable {
+nonisolated extension HistoryEntry: Codable {
     private enum CodingKeys: String, CodingKey {
         case id, text, insertedAt, appName, bundleIdentifier, isInserted
     }
@@ -113,6 +113,7 @@ enum DraftLibraryProblem: Equatable, Hashable {
     private(set) var problems: Set<DraftLibraryProblem> = []
 
     private let store: DraftLibraryStore
+    private let writer: DraftLibraryWriting
     private let now: () -> Date
     private var unreadableProblems: Set<DraftLibraryProblem> = []
     private var failedFileNames: Set<String> = []
@@ -122,9 +123,11 @@ enum DraftLibraryProblem: Equatable, Hashable {
         store: DraftLibraryStore,
         historyLimit: Int = HistoryLimit.defaultValue,
         historyRetention: HistoryRetention = .defaultValue,
+        writer: DraftLibraryWriting = ImmediateDraftLibraryWriter(),
         now: @escaping () -> Date = Date.init
     ) {
         self.store = store
+        self.writer = writer
         self.now = now
         self.historyLimit = HistoryLimit.clamped(historyLimit)
         self.historyRetention = historyRetention
@@ -174,6 +177,12 @@ enum DraftLibraryProblem: Equatable, Hashable {
     func flush() {
         guard isDraftsWritePending else { return }
         writeDrafts()
+    }
+
+    /// 遅らせている下書きの書き出しを頼み、頼んだ書き出しが全部終わるまで待つ。
+    func finishPendingWrites() {
+        flush()
+        writer.waitUntilIdle()
     }
 
     // MARK: - 履歴
@@ -276,15 +285,23 @@ enum DraftLibraryProblem: Equatable, Hashable {
     // MARK: - 書き出し
 
     private func writeDrafts() {
-        do {
-            try store.saveDrafts(drafts)
-            isDraftsWritePending = false
-            failedFileNames.remove(DraftLibraryStore.draftsFileName)
-        } catch {
-            isDraftsWritePending = true
-            failedFileNames.insert(DraftLibraryStore.draftsFileName)
-        }
-        refreshProblems()
+        let snapshot = drafts
+        let store = store
+        isDraftsWritePending = false
+        writer.write(
+            fileName: DraftLibraryStore.draftsFileName,
+            { try store.saveDrafts(snapshot) },
+            completion: { [weak self] result in
+                guard let self else { return }
+                if result.succeeded {
+                    failedFileNames.remove(result.fileName)
+                } else {
+                    isDraftsWritePending = true
+                    failedFileNames.insert(result.fileName)
+                }
+                refreshProblems()
+            }
+        )
     }
 
     private func prepend(_ entry: HistoryEntry) {
@@ -298,13 +315,21 @@ enum DraftLibraryProblem: Equatable, Hashable {
     }
 
     private func writeHistory() {
-        do {
-            try store.saveHistory(history)
-            failedFileNames.remove(DraftLibraryStore.historyFileName)
-        } catch {
-            failedFileNames.insert(DraftLibraryStore.historyFileName)
-        }
-        refreshProblems()
+        let snapshot = history
+        let store = store
+        writer.write(
+            fileName: DraftLibraryStore.historyFileName,
+            { try store.saveHistory(snapshot) },
+            completion: { [weak self] result in
+                guard let self else { return }
+                if result.succeeded {
+                    failedFileNames.remove(result.fileName)
+                } else {
+                    failedFileNames.insert(result.fileName)
+                }
+                refreshProblems()
+            }
+        )
     }
 
     private func refreshProblems() {
