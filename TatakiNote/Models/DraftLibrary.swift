@@ -99,6 +99,7 @@ enum DraftLibraryProblem: Equatable, Hashable {
 /// 保存した下書きと挿入の履歴の一覧。
 @Observable final class DraftLibrary {
     private(set) var historyLimit: Int
+    private(set) var historyRetention: HistoryRetention
     private(set) var drafts: [SavedDraft] = []
     private(set) var history: [HistoryEntry] = []
     private(set) var problems: Set<DraftLibraryProblem> = []
@@ -112,13 +113,16 @@ enum DraftLibraryProblem: Equatable, Hashable {
     init(
         store: DraftLibraryStore,
         historyLimit: Int = HistoryLimit.defaultValue,
+        historyRetention: HistoryRetention = .defaultValue,
         now: @escaping () -> Date = Date.init
     ) {
         self.store = store
         self.now = now
         self.historyLimit = HistoryLimit.clamped(historyLimit)
+        self.historyRetention = historyRetention
         loadDrafts()
         loadHistory()
+        pruneExpiredHistory()
         refreshProblems()
     }
 
@@ -203,6 +207,27 @@ enum DraftLibraryProblem: Equatable, Hashable {
         max(0, history.count - HistoryLimit.clamped(limit))
     }
 
+    /// 履歴を残す期間を変え、期間を過ぎた履歴を消す。
+    func setHistoryRetention(_ retention: HistoryRetention) {
+        historyRetention = retention
+        pruneExpiredHistory()
+    }
+
+    /// 期間を過ぎた履歴を消してすぐ書き出す。消えるものが無ければ書き出さない。
+    func pruneExpiredHistory() {
+        let current = now()
+        let remaining = history.filter { !historyRetention.isExpired($0.insertedAt, now: current) }
+        guard remaining.count != history.count else { return }
+        history = remaining
+        writeHistory()
+    }
+
+    /// 期間を `retention` にしたときに消える履歴の件数。
+    func expiredHistoryCount(for retention: HistoryRetention) -> Int {
+        let current = now()
+        return history.filter { retention.isExpired($0.insertedAt, now: current) }.count
+    }
+
     func historyEntry(id: UUID) -> HistoryEntry? {
         history.first { $0.id == id }
     }
@@ -256,6 +281,8 @@ enum DraftLibraryProblem: Equatable, Hashable {
 
     private func prepend(_ entry: HistoryEntry) {
         history.insert(entry, at: 0)
+        let current = now()
+        history.removeAll { historyRetention.isExpired($0.insertedAt, now: current) }
         if history.count > historyLimit {
             history.removeLast(history.count - historyLimit)
         }

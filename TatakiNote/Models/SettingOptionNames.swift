@@ -53,6 +53,21 @@ extension AnimationMode {
     }
 }
 
+extension HistoryRetention {
+    var displayName: String {
+        switch self {
+        case .forever:
+            String(localized: "無期限")
+        case .thirtyDays:
+            String(localized: "30日")
+        case .sevenDays:
+            String(localized: "7日")
+        case .oneDay:
+            String(localized: "1日")
+        }
+    }
+}
+
 extension PanelStatusItem {
     var displayName: String {
         switch self {
