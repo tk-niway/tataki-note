@@ -152,6 +152,65 @@ expect_fail "パスの入った件名" "手元の作業場所のパス" --messag
 printf 'subject\n\n# .worktrees/x はコメントなので見ない\n' >"$TMP/msg"
 expect_pass "コミットメッセージの # 行" --message-file "$TMP/msg"
 
+# --- 秘密情報 ------------------------------------------------------------------------------------
+
+GH36="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+for kind in "RSA " "EC " "OPENSSH " "ENCRYPTED " ""; do
+  printf '%s\n' "-----BEGIN ${kind}PRIVATE KEY-----" >"$REPO/README.md"
+  expect_fail "秘密鍵の頭書き(${kind:-無印})" "README.md:1: 秘密情報(秘密鍵)" --files "$REPO/README.md"
+done
+for kind in "PUBLIC KEY" "CERTIFICATE"; do
+  printf '%s\n' "-----BEGIN ${kind}-----" >"$REPO/README.md"
+  expect_pass "$kind の頭書き" --files "$REPO/README.md"
+done
+
+for prefix in ghp_ gho_ ghu_ ghs_ ghr_; do
+  printf 'token: %s%s\n' "$prefix" "$GH36" >"$REPO/README.md"
+  expect_fail "GitHub のトークン($prefix)" "README.md:1: 秘密情報(GitHub のトークン)" --files "$REPO/README.md"
+done
+printf 'token: github_pat_%s\n' "AAAAAAAAAAAAAAAAAAAAAA" >"$REPO/README.md"
+expect_fail "GitHub のトークン(github_pat_)" "README.md:1: 秘密情報(GitHub のトークン)" --files "$REPO/README.md"
+printf 'key: sk-ant-%s\n' "aaaaaaaaaaaaaaaaaaaa" >"$REPO/README.md"
+expect_fail "Anthropic の API キー" "README.md:1: 秘密情報(Anthropic の API キー)" --files "$REPO/README.md"
+printf 'ASANA_TOKEN=1/1234567890123:abcdef\n' >"$REPO/README.md"
+expect_fail "ASANA_TOKEN の値" "README.md:1: 秘密情報(ASANA_TOKEN の値)" --files "$REPO/README.md"
+printf 'SPARKLE_ED_PRIVATE_KEY=%s\n' "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" >"$REPO/README.md"
+expect_fail "SPARKLE_ED_PRIVATE_KEY の値" "README.md:1: 秘密情報(SPARKLE_ED_PRIVATE_KEY の値)" --files "$REPO/README.md"
+
+for line in \
+  'ASANA_TOKEN=' \
+  'ASANA_TOKEN="${ASANA_TOKEN}"' \
+  'ASANA_TOKEN=<token>' \
+  'ASANA_TOKEN=xxxx' \
+  'ghp_abc' \
+  "xghp_$GH36" \
+  'sk-ant-' \
+  'sk-ant-xxx' \
+  'SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}'; do
+  printf '%s\n' "$line" >"$REPO/README.md"
+  expect_pass "秘密情報に当たらない行($line)" --files "$REPO/README.md"
+done
+
+mkdir -p "$REPO/certs"
+for rel in certs/dev.pem server.key cert.p12 cert.pfx AuthKey.p8 AuthKey.P8 login.keychain signing.keychain-db; do
+  printf 'memo\n' >"$REPO/$rel"
+  expect_fail "鍵・証明書のファイル($rel)" "$rel: 秘密鍵・証明書のファイルは置きません" --files "$REPO/$rel"
+  rm -f "$REPO/$rel"
+done
+rmdir "$REPO/certs"
+for rel in App/key.swift p8-notes.md keys.md Keyboard.key.md; do
+  printf 'struct K {}\n' >"$REPO/$rel"
+  expect_pass "鍵のファイルではない名前($rel)" --files "$REPO/$rel"
+  rm -f "$REPO/$rel"
+done
+
+expect_fail "メッセージの秘密鍵の頭書き" "メッセージ:1: 秘密情報(秘密鍵)" --message "-----BEGIN RSA PRIVATE KEY-----"
+expect_fail "メッセージのトークン" "メッセージ:1: 秘密情報(GitHub のトークン)" --message "token ghp_$GH36"
+printf 'subject\nghp_%s\n# comment\n' "$GH36" >"$TMP/msg"
+expect_fail "メッセージファイルのトークン" "コミットメッセージ:2: 秘密情報(GitHub のトークン)" --message-file "$TMP/msg"
+printf 'subject\n# ghp_%s\n' "$GH36" >"$TMP/msg"
+expect_pass "メッセージファイルの # 行のトークン" --message-file "$TMP/msg"
+
 # --- 変わったファイル・ステージ・範囲 ------------------------------------------------------------
 
 rm -f "$REPO"/App/*.swift "$REPO/README.md"
@@ -170,6 +229,9 @@ expect_fail "--staged" "Base.swift:1:" --staged
 git -C "$REPO" commit -qm "add comment" -m "実行ログ: /Users/someone/works/run.log"
 expect_fail "--range のファイル" "App/Base.swift:1:" --range "$BASE..HEAD"
 expect_fail "--range のメッセージ" "コミット" --range "$BASE..HEAD"
+
+git -C "$REPO" commit -q --allow-empty -m "ghp_$GH36"
+expect_fail "--range の秘密情報" "秘密情報(GitHub のトークン)" --range "$BASE..HEAD"
 
 printf '%d 件通過' "$PASS"
 if [ "$FAIL" -gt 0 ]; then

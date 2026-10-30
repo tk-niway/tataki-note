@@ -1,4 +1,5 @@
 # main に VERSION・リリースノートの変更が入ったら、Developer ID で署名・公証した配布物を作って、リリースとして公開する。
+# 書き込みのできるトークンは「Publish release」の手順にだけ渡す。
 name: Release
 
 on:
@@ -15,36 +16,53 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   # Xcode のメジャーバージョン。ランナーにあるこの版の中で一番新しいものを使う
   XCODE_MAJOR: "27"
 
 jobs:
-  release:
-    runs-on: macos-26
-    timeout-minutes: 60
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      release: ${{ steps.check.outputs.release }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Check whether to release
         id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: ./scripts/release.sh check
 
+  release:
+    name: Release
+    needs: check
+    if: needs.check.outputs.release == 'yes'
+    runs-on: macos-26
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
       - name: Select Xcode
-        if: steps.check.outputs.release == 'yes'
         run: ./scripts/release.sh select-xcode
 
       - name: Unit tests
-        if: steps.check.outputs.release == 'yes'
         run: ./scripts/release.sh test
 
       - name: Import signing certificate
-        if: steps.check.outputs.release == 'yes'
         env:
           CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
           CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
@@ -69,11 +87,9 @@ jobs:
           echo "SIGNING_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
 
       - name: Build and sign
-        if: steps.check.outputs.release == 'yes'
         run: ./scripts/release.sh build --keychain "$SIGNING_KEYCHAIN"
 
       - name: Notarize
-        if: steps.check.outputs.release == 'yes'
         env:
           NOTARY_KEY_P8_BASE64: ${{ secrets.NOTARY_KEY_P8_BASE64 }}
           NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
@@ -89,8 +105,8 @@ jobs:
           rm -f "$NOTARY_KEY_PATH"
 
       - name: Publish release
-        if: steps.check.outputs.release == 'yes'
         env:
+          GH_TOKEN: ${{ github.token }}
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
           if [ -z "$SPARKLE_ED_PRIVATE_KEY" ]; then

@@ -19,7 +19,11 @@
 #   - テストの受け入れ条件の目印 `// AC-<番号>`
 #   `/* */` は使わない。コメントに TODO・今後の予定・一時的な対応の印を書かない。
 # - どのファイルにも、コミットメッセージにも、手元の作業場所のパスを書かない。
+# - どのファイルにも、コミットメッセージにも、秘密鍵・トークン・API キーを書かない。秘密鍵・証明書のファイル
+#   (.pem・.key・.p12・.pfx・.p8・.keychain・.keychain-db)を置かない。
 set -euo pipefail
+
+
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SELF="scripts/check-public.sh"
@@ -30,6 +34,19 @@ EXEMPT_RE='^scripts/(check-public|test-check-public)\.sh$'
 LOCAL_PATH_RE='(^|[^A-Za-z0-9_.])(ai-pipeline/|\.ai-pipeline/|\.worktrees/|01_idea/|02_plans/|03_designs/|99_archives/)|/Users/[^/"'"'"' ]+/|/private/var/folders/'
 # コメントに書かない言葉(今後の予定・一時的な対応)
 COMMENT_WORDS_RE='TODO|FIXME|XXX|HACK|予定|将来|今後|暫定'
+# 秘密情報の形(種類<TAB>拡張正規表現)。見つけた値そのものは出さない
+secret_patterns() {
+  cat <<'EOF'
+秘密鍵	-----BEGIN ([A-Z0-9]+ )*PRIVATE KEY( BLOCK)?-----
+GitHub のトークン	(^|[^A-Za-z0-9_])gh[pousr]_[A-Za-z0-9]{36,}
+GitHub のトークン	(^|[^A-Za-z0-9_])github_pat_[A-Za-z0-9_]{22,}
+Anthropic の API キー	(^|[^A-Za-z0-9_])sk-ant-[A-Za-z0-9_-]{20,}
+ASANA_TOKEN の値	ASANA_TOKEN[[:space:]]*=[[:space:]]*["']?[A-Za-z0-9][A-Za-z0-9/:._-]{15,}
+SPARKLE_ED_PRIVATE_KEY の値	SPARKLE_ED_PRIVATE_KEY[[:space:]]*=[[:space:]]*["']?[A-Za-z0-9+/]{40,}
+EOF
+}
+# 置いてはいけないファイルの拡張子(大文字・小文字を問わない)
+SECRET_FILE_RE='\.(pem|key|p12|pfx|p8|keychain|keychain-db)$'
 
 usage() { sed -n '4,12p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 
@@ -39,6 +56,17 @@ trap 'rm -rf "$TMP"' EXIT
 PROBLEMS="$TMP/problems"
 : >"$PROBLEMS"
 problem() { printf '%s\n' "$*" >>"$PROBLEMS"; }
+
+# scan_secrets <場所> <ファイル> … 秘密情報の形を探して「場所:行: 種類」を足す(テキストのファイルだけ。値は出さない)
+scan_secrets() {
+  local where="$1" path="$2" label re n
+  while IFS=$'\t' read -r label re; do
+    [ -n "$re" ] || continue
+    for n in $(LC_ALL=C grep -InE -e "$re" "$path" 2>/dev/null | cut -d: -f1 | head -5); do
+      problem "$where:$n: 秘密情報($label)が書かれています"
+    done
+  done < <(secret_patterns)
+}
 
 g() { git -C "$ROOT" "$@"; }
 
@@ -71,6 +99,12 @@ check_message() {
   [ -z "$hit" ] || while IFS= read -r l; do
     problem "$where: 手元の作業場所のパスが書かれています: ${l#*:}"
   done <<<"$hit"
+}
+
+# check_message_secrets <場所> <文> … メッセージの秘密情報(値は出さない)
+check_message_secrets() {
+  printf '%s\n' "$2" >"$TMP/message"
+  scan_secrets "$1" "$TMP/message"
 }
 
 rel_of() {
@@ -111,16 +145,21 @@ case "$MODE" in
     # 分かれた所からの変更だけを見る(<a> の側が後から進んでいても、その分は含めない)
     g diff --name-only --diff-filter=d "$base_rev...$head_rev" | while IFS= read -r rel; do add_from_rev "$head_rev" "$rel"; done
     for c in $(g rev-list "$range"); do
-      check_message "コミット $(g log -1 --format='%h %s' "$c")" "$(g log -1 --format='%B' "$c")"
+      msg="$(g log -1 --format='%B' "$c")"
+      check_message "コミット $(g log -1 --format='%h %s' "$c")" "$msg"
+      check_message_secrets "コミット $(g log -1 --format=%h "$c")" "$msg"
     done
     ;;
   --message)
     [ $# -eq 1 ] || usage
     check_message "メッセージ" "$1"
+    check_message_secrets "メッセージ" "$1"
     ;;
   --message-file)
     [ $# -eq 1 ] || usage
-    check_message "コミットメッセージ" "$(grep -v '^#' "$1" || true)"
+    msg="$(grep -v '^#' "$1" || true)"
+    check_message "コミットメッセージ" "$msg"
+    check_message_secrets "コミットメッセージ" "$msg"
     ;;
   *) usage ;;
 esac
@@ -134,6 +173,14 @@ if [ -s "$LIST" ]; then
     [ -z "$hit" ] || while IFS= read -r l; do
       problem "$rel:${l%%:*}: 手元の作業場所のパスが書かれています: ${l#*:}"
     done <<<"$hit"
+  done <"$LIST"
+
+  # 秘密情報(ファイル名と、テキストのファイルの中身)
+  while IFS=$'\t' read -r rel path; do
+    if printf '%s\n' "$rel" | LC_ALL=C grep -qiE "$SECRET_FILE_RE"; then
+      problem "$rel: 秘密鍵・証明書のファイルは置きません(リポジトリの外で保管します)"
+    fi
+    scan_secrets "$rel" "$path"
   done <"$LIST"
 
   # Swift のコメント
