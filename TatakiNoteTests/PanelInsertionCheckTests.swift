@@ -250,6 +250,24 @@ struct PanelInsertionCheckTests {
         }
     }
 
+    @Test("AC-4: 挿入先を前面にできなかったという結果でも、文章が戻ってパネルが開き直され、挿入先なしになって合図が1回増える")
+    func targetNotActivatedReopensPanel() async throws {
+        try await withFixture(target: other) { fixture in
+            fixture.inserter.result = .targetNotActivated
+            openWithText(fixture, "committed")
+            let alertsBefore = fixture.model.noTargetAlertCount
+
+            fixture.controller.commit()
+            await waitFor { fixture.model.noTargetAlertCount > alertsBefore }
+
+            #expect(fixture.inserter.calls.count == 1)
+            #expect(fixture.model.isPresented)
+            #expect(fixture.model.text == "committed")
+            #expect(fixture.model.target == nil)
+            #expect(fixture.model.noTargetAlertCount == alertsBefore + 1)
+        }
+    }
+
     @Test("AC-15: 貼り付けに失敗する間に新しい文章を書き始めていれば、開き直さない")
     func failedInsertionDoesNotReopenOverNewText() async throws {
         try await withFixture(target: other) { fixture in
