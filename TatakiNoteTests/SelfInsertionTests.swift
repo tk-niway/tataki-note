@@ -128,7 +128,8 @@ struct SelfInsertionTests {
             submitDelay: .zero,
             settleDelay: .zero,
             restoreDelay: .zero,
-            ownProcessIdentifier: Self.ownPid
+            ownProcessIdentifier: Self.ownPid,
+            frontmostApp: FrontmostApplicationStub { own.processIdentifier }
         )
 
         let result = await inserter.insert("line1\nline2", into: own, shouldSendAfterInsert: false)
@@ -158,7 +159,8 @@ struct SelfInsertionTests {
             submitDelay: .zero,
             settleDelay: .zero,
             restoreDelay: .zero,
-            ownProcessIdentifier: Self.ownPid
+            ownProcessIdentifier: Self.ownPid,
+            frontmostApp: FrontmostApplicationStub { other.processIdentifier }
         )
 
         let result = await inserter.insert("text", into: other, shouldSendAfterInsert: false)
