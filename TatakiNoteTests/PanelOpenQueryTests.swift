@@ -6,19 +6,6 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-final class WindowFrameLocateRecorder {
-    var frame: CGRect?
-    private(set) var processIdentifiers: [pid_t] = []
-
-    var count: Int { processIdentifiers.count }
-
-    func locate(_ processIdentifier: pid_t) -> CGRect? {
-        processIdentifiers.append(processIdentifier)
-        return frame
-    }
-}
-
-@MainActor
 struct PanelOpenQueryTests {
     private static let ownPid: pid_t = 4242
 

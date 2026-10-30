@@ -2,23 +2,6 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-final class InserterStub: TextInserting {
-    var result: InsertionResult
-    var onInsert: (() -> Void)?
-    private(set) var calls: [(text: String, target: InsertionTarget, shouldSendAfterInsert: Bool)] = []
-
-    init(result: InsertionResult) {
-        self.result = result
-    }
-
-    func insert(_ text: String, into target: InsertionTarget, shouldSendAfterInsert: Bool) async -> InsertionResult {
-        calls.append((text, target, shouldSendAfterInsert))
-        onInsert?()
-        return result
-    }
-}
-
-@MainActor
 struct CommitPerformerTests {
     private let textEdit = InsertionTarget(processIdentifier: 101, bundleIdentifier: "com.apple.TextEdit", localizedName: "TextEdit")
 

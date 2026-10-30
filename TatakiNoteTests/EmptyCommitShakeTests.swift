@@ -4,31 +4,6 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-final class PanelShakerSpy: PanelShaking {
-    private(set) var shakeCount = 0
-    private(set) var stopCount = 0
-    private(set) var windowVisibilityAtStop: [Bool] = []
-
-    func shake(_ window: NSWindow) {
-        shakeCount += 1
-    }
-
-    func stop(_ window: NSWindow) {
-        stopCount += 1
-        windowVisibilityAtStop.append(window.isVisible)
-    }
-}
-
-@MainActor
-final class BeepSpy {
-    private(set) var count = 0
-
-    func beep() {
-        count += 1
-    }
-}
-
-@MainActor
 struct EmptyCommitShakeTests {
     private static let ownPid: pid_t = 4242
     private static let noReplacement = NSRange(location: NSNotFound, length: 0)

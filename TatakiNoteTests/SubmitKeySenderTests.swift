@@ -35,21 +35,6 @@ final class ModifierKeyStateStub: ModifierKeyStateReading {
 }
 
 @MainActor
-final class FrontmostApplicationStub: FrontmostApplicationReading {
-    private let provide: () -> pid_t?
-    private(set) var readCount = 0
-
-    init(_ provide: @escaping () -> pid_t?) {
-        self.provide = provide
-    }
-
-    var frontmostProcessIdentifier: pid_t? {
-        readCount += 1
-        return provide()
-    }
-}
-
-@MainActor
 struct SubmitKeySenderTests {
     private let target = InsertionTarget(processIdentifier: 101, bundleIdentifier: "com.apple.TextEdit", localizedName: "TextEdit")
     private let otherApp: pid_t = 202
