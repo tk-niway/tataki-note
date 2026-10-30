@@ -34,7 +34,7 @@ import Observation
     }
 
     func handleCommitOutcome(_ outcome: CommitOutcome) {
-        guard outcome == .inserted, heldSize != nil else { return }
+        guard outcome.didInsert, heldSize != nil else { return }
         heldSize = nil
     }
 

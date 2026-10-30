@@ -3,7 +3,16 @@ import AppKit
 /// 確定の結果。
 enum CommitOutcome: Equatable {
     case inserted
+    case insertedIntoSecureField
     case notInserted
+}
+
+extension CommitOutcome {
+    /// 挿入できたか。
+    var didInsert: Bool { self == .inserted || self == .insertedIntoSecureField }
+
+    /// 挿入した文章を履歴に残すか。
+    var recordsHistory: Bool { self == .inserted }
 }
 
 /// 確定の後、パネルを閉じてから行う処理。
@@ -41,6 +50,8 @@ final class CommitPerformer {
             switch await inserter.insert(text, into: target, shouldSendAfterInsert: shouldSendAfterInsert) {
             case .inserted:
                 return .inserted
+            case .insertedIntoSecureField:
+                return .insertedIntoSecureField
             case .targetNotActivated, .noTextInput:
                 model.restoreDraft(text)
             }
