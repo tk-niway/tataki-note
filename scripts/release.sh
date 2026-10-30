@@ -15,8 +15,8 @@
 #                    無ければキーチェーンのプロファイル NOTARY_KEYCHAIN_PROFILE(既定 TatakiNote)。
 #                    NOTARY_SUBMISSION_ID を付けると、.app は出し直さずにその提出の結果を待つ(同じ .app のときだけ)
 #   appcast [--dry-run]
-#                    dist/ の DMG に EdDSA の署名をして dist/appcast.xml を作る。秘密鍵は SPARKLE_ED_PRIVATE_KEY、
-#                    無ければキーチェーン。--dry-run は署名せず、appcast.xml を書かずに標準出力へ出す
+#                    dist/ の DMG に EdDSA の署名をして dist/appcast.xml を作り、appcast.xml にも署名を埋め込む。
+#                    秘密鍵は SPARKLE_ED_PRIVATE_KEY、無ければキーチェーン。--dry-run は署名せず、appcast.xml を書かずに標準出力へ出す
 #   upload           dist/ の DMG と appcast.xml、release-notes/v<版>.md で、GitHub にリリースを公開する
 #                    (下書きがあれば本文と添付を差し替えて公開し、公開済みなら何もしない)。gh が要る
 # 版は VERSION(x.y.z)、リリースノートは release-notes/v<版>.md、設定は scripts/release.conf。
@@ -106,6 +106,7 @@ cmd_test() {
     -destination 'platform=macOS' \
     -derivedDataPath "$APP_ROOT/.build/test" \
     -only-testing:"${APP_NAME}Tests" \
+    -onlyUsePackageVersionsFromResolvedFile \
     -skipPackagePluginValidation -skipMacroValidation \
     CODE_SIGNING_ALLOWED=NO \
     -quiet
@@ -132,6 +133,7 @@ cmd_build() {
     -configuration Release \
     -destination 'generic/platform=macOS' \
     -derivedDataPath "$DERIVED" \
+    -onlyUsePackageVersionsFromResolvedFile \
     -skipPackagePluginValidation -skipMacroValidation \
     CODE_SIGNING_ALLOWED=NO \
     MARKETING_VERSION="$VERSION" \
@@ -349,11 +351,42 @@ notes_to_html() {
   ' "$NOTES"
 }
 
+# sparkle_tool <名前> … Sparkle のツールの実行ファイルのパスを標準出力へ
+sparkle_tool() {
+  local tool
+  tool="$(find "$DERIVED/SourcePackages/artifacts" -type f -name "$1" 2>/dev/null | head -1 || true)"
+  [ -n "$tool" ] || die "$1 がありません。Sparkle のパッケージを取得して build を実行してください: $DERIVED/SourcePackages/artifacts"
+  printf '%s\n' "$tool"
+}
+
+# appcast_is_signed <ファイル> … 署名のコメント(sparkle-signatures と、その後の edSignature)があれば成功
+appcast_is_signed() {
+  awk '
+    /<!-- sparkle-signatures:/ { opened = 1; next }
+    opened && /edSignature:/ { found = 1 }
+    END { exit(found ? 0 : 1) }
+  ' "$1"
+}
+
+# sign_appcast … $APPCAST に EdDSA の署名を埋め込む。失敗したら appcast.xml を消して止まる
+sign_appcast() {
+  local tool
+  tool="$(sparkle_tool sign_update)"
+  if [ -n "${SPARKLE_ED_PRIVATE_KEY:-}" ]; then
+    printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$tool" "$APPCAST" --ed-key-file - >/dev/null \
+      || { rm -f "$APPCAST"; die "appcast.xml に署名できませんでした(SPARKLE_ED_PRIVATE_KEY を確かめてください)"; }
+  else
+    "$tool" "$APPCAST" >/dev/null \
+      || { rm -f "$APPCAST"; die "appcast.xml に署名できませんでした(キーチェーンに EdDSA の秘密鍵が必要です)"; }
+  fi
+  appcast_is_signed "$APPCAST" \
+    || { rm -f "$APPCAST"; die "appcast.xml に署名が入っていません: $APPCAST"; }
+}
+
 # sign_dmg … DMG の EdDSA 署名(base64)を標準出力へ
 sign_dmg() {
   local tool out signature
-  tool="$(find "$DERIVED/SourcePackages/artifacts" -type f -name sign_update 2>/dev/null | head -1 || true)"
-  [ -n "$tool" ] || die "sign_update がありません。Sparkle のパッケージを取得して build を実行してください: $DERIVED/SourcePackages/artifacts"
+  tool="$(sparkle_tool sign_update)"
   if [ -n "${SPARKLE_ED_PRIVATE_KEY:-}" ]; then
     out="$(printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$tool" "$DMG" --ed-key-file -)" \
       || die "DMG に署名できませんでした(SPARKLE_ED_PRIVATE_KEY を確かめてください)"
@@ -375,6 +408,7 @@ cmd_appcast() {
     esac
   done
   read_version
+  [ "$dry_run" -eq 1 ] || rm -f "$APPCAST"
   require_notes
 
   local length=0 signature_attribute=""
@@ -399,7 +433,8 @@ cmd_appcast() {
   else
     mkdir -p "$DIST"
     write_appcast > "$APPCAST"
-    echo "appcast.xml を作りました: $APPCAST"
+    sign_appcast
+    echo "appcast.xml を作って署名しました: $APPCAST"
   fi
 }
 

@@ -12,6 +12,11 @@ DerivedData/
 # コード署名の証明書と秘密鍵の書き出し(.p12 はリポジトリの外で保管する)
 *.p12
 *.cer
+*.pem
+*.key
+*.pfx
+*.keychain
+*.keychain-db
 
 # 公証(notarytool)用の App Store Connect API キー
 *.p8
