@@ -134,3 +134,53 @@ final class FrontmostApplicationStub: FrontmostApplicationReading {
         return provide()
     }
 }
+
+@MainActor
+final class InsertionEventLog {
+    private(set) var events: [String] = []
+
+    func add(_ event: String) {
+        events.append(event)
+    }
+
+    func index(of event: String, after start: Int = -1) -> Int? {
+        events.indices.first { $0 > start && events[$0] == event }
+    }
+}
+
+@MainActor
+final class RecordingSnapshotter: PasteboardSnapshotting {
+    private let inner: BackgroundPasteboardSnapshotter
+    private let log: InsertionEventLog?
+    var captureDelay: Duration = .zero
+    var afterCapture: ((_ callNumber: Int) -> Void)?
+    private(set) var captureCount = 0
+    private(set) var returnedCaptures: [CapturedPasteboard] = []
+    private(set) var restoreResults: [Bool] = []
+
+    init(pasteboard: NSPasteboard, log: InsertionEventLog? = nil) {
+        inner = BackgroundPasteboardSnapshotter(pasteboard: pasteboard)
+        self.log = log
+    }
+
+    func capture() async -> CapturedPasteboard {
+        captureCount += 1
+        let callNumber = captureCount
+        log?.add("captureStart")
+        if captureDelay > .zero {
+            try? await Task.sleep(for: captureDelay)
+        }
+        let captured = await inner.capture()
+        returnedCaptures.append(captured)
+        afterCapture?(callNumber)
+        log?.add("captureEnd")
+        return captured
+    }
+
+    func restore(_ snapshot: PasteboardSnapshot, ifChangeCountIs changeCount: Int) async -> Bool {
+        let didRestore = await inner.restore(snapshot, ifChangeCountIs: changeCount)
+        restoreResults.append(didRestore)
+        log?.add("restore")
+        return didRestore
+    }
+}
