@@ -207,6 +207,63 @@ struct WebContentExposerTests {
         #expect(recorder.count(of: editor) == 2)
     }
 
+    // MARK: - AC-13
+
+    @Test("AC-13: 頼み済みと覚えたアプリには頼まず、覚えていないアプリには頼む")
+    func needsRequestFollowsRecordedApps() {
+        let exposer = makeExposer(ExposeRequestRecorder())
+
+        #expect(exposer.needsRequest(for: editor))
+        exposer.record(.success, for: editor)
+        #expect(exposer.needsRequest(for: editor) == false)
+        #expect(exposer.needsRequest(for: other))
+
+        exposer.forget(processIdentifier: editor.processIdentifier)
+        #expect(exposer.needsRequest(for: editor))
+    }
+
+    @Test(
+        "AC-13: 覚えるのは成功・属性なしの結果のときだけ",
+        arguments: [
+            (AXError.success, false),
+            (AXError.attributeUnsupported, false),
+            (AXError.cannotComplete, true),
+            (AXError.apiDisabled, true),
+            (AXError.failure, true),
+            (AXError.illegalArgument, true),
+            (AXError.invalidUIElement, true),
+        ]
+    )
+    func recordRemembersOnlyAcceptedResults(result: AXError, needsRequestAfter: Bool) {
+        let exposer = makeExposer(ExposeRequestRecorder())
+
+        exposer.record(result, for: editor)
+
+        #expect(exposer.needsRequest(for: editor) == needsRequestAfter, "\(result.rawValue)")
+    }
+
+    @Test("AC-13: expose は、頼み済みなら頼まず、頼んだ結果を record と同じ決まりで覚える")
+    func exposeKeepsItsBehavior() {
+        let recorder = ExposeRequestRecorder()
+        let exposer = makeExposer(recorder)
+
+        recorder.result = .failure
+        exposer.expose(editor)
+        exposer.expose(editor)
+        #expect(recorder.count(of: editor) == 2)
+        #expect(exposer.needsRequest(for: editor))
+
+        recorder.result = .attributeUnsupported
+        exposer.expose(editor)
+        exposer.expose(editor)
+        #expect(recorder.count(of: editor) == 3)
+        #expect(exposer.needsRequest(for: editor) == false)
+
+        exposer.record(.success, for: other)
+        exposer.expose(other)
+        #expect(recorder.count(of: other) == 0)
+    }
+
     // MARK: - AC-8
 
     @Test("AC-8: 挿入先が無い・自分自身・許可が無いときは頼まず、他のアプリで許可があるときだけ頼む")

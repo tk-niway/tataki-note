@@ -1,7 +1,7 @@
 import AppKit
 
 /// 文章を挿入するアプリ。
-struct InsertionTarget: Equatable, Sendable {
+nonisolated struct InsertionTarget: Equatable, Sendable {
     var processIdentifier: pid_t
     var bundleIdentifier: String?
     var localizedName: String?
