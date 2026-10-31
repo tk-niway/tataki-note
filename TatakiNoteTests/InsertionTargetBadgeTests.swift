@@ -85,6 +85,44 @@ struct InsertionTargetBadgeTests {
         #expect(badge.tipText == "TatakiNote に挿入します")
     }
 
+    @Test("AC-14: 待ちの間は、挿入先があってもなくても、挿入先もアイコンも出さず待ちになる")
+    func pendingHidesTargetAndNoTarget() {
+        let safari = target(name: "Safari")
+
+        #expect(InsertionTargetBadge.display(target: nil, isPending: true) == .pending)
+        #expect(InsertionTargetBadge.display(target: safari, isPending: true) == .pending)
+    }
+
+    @Test("AC-14: 待ちが終われば、挿入先があればアイコン、無ければ「挿入先なし」になる")
+    func settledShowsTargetOrNoTarget() throws {
+        let safari = target(name: "Safari")
+
+        let withTarget = InsertionTargetBadge.display(target: safari, isPending: false)
+        let withoutTarget = InsertionTargetBadge.display(target: nil, isPending: false)
+
+        #expect(withTarget == .target(try #require(InsertionTargetBadge.make(for: safari))))
+        #expect(withoutTarget == .noTarget)
+    }
+
+    @Test("AC-14: 「挿入先なし」の部品は、待ちの間も見えない形で置かれ、挿入先があるときは置かれない")
+    func noTargetLabelIsPlacedWhilePending() throws {
+        let badge = try #require(InsertionTargetBadge.make(for: target(name: "Safari")))
+
+        #expect(InsertionTargetDisplay.pending.placesNoTargetLabel)
+        #expect(InsertionTargetDisplay.noTarget.placesNoTargetLabel)
+        #expect(!InsertionTargetDisplay.target(badge).placesNoTargetLabel)
+    }
+
+    @Test("AC-14: 「挿入先なし」は、待ちの間は見せず読み上げず、「挿入先なし」のときだけ見せる")
+    func noTargetLabelIsVisibleOnlyWhenNoTarget() throws {
+        let badge = try #require(InsertionTargetBadge.make(for: target(name: "Safari")))
+
+        #expect(!InsertionTargetDisplay.pending.isNoTargetLabelVisible)
+        #expect(!InsertionTargetDisplay.target(badge).isNoTargetLabelVisible)
+        #expect(InsertionTargetDisplay.noTarget.isNoTargetLabelVisible)
+        #expect(InsertionTargetBadge.pendingAccessibilityLabel == "挿入先を調べています")
+    }
+
     @Test("AC-44: アイコンが取れない挿入先(存在しない pid と bundle ID)では、汎用のアプリのアイコンになる")
     func missingIconFallsBackToGenericApplicationIcon() throws {
         let missing = target(name: "Missing", bundleIdentifier: "invalid.tatakinote.nonexistent")

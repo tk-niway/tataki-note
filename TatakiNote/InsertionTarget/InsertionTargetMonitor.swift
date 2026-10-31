@@ -2,6 +2,11 @@ import AppKit
 import ApplicationServices
 import Observation
 
+/// 開くときの調べの番号。
+struct InsertionTargetLookupToken: Equatable {
+    let value: UInt64
+}
+
 /// 見張りを始めた時点の挿入先と、そのとき使ったフォーカスのある要素の調べの結果。
 struct InsertionTargetStart {
     let target: InsertionTarget?
@@ -50,6 +55,8 @@ final class InsertionTargetMonitor {
     private var hasReadableFrame = false
     private var isWatching = false
     private var slowUntil: Date?
+    private var pendingToken: InsertionTargetLookupToken?
+    private var nextTokenValue: UInt64 = 0
     private var pollTask: Task<Void, Never>?
     private var recheckTask: Task<Void, Never>?
     private var clickMonitor: Any?
@@ -121,6 +128,58 @@ final class InsertionTargetMonitor {
         return InsertionTargetStart(target: resolution.target, focus: resolution.focus)
     }
 
+    /// 開くときに、裏で調べる必要がある挿入先か(他のアプリで、動いている)。
+    func needsOpeningLookup(for app: InsertionTarget?) -> Bool {
+        guard let app else { return false }
+        return !app.isOwnApp(ownProcessIdentifier) && isRunning(app.processIdentifier)
+    }
+
+    /// 調べ終えた結果で見張りを始める。AX へは問い合わせない。
+    @discardableResult
+    func begin(app: InsertionTarget, lookedUp result: OpeningTargetLookupResult) -> InsertionTargetStart {
+        end()
+        self.app = app
+        isWatching = true
+        var didQuery = false
+        let resolution = adopt(result.probe, of: app, didQuery: &didQuery)
+        applySlowBackoff(for: result)
+        outline.update(resolution.outline)
+        startClickMonitor()
+        startPolling()
+        return InsertionTargetStart(
+            target: resolution.target,
+            focus: ObservedFocus(processIdentifier: app.processIdentifier, probe: result.probe)
+        )
+    }
+
+    /// 調べの終わりを待たずに見張りを始める。挿入先は答えが届くまで決めない。
+    func beginPending(app: InsertionTarget) -> InsertionTargetLookupToken {
+        end()
+        self.app = app
+        isWatching = true
+        nextTokenValue += 1
+        let token = InsertionTargetLookupToken(value: nextTokenValue)
+        pendingToken = token
+        outline.update(nil)
+        startClickMonitor()
+        startPolling()
+        return token
+    }
+
+    /// 遅れて届いた答えを反映する。番号が今の待ちのものでなければ何もしない。
+    func finishPending(_ token: InsertionTargetLookupToken, result: OpeningTargetLookupResult) {
+        guard isWatching, panelModel.isPresented, pendingToken == token, let app else { return }
+        pendingToken = nil
+        var didQuery = false
+        let resolution = adopt(result.probe, of: app, didQuery: &didQuery)
+        panelModel.finishTargetLookup(resolution.target)
+        outline.update(resolution.outline)
+        applySlowBackoff(for: result)
+    }
+
+    /// 開くときの答えを待っているか。
+    var isAwaitingOpeningLookup: Bool { pendingToken != nil }
+
     /// 見張りをやめ、枠線の場所を消す。
     func end() {
         isWatching = false
@@ -136,6 +195,7 @@ final class InsertionTargetMonitor {
         field = nil
         hasReadableFrame = false
         slowUntil = nil
+        pendingToken = nil
         outline.update(nil)
     }
 
@@ -143,7 +203,7 @@ final class InsertionTargetMonitor {
 
     /// 定期の調べ1回分。挿入先の入力欄の位置だけを読み、枠線を動かす。入力欄が使えなくなったときだけ挿入先なしにする。
     func refresh() {
-        guard isWatching else { return }
+        guard isWatching, pendingToken == nil else { return }
         if let slowUntil, slowUntil > now() { return }
         let resolution = measured { trackField(didQuery: &$0) }
         panelModel.updateTarget(resolution.target)
@@ -185,6 +245,7 @@ final class InsertionTargetMonitor {
     }
 
     private func clearField() {
+        pendingToken = nil
         field = nil
         hasReadableFrame = false
         panelModel.updateTarget(nil)
@@ -213,6 +274,7 @@ final class InsertionTargetMonitor {
         field = element
         hasReadableFrame = result.frame != nil
         slowUntil = nil
+        pendingToken = nil
         if isNewApp {
             exposeWebContent(front)
         }
@@ -263,16 +325,26 @@ final class InsertionTargetMonitor {
             didQuery = true
             result = probe.probeFocusedElement(in: app, readsFrame: true)
         }
-        let focus = ObservedFocus(processIdentifier: app.processIdentifier, probe: result)
+        return adopt(result, of: app, didQuery: &didQuery)
+    }
 
-        guard let element = result.element, isTextInput(result.lookup, of: app) else {
+    private func adopt(_ probe: FocusedElementProbe, of app: InsertionTarget, didQuery: inout Bool) -> Resolution {
+        let focus = ObservedFocus(processIdentifier: app.processIdentifier, probe: probe)
+
+        guard let element = probe.element, isTextInput(probe.lookup, of: app) else {
             field = nil
             return Resolution(focus: focus)
         }
         field = element
-        hasReadableFrame = result.frame != nil
-        let rect = outlineRect(for: app, fieldFrame: result.frame, didQuery: &didQuery)
+        hasReadableFrame = probe.frame != nil
+        let rect = outlineRect(for: app, fieldFrame: probe.frame, didQuery: &didQuery)
         return Resolution(target: app, outline: rect, focus: focus)
+    }
+
+    private func applySlowBackoff(for result: OpeningTargetLookupResult) {
+        if result.didQuery && result.duration > Self.slowQueryThreshold {
+            slowUntil = now().addingTimeInterval(Self.slowQueryBackoff)
+        }
     }
 
     private func trackField(didQuery: inout Bool) -> Resolution {
