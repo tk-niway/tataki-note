@@ -7,7 +7,6 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// 入力パネルの窓。
     let panel: PromptPanel
     private let settings: AppSettings
-    private let animator: PanelFrameAnimating
     private let hideApplication: () -> Void
     private let targetTracker: FrontmostAppTracker
     private let permission: AccessibilityPermissionChecking
@@ -31,10 +30,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     let sizeController: PanelSizeController
 
-    private var motion = PanelMotionState()
-    private var restingFrame: NSRect?
-    private var pendingCloseCompletion: (() -> Void)?
-    private var closingGhost: PanelClosingGhost?
+    private let motionController: PanelMotionController
 
     var heldPanelSize: CGSize? { sizeController.sizing.heldSize }
 
@@ -87,7 +83,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.model = model
         self.panel = panel
         self.settings = settings
-        self.animator = animator
         self.shaker = shaker
         self.beep = beep
         self.exporter = TextExporter(settings: settings, chooser: exportChooser, write: writeTextFile)
@@ -131,7 +126,13 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.session = session
         let sidebarModel = SidebarModel(settings: settings, library: library, session: session)
         self.sidebarModel = sidebarModel
-        self.sizeController = PanelSizeController(panel: panel, sidebarModel: sidebarModel, animator: animator)
+        let sizeController = PanelSizeController(panel: panel, sidebarModel: sidebarModel, animator: animator)
+        self.sizeController = sizeController
+        self.motionController = PanelMotionController(
+            panel: panel,
+            animator: animator,
+            restoreMinimumSize: { [sizeController] in sizeController.applyMinimumSize() }
+        )
         self.saveAnimation = saveAnimation
         super.init()
 
@@ -288,7 +289,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         if !wasPresented {
             library.pruneExpiredHistory()
             sidebarModel.discardPendingFocusRequests()
-            stopMotion()
+            motionController.stop()
             sizeController.sizing.beginOpening(defaultSize: settings.panelDefaultSize, hasText: !model.text.isEmpty)
             let openingFrame = openFrameResolver.frame(
                 target: app,
@@ -305,17 +306,14 @@ final class PanelController: NSObject, NSWindowDelegate {
                 sizeController.applyMinimumSize()
                 panel.center()
             }
-            present(at: panel.frame)
+            motionController.present(at: panel.frame, isAnimationEnabled: settings.isAnimationEnabled)
             return
         }
         panel.makeKeyAndOrderFront(nil)
     }
 
     func close() {
-        prepareToClose()
-        hidePanel()
-        model.dismiss()
-        library.flush()
+        dismiss(.animated)
     }
 
     /// 終了の理由に応じて書きかけを扱い、遅らせている下書きの書き出しを今行う。
@@ -332,25 +330,42 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// アプリが隠れたときに、動きなしでパネルを閉じて枠を本来の枠に戻す。
     func closeImmediately() {
-        prepareToClose()
-        hideWithoutMotion()
-        model.dismiss()
-        library.flush()
+        dismiss(.immediately)
     }
 
     /// ⌘H を受け取る。アニメーションがオンで開いているときは閉じる動きのあとにアプリを隠して true を返す。
     func handleHideKey() -> Bool {
         guard settings.isAnimationEnabled,
-              motion.phase == .opening || motion.phase == .shown else { return false }
-        prepareToClose()
-        hidePanel(then: { [weak self] in self?.hideApplication() })
-        model.dismiss()
-        library.flush()
+              motionController.phase == .opening || motionController.phase == .shown else { return false }
+        dismiss(.animatedThenHideApplication)
         return true
     }
 
-    private func prepareToClose() {
+    private enum Dismissal {
+        case animated
+        case animatedThenHideApplication
+        case immediately
+    }
+
+    private func dismiss(_ dismissal: Dismissal) {
         stopPanelEffects()
+        switch dismissal {
+        case .animated: hidePanel()
+        case .animatedThenHideApplication: hidePanel(then: { [weak self] in self?.hideApplication() })
+        case .immediately: hideWithoutMotion()
+        }
+        model.dismiss()
+        library.flush()
+    }
+
+    private func hidePanel(then completion: (() -> Void)? = nil) {
+        sizeController.finishSidebarSlide()
+        motionController.hide(isAnimationEnabled: settings.isAnimationEnabled, then: completion)
+    }
+
+    private func hideWithoutMotion() {
+        sizeController.finishSidebarSlide()
+        motionController.hideWithoutMotion()
     }
 
     private func stopPanelEffects() {
@@ -360,7 +375,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private func signalEmptyInput() {
         sizeController.finishSidebarSlide()
-        switch PanelShake.emptyInputFeedback(motionPhase: motion.phase, isAnimationEnabled: settings.isAnimationEnabled) {
+        switch PanelShake.emptyInputFeedback(motionPhase: motionController.phase, isAnimationEnabled: settings.isAnimationEnabled) {
         case .shake:
             shaker.shake(panel)
         case .beep:
@@ -536,7 +551,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             isOpen,
             isPanelPresented: model.isPresented,
             isAnimationEnabled: settings.isAnimationEnabled,
-            motionPhase: motion.phase
+            motionPhase: motionController.phase
         )
     }
 
@@ -615,126 +630,10 @@ final class PanelController: NSObject, NSWindowDelegate {
         model.dismiss()
     }
 
-    // MARK: - 開閉の動き
-
-    private func present(at restFrame: NSRect) {
-        guard settings.isAnimationEnabled else {
-            endMotion()
-            panel.makeKeyAndOrderFront(nil)
-            motion.showWithoutMotion()
-            pendingCloseCompletion = nil
-            restingFrame = nil
-            return
-        }
-        beginMotion()
-        restingFrame = restFrame
-        panel.setFrame(PanelMotion.lineFrame(of: restFrame), display: false)
-        panel.makeKeyAndOrderFront(nil)
-        let token = motion.beginOpening()
-        pendingCloseCompletion = nil
-        animator.animate(panel, to: restFrame, duration: PanelMotion.duration, curve: .easeOut) { [weak self] in
-            self?.finishMotion(token)
-        }
-    }
-
-    private func hidePanel(then completion: (() -> Void)? = nil) {
-        sizeController.finishSidebarSlide()
-        guard settings.isAnimationEnabled, motion.phase != .hidden else {
-            hideWithoutMotion()
-            completion?()
-            return
-        }
-        if motion.phase == .closing { return }
-        guard let ghost = PanelClosingGhost.make(from: panel) else {
-            hideWithoutMotion()
-            completion?()
-            return
-        }
-        let wasOpening = motion.phase == .opening
-        let panelFrame = wasOpening ? (restingFrame ?? panel.frame) : panel.frame
-        let token = motion.beginClosing()
-        pendingCloseCompletion = completion
-        restingFrame = nil
-        closingGhost = ghost
-        ghost.orderFrontRegardless()
-        panel.orderOut(nil)
-        if wasOpening {
-            animator.jump(panel, to: panelFrame)
-        }
-        endMotion()
-        animator.animate(
-            ghost,
-            to: PanelMotion.lineFrame(of: ghost.frame),
-            duration: PanelMotion.duration,
-            curve: .easeIn
-        ) { [weak self] in
-            if let self {
-                self.finishMotion(token)
-            } else {
-                ghost.orderOut(nil)
-            }
-        }
-    }
-
-    private func hideWithoutMotion() {
-        sizeController.finishSidebarSlide()
-        discardGhost()
-        motion.hideWithoutMotion()
-        pendingCloseCompletion = nil
-        panel.orderOut(nil)
-        if let frame = restingFrame {
-            restingFrame = nil
-            animator.jump(panel, to: frame)
-        }
-        endMotion()
-    }
-
-    private func finishMotion(_ token: Int) {
-        guard motion.finish(token) else { return }
-        switch motion.phase {
-        case .shown:
-            restingFrame = nil
-            endMotion()
-        case .hidden:
-            discardGhost()
-            let completion = pendingCloseCompletion
-            pendingCloseCompletion = nil
-            completion?()
-        case .opening, .closing:
-            break
-        }
-    }
-
-    private func discardGhost() {
-        closingGhost?.orderOut(nil)
-        closingGhost = nil
-    }
-
-    private func beginMotion() {
-        panel.contentMinSize = NSSize(width: 1, height: 1)
-    }
-
-    private func endMotion() {
-        sizeController.applyMinimumSize()
-    }
-
-    private func stopMotion() {
-        guard motion.phase == .opening || motion.phase == .closing else { return }
-        let wasOpening = motion.phase == .opening
-        discardGhost()
-        motion.hideWithoutMotion()
-        pendingCloseCompletion = nil
-        let frame = restingFrame ?? panel.frame
-        restingFrame = nil
-        if wasOpening {
-            animator.jump(panel, to: frame)
-        }
-    }
-
     // MARK: - 大きさ
 
     func windowWillStartLiveResize(_ notification: Notification) {
-        sizeController.windowWillStartLiveResize(motionPhase: motion.phase)
+        sizeController.windowWillStartLiveResize(motionPhase: motionController.phase)
     }
 
     func windowDidEndLiveResize(_ notification: Notification) {
@@ -742,11 +641,11 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
-        sizeController.windowWillResize(sender, to: frameSize, motionPhase: motion.phase)
+        sizeController.windowWillResize(sender, to: frameSize, motionPhase: motionController.phase)
     }
 
     func windowDidResize(_ notification: Notification) {
-        sizeController.windowDidResize(motionPhase: motion.phase)
+        sizeController.windowDidResize(motionPhase: motionController.phase)
     }
 
     func windowShouldZoom(_ window: NSWindow, toFrame newFrame: NSRect) -> Bool {

@@ -3,15 +3,6 @@ import Foundation
 import Testing
 @testable import TatakiNote
 
-@MainActor
-final class HideApplicationCounter {
-    private(set) var count = 0
-
-    func record() {
-        count += 1
-    }
-}
-
 enum PanelMotionOpenWay: CaseIterable, Sendable {
     case hotkey
     case menu

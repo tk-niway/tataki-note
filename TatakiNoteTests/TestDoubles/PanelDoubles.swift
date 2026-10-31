@@ -29,6 +29,15 @@ final class BeepSpy {
 }
 
 @MainActor
+final class HideApplicationCounter {
+    private(set) var count = 0
+
+    func record() {
+        count += 1
+    }
+}
+
+@MainActor
 final class HeldSleeper {
     private var waiting: [CheckedContinuation<Void, Never>] = []
 
