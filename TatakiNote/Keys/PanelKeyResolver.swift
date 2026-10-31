@@ -72,20 +72,7 @@ enum PanelKeyResolver {
     }
 
     private static func panelCommandAction(for input: PanelKeyInput) -> PanelKeyAction? {
-        let modifiers = input.modifiers.intersection(PanelShortcut.relevantModifiers)
-        if modifiers == [.command, .shift] {
-            return input.characters == "s" ? .exportToFile : nil
-        }
-        guard modifiers == [.command] else { return nil }
-        switch input.characters {
-        case "k": return .openSearch
-        case "s": return .saveDraft
-        case "n": return .newDraft
-        case "e": return .toggleMode
-        case "b": return .toggleSidebar
-        case ",": return .openSettings
-        default: return nil
-        }
+        PanelCommandKeys.row(modifiers: input.modifiers, character: input.characters)?.action
     }
 
     static func insertsNewlineExplicitly(for input: PanelKeyInput) -> Bool {

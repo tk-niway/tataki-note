@@ -1,17 +1,9 @@
 import AppKit
 
-/// パネルの検索・保存・新規・モードの切り替え・サイドバーの開閉・設定・ファイルへの書き出しに使う ⌘K・⌘S・⌘N・⌘E・⌘B・⌘,・⇧⌘S。
+/// パネルの操作のキー(`PanelCommandKeys`)を、記録ボックスで登録できないキーとして扱う。
 enum ReservedPanelKeys {
     /// 予約のキーの修飾キーと文字の組。
-    static let keys: [EditorKeyEquivalent] = [
-        EditorKeyEquivalent(modifiers: [.command], character: "k"),
-        EditorKeyEquivalent(modifiers: [.command], character: "s"),
-        EditorKeyEquivalent(modifiers: [.command], character: "n"),
-        EditorKeyEquivalent(modifiers: [.command], character: "e"),
-        EditorKeyEquivalent(modifiers: [.command], character: "b"),
-        EditorKeyEquivalent(modifiers: [.command], character: ","),
-        EditorKeyEquivalent(modifiers: [.command, .shift], character: "s"),
-    ]
+    static let keys: [EditorKeyEquivalent] = PanelCommandKeys.all.map(\.key)
 
     /// 押されたキー(修飾キーは `PanelShortcut.relevantModifiers` に絞ったもの、文字は小文字)が予約のキーかを返す。
     static func contains(modifiers: NSEvent.ModifierFlags, character: String) -> Bool {
@@ -26,13 +18,9 @@ enum ReservedPanelKeys {
 
     /// 保存値のキーが、今のキー配列で予約のキーに当たるかを返す。
     static func isReserved(_ shortcut: PanelShortcut) -> Bool {
-        keys.contains { key in
-            key.modifiers == shortcut.modifiers && displayText(of: key) == shortcut.displayText
+        PanelCommandKeys.all.contains { row in
+            row.key.modifiers == shortcut.modifiers && row.keyText == shortcut.displayText
         }
-    }
-
-    private static func displayText(of key: EditorKeyEquivalent) -> String {
-        (key.modifiers.contains(.shift) ? "⇧" : "") + "⌘" + key.character.uppercased()
     }
 
     struct Migration: Equatable {

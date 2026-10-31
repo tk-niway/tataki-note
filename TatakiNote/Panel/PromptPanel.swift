@@ -2,7 +2,7 @@ import AppKit
 
 /// プロンプトを書くパネル。
 final class PromptPanel: NSPanel {
-    /// ビューの階層が受けなかった `⌘K` `⌘S` `⌘N` `⌘E` を受け取る処理。処理したら `true` を返す。
+    /// ビューの階層が受けなかったパネルの操作のキーを受け取る処理。処理したら `true` を返す。
     var onKeyEquivalent: ((PanelKeyInput) -> Bool)?
 
     init(contentRect: NSRect) {
@@ -79,7 +79,7 @@ final class PromptPanel: NSPanel {
         (responder as? NSTextInputClient)?.hasMarkedText() ?? false
     }
 
-    /// `⌘K` `⌘S` `⌘N` `⌘E` `⌘B` `⌘,` `⇧⌘S` のキーの値。どれでもなければ `nil`。
+    /// パネルの操作のキー(`PanelCommandKeys`)の値。どれでもなければ `nil`。
     static func panelCommandInput(for event: NSEvent, hasMarkedText: Bool) -> PanelKeyInput? {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let characters = event.charactersIgnoringModifiers?.lowercased() ?? ""

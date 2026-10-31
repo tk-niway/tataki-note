@@ -2,8 +2,9 @@ import XCTest
 
 final class DraftsSidebarUITests: PanelDraftsUITestCase {
     // AC-30
+    // AC-12
     @MainActor
-    func testAC30_sidebarToggleWidensWindowAndRemembersState() throws {
+    func testAC30_AC12_sidebarToggleWidensWindowAndRemembersState() throws {
         let app = try launchApp()
         let panel = openPanel(in: app)
         let closedFrame = panel.frame
@@ -93,8 +94,9 @@ final class DraftsSidebarUITests: PanelDraftsUITestCase {
     }
 
     // AC-20
+    // AC-12
     @MainActor
-    func testAC20_settingsKeepsPanelAndReturnsInput() throws {
+    func testAC20_AC12_settingsKeepsPanelAndReturnsInput() throws {
         let app = try launchApp(seed: ["panelScreen": "main", "animationMode": "off"])
         let general = element(in: app, identifier: "settings.sidebar.general")
         let settings = app.windows.containing(.any, identifier: "settings.sidebar.general").firstMatch

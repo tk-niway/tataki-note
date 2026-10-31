@@ -8,12 +8,7 @@ struct PanelTitleBar: View {
     let session: DraftSession?
     let isSidebarOpen: Bool
     let saveArrival: SaveArrival
-    let onClose: () -> Void
-    let onToggleSidebar: () -> Void
-    let onNewDraft: () -> Void
-    let onSaveDraft: () -> Void
-    let onSwitchToInsert: () -> Void
-    let onShare: () -> Void
+    let onCommand: (PanelCommand) -> Void
     let sharingAnchorRegistry: SharingAnchorRegistry?
     let appIcon: @MainActor (InsertionTarget) -> NSImage
     let mode: DraftMode
@@ -25,12 +20,7 @@ struct PanelTitleBar: View {
         session: DraftSession? = nil,
         isSidebarOpen: Bool = false,
         saveArrival: SaveArrival = SaveArrival(),
-        onClose: @escaping () -> Void,
-        onToggleSidebar: @escaping () -> Void = {},
-        onNewDraft: @escaping () -> Void = {},
-        onSaveDraft: @escaping () -> Void = {},
-        onSwitchToInsert: @escaping () -> Void = {},
-        onShare: @escaping () -> Void = {},
+        onCommand: @escaping (PanelCommand) -> Void = { _ in },
         sharingAnchorRegistry: SharingAnchorRegistry? = nil,
         appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = InsertionTargetBadge.systemIcon(for:)
     ) {
@@ -40,12 +30,7 @@ struct PanelTitleBar: View {
         self.session = session
         self.isSidebarOpen = isSidebarOpen
         self.saveArrival = saveArrival
-        self.onClose = onClose
-        self.onToggleSidebar = onToggleSidebar
-        self.onNewDraft = onNewDraft
-        self.onSaveDraft = onSaveDraft
-        self.onSwitchToInsert = onSwitchToInsert
-        self.onShare = onShare
+        self.onCommand = onCommand
         self.sharingAnchorRegistry = sharingAnchorRegistry
         self.appIcon = appIcon
     }
@@ -84,7 +69,7 @@ struct PanelTitleBar: View {
     // MARK: - ボタン
 
     private var closeButton: some View {
-        Button(action: onClose) {
+        Button(action: { onCommand(.close) }) {
             Image(systemName: "xmark")
                 .font(.system(size: 10, weight: .bold))
                 .frame(width: Self.closeDiameter, height: Self.closeDiameter)
@@ -99,7 +84,7 @@ struct PanelTitleBar: View {
     }
 
     private var sidebarToggleButton: some View {
-        Button(action: onToggleSidebar) {
+        Button(action: { onCommand(.toggleSidebar) }) {
             iconLabel("sidebar.left")
                 .saveFlightAnchor(.sidebarToggle)
                 .saveArrivalBounce(for: .sidebarToggle, arrival: saveArrival)
@@ -113,7 +98,7 @@ struct PanelTitleBar: View {
     }
 
     private var newDraftButton: some View {
-        Button(action: onNewDraft) {
+        Button(action: { onCommand(.newDraft) }) {
             iconLabel("square.and.pencil")
         }
         .buttonStyle(PanelIconButtonStyle())
@@ -124,7 +109,7 @@ struct PanelTitleBar: View {
     }
 
     private var saveDraftButton: some View {
-        Button(action: onSaveDraft) {
+        Button(action: { onCommand(.saveDraft) }) {
             iconLabel("square.and.arrow.down")
         }
         .buttonStyle(PanelIconButtonStyle())
@@ -135,7 +120,7 @@ struct PanelTitleBar: View {
     }
 
     private var shareButton: some View {
-        Button(action: onShare) {
+        Button(action: { onCommand(.share) }) {
             iconLabel("square.and.arrow.up")
         }
         .buttonStyle(PanelIconButtonStyle())
@@ -151,7 +136,7 @@ struct PanelTitleBar: View {
     }
 
     private var noteModeButton: some View {
-        Button(action: onSwitchToInsert) {
+        Button(action: { onCommand(.switchToInsert) }) {
             Text(DraftMode.note.displayName)
                 .font(.system(size: 11, weight: .medium))
                 .padding(.horizontal, 8)

@@ -14,8 +14,9 @@ final class PanelCloseButtonUITests: XCTestCase {
         UserDefaults(suiteName: settingsSuiteName)?.removePersistentDomain(forName: settingsSuiteName)
     }
 
+    // AC-12
     @MainActor
-    func testAC1_AC2_closeButtonClosesAndKeepsDraft() throws {
+    func testAC1_AC2_AC12_closeButtonClosesAndKeepsDraft() throws {
         let app = try launchApp(seed: nil)
         _ = openPanel(in: app)
         let closeButton = app.buttons["promptPanel.closeButton"]

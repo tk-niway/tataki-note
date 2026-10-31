@@ -67,7 +67,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         set { targetMonitor.isOwnTargetAvailable = newValue }
     }
 
-    /// サイドバーの歯車のボタンと ⌘, で、設定を開く処理。
+    /// 設定を開く処理。
     var onOpenSettings: (() -> Void)?
 
     /// 確定で挿入することになったとき、パネルを閉じた後・挿入の前に、文章・挿入先・送信もするかを知らせる。
@@ -147,18 +147,10 @@ final class PanelController: NSObject, NSWindowDelegate {
                 model: model,
                 settings: settings,
                 onKeyInput: { [weak self] in self?.handleKey($0) ?? false },
-                onClose: { [weak self] in self?.closeFromButton() },
-                onCommit: { [weak self] in self?.commitFromButton(shouldSendAfterInsert: false) },
-                onCommitAndSend: { [weak self] in self?.commitFromButton(shouldSendAfterInsert: true) },
+                onCommand: { [weak self] in self?.perform($0, from: .button) },
                 session: session,
                 sidebarModel: sidebarModel,
                 saveAnimation: saveAnimation,
-                onToggleSidebar: { [weak self] in self?.toggleSidebarFromButton() },
-                onNewDraft: { [weak self] in self?.newDraftFromButton() },
-                onSaveDraft: { [weak self] in self?.saveDraftFromButton() },
-                onOpenSettings: { [weak self] in self?.openSettings() },
-                onSwitchToInsert: { [weak self] in self?.switchToInsertFromButton() },
-                onShare: { [weak self] in self?.shareFromButton() },
                 sharingAnchorRegistry: sharingAnchorRegistry
             )
         )
@@ -443,64 +435,74 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
     }
 
-    func closeFromButton() {
-        Self.commitMarkedText(in: panel)
-        close()
-    }
-
     static func commitMarkedText(in window: NSWindow) {
         (window.firstResponder as? PromptTextView)?.commitMarkedText()
     }
 
     func handleKey(_ input: PanelKeyInput) -> Bool {
-        switch PanelKeyResolver.action(
+        let action = PanelKeyResolver.action(
             for: input,
             commitKey: settings.commitKey,
             commitAndSendKey: settings.commitAndSendKey,
             mode: session.mode
-        ) {
-        case .cancel:
-            close()
-            return true
-        case .commit:
-            commit(shouldSendAfterInsert: false)
-            return true
-        case .commitAndSend:
-            commit(shouldSendAfterInsert: true)
-            return true
-        case .openSearch:
-            if !sidebarModel.isOpen {
-                setSidebarOpen(true)
-            }
-            sidebarModel.openForSearch()
-            return true
-        case .saveDraft:
-            if session.isSaveAvailable {
-                session.saveCurrent()
-            } else {
-                signalEmptyInput()
-            }
-            return true
-        case .newDraft:
-            requestNewScratch()
-            return true
-        case .toggleMode:
-            session.toggleMode()
-            return true
-        case .toggleSidebar:
-            toggleSidebarAndMoveFocus()
-            return true
-        case .openSettings:
-            openSettings()
-            return true
-        case .exportToFile:
-            exportCurrentText()
-            return true
-        case .insertNewline:
-            return insertNewlineInEditor()
-        case .passThrough:
-            return false
+        )
+        if let command = action.command {
+            return perform(command, from: .key)
         }
+        return action == .insertNewline && insertNewlineInEditor()
+    }
+
+    /// パネルの操作を行う。キーでもボタンでも、ここを通る。行ったら `true` を返す。
+    @discardableResult
+    func perform(_ command: PanelCommand, from source: PanelCommandSource) -> Bool {
+        guard command.isAvailable(in: session.mode, from: source) else { return false }
+        if command.commitsMarkedTextFirst(from: source) {
+            Self.commitMarkedText(in: panel)
+        }
+        switch command {
+        case .close: close()
+        case .commit: commit(shouldSendAfterInsert: false)
+        case .commitAndSend: commit(shouldSendAfterInsert: true)
+        case .openSearch: openSearch()
+        case .saveDraft: saveDraftOrSignalEmpty()
+        case .newDraft: requestNewScratch()
+        case .toggleMode: session.toggleMode()
+        case .switchToInsert: session.switchToInsert()
+        case .toggleSidebar: toggleSidebarAndMoveFocus()
+        case .openSettings: onOpenSettings?()
+        case .exportToFile: exportCurrentText()
+        case .share: shareCurrentText()
+        }
+        if command.requestsEditorFocusAfterward(from: source) {
+            model.requestFocus()
+        }
+        return true
+    }
+
+    private func openSearch() {
+        if !sidebarModel.isOpen {
+            setSidebarOpen(true)
+        }
+        sidebarModel.openForSearch()
+    }
+
+    private func saveDraftOrSignalEmpty() {
+        if session.isSaveAvailable {
+            session.saveCurrent()
+        } else {
+            signalEmptyInput()
+        }
+    }
+
+    private func shareCurrentText() {
+        guard !ExportableText.isEmpty(model.text) else {
+            signalEmptyInput()
+            let animation = saveAnimation
+            Task { await animation.showToast(SaveAnimationModel.nothingToShareMessage, style: .notice) }
+            model.requestFocus()
+            return
+        }
+        sharer.share(model.text, from: .titleBarButton)
     }
 
     // MARK: - ファイルへの書き出し
@@ -545,67 +547,14 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     // MARK: - クリックの操作
 
-    /// タイトルバーの新規作成のアイコン。変換中の文字を確定してから新しい書きかけにする。
-    func newDraftFromButton() {
-        Self.commitMarkedText(in: panel)
-        requestNewScratch()
-    }
-
     private func requestNewScratch() {
         session.request(.newScratch)
         model.requestFocus()
     }
 
-    /// タイトルバーの保存のアイコン。変換中の文字を確定してから下書きに保存する。
-    func saveDraftFromButton() {
-        Self.commitMarkedText(in: panel)
-        if session.isSaveAvailable {
-            session.saveCurrent()
-        } else {
-            signalEmptyInput()
-        }
-        model.requestFocus()
-    }
-
-    /// タイトルバーのシェアのボタン。変換中の文字を確定してから、パネルの文章でシェアのメニューを出す。
-    func shareFromButton() {
-        Self.commitMarkedText(in: panel)
-        guard !ExportableText.isEmpty(model.text) else {
-            signalEmptyInput()
-            let animation = saveAnimation
-            Task { await animation.showToast(SaveAnimationModel.nothingToShareMessage, style: .notice) }
-            model.requestFocus()
-            return
-        }
-        sharer.share(model.text, from: .titleBarButton)
-    }
-
-    /// タイトルバーの「ノート」のボタン。今の書きかけをインサートにする。
-    func switchToInsertFromButton() {
-        session.switchToInsert()
-    }
-
-    /// 下の帯の「挿入」「送信」のボタン。ノートの書きかけでは何もしない。変換中の文字を確定してから確定する。
-    func commitFromButton(shouldSendAfterInsert: Bool) {
-        guard session.mode == .insert else { return }
-        Self.commitMarkedText(in: panel)
-        commit(shouldSendAfterInsert: shouldSendAfterInsert)
-    }
-
-    /// サイドバーの歯車のボタンと ⌘,。変換中の文字を確定し、パネルを開いたまま設定を開く処理を呼ぶ。
-    func openSettings() {
-        Self.commitMarkedText(in: panel)
-        onOpenSettings?()
-    }
-
     /// 設定ウィンドウが閉じたときに呼ぶ。パネルが開いていれば、キー入力をパネルへ戻す。
     func settingsWindowDidClose() {
         returnInputToPanel()
-    }
-
-    /// タイトルバーのサイドバーの開閉ボタン。
-    func toggleSidebarFromButton() {
-        toggleSidebarAndMoveFocus()
     }
 
     private func toggleSidebarAndMoveFocus() {
@@ -627,11 +576,9 @@ final class PanelController: NSObject, NSWindowDelegate {
             mode: session.mode
         ) {
         case .commit:
-            commit(shouldSendAfterInsert: false)
-            return true
+            return perform(.commit, from: .key)
         case .commitAndSend:
-            commit(shouldSendAfterInsert: true)
-            return true
+            return perform(.commitAndSend, from: .key)
         default:
             return false
         }

@@ -3,17 +3,14 @@ import SwiftUI
 /// パネルの下の帯。
 struct PanelStatusBar: View {
     let content: PanelStatusBarContent
-    let onCommit: () -> Void
-    let onCommitAndSend: () -> Void
+    let onCommand: (PanelCommand) -> Void
 
     init(
         content: PanelStatusBarContent,
-        onCommit: @escaping () -> Void = {},
-        onCommitAndSend: @escaping () -> Void = {}
+        onCommand: @escaping (PanelCommand) -> Void = { _ in }
     ) {
         self.content = content
-        self.onCommit = onCommit
-        self.onCommitAndSend = onCommitAndSend
+        self.onCommand = onCommand
     }
 
     var body: some View {
@@ -51,22 +48,13 @@ struct PanelStatusBar: View {
         switch entry {
         case .keyHint(let item, let key, let label):
             switch item {
-            case .commit:
+            case .commit, .commitAndSend:
                 StatusKeyButton(
                     key: key,
                     label: label,
                     showsLabel: layout.showsLabel(for: item),
                     horizontalPadding: layout.buttonHorizontalPadding,
-                    action: onCommit
-                )
-                .accessibilityIdentifier(Self.identifier(for: item))
-            case .commitAndSend:
-                StatusKeyButton(
-                    key: key,
-                    label: label,
-                    showsLabel: layout.showsLabel(for: item),
-                    horizontalPadding: layout.buttonHorizontalPadding,
-                    action: onCommitAndSend
+                    action: { if let command = item.buttonCommand { onCommand(command) } }
                 )
                 .accessibilityIdentifier(Self.identifier(for: item))
             case .close, .lineBreak, .characterCount, .lineCount:
