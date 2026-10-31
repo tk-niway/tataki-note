@@ -113,19 +113,19 @@ struct SidebarRow: Equatable, Identifiable {
 
     // MARK: - 開閉と表示中の側
 
-    var isOpen: Bool { settings.isSidebarOpen }
+    var isOpen: Bool { settings.state.isSidebarOpen }
 
     /// サイドバーを開閉する。
     func setOpen(_ isOpen: Bool) {
-        settings.isSidebarOpen = isOpen
+        settings.state.isSidebarOpen = isOpen
     }
 
     /// 表示中の側。
     var tab: SidebarTab {
-        get { settings.sidebarTab }
+        get { settings.state.sidebarTab }
         set {
-            guard newValue != settings.sidebarTab else { return }
-            settings.sidebarTab = newValue
+            guard newValue != settings.state.sidebarTab else { return }
+            settings.state.sidebarTab = newValue
         }
     }
 

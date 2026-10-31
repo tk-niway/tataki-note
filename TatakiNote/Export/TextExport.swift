@@ -78,7 +78,7 @@ enum TextExportOutcome: Equatable {
 
     /// ダイアログが最初に開くフォルダ。前回書き出したフォルダ、無ければ「書類」。
     var initialDirectory: URL {
-        guard let path = settings.lastExportDirectoryPath, !path.isEmpty else { return documentsDirectory }
+        guard let path = settings.state.lastExportDirectoryPath, !path.isEmpty else { return documentsDirectory }
         let url = URL(fileURLWithPath: path, isDirectory: true)
         return isDirectory(url) ? url : documentsDirectory
     }
@@ -120,7 +120,7 @@ enum TextExportOutcome: Equatable {
         } catch {
             return .failed(error.localizedDescription)
         }
-        settings.lastExportDirectoryPath = url.deletingLastPathComponent().path
+        settings.state.lastExportDirectoryPath = url.deletingLastPathComponent().path
         return .exported(url)
     }
 }

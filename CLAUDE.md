@@ -51,7 +51,7 @@ xcodebuild build -project TatakiNote.xcodeproj -scheme TatakiNote -destination '
 | `TatakiNote/Tutorial/` | チュートリアルと練習用のチャット |
 | `TatakiNote/Settings/` | 設定の窓と、複数の機能にまたがるページ(一般・パネル・情報) |
 | `TatakiNote/Updates/` | アップデートの確認と印 |
-| `TatakiNote/Storage/` | 設定の保存(`AppSettings` と保存先) |
+| `TatakiNote/Storage/` | 設定の保存(`AppSettings`・`AppState`・設定の定義と保存先) |
 | `TatakiNote/Shared/` | 複数の機能で使う部品 |
 
 直下は `MyApp.swift`・`AppDelegate.swift`(と `Info.plist`・`Assets.xcassets`)だけ。1つの機能だけの設定のページはその機能のフォルダに、

@@ -5,14 +5,14 @@ import Observation
 @Observable final class AppSettings {
     var commitKey: PanelShortcut? {
         didSet {
-            store.saveCommitShortcut(commitKey)
+            store.persist(\.commitKey, of: self, as: SettingDefinitions.commitKey)
             refreshKeyDisplayTexts()
         }
     }
 
     var commitAndSendKey: PanelShortcut? {
         didSet {
-            store.saveCommitAndSendShortcut(commitAndSendKey)
+            store.persist(\.commitAndSendKey, of: self, as: SettingDefinitions.commitAndSendKey)
             refreshKeyDisplayTexts()
         }
     }
@@ -24,34 +24,24 @@ import Observation
     private(set) var panelFont: NSFont
 
     var panelScreen: PanelScreen {
-        didSet { store.savePanelScreen(panelScreen) }
+        didSet { store.persist(\.panelScreen, of: self, as: SettingDefinitions.panelScreen) }
     }
 
     var autoShowMode: AutoShowMode {
-        didSet { store.saveAutoShowMode(autoShowMode) }
+        didSet { store.persist(\.autoShowMode, of: self, as: SettingDefinitions.autoShowMode) }
     }
 
     var autoShowApps: [AutoShowApp] {
-        didSet {
-            let normalized = AutoShowApp.normalized(autoShowApps)
-            if normalized != autoShowApps {
-                autoShowApps = normalized
-            }
-            store.saveAutoShowApps(autoShowApps)
-        }
+        didSet { store.persist(\.autoShowApps, of: self, as: SettingDefinitions.autoShowApps) }
     }
 
-
     var theme: AppTheme {
-        didSet { store.saveAppTheme(theme) }
+        didSet { store.persist(\.theme, of: self, as: SettingDefinitions.theme) }
     }
 
     var panelFontName: String? {
         didSet {
-            if panelFontName?.isEmpty == true {
-                panelFontName = nil
-            }
-            store.savePanelFontName(panelFontName)
+            store.persist(\.panelFontName, of: self, as: SettingDefinitions.panelFontName)
             refreshPanelFont()
         }
     }
@@ -59,71 +49,42 @@ import Observation
     /// 選んだフォントのファミリー名。`selectPanelFont(_:)` と `resetPanelFontToSystem()` で変える。
     private(set) var panelFontFamilyName: String? {
         didSet {
-            if panelFontFamilyName?.isEmpty == true {
-                panelFontFamilyName = nil
-            }
-            store.savePanelFontFamilyName(panelFontFamilyName)
+            store.persist(\.panelFontFamilyName, of: self, as: SettingDefinitions.panelFontFamilyName)
             refreshPanelFont()
         }
     }
 
     var panelFontSize: Double {
         didSet {
-            let clamped = PanelTextStyle.clampedFontSize(panelFontSize)
-            if clamped != panelFontSize {
-                panelFontSize = clamped
-            }
-            store.savePanelFontSize(panelFontSize)
+            store.persist(\.panelFontSize, of: self, as: SettingDefinitions.panelFontSize)
             refreshPanelFont()
         }
     }
 
     var panelOpacity: Double {
-        didSet {
-            let clamped = PanelTextStyle.clampedOpacity(panelOpacity)
-            if clamped != panelOpacity {
-                panelOpacity = clamped
-            }
-            store.savePanelOpacity(panelOpacity)
-        }
+        didSet { store.persist(\.panelOpacity, of: self, as: SettingDefinitions.panelOpacity) }
     }
 
     var hiddenPanelStatusItems: Set<PanelStatusItem> {
-        didSet { store.saveHiddenPanelStatusItems(hiddenPanelStatusItems) }
+        didSet { store.persist(\.hiddenPanelStatusItems, of: self, as: SettingDefinitions.hiddenPanelStatusItems) }
     }
 
-    var hidesMenuBarIcon: Bool {
-        didSet { store.saveHidesMenuBarIcon(hidesMenuBarIcon) }
-    }
-
+    /// メニューバーにアイコンを表示するか。
     var isMenuBarIconShown: Bool {
-        get { !hidesMenuBarIcon }
-        set { hidesMenuBarIcon = !newValue }
+        didSet { store.persist(\.isMenuBarIconShown, of: self, as: SettingDefinitions.isMenuBarIconShown) }
     }
 
     var panelDefaultWidth: Double {
-        didSet {
-            let clamped = PanelMetrics.clampedDefaultWidth(panelDefaultWidth)
-            if clamped != panelDefaultWidth {
-                panelDefaultWidth = clamped
-            }
-            store.savePanelDefaultWidth(panelDefaultWidth)
-        }
+        didSet { store.persist(\.panelDefaultWidth, of: self, as: SettingDefinitions.panelDefaultWidth) }
     }
 
     var panelDefaultHeight: Double {
-        didSet {
-            let clamped = PanelMetrics.clampedDefaultHeight(panelDefaultHeight)
-            if clamped != panelDefaultHeight {
-                panelDefaultHeight = clamped
-            }
-            store.savePanelDefaultHeight(panelDefaultHeight)
-        }
+        didSet { store.persist(\.panelDefaultHeight, of: self, as: SettingDefinitions.panelDefaultHeight) }
     }
 
     /// 「アニメーション」の選択。
     var animationMode: AnimationMode {
-        didSet { store.saveAnimationMode(animationMode) }
+        didSet { store.persist(\.animationMode, of: self, as: SettingDefinitions.animationMode) }
     }
 
     /// 今、動きを使うか。
@@ -133,74 +94,53 @@ import Observation
 
     /// 挿入先の入力欄を枠線で囲むか。
     var isInsertionTargetOutlineShown: Bool {
-        didSet { store.saveIsInsertionTargetOutlineShown(isInsertionTargetOutlineShown) }
+        didSet {
+            store.persist(
+                \.isInsertionTargetOutlineShown,
+                of: self,
+                as: SettingDefinitions.isInsertionTargetOutlineShown
+            )
+        }
     }
 
     /// Dock にアイコンを表示するか。
     var showsDockIcon: Bool {
-        didSet { store.saveShowsDockIcon(showsDockIcon) }
+        didSet { store.persist(\.showsDockIcon, of: self, as: SettingDefinitions.showsDockIcon) }
     }
 
     /// ⌘Q で終了前に確認するか。
     var confirmsQuit: Bool {
-        didSet { store.saveConfirmsQuit(confirmsQuit) }
-    }
-
-    /// 初回起動のチュートリアルを自動で出したか。
-    var hasShownFirstLaunchTutorial: Bool {
-        didSet { store.saveHasShownFirstLaunchTutorial(hasShownFirstLaunchTutorial) }
-    }
-
-    /// サイドバーを開いているか。
-    var isSidebarOpen: Bool {
-        didSet { store.saveSidebarIsOpen(isSidebarOpen) }
-    }
-
-    /// サイドバーで表示している側。
-    var sidebarTab: SidebarTab {
-        didSet { store.saveSidebarTab(sidebarTab) }
-    }
-
-    /// 前回書き出したフォルダのパス。
-    var lastExportDirectoryPath: String? {
-        didSet { store.saveLastExportDirectoryPath(lastExportDirectoryPath) }
+        didSet { store.persist(\.confirmsQuit, of: self, as: SettingDefinitions.confirmsQuit) }
     }
 
     /// 履歴に残す件数の上限。
     var historyLimit: Int {
-        didSet {
-            let clamped = HistoryLimit.clamped(historyLimit)
-            if clamped != historyLimit {
-                historyLimit = clamped
-            }
-            store.saveHistoryLimit(historyLimit)
-        }
+        didSet { store.persist(\.historyLimit, of: self, as: SettingDefinitions.historyLimit) }
     }
 
     /// 履歴を残す期間。
     var historyRetention: HistoryRetention {
-        didSet { store.saveHistoryRetention(historyRetention) }
+        didSet { store.persist(\.historyRetention, of: self, as: SettingDefinitions.historyRetention) }
     }
 
     /// 新しい書きかけを始めるモード。
     var newDraftMode: DraftMode {
-        didSet { store.saveNewDraftMode(newDraftMode) }
+        didSet { store.persist(\.newDraftMode, of: self, as: SettingDefinitions.newDraftMode) }
     }
 
     /// 1日に1回、新しい版を自動で確かめるか。
     var checksForUpdatesAutomatically: Bool {
-        didSet { store.saveChecksForUpdatesAutomatically(checksForUpdatesAutomatically) }
+        didSet {
+            store.persist(
+                \.checksForUpdatesAutomatically,
+                of: self,
+                as: SettingDefinitions.checksForUpdatesAutomatically
+            )
+        }
     }
 
-    /// 前回アップデートの確認が済んだ日時。未確認なら nil。
-    var lastUpdateCheckDate: Date? {
-        didSet { store.saveLastUpdateCheckDate(lastUpdateCheckDate) }
-    }
-
-    /// 「アプリケーション」フォルダへの移動を聞かないか。
-    var suppressesMoveToApplicationsPrompt: Bool {
-        didSet { store.saveSuppressesMoveToApplicationsPrompt(suppressesMoveToApplicationsPrompt) }
-    }
+    /// アプリが自分で覚えておく状態。
+    let state: AppState
 
     @ObservationIgnored private let store: SettingsStore
 
@@ -212,43 +152,38 @@ import Observation
     ) {
         self.store = store
         self.reducesMotion = reducesMotion
-        self.newDraftMode = store.loadNewDraftMode()
-        self.commitKey = store.loadCommitShortcut()
-        self.commitAndSendKey = store.loadCommitAndSendShortcut()
-        self.panelScreen = store.loadPanelScreen()
-        self.autoShowMode = store.loadAutoShowMode()
-        self.autoShowApps = store.loadAutoShowApps()
-        self.theme = store.loadAppTheme()
-        let loadedFontName = store.loadPanelFontName()
-        var loadedFamilyName = store.loadPanelFontFamilyName()
+        self.state = AppState(store: store)
+        self.newDraftMode = store.value(SettingDefinitions.newDraftMode)
+        self.commitKey = store.value(SettingDefinitions.commitKey)
+        self.commitAndSendKey = store.value(SettingDefinitions.commitAndSendKey)
+        self.panelScreen = store.value(SettingDefinitions.panelScreen)
+        self.autoShowMode = store.value(SettingDefinitions.autoShowMode)
+        self.autoShowApps = store.value(SettingDefinitions.autoShowApps)
+        self.theme = store.value(SettingDefinitions.theme)
+        let loadedFontName = store.value(SettingDefinitions.panelFontName)
+        var loadedFamilyName = store.value(SettingDefinitions.panelFontFamilyName)
         if loadedFamilyName == nil, let loadedFontName, !PanelTextStyle.isSystemFontName(loadedFontName),
            let family = NSFont(name: loadedFontName, size: CGFloat(PanelTextStyle.defaultFontSize))?.familyName {
             loadedFamilyName = family
-            store.savePanelFontFamilyName(family)
+            store.set(family, for: SettingDefinitions.panelFontFamilyName)
         }
-        let loadedFontSize = store.loadPanelFontSize()
+        let loadedFontSize = store.value(SettingDefinitions.panelFontSize)
         self.panelFontName = loadedFontName
         self.panelFontFamilyName = loadedFamilyName
         self.panelFontSize = loadedFontSize
         self.panelFont = PanelTextStyle.font(name: loadedFontName, familyName: loadedFamilyName, size: loadedFontSize)
-        self.panelOpacity = store.loadPanelOpacity()
-        self.hiddenPanelStatusItems = store.loadHiddenPanelStatusItems()
-        self.hidesMenuBarIcon = store.loadHidesMenuBarIcon()
-        self.panelDefaultWidth = store.loadPanelDefaultWidth()
-        self.panelDefaultHeight = store.loadPanelDefaultHeight()
-        self.animationMode = store.loadAnimationMode()
-        self.isInsertionTargetOutlineShown = store.loadIsInsertionTargetOutlineShown()
-        self.showsDockIcon = store.loadShowsDockIcon()
-        self.confirmsQuit = store.loadConfirmsQuit()
-        self.hasShownFirstLaunchTutorial = store.loadHasShownFirstLaunchTutorial()
-        self.isSidebarOpen = store.loadSidebarIsOpen()
-        self.sidebarTab = store.loadSidebarTab()
-        self.lastExportDirectoryPath = store.loadLastExportDirectoryPath()
-        self.historyLimit = store.loadHistoryLimit()
-        self.historyRetention = store.loadHistoryRetention()
-        self.checksForUpdatesAutomatically = store.loadChecksForUpdatesAutomatically()
-        self.lastUpdateCheckDate = store.loadLastUpdateCheckDate()
-        self.suppressesMoveToApplicationsPrompt = store.loadSuppressesMoveToApplicationsPrompt()
+        self.panelOpacity = store.value(SettingDefinitions.panelOpacity)
+        self.hiddenPanelStatusItems = store.value(SettingDefinitions.hiddenPanelStatusItems)
+        self.isMenuBarIconShown = store.value(SettingDefinitions.isMenuBarIconShown)
+        self.panelDefaultWidth = store.value(SettingDefinitions.panelDefaultWidth)
+        self.panelDefaultHeight = store.value(SettingDefinitions.panelDefaultHeight)
+        self.animationMode = store.value(SettingDefinitions.animationMode)
+        self.isInsertionTargetOutlineShown = store.value(SettingDefinitions.isInsertionTargetOutlineShown)
+        self.showsDockIcon = store.value(SettingDefinitions.showsDockIcon)
+        self.confirmsQuit = store.value(SettingDefinitions.confirmsQuit)
+        self.historyLimit = store.value(SettingDefinitions.historyLimit)
+        self.historyRetention = store.value(SettingDefinitions.historyRetention)
+        self.checksForUpdatesAutomatically = store.value(SettingDefinitions.checksForUpdatesAutomatically)
         self.commitKeyDisplayText = commitKey?.displayText
         self.commitAndSendKeyDisplayText = commitAndSendKey?.displayText
     }

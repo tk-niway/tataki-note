@@ -20,11 +20,11 @@ enum FirstLaunchFlow {
     /// 起動したときに出すものを決め、抑止されていなければ表示済みを保存する。
     static func resolveOnLaunch(settings: AppSettings, isTrusted: Bool, isSuppressed: Bool) -> LaunchPresentation {
         let result = presentation(
-            hasShownTutorial: settings.hasShownFirstLaunchTutorial || isSuppressed,
+            hasShownTutorial: settings.state.hasShownFirstLaunchTutorial || isSuppressed,
             isTrusted: isTrusted
         )
         if !isSuppressed {
-            settings.hasShownFirstLaunchTutorial = true
+            settings.state.hasShownFirstLaunchTutorial = true
         }
         return result
     }
