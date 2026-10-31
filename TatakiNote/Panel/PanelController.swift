@@ -10,7 +10,6 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let hideApplication: () -> Void
     private let targetTracker: FrontmostAppTracker
     private let permission: AccessibilityPermissionChecking
-    private let performer: CommitPerformer
     private let openFrameResolver: PanelOpenFrameResolver
     private let exposeWebContent: (InsertionTarget) -> Void
     private let ownProcessIdentifier: pid_t
@@ -31,11 +30,13 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private let exportSharing: PanelExportSharing
 
+    private let commitFlow: PanelCommitFlow
+
     var heldPanelSize: CGSize? { sizeController.sizing.heldSize }
 
     var onPermissionDenied: (() -> Void)? {
-        get { performer.onPermissionDenied }
-        set { performer.onPermissionDenied = newValue }
+        get { commitFlow.onPermissionDenied }
+        set { commitFlow.onPermissionDenied = newValue }
     }
 
     /// 返した挿入先を、前面のアプリの代わりに挿入先にする。`nil` を返すと前面のアプリを使う。
@@ -54,7 +55,10 @@ final class PanelController: NSObject, NSWindowDelegate {
     var onOpenSettings: (() -> Void)?
 
     /// 確定で挿入することになったとき、パネルを閉じた後・挿入の前に、文章・挿入先・送信もするかを知らせる。
-    var onInsertionRequested: ((String, InsertionTarget, Bool) -> Void)?
+    var onInsertionRequested: ((String, InsertionTarget, Bool) -> Void)? {
+        get { commitFlow.onInsertionRequested }
+        set { commitFlow.onInsertionRequested = newValue }
+    }
 
     init(
         model: PanelModel = PanelModel(),
@@ -85,7 +89,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.hideApplication = hideApplication
         self.targetTracker = targetTracker
         self.permission = permission
-        self.performer = CommitPerformer(model: model, permission: permission, inserter: inserter)
         self.openFrameResolver = PanelOpenFrameResolver(
             fieldProbe: fieldProbe,
             locateTargetWindowFrame: locateTargetWindowFrame,
@@ -146,6 +149,16 @@ final class PanelController: NSObject, NSWindowDelegate {
                 ExportFailureAlert.show(message: message, attachedTo: window, completion: completion)
             }
         )
+        self.commitFlow = PanelCommitFlow(
+            model: model,
+            session: session,
+            library: library,
+            permission: permission,
+            inserter: inserter,
+            targetMonitor: targetMonitor,
+            sizing: sizeController.sizing,
+            ownProcessIdentifier: ownProcessIdentifier
+        )
         super.init()
 
         let hostingView = NSHostingView(
@@ -179,6 +192,13 @@ final class PanelController: NSObject, NSWindowDelegate {
         exportSharing.onEmptyInput = { [weak self] in self?.signalEmptyInput() }
         exportSharing.onToast = { [weak self] message, style in self?.feedback.showToast(message, style: style) }
         exportSharing.onReturnInput = { [weak self] in self?.returnInputToPanel() }
+        commitFlow.onEmptyInput = { [weak self] in self?.signalEmptyInput() }
+        commitFlow.onReturnInput = { [weak self] in self?.returnInputToPanel() }
+        commitFlow.onHide = { [weak self] in
+            self?.feedback.stopEffects()
+            self?.hidePanel()
+        }
+        commitFlow.onReopen = { [weak self] in self?.open() }
     }
 
     /// 他のアプリの入力欄をクリックして挿入先が移ったときに、キー入力をパネルへ戻すか。インサートの書きかけだけ戻す。
@@ -460,67 +480,8 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     // MARK: - 確定
 
-    /// 閉じる前に、覚えている入力欄の位置が読めるかを確かめるか。
-    static func shouldCheckTrackedField(
-        target: InsertionTarget?,
-        text: String,
-        isTrusted: Bool,
-        ownProcessIdentifier: pid_t
-    ) -> Bool {
-        guard !text.isEmpty, isTrusted, let target else { return false }
-        return !target.isOwnApp(ownProcessIdentifier)
-    }
-
     func commit(shouldSendAfterInsert: Bool = false) {
-        library.flush()
-        let shouldCheckField = Self.shouldCheckTrackedField(
-            target: model.target,
-            text: model.text,
-            isTrusted: permission.isTrusted,
-            ownProcessIdentifier: ownProcessIdentifier
-        )
-        if shouldCheckField, !targetMonitor.isTrackedFieldReadable() {
-            targetMonitor.rejectCurrentField()
-            model.signalNoTarget()
-            returnInputToPanel()
-            return
-        }
-        performCommit(shouldSendAfterInsert: shouldSendAfterInsert)
-    }
-
-    private func performCommit(shouldSendAfterInsert: Bool) {
-        let plan = session.prepareCommit {
-            model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
-        }
-        if plan == .noTarget { return }
-        if plan == .emptyText {
-            signalEmptyInput()
-            return
-        }
-        feedback.stopEffects()
-        sizeController.finishSidebarSlide()
-        hidePanel()
-        library.flush()
-        if case .insert(let text, let target) = plan {
-            onInsertionRequested?(text, target, shouldSendAfterInsert)
-        }
-        Task { [weak self, performer, model] in
-            let outcome = await performer.perform(plan, shouldSendAfterInsert: shouldSendAfterInsert)
-            self?.sizeController.sizing.handleCommitOutcome(outcome)
-            self?.session.finishCommit(plan, outcome: outcome)
-            if case .insert(let text, _) = plan,
-               outcome == .notInserted,
-               !model.isPresented,
-               model.text == text {
-                self?.reopenAfterFailedInsertion()
-            }
-        }
-    }
-
-    private func reopenAfterFailedInsertion() {
-        open()
-        targetMonitor.rejectCurrentField()
-        model.signalNoTarget()
+        commitFlow.commit(shouldSendAfterInsert: shouldSendAfterInsert)
     }
 
     private func returnInputToPanel() {
