@@ -76,12 +76,16 @@ protocol FocusedTextInputInspecting {
     func focusedTextInputState(in target: InsertionTarget) -> FocusedTextInputState
     /// 入力欄かと、パスワード欄かを1回の問い合わせで調べる。
     func inspectFocusedInput(in target: InsertionTarget) -> FocusedInputInspection
+    /// フォーカスのある要素の中身の文字列。読めなければ nil。
+    func focusedTextValue(in target: InsertionTarget) -> String?
 }
 
 extension FocusedTextInputInspecting {
     func inspectFocusedInput(in target: InsertionTarget) -> FocusedInputInspection {
         FocusedInputInspection(state: focusedTextInputState(in: target), isSecureTextField: false)
     }
+
+    func focusedTextValue(in target: InsertionTarget) -> String? { nil }
 }
 
 /// フォーカスのある要素を1回の問い合わせでまとめて取った結果。
@@ -113,6 +117,27 @@ protocol FocusedElementProbing {
 /// アクセシビリティ API で、挿入先のアプリのフォーカスのある要素を調べる。
 struct AXFocusedTextInputInspector: FocusedTextInputInspecting, FocusedElementProbing {
     nonisolated static let messagingTimeout: Float = 0.5
+    static let valueReadTimeout: Float = 0.2
+
+    func focusedTextValue(in target: InsertionTarget) -> String? {
+        let app = AXUIElementCreateApplication(target.processIdentifier)
+        AXUIElementSetMessagingTimeout(app, Self.valueReadTimeout)
+
+        var focusedValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &focusedValue) == .success,
+              let focusedValue, CFGetTypeID(focusedValue) == AXUIElementGetTypeID()
+        else {
+            return nil
+        }
+        let element = unsafeDowncast(focusedValue, to: AXUIElement.self)
+        AXUIElementSetMessagingTimeout(element, Self.valueReadTimeout)
+
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &value) == .success else {
+            return nil
+        }
+        return value as? String
+    }
 
     func focusedTextInputState(in target: InsertionTarget) -> FocusedTextInputState {
         FocusedTextInputState.classifyForInsertion(
