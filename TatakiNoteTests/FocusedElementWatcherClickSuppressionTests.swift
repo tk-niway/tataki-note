@@ -283,6 +283,41 @@ struct FocusedElementWatcherClickSuppressionTests {
         #expect(fixture.showCount == 1)
     }
 
+    @Test("AC-17: 挿入先の答えを待つ間に esc で閉じると、猶予の後に同じ入力欄をクリックしても出さない")
+    func clickAfterCancelWhilePendingDoesNotShow() async throws {
+        let fixture = try makeFixture()
+        defer { fixture.removeSuite() }
+
+        let dismissedAt = fixture.environment.now
+        fixture.panelModel.present(target: nil, pendingLookupApp: WatcherFixture.editor)
+        await settle()
+        fixture.panelModel.dismiss()
+        await yieldUntil { fixture.watcher.panelDismissedAt == dismissedAt }
+        #expect(fixture.watcher.isSuppressingClicks)
+
+        fixture.advance(by: FocusedElementWatcher.dismissGrace + 0.01)
+        fixture.watcher.handleClick()
+        #expect(fixture.showCount == 0)
+    }
+
+    @Test("AC-17: 答えが届いて挿入先なしと決まった後に閉じたときは、同じ入力欄のクリックを抑止しない")
+    func clickAfterCancelWithNoTargetDecidedShows() async throws {
+        let fixture = try makeFixture()
+        defer { fixture.removeSuite() }
+
+        let dismissedAt = fixture.environment.now
+        fixture.panelModel.present(target: nil, pendingLookupApp: WatcherFixture.editor)
+        await settle()
+        fixture.panelModel.finishTargetLookup(nil)
+        fixture.panelModel.dismiss()
+        await yieldUntil { fixture.watcher.panelDismissedAt == dismissedAt }
+        #expect(!fixture.watcher.isSuppressingClicks)
+
+        fixture.advance(by: FocusedElementWatcher.dismissGrace + 0.01)
+        fixture.watcher.handleClick()
+        #expect(fixture.showCount == 1)
+    }
+
     private func settle() async {
         for _ in 0..<10 {
             await Task.yield()

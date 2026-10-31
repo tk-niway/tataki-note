@@ -31,11 +31,13 @@ struct PanelOpenFrameResolver {
     }
 
     /// 開くときの窓の枠。出す画面が決まらなければ `nil`(呼び出し側が真ん中に置く)。
+    /// `queriesField` が false のときは、入力欄の位置を挿入先のアプリへ問い合わせない。
     func frame(
         target: InsertionTarget?,
         mode: PanelScreen,
         isTrusted: Bool,
         observedFocus: ObservedFocus?,
+        queriesField: Bool = true,
         isSidebarOpen: Bool,
         openingSize: (CGRect) -> CGSize
     ) -> NSRect? {
@@ -50,7 +52,8 @@ struct PanelOpenFrameResolver {
                 target: queriesAccessibility ? target : nil,
                 probe: fieldProbe,
                 observedFocus: observedFocus,
-                primaryScreenHeight: primaryScreenFrame.height
+                primaryScreenHeight: primaryScreenFrame.height,
+                queriesMissingFrame: queriesField
             )
         }
         let currentScreens = screens()

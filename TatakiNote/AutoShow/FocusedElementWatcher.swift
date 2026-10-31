@@ -222,7 +222,7 @@ final class FocusedElementWatcher {
             onChange: { [weak self] in
                 guard let self else { return false }
                 if !self.panelModel.isPresented {
-                    self.handlePanelDismissed(self.panelModel.lastDismissal ?? .committed, panelTarget: self.panelModel.target)
+                    self.handlePanelDismissed(self.panelModel.lastDismissal ?? .committed, panelTarget: self.panelModel.targetOrPendingApp)
                 }
                 return true
             }

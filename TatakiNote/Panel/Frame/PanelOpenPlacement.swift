@@ -5,20 +5,24 @@ enum PanelOpenPlacement {
     static let fieldGap: CGFloat = 8
 
     /// 「入力欄の近く」で使う入力欄の枠(Cocoa の座標)。入力欄の位置が使えなければ `nil`。
+    /// `queriesMissingFrame` が false のときは、アプリへ問い合わせず、見張りの結果にある枠だけを使う。
     static func fieldFrame(
         mode: PanelScreen,
         isTrusted: Bool,
         target: InsertionTarget?,
         probe: FocusedElementProbing,
         observedFocus: ObservedFocus? = nil,
-        primaryScreenHeight: CGFloat
+        primaryScreenHeight: CGFloat,
+        queriesMissingFrame: Bool = true
     ) -> CGRect? {
         guard mode == .nearFocusedField, isTrusted, let target else { return nil }
         let frame: CGRect?
         if let observedFocus, observedFocus.processIdentifier == target.processIdentifier {
             guard FocusedTextInputState.classify(observedFocus.probe.lookup) == .textInput else { return nil }
-            frame = observedFocus.probe.frame ?? observedFocus.probe.element.flatMap { probe.frame(of: $0) }
+            frame = observedFocus.probe.frame
+                ?? (queriesMissingFrame ? observedFocus.probe.element.flatMap { probe.frame(of: $0) } : nil)
         } else {
+            guard queriesMissingFrame else { return nil }
             let focused = probe.probeFocusedElement(in: target, readsFrame: true)
             guard FocusedTextInputState.classify(focused.lookup) == .textInput else { return nil }
             frame = focused.frame

@@ -76,6 +76,7 @@ struct PanelView: View {
                 target: model.target,
                 mode: session?.mode ?? .insert,
                 noTargetAlertCount: model.noTargetAlertCount,
+                isTargetPending: model.isTargetPending,
                 session: session,
                 isSidebarOpen: isSidebarOpen,
                 saveArrival: arrival,

@@ -36,16 +36,48 @@ enum PanelDismissal: Equatable {
 
     private(set) var target: InsertionTarget?
 
-    @discardableResult func present(target: InsertionTarget?) -> Bool {
+    /// 開くときの挿入先の調べの答えを待っているか。待っている間は挿入先を出さない。
+    private(set) var isTargetPending = false
+
+    /// 開くときに挿入先を調べているアプリ。答えが届くか挿入先が入れ替わるまで値があり、閉じた後も次に開くまで残す。
+    private(set) var pendingLookupApp: InsertionTarget?
+
+    /// 挿入先。開くときの調べの答えを待っている間は、調べているアプリ。
+    var targetOrPendingApp: InsertionTarget? { target ?? pendingLookupApp }
+
+    @discardableResult func present(target: InsertionTarget?, pendingLookupApp: InsertionTarget? = nil) -> Bool {
         if !isPresented {
             self.target = target
+            self.pendingLookupApp = pendingLookupApp
+            isTargetPending = pendingLookupApp != nil
         }
         return present()
     }
 
+    /// 開くときの調べが終わり、挿入先を決める。閉じているときは何もしない。
+    func finishTargetLookup(_ target: InsertionTarget?) {
+        guard isPresented else { return }
+        if isTargetPending {
+            isTargetPending = false
+        }
+        if pendingLookupApp != nil {
+            pendingLookupApp = nil
+        }
+        if self.target != target {
+            self.target = target
+        }
+    }
+
     /// 開いている間に挿入先を入れ替える。閉じているとき・変わらないときは何もしない。
     func updateTarget(_ target: InsertionTarget?) {
-        guard isPresented, self.target != target else { return }
+        guard isPresented else { return }
+        if isTargetPending {
+            isTargetPending = false
+        }
+        if pendingLookupApp != nil {
+            pendingLookupApp = nil
+        }
+        guard self.target != target else { return }
         self.target = target
     }
 
@@ -55,6 +87,9 @@ enum PanelDismissal: Equatable {
     /// 「挿入先なし」を目立たせる合図を出す。
     func signalNoTarget() {
         noTargetAlertCount += 1
+        if isTargetPending {
+            isTargetPending = false
+        }
     }
 
     func prepareCommit(isAccessibilityTrusted: Bool) -> CommitPlan {
@@ -102,5 +137,8 @@ enum PanelDismissal: Equatable {
             lastDismissal = dismissal
         }
         isPresented = false
+        if isTargetPending {
+            isTargetPending = false
+        }
     }
 }

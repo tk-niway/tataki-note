@@ -12,6 +12,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let permission: AccessibilityPermissionChecking
     private let openFrameResolver: PanelOpenFrameResolver
     private let exposeWebContent: (InsertionTarget) -> Void
+    private let openingLookup: OpeningTargetLookup
     private let ownProcessIdentifier: pid_t
     private let library: DraftLibrary
     private let targetMonitor: InsertionTargetMonitor
@@ -68,6 +69,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         permission: AccessibilityPermissionChecking = SystemAccessibilityPermission(),
         fieldProbe: FocusedElementProbing = AXFocusedTextInputInspector(),
         exposeWebContent: @escaping (InsertionTarget) -> Void = { AXFocusedTextInputInspector.exposeWebContent(of: $0) },
+        openingLookup: OpeningTargetLookup? = nil,
         locateTargetWindowFrame: @escaping (pid_t) -> CGRect? = { TargetWindowLocator.frontWindowFrame(processIdentifier: $0) },
         ownProcessIdentifier: pid_t = ProcessInfo.processInfo.processIdentifier,
         library: DraftLibrary = DraftLibrary(store: .inMemory),
@@ -95,6 +97,8 @@ final class PanelController: NSObject, NSWindowDelegate {
             ownProcessIdentifier: ownProcessIdentifier
         )
         self.exposeWebContent = exposeWebContent
+        self.openingLookup = openingLookup
+            ?? SynchronousOpeningTargetLookup(probe: fieldProbe, exposeWebContent: exposeWebContent)
         self.ownProcessIdentifier = ownProcessIdentifier
         self.library = library
         let session = DraftSession(
@@ -254,19 +258,42 @@ final class PanelController: NSObject, NSWindowDelegate {
         settings.refreshKeyDisplayTexts()
         let wasPresented = model.isPresented
         var start: InsertionTargetStart?
+        var pending: (lookup: PendingOpeningTargetLookup, token: InsertionTargetLookupToken)?
+        var queriesField = true
         let isTrusted = permission.isTrusted
         if !wasPresented {
-            if let app,
-               PanelOpenFrameResolver.shouldExposeWebContent(
-                   target: app,
-                   ownProcessIdentifier: ownProcessIdentifier,
-                   isTrusted: isTrusted
-               ) {
-                exposeWebContent(app)
+            let shouldExpose = PanelOpenFrameResolver.shouldExposeWebContent(
+                target: app,
+                ownProcessIdentifier: ownProcessIdentifier,
+                isTrusted: isTrusted
+            )
+            if let app, targetMonitor.needsOpeningLookup(for: app) {
+                queriesField = false
+                let request = OpeningTargetLookupRequest.make(
+                    app: app,
+                    observedFocus: observedFocus,
+                    isOutlineEnabled: Self.isOutlineTrackingEnabled(settings: settings),
+                    panelScreen: settings.panelScreen,
+                    isTrusted: isTrusted,
+                    shouldExposeWebContent: shouldExpose
+                )
+                switch openingLookup.lookUp(request, waitingUpTo: OpeningTargetLookupRequest.deadline) {
+                case .finished(let result):
+                    start = targetMonitor.begin(app: app, lookedUp: result)
+                case .pending(let lookup):
+                    pending = (lookup, targetMonitor.beginPending(app: app))
+                }
+            } else {
+                if let app, shouldExpose {
+                    exposeWebContent(app)
+                }
+                start = targetMonitor.begin(app: app, observedFocus: observedFocus)
             }
-            start = targetMonitor.begin(app: app, observedFocus: observedFocus)
         }
-        model.present(target: wasPresented ? app : start?.target)
+        model.present(
+            target: wasPresented ? app : start?.target,
+            pendingLookupApp: pending != nil ? app : nil
+        )
         if !wasPresented {
             library.pruneExpiredHistory()
             sidebarModel.discardPendingFocusRequests()
@@ -276,7 +303,8 @@ final class PanelController: NSObject, NSWindowDelegate {
                 target: app,
                 mode: settings.panelScreen,
                 isTrusted: isTrusted,
-                observedFocus: start?.focus ?? observedFocus,
+                observedFocus: queriesField ? (start?.focus ?? observedFocus) : start?.focus,
+                queriesField: queriesField,
                 isSidebarOpen: sidebarModel.isOpen,
                 openingSize: { [sizeController] in sizeController.sizing.openingSize(in: $0) }
             )
@@ -288,6 +316,11 @@ final class PanelController: NSObject, NSWindowDelegate {
                 panel.center()
             }
             motionController.present(at: panel.frame, isAnimationEnabled: settings.isAnimationEnabled)
+            if let pending {
+                pending.lookup.whenFinished { [weak self, token = pending.token] result in
+                    self?.targetMonitor.finishPending(token, result: result)
+                }
+            }
             return
         }
         panel.makeKeyAndOrderFront(nil)
