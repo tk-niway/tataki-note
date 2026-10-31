@@ -220,7 +220,7 @@ struct WebContentExposerTests {
             (editor, true, true),
         ]
         for (target, isTrusted, expected) in cases {
-            let result = PanelController.shouldExposeWebContent(
+            let result = PanelOpenFrameResolver.shouldExposeWebContent(
                 target: target,
                 ownProcessIdentifier: Self.ownPid,
                 isTrusted: isTrusted

@@ -129,7 +129,7 @@ struct PanelControllerOpenQueryTests {
         let recorder = WindowFrameLocateRecorder()
         recorder.frame = rectOnA
 
-        let locator = PanelController.windowFrameLocator(for: nil, locate: { recorder.locate($0) })
+        let locator = PanelOpenFrameResolver.windowFrameLocator(for: nil, locate: { recorder.locate($0) })
 
         #expect(locator() == nil)
         #expect(recorder.count == 0)
@@ -140,7 +140,7 @@ struct PanelControllerOpenQueryTests {
         let recorder = WindowFrameLocateRecorder()
         recorder.frame = rectOnB
 
-        let locator = PanelController.windowFrameLocator(for: editor, locate: { recorder.locate($0) })
+        let locator = PanelOpenFrameResolver.windowFrameLocator(for: editor, locate: { recorder.locate($0) })
         #expect(recorder.count == 0)
 
         #expect(locator() == rectOnB)

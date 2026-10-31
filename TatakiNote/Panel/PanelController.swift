@@ -12,9 +12,8 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let targetTracker: FrontmostAppTracker
     private let permission: AccessibilityPermissionChecking
     private let performer: CommitPerformer
-    private let fieldProbe: FocusedElementProbing
+    private let openFrameResolver: PanelOpenFrameResolver
     private let exposeWebContent: (InsertionTarget) -> Void
-    private let locateTargetWindowFrame: (pid_t) -> CGRect?
     private let ownProcessIdentifier: pid_t
     private let library: DraftLibrary
     private let targetMonitor: InsertionTargetMonitor
@@ -111,9 +110,12 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.targetTracker = targetTracker
         self.permission = permission
         self.performer = CommitPerformer(model: model, permission: permission, inserter: inserter)
-        self.fieldProbe = fieldProbe
+        self.openFrameResolver = PanelOpenFrameResolver(
+            fieldProbe: fieldProbe,
+            locateTargetWindowFrame: locateTargetWindowFrame,
+            ownProcessIdentifier: ownProcessIdentifier
+        )
         self.exposeWebContent = exposeWebContent
-        self.locateTargetWindowFrame = locateTargetWindowFrame
         self.ownProcessIdentifier = ownProcessIdentifier
         self.library = library
         let session = DraftSession(
@@ -268,25 +270,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         )
     }
 
-    /// 挿入先のアプリへアクセシビリティの問い合わせをしてよいか。自分自身が挿入先のときは問い合わせない。
-    static func shouldQueryAccessibility(of target: InsertionTarget?, ownProcessIdentifier: pid_t) -> Bool {
-        guard let target else { return false }
-        return !target.isOwnApp(ownProcessIdentifier)
-    }
-
-    /// パネルを開くときに、挿入先へ Web の中身を出すよう頼むか。
-    static func shouldExposeWebContent(target: InsertionTarget?, ownProcessIdentifier: pid_t, isTrusted: Bool) -> Bool {
-        shouldQueryAccessibility(of: target, ownProcessIdentifier: ownProcessIdentifier) && isTrusted
-    }
-
-    /// 挿入先のウィンドウの枠を求めるクロージャ。挿入先が無ければ一覧を取らずに `nil` を返す。
-    static func windowFrameLocator(
-        for target: InsertionTarget?,
-        locate: @escaping (pid_t) -> CGRect?
-    ) -> () -> CGRect? {
-        { target.flatMap { locate($0.processIdentifier) } }
-    }
-
     /// 挿入先を探さずにパネルを開く。開いているときは何もしない。
     func openWithoutTarget() {
         guard !model.isPresented else { return }
@@ -301,7 +284,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         let isTrusted = permission.isTrusted
         if !wasPresented {
             if let app,
-               Self.shouldExposeWebContent(
+               PanelOpenFrameResolver.shouldExposeWebContent(
                    target: app,
                    ownProcessIdentifier: ownProcessIdentifier,
                    isTrusted: isTrusted
@@ -316,40 +299,15 @@ final class PanelController: NSObject, NSWindowDelegate {
             sidebarModel.discardPendingFocusRequests()
             stopMotion()
             sizing.beginOpening(defaultSize: settings.panelDefaultSize, hasText: !model.text.isEmpty)
-            let queriesAccessibility = Self.shouldQueryAccessibility(
-                of: app,
-                ownProcessIdentifier: ownProcessIdentifier
+            let openingFrame = openFrameResolver.frame(
+                target: app,
+                mode: settings.panelScreen,
+                isTrusted: isTrusted,
+                observedFocus: start?.focus ?? observedFocus,
+                isSidebarOpen: sidebarModel.isOpen,
+                openingSize: { sizing.openingSize(in: $0) }
             )
-            let mode = settings.panelScreen
-            let fieldFrame = ScreenCoordinates.primaryScreenFrame.flatMap { primaryScreenFrame in
-                PanelOpenPlacement.fieldFrame(
-                    mode: mode,
-                    isTrusted: isTrusted,
-                    target: queriesAccessibility ? app : nil,
-                    probe: fieldProbe,
-                    observedFocus: start?.focus ?? observedFocus,
-                    primaryScreenHeight: primaryScreenFrame.height
-                )
-            }
-            let screens = NSScreen.screens.map { ScreenGeometry(frame: $0.frame, visibleFrame: $0.visibleFrame) }
-            let mouseLocation = NSEvent.mouseLocation
-            if let screen = PanelOpenPlacement.screen(
-                mode: mode,
-                screens: screens,
-                mouseLocation: mouseLocation,
-                fieldFrame: fieldFrame,
-                locateTargetWindowFrame: Self.windowFrameLocator(for: app, locate: locateTargetWindowFrame)
-            ) {
-                let placed = PanelOpenPlacement.frame(
-                    size: sizing.openingSize(in: screen.visibleFrame),
-                    on: screen,
-                    mode: mode,
-                    fieldFrame: fieldFrame,
-                    mouseLocation: mouseLocation
-                )
-                let frame = sidebarModel.isOpen
-                    ? SidebarLayout.expandedFrame(bodyFrame: placed, visibleFrame: screen.visibleFrame)
-                    : placed
+            if let frame = openingFrame {
                 applyMinimumSize()
                 panel.setFrame(frame, display: false)
             } else {

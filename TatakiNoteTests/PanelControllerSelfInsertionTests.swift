@@ -78,9 +78,9 @@ struct PanelControllerSelfInsertionTests {
 
     @Test("AC-22: 自分自身が挿入先のときだけ、アクセシビリティの問い合わせをしない")
     func queriesAccessibilityOnlyForOtherApps() {
-        #expect(PanelController.shouldQueryAccessibility(of: own, ownProcessIdentifier: Self.ownPid) == false)
-        #expect(PanelController.shouldQueryAccessibility(of: other, ownProcessIdentifier: Self.ownPid) == true)
-        #expect(PanelController.shouldQueryAccessibility(of: nil, ownProcessIdentifier: Self.ownPid) == false)
+        #expect(PanelOpenFrameResolver.shouldQueryAccessibility(of: own, ownProcessIdentifier: Self.ownPid) == false)
+        #expect(PanelOpenFrameResolver.shouldQueryAccessibility(of: other, ownProcessIdentifier: Self.ownPid) == true)
+        #expect(PanelOpenFrameResolver.shouldQueryAccessibility(of: nil, ownProcessIdentifier: Self.ownPid) == false)
     }
 
     @Test("AC-22: 自分自身が挿入先のパネルを開くときは、入力欄の位置を問い合わせない")
