@@ -56,16 +56,13 @@ struct PanelControllerInsertionCheckTests {
             ownProcessIdentifier: Self.ownPid,
             frontmostApplication: { front.app }
         )
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
+            probe: probe,
             inserter: inserter,
             permission: permission,
-            fieldProbe: probe,
-            exposeWebContent: { _ in },
             ownProcessIdentifier: Self.ownPid,
             library: library,
-            beep: {},
             makeTargetMonitor: { model in
                 let monitor = factory(model)
                 monitorBox.monitor = monitor

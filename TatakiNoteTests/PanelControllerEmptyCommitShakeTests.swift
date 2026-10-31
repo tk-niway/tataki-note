@@ -48,19 +48,16 @@ struct PanelControllerEmptyCommitShakeTests {
         let library = DraftLibrary(store: .inMemory)
         let animator = FakePanelFrameAnimator()
         let probe = FocusedElementProbeStub()
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
+            probe: probe,
             inserter: inserter,
             permission: permission,
-            fieldProbe: probe,
-            exposeWebContent: { _ in },
             ownProcessIdentifier: Self.ownPid,
             library: library,
             animator: animator,
             shaker: shaker,
-            beep: beepSpy.beep,
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
+            beep: beepSpy.beep
         )
         if hasTarget {
             controller.targetOverride = { own }

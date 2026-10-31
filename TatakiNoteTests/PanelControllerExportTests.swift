@@ -54,20 +54,15 @@ private final class ExportFixture {
         saveAnimation = SaveAnimationModel(sleep: { await sleeper.sleep($0) }, announce: { _ in })
         let probe = FocusedElementProbeStub()
         let failures = failures
-        controller = PanelController(
+        controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
-            inserter: InserterStub(result: .inserted),
-            permission: PermissionStub(isTrusted: true),
-            fieldProbe: probe,
-            exposeWebContent: { _ in },
+            probe: probe,
             ownProcessIdentifier: Self.ownPid,
             library: library,
             saveAnimation: saveAnimation,
             animator: animator,
             shaker: shaker,
             beep: beepSpy.beep,
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid),
             exportChooser: chooser,
             presentExportFailure: { message, window, completion in
                 failures.present(message: message, window: window, completion: completion)

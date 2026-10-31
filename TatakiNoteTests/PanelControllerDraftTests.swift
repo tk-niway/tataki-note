@@ -36,18 +36,12 @@ struct PanelControllerDraftTests {
             self.inserter = inserter
             let probe = FocusedElementProbeStub()
             self.probe = probe
-            self.controller = PanelController(
+            self.controller = PanelControllerFactory.make(
                 settings: settings,
-                targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
+                probe: probe,
                 inserter: inserter,
                 permission: PermissionStub(isTrusted: isTrusted),
-                fieldProbe: probe,
-                library: library,
-                beep: {},
-                makeTargetMonitor: InsertionTargetMonitor.testFactory(
-                    probe: probe,
-                    ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier
-                )
+                library: library
             )
         }
 

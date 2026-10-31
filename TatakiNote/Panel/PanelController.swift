@@ -369,12 +369,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         library.flush()
     }
 
-    /// 終了の前に、書きかけを履歴へ移し、遅らせている下書きの書き出しを今行う。
-    func prepareForTermination() {
-        session.prepareForTermination()
-        library.finishPendingWrites()
-    }
-
     /// 終了の理由に応じて書きかけを扱い、遅らせている下書きの書き出しを今行う。
     func prepareForTermination(reason: TerminationReason, store: RelaunchDraftStore) {
         session.prepareForTermination(reason: reason, store: store)

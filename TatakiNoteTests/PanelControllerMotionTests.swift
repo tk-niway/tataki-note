@@ -60,18 +60,13 @@ struct PanelControllerMotionTests {
         let inserter = InserterStub(result: .inserted)
         let hides = HideApplicationCounter()
         let probe = FocusedElementProbeStub()
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
+            probe: probe,
             inserter: inserter,
-            permission: PermissionStub(isTrusted: true),
-            fieldProbe: probe,
-            exposeWebContent: { _ in },
             ownProcessIdentifier: Self.ownPid,
             animator: animator,
-            beep: {},
-            hideApplication: { hides.record() },
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
+            hideApplication: { hides.record() }
         )
         controller.targetOverride = { own }
         defer { controller.panel.orderOut(nil) }
