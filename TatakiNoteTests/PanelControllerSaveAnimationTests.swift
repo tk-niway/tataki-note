@@ -82,22 +82,15 @@ struct PanelControllerSaveAnimationTests {
             settings.commitAndSendKey = .commandReturn
             permission = PermissionStub(isTrusted: isTrusted)
             let probe = FocusedElementProbeStub()
-            controller = PanelController(
+            controller = PanelControllerFactory.make(
                 settings: settings,
-                targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
+                probe: probe,
                 inserter: inserter,
                 permission: permission,
-                fieldProbe: probe,
-                exposeWebContent: { _ in },
                 ownProcessIdentifier: PanelControllerSaveAnimationTests.ownPid,
                 library: library,
                 saveAnimation: recorder.model,
-                animator: animator,
-                beep: {},
-                makeTargetMonitor: InsertionTargetMonitor.testFactory(
-                    probe: probe,
-                    ownProcessIdentifier: PanelControllerSaveAnimationTests.ownPid
-                )
+                animator: animator
             )
             controller.targetOverride = {
                 InsertionTarget(processIdentifier: PanelControllerSaveAnimationTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")

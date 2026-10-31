@@ -7,18 +7,7 @@ import Testing
 struct PanelControllerTests {
     private func makeController(settings: AppSettings) -> PanelController {
         let probe = FocusedElementProbeStub()
-        return PanelController(
-            settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
-            inserter: InserterStub(result: .inserted),
-            permission: PermissionStub(isTrusted: true),
-            fieldProbe: probe,
-            beep: {},
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(
-                probe: probe,
-                ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier
-            )
-        )
+        return PanelControllerFactory.make(settings: settings, probe: probe)
     }
 
     private func withSettings(_ body: (AppSettings) throws -> Void) throws {

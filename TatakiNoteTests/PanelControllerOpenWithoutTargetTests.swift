@@ -36,15 +36,11 @@ struct PanelControllerOpenWithoutTargetTests {
             frame: fieldFrame
         )
         probe.elementFrames[7001] = fieldFrame
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
-            inserter: InserterStub(result: .inserted),
-            permission: PermissionStub(isTrusted: true),
-            fieldProbe: probe,
+            probe: probe,
             exposeWebContent: { environment.exposed.append($0) },
             ownProcessIdentifier: Self.ownPid,
-            library: DraftLibrary(store: .inMemory),
             animator: FakePanelFrameAnimator(),
             makeTargetMonitor: { model in
                 let monitor = InsertionTargetMonitor(

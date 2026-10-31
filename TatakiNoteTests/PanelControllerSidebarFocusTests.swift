@@ -37,19 +37,7 @@ struct PanelControllerSidebarFocusTests {
             self.settings = settings
             self.library = library
             self.probe = probe
-            self.controller = PanelController(
-                settings: settings,
-                targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
-                inserter: InserterStub(result: .inserted),
-                permission: PermissionStub(isTrusted: true),
-                fieldProbe: probe,
-                library: library,
-                beep: {},
-                makeTargetMonitor: InsertionTargetMonitor.testFactory(
-                    probe: probe,
-                    ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier
-                )
-            )
+            self.controller = PanelControllerFactory.make(settings: settings, probe: probe, library: library)
             controller.onInsertionRequested = { [unowned self] text, _, shouldSend in
                 self.insertionRequests.append(InsertionRequest(text: text, shouldSend: shouldSend))
             }

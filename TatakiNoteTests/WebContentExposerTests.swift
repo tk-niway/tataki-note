@@ -65,16 +65,12 @@ struct WebContentExposerTests {
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.panelScreen = .main
         let probe = FocusedElementProbeStub()
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
-            inserter: InserterStub(result: .inserted),
+            probe: probe,
             permission: PermissionStub(isTrusted: isTrusted),
-            fieldProbe: probe,
             exposeWebContent: exposeWebContent,
-            ownProcessIdentifier: Self.ownPid,
-            beep: {},
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
+            ownProcessIdentifier: Self.ownPid
         )
         controller.targetOverride = { target }
         defer { controller.close() }

@@ -44,17 +44,12 @@ struct PanelControllerOpenQueryTests {
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.panelScreen = mode
         let fieldProbe = probe ?? FocusedElementProbeStub()
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
-            inserter: InserterStub(result: .inserted),
+            probe: fieldProbe,
             permission: PermissionStub(isTrusted: isTrusted),
-            fieldProbe: fieldProbe,
-            exposeWebContent: { _ in },
             locateTargetWindowFrame: { recorder.locate($0) },
-            ownProcessIdentifier: Self.ownPid,
-            beep: {},
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: fieldProbe, ownProcessIdentifier: Self.ownPid)
+            ownProcessIdentifier: Self.ownPid
         )
         controller.targetOverride = { target }
         controller.isTargetLookupDisabled = isTargetLookupDisabled

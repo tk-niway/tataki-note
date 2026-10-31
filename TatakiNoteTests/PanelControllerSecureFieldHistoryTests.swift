@@ -212,13 +212,10 @@ struct PanelControllerSecureFieldHistoryTests {
         let library = DraftLibrary(store: .inMemory)
         var monitor: InsertionTargetMonitor?
         let factory = InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
+            probe: probe,
             inserter: inserter,
-            permission: PermissionStub(isTrusted: true),
-            fieldProbe: probe,
-            exposeWebContent: { _ in },
             ownProcessIdentifier: Self.ownPid,
             library: library,
             animator: FakePanelFrameAnimator(),

@@ -26,15 +26,12 @@ struct PanelControllerSelfInsertionTests {
         settings.panelScreen = .nearFocusedField
         let probe = FocusedElementProbeStub()
         let inserter = InserterStub(result: .inserted)
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
+            probe: probe,
             inserter: inserter,
             permission: PermissionStub(isTrusted: isTrusted),
-            fieldProbe: probe,
-            ownProcessIdentifier: Self.ownPid,
-            beep: {},
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
+            ownProcessIdentifier: Self.ownPid
         )
         defer { controller.close() }
         try await body(Fixture(controller: controller, probe: probe, inserter: inserter))

@@ -86,16 +86,12 @@ struct PanelControllerTargetMonitorTests {
         probe.results[target.processIdentifier] = textInputProbe(frame: fieldRect)
         probe.elementFrame = elementRect
         probe.onProbe = { log.record("probe") }
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
-            inserter: InserterStub(result: .inserted),
+            probe: probe,
             permission: PermissionStub(isTrusted: isTrusted),
-            fieldProbe: probe,
             exposeWebContent: { _ in log.record("expose") },
-            ownProcessIdentifier: Self.ownPid,
-            beep: {},
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
+            ownProcessIdentifier: Self.ownPid
         )
         controller.targetOverride = { target }
         controller.isTargetLookupDisabled = isTargetLookupDisabled
