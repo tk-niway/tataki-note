@@ -16,6 +16,7 @@ final class MonitorEnvironment {
     var isOutlineEnabled = true
     var isOwnTargetAvailable = true
     var adoptedCount = 0
+    var sleeps: [Duration] = []
 }
 
 @MainActor
@@ -47,7 +48,7 @@ final class MonitorFixture {
         let probe = probe
         let clicks = clicks
         env.windows = [Self.window(of: Self.editor)]
-        let sleep: (Duration) async -> Void = polls ? { _ in await Task.yield() } : { _ in }
+        let sleep: (Duration) async -> Void = polls ? { env.sleeps.append($0); await Task.yield() } : { _ in }
         let monitor = InsertionTargetMonitor(
             panelModel: model,
             probe: probe,

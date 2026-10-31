@@ -16,7 +16,6 @@ struct InsertionTargetStart {
 
 /// パネルを開いている間、挿入先(今確定したら文章が入る入力欄)を見張る。
 final class InsertionTargetMonitor {
-    static let pollInterval: Duration = .milliseconds(100)
     static let slowQueryThreshold: TimeInterval = 0.03
     static let slowQueryBackoff: TimeInterval = 0.5
     static let clickRecheckDelay: Duration = .milliseconds(200)
@@ -56,6 +55,7 @@ final class InsertionTargetMonitor {
     private var isWatching = false
     private var slowUntil: Date?
     private var pendingToken: InsertionTargetLookupToken?
+    private var pollSchedule = InsertionTargetPollSchedule()
     private var nextTokenValue: UInt64 = 0
     private var pollTask: Task<Void, Never>?
     private var recheckTask: Task<Void, Never>?
@@ -175,10 +175,14 @@ final class InsertionTargetMonitor {
         panelModel.finishTargetLookup(resolution.target)
         outline.update(resolution.outline)
         applySlowBackoff(for: result)
+        pollSchedule.reset()
     }
 
     /// 開くときの答えを待っているか。
     var isAwaitingOpeningLookup: Bool { pendingToken != nil }
+
+    /// 次の定期の調べまでの間隔。
+    var nextPollInterval: Duration { pollSchedule.interval }
 
     /// 見張りをやめ、枠線の場所を消す。
     func end() {
@@ -196,18 +200,26 @@ final class InsertionTargetMonitor {
         hasReadableFrame = false
         slowUntil = nil
         pendingToken = nil
+        pollSchedule.reset()
         outline.update(nil)
     }
 
     // MARK: - 位置の追従
 
-    /// 定期の調べ1回分。挿入先の入力欄の位置だけを読み、枠線を動かす。入力欄が使えなくなったときだけ挿入先なしにする。
-    func refresh() {
-        guard isWatching, pendingToken == nil else { return }
-        if let slowUntil, slowUntil > now() { return }
-        let resolution = measured { trackField(didQuery: &$0) }
-        panelModel.updateTarget(resolution.target)
-        outline.update(resolution.outline)
+    /// 定期の調べ1回分。挿入先の入力欄の位置だけを読み、枠線を動かす。入力欄が使えなくなったときだけ挿入先なしにする。枠か挿入先が変わったかを返す。
+    @discardableResult
+    func refresh() -> Bool {
+        guard isWatching else { return false }
+        let targetBefore = panelModel.target
+        let outlineBefore = outline.rect
+        if pendingToken == nil, !(slowUntil.map { $0 > now() } ?? false) {
+            let resolution = measured { trackField(didQuery: &$0) }
+            panelModel.updateTarget(resolution.target)
+            outline.update(resolution.outline)
+        }
+        let changed = panelModel.target != targetBefore || outline.rect != outlineBefore
+        pollSchedule.record(changed: changed)
+        return changed
     }
 
     /// 覚えている入力欄の位置を今1回読み、まだ使える入力欄かを返す。
@@ -281,6 +293,7 @@ final class InsertionTargetMonitor {
         panelModel.updateTarget(front)
         var didQuery = false
         outline.update(outlineRect(for: front, fieldFrame: result.frame, didQuery: &didQuery))
+        pollSchedule.reset()
         return true
     }
 
@@ -396,7 +409,8 @@ final class InsertionTargetMonitor {
         let sleep = self.sleep
         pollTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                await sleep(Self.pollInterval)
+                guard let interval = self?.nextPollInterval else { return }
+                await sleep(interval)
                 guard !Task.isCancelled, let self else { return }
                 self.refresh()
             }
