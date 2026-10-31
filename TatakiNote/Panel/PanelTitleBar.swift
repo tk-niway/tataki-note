@@ -5,6 +5,7 @@ import SwiftUI
 struct PanelTitleBar: View {
     let target: InsertionTarget?
     let noTargetAlertCount: Int
+    let isTargetPending: Bool
     let session: DraftSession?
     let isSidebarOpen: Bool
     let saveArrival: SaveArrival
@@ -17,6 +18,7 @@ struct PanelTitleBar: View {
         target: InsertionTarget?,
         mode: DraftMode = .insert,
         noTargetAlertCount: Int = 0,
+        isTargetPending: Bool = false,
         session: DraftSession? = nil,
         isSidebarOpen: Bool = false,
         saveArrival: SaveArrival = SaveArrival(),
@@ -27,6 +29,7 @@ struct PanelTitleBar: View {
         self.target = target
         self.mode = mode
         self.noTargetAlertCount = noTargetAlertCount
+        self.isTargetPending = isTargetPending
         self.session = session
         self.isSidebarOpen = isSidebarOpen
         self.saveArrival = saveArrival
@@ -53,7 +56,12 @@ struct PanelTitleBar: View {
                 .padding(.leading, 4)
             switch mode {
             case .insert:
-                InsertionTargetView(target: target, noTargetAlertCount: noTargetAlertCount, appIcon: appIcon)
+                InsertionTargetView(
+                    target: target,
+                    noTargetAlertCount: noTargetAlertCount,
+                    isPending: isTargetPending,
+                    appIcon: appIcon
+                )
                     .padding(.leading, 10)
             case .note:
                 noteModeButton

@@ -1,13 +1,44 @@
 import AppKit
 import UniformTypeIdentifiers
 
+/// タイトルバーの挿入先の表示の状態。
+enum InsertionTargetDisplay: Equatable {
+    /// 開くときの調べの答えを待っている。挿入先も「挿入先なし」も出さない。
+    case pending
+    case target(InsertionTargetBadge)
+    case noTarget
+}
+
+extension InsertionTargetDisplay {
+    /// 「挿入先なし」の部品を置くか(待ちの間も、見えない形で置く)。
+    var placesNoTargetLabel: Bool {
+        switch self {
+        case .pending, .noTarget: true
+        case .target: false
+        }
+    }
+
+    /// 「挿入先なし」を見せ、読み上げるか。
+    var isNoTargetLabelVisible: Bool {
+        self == .noTarget
+    }
+}
+
 /// タイトルバーに出す挿入先の表示の中身。
 struct InsertionTargetBadge: Equatable {
     static let label = String(localized: "挿入先")
     static let noTargetLabel = String(localized: "挿入先なし")
     static let noTargetTipText = String(localized: "このまま確定しても挿入しません。入れたい入力欄をクリックすると、そこが挿入先になります")
+    static let pendingAccessibilityLabel = String(localized: "挿入先を調べています")
 
     let target: InsertionTarget
+
+    /// 挿入先と待ちの印から、出すものを決める。
+    static func display(target: InsertionTarget?, isPending: Bool) -> InsertionTargetDisplay {
+        if isPending { return .pending }
+        if let badge = make(for: target) { return .target(badge) }
+        return .noTarget
+    }
 
     /// 挿入先が無ければ nil(何も出さない)。
     static func make(for target: InsertionTarget?) -> InsertionTargetBadge? {

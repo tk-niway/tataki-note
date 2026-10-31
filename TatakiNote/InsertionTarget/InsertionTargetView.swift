@@ -5,6 +5,7 @@ import SwiftUI
 struct InsertionTargetView: View {
     let target: InsertionTarget?
     let noTargetAlertCount: Int
+    let isPending: Bool
     let appIcon: @MainActor (InsertionTarget) -> NSImage
 
     @Environment(\.isAppAnimationReduced) private var reduceMotion
@@ -16,43 +17,69 @@ struct InsertionTargetView: View {
     init(
         target: InsertionTarget?,
         noTargetAlertCount: Int = 0,
+        isPending: Bool = false,
         appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = InsertionTargetBadge.systemIcon(for:)
     ) {
         self.target = target
         self.noTargetAlertCount = noTargetAlertCount
+        self.isPending = isPending
         self.appIcon = appIcon
     }
 
     var body: some View {
-        if let badge = InsertionTargetBadge.make(for: target) {
-            HStack(spacing: 4) {
-                Text(verbatim: InsertionTargetBadge.label)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                Image(nsImage: appIcon(badge.target))
-                    .resizable()
-                    .frame(width: Self.iconSize, height: Self.iconSize)
-                    .padding(2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 5)
-                            .fill(Color.primary.opacity(0.14))
-                    )
-                    .contentShape(Rectangle())
-                    .onHover { isHovering = $0 }
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(badge.accessibilityLabel)
-            .accessibilityIdentifier("promptPanel.insertionTarget")
-            .overlay(alignment: .bottomTrailing) {
-                if isHovering {
-                    tip(badge.tipText)
-                        .alignmentGuide(.bottom) { $0[.top] - 8 }
-                }
-            }
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: isHovering)
-        } else {
+        let display = InsertionTargetBadge.display(target: target, isPending: isPending)
+        switch display {
+        case .target(let badge):
+            targetBody(badge)
+        case .pending, .noTarget:
             noTargetBody
+                .opacity(display.isNoTargetLabelVisible ? 1 : 0)
+                .accessibilityHidden(!display.isNoTargetLabelVisible)
+                .allowsHitTesting(display.isNoTargetLabelVisible)
+                .overlay(alignment: .trailing) {
+                    if display == .pending {
+                        pendingIndicator
+                    }
+                }
         }
+    }
+
+    private func targetBody(_ badge: InsertionTargetBadge) -> some View {
+        HStack(spacing: 4) {
+            Text(verbatim: InsertionTargetBadge.label)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+            Image(nsImage: appIcon(badge.target))
+                .resizable()
+                .frame(width: Self.iconSize, height: Self.iconSize)
+                .padding(2)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(Color.primary.opacity(0.14))
+                )
+                .contentShape(Rectangle())
+                .onHover { isHovering = $0 }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(badge.accessibilityLabel)
+        .accessibilityIdentifier("promptPanel.insertionTarget")
+        .overlay(alignment: .bottomTrailing) {
+            if isHovering {
+                tip(badge.tipText)
+                    .alignmentGuide(.bottom) { $0[.top] - 8 }
+            }
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: isHovering)
+    }
+
+    // MARK: - 待ち
+
+    private var pendingIndicator: some View {
+        ProgressView()
+            .controlSize(.mini)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(InsertionTargetBadge.pendingAccessibilityLabel)
+            .accessibilityIdentifier("promptPanel.insertionTargetPending")
     }
 
     // MARK: - 挿入先なし
