@@ -44,17 +44,12 @@ struct PanelControllerOpenQueryTests {
         let settings = AppSettings(store: SettingsStore(defaults: defaults))
         settings.panelScreen = mode
         let fieldProbe = probe ?? FocusedElementProbeStub()
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
-            inserter: InserterStub(result: .inserted),
+            probe: fieldProbe,
             permission: PermissionStub(isTrusted: isTrusted),
-            fieldProbe: fieldProbe,
-            exposeWebContent: { _ in },
             locateTargetWindowFrame: { recorder.locate($0) },
-            ownProcessIdentifier: Self.ownPid,
-            beep: {},
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: fieldProbe, ownProcessIdentifier: Self.ownPid)
+            ownProcessIdentifier: Self.ownPid
         )
         controller.targetOverride = { target }
         controller.isTargetLookupDisabled = isTargetLookupDisabled
@@ -134,7 +129,7 @@ struct PanelControllerOpenQueryTests {
         let recorder = WindowFrameLocateRecorder()
         recorder.frame = rectOnA
 
-        let locator = PanelController.windowFrameLocator(for: nil, locate: { recorder.locate($0) })
+        let locator = PanelOpenFrameResolver.windowFrameLocator(for: nil, locate: { recorder.locate($0) })
 
         #expect(locator() == nil)
         #expect(recorder.count == 0)
@@ -145,7 +140,7 @@ struct PanelControllerOpenQueryTests {
         let recorder = WindowFrameLocateRecorder()
         recorder.frame = rectOnB
 
-        let locator = PanelController.windowFrameLocator(for: editor, locate: { recorder.locate($0) })
+        let locator = PanelOpenFrameResolver.windowFrameLocator(for: editor, locate: { recorder.locate($0) })
         #expect(recorder.count == 0)
 
         #expect(locator() == rectOnB)

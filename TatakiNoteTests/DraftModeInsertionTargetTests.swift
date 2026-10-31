@@ -59,17 +59,14 @@ private struct InsertionTargetFixture {
         let inserter = InserterStub(result: .inserted)
         let events = InsertionTargetEvents()
         let box = MonitorBox()
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
+            probe: probe,
             inserter: inserter,
-            permission: PermissionStub(isTrusted: true),
-            fieldProbe: probe,
             exposeWebContent: { events.exposed.append($0) },
             locateTargetWindowFrame: { locator.locate($0) },
             ownProcessIdentifier: Self.ownPid,
             animator: FakePanelFrameAnimator(),
-            beep: {},
             makeTargetMonitor: { model in
                 let monitor = InsertionTargetMonitor(
                     panelModel: model,

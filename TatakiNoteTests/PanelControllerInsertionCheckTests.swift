@@ -56,16 +56,13 @@ struct PanelControllerInsertionCheckTests {
             ownProcessIdentifier: Self.ownPid,
             frontmostApplication: { front.app }
         )
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
+            probe: probe,
             inserter: inserter,
             permission: permission,
-            fieldProbe: probe,
-            exposeWebContent: { _ in },
             ownProcessIdentifier: Self.ownPid,
             library: library,
-            beep: {},
             makeTargetMonitor: { model in
                 let monitor = factory(model)
                 monitorBox.monitor = monitor
@@ -171,11 +168,11 @@ struct PanelControllerInsertionCheckTests {
     @Test("AC-12, AC-17, AC-18: 閉じる前に入力欄の位置を読むのは、文章があり・許可があり・挿入先が自分以外のときだけ")
     func shouldCheckTrackedFieldRules() {
         let ownPid = Self.ownPid
-        #expect(PanelController.shouldCheckTrackedField(target: other, text: "a", isTrusted: true, ownProcessIdentifier: ownPid))
-        #expect(!PanelController.shouldCheckTrackedField(target: own, text: "a", isTrusted: true, ownProcessIdentifier: ownPid))
-        #expect(!PanelController.shouldCheckTrackedField(target: nil, text: "a", isTrusted: true, ownProcessIdentifier: ownPid))
-        #expect(!PanelController.shouldCheckTrackedField(target: other, text: "", isTrusted: true, ownProcessIdentifier: ownPid))
-        #expect(!PanelController.shouldCheckTrackedField(target: other, text: "a", isTrusted: false, ownProcessIdentifier: ownPid))
+        #expect(PanelCommitFlow.shouldCheckTrackedField(target: other, text: "a", isTrusted: true, ownProcessIdentifier: ownPid))
+        #expect(!PanelCommitFlow.shouldCheckTrackedField(target: own, text: "a", isTrusted: true, ownProcessIdentifier: ownPid))
+        #expect(!PanelCommitFlow.shouldCheckTrackedField(target: nil, text: "a", isTrusted: true, ownProcessIdentifier: ownPid))
+        #expect(!PanelCommitFlow.shouldCheckTrackedField(target: other, text: "", isTrusted: true, ownProcessIdentifier: ownPid))
+        #expect(!PanelCommitFlow.shouldCheckTrackedField(target: other, text: "a", isTrusted: false, ownProcessIdentifier: ownPid))
     }
 
     // MARK: - AC-13

@@ -91,20 +91,12 @@ struct PanelControllerScratchArchiveTests {
             self.directory = directory
             self.defaultsName = defaultsName
             self.library = library
-            self.controller = PanelController(
+            self.controller = PanelControllerFactory.make(
                 settings: settings,
-                targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
-                inserter: InserterStub(result: .inserted),
+                probe: probe,
                 permission: PermissionStub(isTrusted: isTrusted),
-                fieldProbe: probe,
                 library: library,
-                animator: animator,
-                beep: {},
-                hideApplication: {},
-                makeTargetMonitor: InsertionTargetMonitor.testFactory(
-                    probe: probe,
-                    ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier
-                )
+                animator: animator
             )
             controller.targetOverride = { PanelControllerScratchArchiveTests.textEdit }
         }

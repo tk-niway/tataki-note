@@ -32,20 +32,15 @@ private final class ShareFixture {
         let sleeper = sleeper
         saveAnimation = SaveAnimationModel(sleep: { await sleeper.sleep($0) }, announce: { _ in })
         let probe = FocusedElementProbeStub()
-        controller = PanelController(
+        controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
-            inserter: InserterStub(result: .inserted),
-            permission: PermissionStub(isTrusted: true),
-            fieldProbe: probe,
-            exposeWebContent: { _ in },
+            probe: probe,
             ownProcessIdentifier: Self.ownPid,
             library: library,
             saveAnimation: saveAnimation,
             animator: animator,
             shaker: shaker,
             beep: beepSpy.beep,
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid),
             exportChooser: chooser,
             sharer: sharer
         )

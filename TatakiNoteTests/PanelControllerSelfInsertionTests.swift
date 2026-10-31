@@ -26,15 +26,12 @@ struct PanelControllerSelfInsertionTests {
         settings.panelScreen = .nearFocusedField
         let probe = FocusedElementProbeStub()
         let inserter = InserterStub(result: .inserted)
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
+            probe: probe,
             inserter: inserter,
             permission: PermissionStub(isTrusted: isTrusted),
-            fieldProbe: probe,
-            ownProcessIdentifier: Self.ownPid,
-            beep: {},
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
+            ownProcessIdentifier: Self.ownPid
         )
         defer { controller.close() }
         try await body(Fixture(controller: controller, probe: probe, inserter: inserter))
@@ -81,9 +78,9 @@ struct PanelControllerSelfInsertionTests {
 
     @Test("AC-22: 自分自身が挿入先のときだけ、アクセシビリティの問い合わせをしない")
     func queriesAccessibilityOnlyForOtherApps() {
-        #expect(PanelController.shouldQueryAccessibility(of: own, ownProcessIdentifier: Self.ownPid) == false)
-        #expect(PanelController.shouldQueryAccessibility(of: other, ownProcessIdentifier: Self.ownPid) == true)
-        #expect(PanelController.shouldQueryAccessibility(of: nil, ownProcessIdentifier: Self.ownPid) == false)
+        #expect(PanelOpenFrameResolver.shouldQueryAccessibility(of: own, ownProcessIdentifier: Self.ownPid) == false)
+        #expect(PanelOpenFrameResolver.shouldQueryAccessibility(of: other, ownProcessIdentifier: Self.ownPid) == true)
+        #expect(PanelOpenFrameResolver.shouldQueryAccessibility(of: nil, ownProcessIdentifier: Self.ownPid) == false)
     }
 
     @Test("AC-22: 自分自身が挿入先のパネルを開くときは、入力欄の位置を問い合わせない")

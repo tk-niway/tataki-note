@@ -72,22 +72,13 @@ struct PanelControllerToastTests {
             settings.animationMode = .on
             settings.isSidebarOpen = false
             let probe = FocusedElementProbeStub()
-            controller = PanelController(
+            controller = PanelControllerFactory.make(
                 settings: settings,
-                targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
-                inserter: InserterStub(result: .inserted),
-                permission: PermissionStub(isTrusted: true),
-                fieldProbe: probe,
-                exposeWebContent: { _ in },
+                probe: probe,
                 ownProcessIdentifier: PanelControllerToastTests.ownPid,
                 library: library,
                 saveAnimation: recorder.model,
-                animator: animator,
-                beep: {},
-                makeTargetMonitor: InsertionTargetMonitor.testFactory(
-                    probe: probe,
-                    ownProcessIdentifier: PanelControllerToastTests.ownPid
-                )
+                animator: animator
             )
             controller.targetOverride = {
                 InsertionTarget(processIdentifier: PanelControllerToastTests.ownPid, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")

@@ -76,19 +76,15 @@ struct DraftModeTests {
         let inserter = InserterStub(result: insertionResult)
         let permission = PermissionStub(isTrusted: isTrusted)
         let probe = FocusedElementProbeStub()
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
+            probe: probe,
             inserter: inserter,
             permission: permission,
-            fieldProbe: probe,
-            exposeWebContent: { _ in },
             ownProcessIdentifier: Self.ownPid,
-            library: DraftLibrary(store: .inMemory),
             animator: FakePanelFrameAnimator(),
             shaker: shaker,
-            beep: beepSpy.beep,
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
+            beep: beepSpy.beep
         )
         if hasTarget {
             controller.targetOverride = { own }

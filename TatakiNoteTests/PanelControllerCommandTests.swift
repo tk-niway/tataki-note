@@ -31,18 +31,11 @@ struct PanelControllerCommandTests {
         let probe = FocusedElementProbeStub()
         let beeps = CallCounter()
         let chooser = ExportChooserSpy()
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
-            inserter: InserterStub(result: .inserted),
+            probe: probe,
             permission: PermissionStub(isTrusted: isTrusted),
-            fieldProbe: probe,
-            exposeWebContent: { _ in },
             beep: { beeps.count += 1 },
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(
-                probe: probe,
-                ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier
-            ),
             exportChooser: chooser
         )
         controller.isTargetLookupDisabled = true

@@ -7,52 +7,36 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// 入力パネルの窓。
     let panel: PromptPanel
     private let settings: AppSettings
-    private let animator: PanelFrameAnimating
     private let hideApplication: () -> Void
     private let targetTracker: FrontmostAppTracker
     private let permission: AccessibilityPermissionChecking
-    private let performer: CommitPerformer
-    private let fieldProbe: FocusedElementProbing
+    private let openFrameResolver: PanelOpenFrameResolver
     private let exposeWebContent: (InsertionTarget) -> Void
-    private let locateTargetWindowFrame: (pid_t) -> CGRect?
     private let ownProcessIdentifier: pid_t
     private let library: DraftLibrary
     private let targetMonitor: InsertionTargetMonitor
     private let outlineController: InsertionTargetOutlineController
-    private let shaker: PanelShaking
-    private let beep: () -> Void
-    private let exporter: TextExporter
-    private let presentExportFailure: (String, NSWindow?, @escaping () -> Void) -> Void
-    private let sharer: TextSharing
     private let sharingAnchorRegistry = SharingAnchorRegistry()
 
     let session: DraftSession
     let sidebarModel: SidebarModel
     let saveAnimation: SaveAnimationModel
 
-    private let sizing = PanelSizing()
-    private var liveResizeStartSize: CGSize?
-    private var resizeStartSize: CGSize?
-    var isAdjustingFrameForSidebar = false
+    let sizeController: PanelSizeController
 
-    private var motion = PanelMotionState()
-    private var restingFrame: NSRect?
-    private var pendingCloseCompletion: (() -> Void)?
-    private var closingGhost: PanelClosingGhost?
-    private var sidebarSlide: SidebarSlide?
-    private var sidebarSlideGeneration = 0
+    private let motionController: PanelMotionController
 
-    private struct SidebarSlide {
-        let generation: Int
-        let frame: NSRect
-        let isOpen: Bool
-    }
+    private let feedback: PanelFeedback
 
-    var heldPanelSize: CGSize? { sizing.heldSize }
+    private let exportSharing: PanelExportSharing
+
+    private let commitFlow: PanelCommitFlow
+
+    var heldPanelSize: CGSize? { sizeController.sizing.heldSize }
 
     var onPermissionDenied: (() -> Void)? {
-        get { performer.onPermissionDenied }
-        set { performer.onPermissionDenied = newValue }
+        get { commitFlow.onPermissionDenied }
+        set { commitFlow.onPermissionDenied = newValue }
     }
 
     /// 返した挿入先を、前面のアプリの代わりに挿入先にする。`nil` を返すと前面のアプリを使う。
@@ -71,7 +55,10 @@ final class PanelController: NSObject, NSWindowDelegate {
     var onOpenSettings: (() -> Void)?
 
     /// 確定で挿入することになったとき、パネルを閉じた後・挿入の前に、文章・挿入先・送信もするかを知らせる。
-    var onInsertionRequested: ((String, InsertionTarget, Bool) -> Void)?
+    var onInsertionRequested: ((String, InsertionTarget, Bool) -> Void)? {
+        get { commitFlow.onInsertionRequested }
+        set { commitFlow.onInsertionRequested = newValue }
+    }
 
     init(
         model: PanelModel = PanelModel(),
@@ -99,21 +86,15 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.model = model
         self.panel = panel
         self.settings = settings
-        self.animator = animator
-        self.shaker = shaker
-        self.beep = beep
-        self.exporter = TextExporter(settings: settings, chooser: exportChooser, write: writeTextFile)
-        self.sharer = sharer ?? SharingServicePresenter(panel: panel, anchorRegistry: sharingAnchorRegistry)
-        self.presentExportFailure = presentExportFailure ?? { message, window, completion in
-            ExportFailureAlert.show(message: message, attachedTo: window, completion: completion)
-        }
         self.hideApplication = hideApplication
         self.targetTracker = targetTracker
         self.permission = permission
-        self.performer = CommitPerformer(model: model, permission: permission, inserter: inserter)
-        self.fieldProbe = fieldProbe
+        self.openFrameResolver = PanelOpenFrameResolver(
+            fieldProbe: fieldProbe,
+            locateTargetWindowFrame: locateTargetWindowFrame,
+            ownProcessIdentifier: ownProcessIdentifier
+        )
         self.exposeWebContent = exposeWebContent
-        self.locateTargetWindowFrame = locateTargetWindowFrame
         self.ownProcessIdentifier = ownProcessIdentifier
         self.library = library
         let session = DraftSession(
@@ -138,8 +119,46 @@ final class PanelController: NSObject, NSWindowDelegate {
             session: session
         )
         self.session = session
-        self.sidebarModel = SidebarModel(settings: settings, library: library, session: session)
+        let sidebarModel = SidebarModel(settings: settings, library: library, session: session)
+        self.sidebarModel = sidebarModel
+        let sizeController = PanelSizeController(panel: panel, sidebarModel: sidebarModel, animator: animator)
+        self.sizeController = sizeController
+        self.motionController = PanelMotionController(
+            panel: panel,
+            animator: animator,
+            restoreMinimumSize: { [sizeController] in sizeController.applyMinimumSize() }
+        )
         self.saveAnimation = saveAnimation
+        self.feedback = PanelFeedback(
+            panel: panel,
+            model: model,
+            session: session,
+            sidebarModel: sidebarModel,
+            library: library,
+            saveAnimation: saveAnimation,
+            settings: settings,
+            shaker: shaker,
+            beep: beep
+        )
+        self.exportSharing = PanelExportSharing(
+            model: model,
+            panel: panel,
+            exporter: TextExporter(settings: settings, chooser: exportChooser, write: writeTextFile),
+            sharer: sharer ?? SharingServicePresenter(panel: panel, anchorRegistry: sharingAnchorRegistry),
+            presentFailure: presentExportFailure ?? { message, window, completion in
+                ExportFailureAlert.show(message: message, attachedTo: window, completion: completion)
+            }
+        )
+        self.commitFlow = PanelCommitFlow(
+            model: model,
+            session: session,
+            library: library,
+            permission: permission,
+            inserter: inserter,
+            targetMonitor: targetMonitor,
+            sizing: sizeController.sizing,
+            ownProcessIdentifier: ownProcessIdentifier
+        )
         super.init()
 
         let hostingView = NSHostingView(
@@ -161,12 +180,25 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.onKeyEquivalent = { [weak self] in self?.handleKey($0) ?? false }
         panel.onHideKey = { [weak self] in self?.handleHideKey() ?? false }
         panel.onKeyDownOutsideEditor = { [weak self] in self?.handleKeyOutsideEditor($0) ?? false }
-        applyMinimumSize()
+        sizeController.applyMinimumSize()
         configureSidebarModel()
         observeBodyFocusRequests()
-        observeSaveEvents()
-        observeArchivedScratch()
+        feedback.startObserving()
+        connectParts()
         targetMonitor.onFieldAdopted = { [weak self] in self?.handleFieldAdopted() }
+    }
+
+    private func connectParts() {
+        exportSharing.onEmptyInput = { [weak self] in self?.signalEmptyInput() }
+        exportSharing.onToast = { [weak self] message, style in self?.feedback.showToast(message, style: style) }
+        exportSharing.onReturnInput = { [weak self] in self?.returnInputToPanel() }
+        commitFlow.onEmptyInput = { [weak self] in self?.signalEmptyInput() }
+        commitFlow.onReturnInput = { [weak self] in self?.returnInputToPanel() }
+        commitFlow.onHide = { [weak self] in
+            self?.feedback.stopEffects()
+            self?.hidePanel()
+        }
+        commitFlow.onReopen = { [weak self] in self?.open() }
     }
 
     /// 他のアプリの入力欄をクリックして挿入先が移ったときに、キー入力をパネルへ戻すか。インサートの書きかけだけ戻す。
@@ -184,64 +216,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         settings.isInsertionTargetOutlineShown
     }
 
-    private func observeSaveEvents() {
-        observeRepeatedly(
-            tracking: { [weak self] in _ = self?.session.lastSaveEvent },
-            onChange: { [weak self] in
-                guard let self else { return false }
-                if let event = self.session.lastSaveEvent {
-                    self.playSaveAnimation(for: event)
-                }
-                return true
-            }
-        )
-    }
-
-    private func playSaveAnimation(for event: DraftSaveEvent) {
-        guard model.isPresented else { return }
-        let id: UUID
-        switch event.kind {
-        case .created(let savedID), .overwritten(let savedID):
-            id = savedID
-        }
-        if SaveFlightDestination.shouldSwitchToDrafts(
-            isSidebarOpen: sidebarModel.isOpen,
-            tab: sidebarModel.tab
-        ) {
-            sidebarModel.tab = .drafts
-        }
-        let text = library.draft(id: id)?.text ?? model.text
-        let destination = SaveFlightDestination.resolve(
-            savedDraftID: id,
-            isSidebarOpen: sidebarModel.isOpen,
-            isShowingDrafts: sidebarModel.tab == .drafts,
-            visibleDraftIDs: sidebarModel.rows.map(\.id)
-        )
-        let animation = saveAnimation
-        let showsToast = event.showsToast
-        let isAnimated = settings.isAnimationEnabled
-        Task {
-            await animation.play(text: text, destination: destination, showsToast: showsToast, isAnimated: isAnimated)
-        }
-    }
-
-    private func observeArchivedScratch() {
-        observeRepeatedly(
-            tracking: { [weak self] in _ = self?.session.archivedScratchCount },
-            onChange: { [weak self] in
-                guard let self else { return false }
-                self.showArchivedToast()
-                return true
-            }
-        )
-    }
-
-    private func showArchivedToast() {
-        guard model.isPresented else { return }
-        let animation = saveAnimation
-        Task { await animation.showToast(SaveAnimationModel.archivedMessage) }
-    }
-
     private func configureSidebarModel() {
         let panel = panel
         sidebarModel.markedTextProbe = { [weak panel] in
@@ -253,8 +227,8 @@ final class PanelController: NSObject, NSWindowDelegate {
             }
         }
         sidebarModel.closePanel = { [weak self] in self?.close() }
-        sidebarModel.exportText = { [weak self] in self?.exportText($0) }
-        sidebarModel.shareText = { [weak self] in self?.sharer.share($0, from: .pointer) }
+        sidebarModel.exportText = { [weak self] in self?.exportSharing.exportText($0) }
+        sidebarModel.shareText = { [weak self] in self?.exportSharing.share($0, from: .pointer) }
     }
 
     private func observeBodyFocusRequests() {
@@ -266,25 +240,6 @@ final class PanelController: NSObject, NSWindowDelegate {
                 return true
             }
         )
-    }
-
-    /// 挿入先のアプリへアクセシビリティの問い合わせをしてよいか。自分自身が挿入先のときは問い合わせない。
-    static func shouldQueryAccessibility(of target: InsertionTarget?, ownProcessIdentifier: pid_t) -> Bool {
-        guard let target else { return false }
-        return !target.isOwnApp(ownProcessIdentifier)
-    }
-
-    /// パネルを開くときに、挿入先へ Web の中身を出すよう頼むか。
-    static func shouldExposeWebContent(target: InsertionTarget?, ownProcessIdentifier: pid_t, isTrusted: Bool) -> Bool {
-        shouldQueryAccessibility(of: target, ownProcessIdentifier: ownProcessIdentifier) && isTrusted
-    }
-
-    /// 挿入先のウィンドウの枠を求めるクロージャ。挿入先が無ければ一覧を取らずに `nil` を返す。
-    static func windowFrameLocator(
-        for target: InsertionTarget?,
-        locate: @escaping (pid_t) -> CGRect?
-    ) -> () -> CGRect? {
-        { target.flatMap { locate($0.processIdentifier) } }
     }
 
     /// 挿入先を探さずにパネルを開く。開いているときは何もしない。
@@ -301,7 +256,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         let isTrusted = permission.isTrusted
         if !wasPresented {
             if let app,
-               Self.shouldExposeWebContent(
+               PanelOpenFrameResolver.shouldExposeWebContent(
                    target: app,
                    ownProcessIdentifier: ownProcessIdentifier,
                    isTrusted: isTrusted
@@ -314,65 +269,31 @@ final class PanelController: NSObject, NSWindowDelegate {
         if !wasPresented {
             library.pruneExpiredHistory()
             sidebarModel.discardPendingFocusRequests()
-            stopMotion()
-            sizing.beginOpening(defaultSize: settings.panelDefaultSize, hasText: !model.text.isEmpty)
-            let queriesAccessibility = Self.shouldQueryAccessibility(
-                of: app,
-                ownProcessIdentifier: ownProcessIdentifier
+            motionController.stop()
+            sizeController.sizing.beginOpening(defaultSize: settings.panelDefaultSize, hasText: !model.text.isEmpty)
+            let openingFrame = openFrameResolver.frame(
+                target: app,
+                mode: settings.panelScreen,
+                isTrusted: isTrusted,
+                observedFocus: start?.focus ?? observedFocus,
+                isSidebarOpen: sidebarModel.isOpen,
+                openingSize: { [sizeController] in sizeController.sizing.openingSize(in: $0) }
             )
-            let mode = settings.panelScreen
-            let fieldFrame = ScreenCoordinates.primaryScreenFrame.flatMap { primaryScreenFrame in
-                PanelOpenPlacement.fieldFrame(
-                    mode: mode,
-                    isTrusted: isTrusted,
-                    target: queriesAccessibility ? app : nil,
-                    probe: fieldProbe,
-                    observedFocus: start?.focus ?? observedFocus,
-                    primaryScreenHeight: primaryScreenFrame.height
-                )
-            }
-            let screens = NSScreen.screens.map { ScreenGeometry(frame: $0.frame, visibleFrame: $0.visibleFrame) }
-            let mouseLocation = NSEvent.mouseLocation
-            if let screen = PanelOpenPlacement.screen(
-                mode: mode,
-                screens: screens,
-                mouseLocation: mouseLocation,
-                fieldFrame: fieldFrame,
-                locateTargetWindowFrame: Self.windowFrameLocator(for: app, locate: locateTargetWindowFrame)
-            ) {
-                let placed = PanelOpenPlacement.frame(
-                    size: sizing.openingSize(in: screen.visibleFrame),
-                    on: screen,
-                    mode: mode,
-                    fieldFrame: fieldFrame,
-                    mouseLocation: mouseLocation
-                )
-                let frame = sidebarModel.isOpen
-                    ? SidebarLayout.expandedFrame(bodyFrame: placed, visibleFrame: screen.visibleFrame)
-                    : placed
-                applyMinimumSize()
+            if let frame = openingFrame {
+                sizeController.applyMinimumSize()
                 panel.setFrame(frame, display: false)
             } else {
-                applyMinimumSize()
+                sizeController.applyMinimumSize()
                 panel.center()
             }
-            present(at: panel.frame)
+            motionController.present(at: panel.frame, isAnimationEnabled: settings.isAnimationEnabled)
             return
         }
         panel.makeKeyAndOrderFront(nil)
     }
 
     func close() {
-        prepareToClose()
-        hidePanel()
-        model.dismiss()
-        library.flush()
-    }
-
-    /// 終了の前に、書きかけを履歴へ移し、遅らせている下書きの書き出しを今行う。
-    func prepareForTermination() {
-        session.prepareForTermination()
-        library.finishPendingWrites()
+        dismiss(.animated)
     }
 
     /// 終了の理由に応じて書きかけを扱い、遅らせている下書きの書き出しを今行う。
@@ -389,42 +310,47 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// アプリが隠れたときに、動きなしでパネルを閉じて枠を本来の枠に戻す。
     func closeImmediately() {
-        prepareToClose()
-        hideWithoutMotion()
-        model.dismiss()
-        library.flush()
+        dismiss(.immediately)
     }
 
     /// ⌘H を受け取る。アニメーションがオンで開いているときは閉じる動きのあとにアプリを隠して true を返す。
     func handleHideKey() -> Bool {
         guard settings.isAnimationEnabled,
-              motion.phase == .opening || motion.phase == .shown else { return false }
-        prepareToClose()
-        hidePanel(then: { [weak self] in self?.hideApplication() })
-        model.dismiss()
-        library.flush()
+              motionController.phase == .opening || motionController.phase == .shown else { return false }
+        dismiss(.animatedThenHideApplication)
         return true
     }
 
-    private func prepareToClose() {
-        stopPanelEffects()
+    private enum Dismissal {
+        case animated
+        case animatedThenHideApplication
+        case immediately
     }
 
-    private func stopPanelEffects() {
-        shaker.stop(panel)
-        saveAnimation.cancel()
+    private func dismiss(_ dismissal: Dismissal) {
+        feedback.stopEffects()
+        switch dismissal {
+        case .animated: hidePanel()
+        case .animatedThenHideApplication: hidePanel(then: { [weak self] in self?.hideApplication() })
+        case .immediately: hideWithoutMotion()
+        }
+        model.dismiss()
+        library.flush()
+    }
+
+    private func hidePanel(then completion: (() -> Void)? = nil) {
+        sizeController.finishSidebarSlide()
+        motionController.hide(isAnimationEnabled: settings.isAnimationEnabled, then: completion)
+    }
+
+    private func hideWithoutMotion() {
+        sizeController.finishSidebarSlide()
+        motionController.hideWithoutMotion()
     }
 
     private func signalEmptyInput() {
-        finishSidebarSlide()
-        switch PanelShake.emptyInputFeedback(motionPhase: motion.phase, isAnimationEnabled: settings.isAnimationEnabled) {
-        case .shake:
-            shaker.shake(panel)
-        case .beep:
-            beep()
-        case .none:
-            break
-        }
+        sizeController.finishSidebarSlide()
+        feedback.signalEmptyInput(motionPhase: motionController.phase)
     }
 
     func toggle() {
@@ -470,8 +396,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         case .switchToInsert: session.switchToInsert()
         case .toggleSidebar: toggleSidebarAndMoveFocus()
         case .openSettings: onOpenSettings?()
-        case .exportToFile: exportCurrentText()
-        case .share: shareCurrentText()
+        case .exportToFile: exportSharing.exportCurrentText()
+        case .share: exportSharing.shareCurrentText()
         }
         if command.requestsEditorFocusAfterward(from: source) {
             model.requestFocus()
@@ -491,51 +417,6 @@ final class PanelController: NSObject, NSWindowDelegate {
             session.saveCurrent()
         } else {
             signalEmptyInput()
-        }
-    }
-
-    private func shareCurrentText() {
-        guard !ExportableText.isEmpty(model.text) else {
-            signalEmptyInput()
-            let animation = saveAnimation
-            Task { await animation.showToast(SaveAnimationModel.nothingToShareMessage, style: .notice) }
-            model.requestFocus()
-            return
-        }
-        sharer.share(model.text, from: .titleBarButton)
-    }
-
-    // MARK: - ファイルへの書き出し
-
-    private func exportCurrentText() {
-        exportText(model.text)
-    }
-
-    private func exportText(_ text: String) {
-        exporter.export(text) { [weak self] outcome in
-            self?.handleExportOutcome(outcome)
-        }
-    }
-
-    private func handleExportOutcome(_ outcome: TextExportOutcome) {
-        let feedback = ExportFeedback.feedback(for: outcome, isPanelPresented: model.isPresented)
-        if feedback.signalsEmpty {
-            signalEmptyInput()
-        }
-        if let message = feedback.toastMessage {
-            let animation = saveAnimation
-            let style = feedback.toastStyle
-            Task { await animation.showToast(message, style: style) }
-        }
-        if let failure = feedback.failureMessage {
-            let shouldReturnInput = feedback.returnsInput
-            presentExportFailure(failure, model.isPresented ? panel : nil) { [weak self] in
-                if shouldReturnInput {
-                    self?.returnInputToPanel()
-                }
-            }
-        } else if feedback.returnsInput {
-            returnInputToPanel()
         }
     }
 
@@ -588,141 +469,19 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// サイドバーを開閉する。パネルが開いていれば、窓の枠をサイドバーの幅だけ変える。アニメーションがオンなら滑らせて変える。
     func setSidebarOpen(_ isOpen: Bool) {
-        shaker.stop(panel)
-        finishSidebarSlide()
-        let wasOpen = sidebarModel.isOpen
-        guard isOpen != wasOpen else { return }
-        guard model.isPresented else {
-            sidebarModel.setOpen(isOpen)
-            applyMinimumSize()
-            return
-        }
-        if settings.isAnimationEnabled, motion.phase == .shown {
-            slideSidebar(open: isOpen)
-            return
-        }
-        isAdjustingFrameForSidebar = true
-        defer { isAdjustingFrameForSidebar = false }
-        if isOpen {
-            let frame = SidebarLayout.expandedFrame(bodyFrame: panel.frame, visibleFrame: visibleFrameForSidebar)
-            panel.setFrame(frame, display: true, animate: false)
-            sidebarModel.setOpen(true)
-            applyMinimumSize()
-        } else {
-            sidebarModel.setOpen(false)
-            applyMinimumSize()
-            panel.setFrame(SidebarLayout.collapsedFrame(expandedFrame: panel.frame), display: true, animate: false)
-        }
-    }
-
-    private func slideSidebar(open isOpen: Bool) {
-        let target = isOpen
-            ? SidebarLayout.expandedFrame(bodyFrame: panel.frame, visibleFrame: visibleFrameForSidebar)
-            : SidebarLayout.collapsedFrame(expandedFrame: panel.frame)
-        sidebarSlideGeneration += 1
-        let generation = sidebarSlideGeneration
-        sidebarSlide = SidebarSlide(generation: generation, frame: target, isOpen: isOpen)
-        isAdjustingFrameForSidebar = true
-        sidebarModel.slidingBodyWidth = isOpen ? target.width - SidebarLayout.width : target.width
-        if isOpen {
-            sidebarModel.setOpen(true)
-        } else {
-            panel.contentMinSize = SidebarLayout.minimumWindowSize(isSidebarOpen: false)
-        }
-        animator.animate(panel, to: target, duration: PanelMotion.duration, curve: isOpen ? .easeOut : .easeIn) { [weak self] in
-            guard let self, let slide = self.sidebarSlide, slide.generation == generation else { return }
-            self.sidebarSlide = nil
-            self.completeSidebarSlide(isOpen: slide.isOpen)
-        }
-    }
-
-    private func finishSidebarSlide() {
-        guard let slide = sidebarSlide else { return }
-        sidebarSlide = nil
-        animator.jump(panel, to: slide.frame)
-        completeSidebarSlide(isOpen: slide.isOpen)
-    }
-
-    private func completeSidebarSlide(isOpen: Bool) {
-        sidebarModel.setOpen(isOpen)
-        sidebarModel.slidingBodyWidth = nil
-        isAdjustingFrameForSidebar = false
-        applyMinimumSize()
-    }
-
-    private var visibleFrameForSidebar: CGRect {
-        panel.screen?.visibleFrame
-            ?? NSScreen.main?.visibleFrame
-            ?? panel.frame.insetBy(dx: -SidebarLayout.width, dy: 0)
-    }
-
-    private func applyMinimumSize() {
-        panel.contentMinSize = SidebarLayout.minimumWindowSize(isSidebarOpen: sidebarModel.isOpen)
+        feedback.stopShaking()
+        sizeController.setSidebarOpen(
+            isOpen,
+            isPanelPresented: model.isPresented,
+            isAnimationEnabled: settings.isAnimationEnabled,
+            motionPhase: motionController.phase
+        )
     }
 
     // MARK: - 確定
 
-    /// 閉じる前に、覚えている入力欄の位置が読めるかを確かめるか。
-    static func shouldCheckTrackedField(
-        target: InsertionTarget?,
-        text: String,
-        isTrusted: Bool,
-        ownProcessIdentifier: pid_t
-    ) -> Bool {
-        guard !text.isEmpty, isTrusted, let target else { return false }
-        return !target.isOwnApp(ownProcessIdentifier)
-    }
-
     func commit(shouldSendAfterInsert: Bool = false) {
-        library.flush()
-        let shouldCheckField = Self.shouldCheckTrackedField(
-            target: model.target,
-            text: model.text,
-            isTrusted: permission.isTrusted,
-            ownProcessIdentifier: ownProcessIdentifier
-        )
-        if shouldCheckField, !targetMonitor.isTrackedFieldReadable() {
-            targetMonitor.rejectCurrentField()
-            model.signalNoTarget()
-            returnInputToPanel()
-            return
-        }
-        performCommit(shouldSendAfterInsert: shouldSendAfterInsert)
-    }
-
-    private func performCommit(shouldSendAfterInsert: Bool) {
-        let plan = session.prepareCommit {
-            model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
-        }
-        if plan == .noTarget { return }
-        if plan == .emptyText {
-            signalEmptyInput()
-            return
-        }
-        stopPanelEffects()
-        finishSidebarSlide()
-        hidePanel()
-        library.flush()
-        if case .insert(let text, let target) = plan {
-            onInsertionRequested?(text, target, shouldSendAfterInsert)
-        }
-        Task { [weak self, performer, model] in
-            let outcome = await performer.perform(plan, shouldSendAfterInsert: shouldSendAfterInsert)
-            self?.sizing.handleCommitOutcome(outcome)
-            self?.session.finishCommit(plan, outcome: outcome)
-            if case .insert(let text, _) = plan,
-               outcome == .notInserted,
-               !model.isPresented,
-               model.text == text {
-                self?.reopenAfterFailedInsertion()
-            }
-        }
-    }
-
-    private func reopenAfterFailedInsertion() {
-        open()
-        targetMonitor.rejectCurrentField()
-        model.signalNoTarget()
+        commitFlow.commit(shouldSendAfterInsert: shouldSendAfterInsert)
     }
 
     private func returnInputToPanel() {
@@ -735,158 +494,22 @@ final class PanelController: NSObject, NSWindowDelegate {
         model.dismiss()
     }
 
-    // MARK: - 開閉の動き
-
-    private func present(at restFrame: NSRect) {
-        guard settings.isAnimationEnabled else {
-            endMotion()
-            panel.makeKeyAndOrderFront(nil)
-            motion.showWithoutMotion()
-            pendingCloseCompletion = nil
-            restingFrame = nil
-            return
-        }
-        beginMotion()
-        restingFrame = restFrame
-        panel.setFrame(PanelMotion.lineFrame(of: restFrame), display: false)
-        panel.makeKeyAndOrderFront(nil)
-        let token = motion.beginOpening()
-        pendingCloseCompletion = nil
-        animator.animate(panel, to: restFrame, duration: PanelMotion.duration, curve: .easeOut) { [weak self] in
-            self?.finishMotion(token)
-        }
-    }
-
-    private func hidePanel(then completion: (() -> Void)? = nil) {
-        finishSidebarSlide()
-        guard settings.isAnimationEnabled, motion.phase != .hidden else {
-            hideWithoutMotion()
-            completion?()
-            return
-        }
-        if motion.phase == .closing { return }
-        guard let ghost = PanelClosingGhost.make(from: panel) else {
-            hideWithoutMotion()
-            completion?()
-            return
-        }
-        let wasOpening = motion.phase == .opening
-        let panelFrame = wasOpening ? (restingFrame ?? panel.frame) : panel.frame
-        let token = motion.beginClosing()
-        pendingCloseCompletion = completion
-        restingFrame = nil
-        closingGhost = ghost
-        ghost.orderFrontRegardless()
-        panel.orderOut(nil)
-        if wasOpening {
-            animator.jump(panel, to: panelFrame)
-        }
-        endMotion()
-        animator.animate(
-            ghost,
-            to: PanelMotion.lineFrame(of: ghost.frame),
-            duration: PanelMotion.duration,
-            curve: .easeIn
-        ) { [weak self] in
-            if let self {
-                self.finishMotion(token)
-            } else {
-                ghost.orderOut(nil)
-            }
-        }
-    }
-
-    private func hideWithoutMotion() {
-        finishSidebarSlide()
-        discardGhost()
-        motion.hideWithoutMotion()
-        pendingCloseCompletion = nil
-        panel.orderOut(nil)
-        if let frame = restingFrame {
-            restingFrame = nil
-            animator.jump(panel, to: frame)
-        }
-        endMotion()
-    }
-
-    private func finishMotion(_ token: Int) {
-        guard motion.finish(token) else { return }
-        switch motion.phase {
-        case .shown:
-            restingFrame = nil
-            endMotion()
-        case .hidden:
-            discardGhost()
-            let completion = pendingCloseCompletion
-            pendingCloseCompletion = nil
-            completion?()
-        case .opening, .closing:
-            break
-        }
-    }
-
-    private func discardGhost() {
-        closingGhost?.orderOut(nil)
-        closingGhost = nil
-    }
-
-    private func beginMotion() {
-        panel.contentMinSize = NSSize(width: 1, height: 1)
-    }
-
-    private func endMotion() {
-        applyMinimumSize()
-    }
-
-    private func stopMotion() {
-        guard motion.phase == .opening || motion.phase == .closing else { return }
-        let wasOpening = motion.phase == .opening
-        discardGhost()
-        motion.hideWithoutMotion()
-        pendingCloseCompletion = nil
-        let frame = restingFrame ?? panel.frame
-        restingFrame = nil
-        if wasOpening {
-            animator.jump(panel, to: frame)
-        }
-    }
-
     // MARK: - 大きさ
 
     func windowWillStartLiveResize(_ notification: Notification) {
-        guard !isAdjustingFrameForSidebar, motion.phase != .opening, motion.phase != .closing else { return }
-        liveResizeStartSize = bodySize(of: panel.frame.size)
+        sizeController.windowWillStartLiveResize(motionPhase: motionController.phase)
     }
 
     func windowDidEndLiveResize(_ notification: Notification) {
-        defer { liveResizeStartSize = nil }
-        guard !isAdjustingFrameForSidebar, let startSize = liveResizeStartSize else { return }
-        sizing.userDidResize(from: startSize, to: bodySize(of: panel.frame.size))
+        sizeController.windowDidEndLiveResize()
     }
 
     func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
-        if motion.phase == .opening || sidebarSlide != nil {
-            return frameSize
-        }
-        if !sender.inLiveResize, motion.phase == .shown, !isAdjustingFrameForSidebar, resizeStartSize == nil {
-            resizeStartSize = bodySize(of: sender.frame.size)
-        }
-        let minimum = SidebarLayout.minimumWindowSize(isSidebarOpen: sidebarModel.isOpen)
-        return NSSize(
-            width: max(frameSize.width, minimum.width),
-            height: max(frameSize.height, minimum.height)
-        )
+        sizeController.windowWillResize(sender, to: frameSize, motionPhase: motionController.phase)
     }
 
     func windowDidResize(_ notification: Notification) {
-        guard let startSize = resizeStartSize else { return }
-        resizeStartSize = nil
-        guard motion.phase == .shown, !isAdjustingFrameForSidebar, sidebarSlide == nil else { return }
-        sizing.userDidResize(from: startSize, to: bodySize(of: panel.frame.size))
-    }
-
-    private func bodySize(of windowSize: CGSize) -> CGSize {
-        SidebarLayout.bodySize(windowSize: windowSize, isSidebarOpen: sidebarModel.isOpen)
+        sizeController.windowDidResize(motionPhase: motionController.phase)
     }
 
     func windowShouldZoom(_ window: NSWindow, toFrame newFrame: NSRect) -> Bool {

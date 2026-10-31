@@ -16,18 +16,7 @@ struct PanelControllerCloseButtonTests {
 
     private func makeController(settings: AppSettings) -> PanelController {
         let probe = FocusedElementProbeStub()
-        return PanelController(
-            settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
-            inserter: InserterStub(result: .inserted),
-            permission: PermissionStub(isTrusted: true),
-            fieldProbe: probe,
-            beep: {},
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(
-                probe: probe,
-                ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier
-            )
-        )
+        return PanelControllerFactory.make(settings: settings, probe: probe)
     }
 
     private static func firstSubview<T: NSView>(of type: T.Type, in view: NSView) -> T? {

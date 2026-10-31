@@ -36,19 +36,14 @@ struct PanelControllerInsertionWithoutToastTests {
             lookup: WatcherFixture.textFieldLookup,
             frame: nil
         )
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
+            probe: probe,
             inserter: inserter,
-            permission: PermissionStub(isTrusted: true),
-            fieldProbe: probe,
-            exposeWebContent: { _ in },
             ownProcessIdentifier: Self.ownPid,
             library: library,
             animator: FakePanelFrameAnimator(),
-            shaker: PanelShakerSpy(),
-            beep: {},
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
+            shaker: PanelShakerSpy()
         )
         controller.targetOverride = { Self.textEdit }
         defer { controller.panel.orderOut(nil) }

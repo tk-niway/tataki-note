@@ -28,8 +28,8 @@ struct InsertionTargetOwnAppTests {
 
     @Test("AC-7: アクセシビリティの問い合わせは、自分以外の挿入先のときだけする")
     func queriesAccessibilityOnlyForOtherTargets() {
-        #expect(PanelController.shouldQueryAccessibility(of: other, ownProcessIdentifier: Self.ownPid))
-        #expect(!PanelController.shouldQueryAccessibility(of: own, ownProcessIdentifier: Self.ownPid))
-        #expect(!PanelController.shouldQueryAccessibility(of: nil, ownProcessIdentifier: Self.ownPid))
+        #expect(PanelOpenFrameResolver.shouldQueryAccessibility(of: other, ownProcessIdentifier: Self.ownPid))
+        #expect(!PanelOpenFrameResolver.shouldQueryAccessibility(of: own, ownProcessIdentifier: Self.ownPid))
+        #expect(!PanelOpenFrameResolver.shouldQueryAccessibility(of: nil, ownProcessIdentifier: Self.ownPid))
     }
 }

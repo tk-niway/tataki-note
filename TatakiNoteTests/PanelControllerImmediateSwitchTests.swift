@@ -22,19 +22,7 @@ struct PanelControllerImmediateSwitchTests {
             self.directory = directory
             self.defaultsName = defaultsName
             self.library = library
-            self.controller = PanelController(
-                settings: settings,
-                targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
-                inserter: InserterStub(result: .inserted),
-                permission: PermissionStub(isTrusted: true),
-                fieldProbe: probe,
-                library: library,
-                beep: {},
-                makeTargetMonitor: InsertionTargetMonitor.testFactory(
-                    probe: probe,
-                    ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier
-                )
-            )
+            self.controller = PanelControllerFactory.make(settings: settings, probe: probe, library: library)
             controller.model.present(target: nil)
         }
 

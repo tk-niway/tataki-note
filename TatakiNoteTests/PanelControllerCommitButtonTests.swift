@@ -38,19 +38,15 @@ struct PanelControllerCommitButtonTests {
         let inserter = InserterStub(result: .inserted)
         let permission = PermissionStub(isTrusted: true)
         let probe = FocusedElementProbeStub()
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
+            probe: probe,
             inserter: inserter,
             permission: permission,
-            fieldProbe: probe,
-            exposeWebContent: { _ in },
             ownProcessIdentifier: Self.ownPid,
-            library: DraftLibrary(store: .inMemory),
             animator: FakePanelFrameAnimator(),
             shaker: shaker,
-            beep: beepSpy.beep,
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(probe: probe, ownProcessIdentifier: Self.ownPid)
+            beep: beepSpy.beep
         )
         if isNoteMode {
             controller.session.toggleMode()

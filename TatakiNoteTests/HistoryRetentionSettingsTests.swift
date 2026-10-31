@@ -320,18 +320,10 @@ struct HistoryRetentionSettingsTests {
         #expect(harness.library.history.count == 4)
 
         let probe = FocusedElementProbeStub()
-        let controller = PanelController(
+        let controller = PanelControllerFactory.make(
             settings: harness.settings,
-            targetTracker: FrontmostAppTracker(workspace: .shared, ownProcessIdentifier: -1),
-            inserter: InserterStub(result: .inserted),
-            permission: PermissionStub(isTrusted: true),
-            fieldProbe: probe,
-            library: harness.library,
-            beep: {},
-            makeTargetMonitor: InsertionTargetMonitor.testFactory(
-                probe: probe,
-                ownProcessIdentifier: ProcessInfo.processInfo.processIdentifier
-            )
+            probe: probe,
+            library: harness.library
         )
         defer { controller.close() }
 
