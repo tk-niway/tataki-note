@@ -29,25 +29,14 @@ final class PanelController: NSObject, NSWindowDelegate {
     let sidebarModel: SidebarModel
     let saveAnimation: SaveAnimationModel
 
-    private let sizing = PanelSizing()
-    private var liveResizeStartSize: CGSize?
-    private var resizeStartSize: CGSize?
-    var isAdjustingFrameForSidebar = false
+    let sizeController: PanelSizeController
 
     private var motion = PanelMotionState()
     private var restingFrame: NSRect?
     private var pendingCloseCompletion: (() -> Void)?
     private var closingGhost: PanelClosingGhost?
-    private var sidebarSlide: SidebarSlide?
-    private var sidebarSlideGeneration = 0
 
-    private struct SidebarSlide {
-        let generation: Int
-        let frame: NSRect
-        let isOpen: Bool
-    }
-
-    var heldPanelSize: CGSize? { sizing.heldSize }
+    var heldPanelSize: CGSize? { sizeController.sizing.heldSize }
 
     var onPermissionDenied: (() -> Void)? {
         get { performer.onPermissionDenied }
@@ -140,7 +129,9 @@ final class PanelController: NSObject, NSWindowDelegate {
             session: session
         )
         self.session = session
-        self.sidebarModel = SidebarModel(settings: settings, library: library, session: session)
+        let sidebarModel = SidebarModel(settings: settings, library: library, session: session)
+        self.sidebarModel = sidebarModel
+        self.sizeController = PanelSizeController(panel: panel, sidebarModel: sidebarModel, animator: animator)
         self.saveAnimation = saveAnimation
         super.init()
 
@@ -163,7 +154,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.onKeyEquivalent = { [weak self] in self?.handleKey($0) ?? false }
         panel.onHideKey = { [weak self] in self?.handleHideKey() ?? false }
         panel.onKeyDownOutsideEditor = { [weak self] in self?.handleKeyOutsideEditor($0) ?? false }
-        applyMinimumSize()
+        sizeController.applyMinimumSize()
         configureSidebarModel()
         observeBodyFocusRequests()
         observeSaveEvents()
@@ -298,20 +289,20 @@ final class PanelController: NSObject, NSWindowDelegate {
             library.pruneExpiredHistory()
             sidebarModel.discardPendingFocusRequests()
             stopMotion()
-            sizing.beginOpening(defaultSize: settings.panelDefaultSize, hasText: !model.text.isEmpty)
+            sizeController.sizing.beginOpening(defaultSize: settings.panelDefaultSize, hasText: !model.text.isEmpty)
             let openingFrame = openFrameResolver.frame(
                 target: app,
                 mode: settings.panelScreen,
                 isTrusted: isTrusted,
                 observedFocus: start?.focus ?? observedFocus,
                 isSidebarOpen: sidebarModel.isOpen,
-                openingSize: { sizing.openingSize(in: $0) }
+                openingSize: { [sizeController] in sizeController.sizing.openingSize(in: $0) }
             )
             if let frame = openingFrame {
-                applyMinimumSize()
+                sizeController.applyMinimumSize()
                 panel.setFrame(frame, display: false)
             } else {
-                applyMinimumSize()
+                sizeController.applyMinimumSize()
                 panel.center()
             }
             present(at: panel.frame)
@@ -368,7 +359,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     private func signalEmptyInput() {
-        finishSidebarSlide()
+        sizeController.finishSidebarSlide()
         switch PanelShake.emptyInputFeedback(motionPhase: motion.phase, isAnimationEnabled: settings.isAnimationEnabled) {
         case .shake:
             shaker.shake(panel)
@@ -541,75 +532,12 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// サイドバーを開閉する。パネルが開いていれば、窓の枠をサイドバーの幅だけ変える。アニメーションがオンなら滑らせて変える。
     func setSidebarOpen(_ isOpen: Bool) {
         shaker.stop(panel)
-        finishSidebarSlide()
-        let wasOpen = sidebarModel.isOpen
-        guard isOpen != wasOpen else { return }
-        guard model.isPresented else {
-            sidebarModel.setOpen(isOpen)
-            applyMinimumSize()
-            return
-        }
-        if settings.isAnimationEnabled, motion.phase == .shown {
-            slideSidebar(open: isOpen)
-            return
-        }
-        isAdjustingFrameForSidebar = true
-        defer { isAdjustingFrameForSidebar = false }
-        if isOpen {
-            let frame = SidebarLayout.expandedFrame(bodyFrame: panel.frame, visibleFrame: visibleFrameForSidebar)
-            panel.setFrame(frame, display: true, animate: false)
-            sidebarModel.setOpen(true)
-            applyMinimumSize()
-        } else {
-            sidebarModel.setOpen(false)
-            applyMinimumSize()
-            panel.setFrame(SidebarLayout.collapsedFrame(expandedFrame: panel.frame), display: true, animate: false)
-        }
-    }
-
-    private func slideSidebar(open isOpen: Bool) {
-        let target = isOpen
-            ? SidebarLayout.expandedFrame(bodyFrame: panel.frame, visibleFrame: visibleFrameForSidebar)
-            : SidebarLayout.collapsedFrame(expandedFrame: panel.frame)
-        sidebarSlideGeneration += 1
-        let generation = sidebarSlideGeneration
-        sidebarSlide = SidebarSlide(generation: generation, frame: target, isOpen: isOpen)
-        isAdjustingFrameForSidebar = true
-        sidebarModel.slidingBodyWidth = isOpen ? target.width - SidebarLayout.width : target.width
-        if isOpen {
-            sidebarModel.setOpen(true)
-        } else {
-            panel.contentMinSize = SidebarLayout.minimumWindowSize(isSidebarOpen: false)
-        }
-        animator.animate(panel, to: target, duration: PanelMotion.duration, curve: isOpen ? .easeOut : .easeIn) { [weak self] in
-            guard let self, let slide = self.sidebarSlide, slide.generation == generation else { return }
-            self.sidebarSlide = nil
-            self.completeSidebarSlide(isOpen: slide.isOpen)
-        }
-    }
-
-    private func finishSidebarSlide() {
-        guard let slide = sidebarSlide else { return }
-        sidebarSlide = nil
-        animator.jump(panel, to: slide.frame)
-        completeSidebarSlide(isOpen: slide.isOpen)
-    }
-
-    private func completeSidebarSlide(isOpen: Bool) {
-        sidebarModel.setOpen(isOpen)
-        sidebarModel.slidingBodyWidth = nil
-        isAdjustingFrameForSidebar = false
-        applyMinimumSize()
-    }
-
-    private var visibleFrameForSidebar: CGRect {
-        panel.screen?.visibleFrame
-            ?? NSScreen.main?.visibleFrame
-            ?? panel.frame.insetBy(dx: -SidebarLayout.width, dy: 0)
-    }
-
-    private func applyMinimumSize() {
-        panel.contentMinSize = SidebarLayout.minimumWindowSize(isSidebarOpen: sidebarModel.isOpen)
+        sizeController.setSidebarOpen(
+            isOpen,
+            isPanelPresented: model.isPresented,
+            isAnimationEnabled: settings.isAnimationEnabled,
+            motionPhase: motion.phase
+        )
     }
 
     // MARK: - 確定
@@ -652,7 +580,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             return
         }
         stopPanelEffects()
-        finishSidebarSlide()
+        sizeController.finishSidebarSlide()
         hidePanel()
         library.flush()
         if case .insert(let text, let target) = plan {
@@ -660,7 +588,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
         Task { [weak self, performer, model] in
             let outcome = await performer.perform(plan, shouldSendAfterInsert: shouldSendAfterInsert)
-            self?.sizing.handleCommitOutcome(outcome)
+            self?.sizeController.sizing.handleCommitOutcome(outcome)
             self?.session.finishCommit(plan, outcome: outcome)
             if case .insert(let text, _) = plan,
                outcome == .notInserted,
@@ -710,7 +638,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     private func hidePanel(then completion: (() -> Void)? = nil) {
-        finishSidebarSlide()
+        sizeController.finishSidebarSlide()
         guard settings.isAnimationEnabled, motion.phase != .hidden else {
             hideWithoutMotion()
             completion?()
@@ -749,7 +677,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     private func hideWithoutMotion() {
-        finishSidebarSlide()
+        sizeController.finishSidebarSlide()
         discardGhost()
         motion.hideWithoutMotion()
         pendingCloseCompletion = nil
@@ -787,7 +715,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     private func endMotion() {
-        applyMinimumSize()
+        sizeController.applyMinimumSize()
     }
 
     private func stopMotion() {
@@ -806,39 +734,19 @@ final class PanelController: NSObject, NSWindowDelegate {
     // MARK: - 大きさ
 
     func windowWillStartLiveResize(_ notification: Notification) {
-        guard !isAdjustingFrameForSidebar, motion.phase != .opening, motion.phase != .closing else { return }
-        liveResizeStartSize = bodySize(of: panel.frame.size)
+        sizeController.windowWillStartLiveResize(motionPhase: motion.phase)
     }
 
     func windowDidEndLiveResize(_ notification: Notification) {
-        defer { liveResizeStartSize = nil }
-        guard !isAdjustingFrameForSidebar, let startSize = liveResizeStartSize else { return }
-        sizing.userDidResize(from: startSize, to: bodySize(of: panel.frame.size))
+        sizeController.windowDidEndLiveResize()
     }
 
     func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
-        if motion.phase == .opening || sidebarSlide != nil {
-            return frameSize
-        }
-        if !sender.inLiveResize, motion.phase == .shown, !isAdjustingFrameForSidebar, resizeStartSize == nil {
-            resizeStartSize = bodySize(of: sender.frame.size)
-        }
-        let minimum = SidebarLayout.minimumWindowSize(isSidebarOpen: sidebarModel.isOpen)
-        return NSSize(
-            width: max(frameSize.width, minimum.width),
-            height: max(frameSize.height, minimum.height)
-        )
+        sizeController.windowWillResize(sender, to: frameSize, motionPhase: motion.phase)
     }
 
     func windowDidResize(_ notification: Notification) {
-        guard let startSize = resizeStartSize else { return }
-        resizeStartSize = nil
-        guard motion.phase == .shown, !isAdjustingFrameForSidebar, sidebarSlide == nil else { return }
-        sizing.userDidResize(from: startSize, to: bodySize(of: panel.frame.size))
-    }
-
-    private func bodySize(of windowSize: CGSize) -> CGSize {
-        SidebarLayout.bodySize(windowSize: windowSize, isSidebarOpen: sidebarModel.isOpen)
+        sizeController.windowDidResize(motionPhase: motion.phase)
     }
 
     func windowShouldZoom(_ window: NSWindow, toFrame newFrame: NSRect) -> Bool {

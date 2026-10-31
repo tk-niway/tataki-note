@@ -53,6 +53,12 @@ enum PanelControllerFactory {
 }
 
 extension PanelController {
+    /// サイドバーの開閉で窓の枠を変えている間か。
+    var isAdjustingFrameForSidebar: Bool {
+        get { sizeController.isAdjustingFrameForSidebar }
+        set { sizeController.isAdjustingFrameForSidebar = newValue }
+    }
+
     /// 終了の前の処理を、ふつうの終了として行う。
     func prepareForTermination() {
         prepareForTermination(reason: .normal, store: RelaunchDraftStore(directory: nil))
