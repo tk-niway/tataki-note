@@ -2,137 +2,60 @@ import AppKit
 import Testing
 @testable import TatakiNote
 
-@MainActor
-final class ActivatorStub: ApplicationActivating {
-    var result: Bool
-    var onActivate: (() -> Void)?
-    private(set) var targets: [InsertionTarget] = []
+final class OptionsRecordingPasteboard: InsertionPasteboard, @unchecked Sendable {
+    private let base: NSPasteboard
+    private let lock = NSLock()
+    private var recordedCalls: [String] = []
+    private var recordedOptions: [NSPasteboard.ContentsOptions] = []
 
-    init(result: Bool) {
-        self.result = result
+    init(base: NSPasteboard) {
+        self.base = base
     }
 
-    func activate(_ target: InsertionTarget) async -> Bool {
-        targets.append(target)
-        onActivate?()
-        return result
-    }
-}
-
-@MainActor
-final class PasteShortcutPosterStub: PasteShortcutPosting {
-    struct Record {
-        var itemCount: Int
-        var types: Set<NSPasteboard.PasteboardType>
-        var string: String?
+    var calls: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedCalls
     }
 
-    private let pasteboard: NSPasteboard
-    var onPost: (() -> Void)?
-    private(set) var records: [Record] = []
-
-    init(pasteboard: NSPasteboard) {
-        self.pasteboard = pasteboard
+    var options: [NSPasteboard.ContentsOptions] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedOptions
     }
 
-    func postPasteShortcut() {
-        let items = pasteboard.pasteboardItems ?? []
-        records.append(
-            Record(
-                itemCount: items.count,
-                types: Set(items.flatMap(\.types)),
-                string: pasteboard.string(forType: .string)
-            )
-        )
-        onPost?()
-    }
-}
-
-@MainActor
-final class FocusInspectorStub: FocusedTextInputInspecting {
-    var state: FocusedTextInputState
-    var onInspect: (() -> Void)?
-    private(set) var targets: [InsertionTarget] = []
-
-    init(state: FocusedTextInputState) {
-        self.state = state
-    }
-
-    func focusedTextInputState(in target: InsertionTarget) -> FocusedTextInputState {
-        targets.append(target)
-        onInspect?()
-        return state
-    }
-}
-
-@MainActor
-final class InsertionEventLog {
-    private(set) var events: [String] = []
-
-    func add(_ event: String) {
-        events.append(event)
-    }
-
-    func index(of event: String, after start: Int = -1) -> Int? {
-        events.indices.first { $0 > start && events[$0] == event }
-    }
-}
-
-@MainActor
-final class RecordingSnapshotter: PasteboardSnapshotting {
-    private let inner: BackgroundPasteboardSnapshotter
-    private let log: InsertionEventLog?
-    var captureDelay: Duration = .zero
-    var afterCapture: ((_ callNumber: Int) -> Void)?
-    private(set) var captureCount = 0
-    private(set) var returnedCaptures: [CapturedPasteboard] = []
-    private(set) var restoreResults: [Bool] = []
-
-    init(pasteboard: NSPasteboard, log: InsertionEventLog? = nil) {
-        inner = BackgroundPasteboardSnapshotter(pasteboard: pasteboard)
-        self.log = log
-    }
-
-    func capture() async -> CapturedPasteboard {
-        captureCount += 1
-        let callNumber = captureCount
-        log?.add("captureStart")
-        if captureDelay > .zero {
-            try? await Task.sleep(for: captureDelay)
+    private func record(_ name: String, options: NSPasteboard.ContentsOptions? = nil) {
+        lock.lock()
+        defer { lock.unlock() }
+        recordedCalls.append(name)
+        if let options {
+            recordedOptions.append(options)
         }
-        let captured = await inner.capture()
-        returnedCaptures.append(captured)
-        afterCapture?(callNumber)
-        log?.add("captureEnd")
-        return captured
     }
 
-    func restore(_ snapshot: PasteboardSnapshot, ifChangeCountIs changeCount: Int) async -> Bool {
-        let didRestore = await inner.restore(snapshot, ifChangeCountIs: changeCount)
-        restoreResults.append(didRestore)
-        log?.add("restore")
-        return didRestore
-    }
-}
-
-@MainActor
-final class SubmitKeySenderStub: SubmitKeySending {
-    struct Record {
-        var target: InsertionTarget
-        var pasteboardString: String?
+    var changeCount: Int {
+        base.changeCount
     }
 
-    private let pasteboard: NSPasteboard
-    var onSend: (() -> Void)?
-    private(set) var records: [Record] = []
-
-    init(pasteboard: NSPasteboard) {
-        self.pasteboard = pasteboard
+    var pasteboardItems: [NSPasteboardItem]? {
+        base.pasteboardItems
     }
 
-    func sendSubmitKey(to target: InsertionTarget) async {
-        records.append(Record(target: target, pasteboardString: pasteboard.string(forType: .string)))
-        onSend?()
+    @discardableResult
+    func prepareForNewContents(with options: NSPasteboard.ContentsOptions) -> Int {
+        record("prepareForNewContents", options: options)
+        return base.prepareForNewContents(with: options)
+    }
+
+    @discardableResult
+    func clearContents() -> Int {
+        record("clearContents")
+        return base.clearContents()
+    }
+
+    func writeObjects(_ objects: [any NSPasteboardWriting]) -> Bool {
+        record("writeObjects")
+        return base.writeObjects(objects)
     }
 }
 
@@ -153,10 +76,13 @@ struct ClipboardTextInserterTests {
         submitSender: SubmitKeySenderStub? = nil,
         settleDelay: Duration = .zero,
         restoreDelay: Duration = .zero,
-        snapshotter: PasteboardSnapshotting? = nil
+        snapshotter: PasteboardSnapshotting? = nil,
+        frontmostApp: FrontmostApplicationReading? = nil,
+        insertionPasteboard: (any InsertionPasteboard)? = nil
     ) -> ClipboardTextInserter {
-        ClipboardTextInserter(
-            pasteboard: pasteboard,
+        let targetProcessIdentifier = target.processIdentifier
+        return ClipboardTextInserter(
+            pasteboard: insertionPasteboard ?? pasteboard,
             activator: activator,
             poster: poster,
             focusInspector: focusInspector ?? FocusInspectorStub(state: .textInput),
@@ -164,7 +90,8 @@ struct ClipboardTextInserterTests {
             submitDelay: .zero,
             settleDelay: settleDelay,
             restoreDelay: restoreDelay,
-            snapshotter: snapshotter
+            snapshotter: snapshotter,
+            frontmostApp: frontmostApp ?? FrontmostApplicationStub { targetProcessIdentifier }
         )
     }
 
@@ -324,6 +251,93 @@ struct ClipboardTextInserterTests {
         #expect(poster.records.last?.types == markerTypes)
         #expect(poster.records.last?.itemCount == 1)
         #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
+    }
+
+    // MARK: - パスワード欄
+
+    @Test("AC-1, AC-2: パスワード欄への挿入は .insertedIntoSecureField を返し、貼り付け・送信のキーとクリップボードの復元は通常どおり", arguments: [false, true])
+    func insertsIntoSecureFieldLikeNormalInsertion(shouldSend: Bool) async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        PasteboardFixture.writeRichContents(to: pasteboard)
+        let original = PasteboardSnapshot.capture(from: pasteboard)
+        let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
+        let submitSender = SubmitKeySenderStub(pasteboard: pasteboard)
+        let inserter = makeInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: true),
+            poster: poster,
+            focusInspector: FocusInspectorStub(state: .textInput, isSecureTextField: true),
+            submitSender: submitSender
+        )
+
+        let result = await inserter.insert("secret", into: target, shouldSendAfterInsert: shouldSend)
+
+        #expect(result == .insertedIntoSecureField)
+        #expect(poster.records.count == 1)
+        #expect(poster.records.first?.types == markerTypes)
+        #expect(poster.records.first?.string == "secret")
+        #expect(submitSender.records.count == (shouldSend ? 1 : 0))
+        #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
+    }
+
+    @Test("AC-3: パスワード欄でない入力欄への挿入は .inserted を返す")
+    func insertsIntoOrdinaryInputAsInserted() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        let inserter = makeInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: true),
+            poster: PasteShortcutPosterStub(pasteboard: pasteboard),
+            focusInspector: FocusInspectorStub(state: .textInput, isSecureTextField: false)
+        )
+
+        let result = await inserter.insert("hello", into: target, shouldSendAfterInsert: false)
+
+        #expect(result == .inserted)
+    }
+
+    @Test("AC-3: パスワード欄でも、入力欄と判定されなければ貼り付けない")
+    func secureFlagDoesNotOverrideNoTextInput() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
+        let inserter = makeInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: true),
+            poster: poster,
+            focusInspector: FocusInspectorStub(state: .notTextInput, isSecureTextField: true)
+        )
+
+        let result = await inserter.insert("hello", into: target, shouldSendAfterInsert: false)
+
+        #expect(result == .noTextInput)
+        #expect(poster.records.isEmpty)
+    }
+
+    @Test("AC-3: 自分のアプリへの挿入は調べず、.inserted を返す")
+    func ownTargetIsNeverSecure() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        let own = InsertionTarget(processIdentifier: 555, bundleIdentifier: "com.example.TatakiNote", localizedName: "TatakiNote")
+        let focusInspector = FocusInspectorStub(state: .textInput, isSecureTextField: true)
+        let inserter = ClipboardTextInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: true),
+            poster: PasteShortcutPosterStub(pasteboard: pasteboard),
+            focusInspector: focusInspector,
+            submitSender: SubmitKeySenderStub(pasteboard: pasteboard),
+            submitDelay: .zero,
+            settleDelay: .zero,
+            restoreDelay: .zero,
+            ownProcessIdentifier: 555,
+            frontmostApp: FrontmostApplicationStub { own.processIdentifier }
+        )
+
+        let result = await inserter.insert("practice", into: own, shouldSendAfterInsert: false)
+
+        #expect(result == .inserted)
+        #expect(focusInspector.targets.isEmpty)
     }
 
     // MARK: - 確定+送信
@@ -687,6 +701,289 @@ struct ClipboardTextInserterTests {
         if written.count == 4 {
             #expect(snapshotter.returnedCaptures.last?.snapshot == written[2])
             #expect(PasteboardSnapshot.capture(from: pasteboard) == written[2])
+        }
+    }
+
+    // MARK: - 貼り付ける直前の前面の確認
+
+    @Test("AC-1: ⌘V の直前に前面のアプリが挿入先でなければ、⌘V を送らず、挿入先を前面にできなかった結果になり、クリップボードは元の内容に戻る")
+    func doesNotPasteWhenFrontmostIsNotTarget() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        PasteboardFixture.writeRichContents(to: pasteboard)
+        let original = PasteboardSnapshot.capture(from: pasteboard)
+        let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
+        let snapshotter = RecordingSnapshotter(pasteboard: pasteboard)
+        let inserter = makeInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: true),
+            poster: poster,
+            snapshotter: snapshotter,
+            frontmostApp: FrontmostApplicationStub { 202 }
+        )
+
+        let result = await inserter.insert("secret", into: target, shouldSendAfterInsert: false)
+
+        #expect(result == .targetNotActivated)
+        #expect(poster.records.isEmpty)
+        #expect(snapshotter.restoreResults == [true])
+        #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
+    }
+
+    @Test("AC-1: 写し取りを待つ間に別のアプリが前面になっても、⌘V を送らず、クリップボードは元の内容に戻る")
+    func doesNotPasteWhenFrontmostChangesDuringCapture() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        PasteboardFixture.writeRichContents(to: pasteboard)
+        let original = PasteboardSnapshot.capture(from: pasteboard)
+        let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
+        let snapshotter = RecordingSnapshotter(pasteboard: pasteboard)
+        var frontmost: pid_t? = target.processIdentifier
+        snapshotter.afterCapture = { _ in frontmost = 202 }
+        let inserter = makeInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: true),
+            poster: poster,
+            snapshotter: snapshotter,
+            frontmostApp: FrontmostApplicationStub { frontmost }
+        )
+
+        let result = await inserter.insert("secret", into: target, shouldSendAfterInsert: false)
+
+        #expect(result == .targetNotActivated)
+        #expect(snapshotter.captureCount == 1)
+        #expect(poster.records.isEmpty)
+        #expect(snapshotter.restoreResults == [true])
+        #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
+    }
+
+    @Test("AC-2: 確定+送信でも、⌘V の直前に前面のアプリが挿入先でなければ、⌘V も Enter も送らず、クリップボードは元の内容に戻る")
+    func doesNotPasteOrSendWhenFrontmostIsNotTarget() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        PasteboardFixture.writeRichContents(to: pasteboard)
+        let original = PasteboardSnapshot.capture(from: pasteboard)
+        let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
+        let submitSender = SubmitKeySenderStub(pasteboard: pasteboard)
+        let inserter = makeInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: true),
+            poster: poster,
+            submitSender: submitSender,
+            frontmostApp: FrontmostApplicationStub { 202 }
+        )
+
+        let result = await inserter.insert("secret", into: target, shouldSendAfterInsert: true)
+
+        #expect(result == .targetNotActivated)
+        #expect(poster.records.isEmpty)
+        #expect(submitSender.records.isEmpty)
+        #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
+    }
+
+    @Test("AC-3: ⌘V の直前に前面のアプリが読めないときも、挿入先でないとして ⌘V を送らず、クリップボードは元の内容に戻る")
+    func doesNotPasteWhenFrontmostIsUnknown() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        PasteboardFixture.writeRichContents(to: pasteboard)
+        let original = PasteboardSnapshot.capture(from: pasteboard)
+        let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
+        let inserter = makeInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: true),
+            poster: poster,
+            frontmostApp: FrontmostApplicationStub { nil }
+        )
+
+        let result = await inserter.insert("secret", into: target, shouldSendAfterInsert: false)
+
+        #expect(result == .targetNotActivated)
+        #expect(poster.records.isEmpty)
+        #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
+    }
+
+    @Test("AC-5: 前面のアプリが挿入先のままなら、前面の確認は写し取りの後・⌘V の前に行われ、⌘V と Enter が1回ずつ送られ、最後に元の内容に戻る")
+    func checksFrontmostBetweenCaptureAndPaste() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        PasteboardFixture.writeRichContents(to: pasteboard)
+        let original = PasteboardSnapshot.capture(from: pasteboard)
+        let log = InsertionEventLog()
+        let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
+        poster.onPost = { log.add("paste") }
+        let submitSender = SubmitKeySenderStub(pasteboard: pasteboard)
+        let snapshotter = RecordingSnapshotter(pasteboard: pasteboard, log: log)
+        snapshotter.captureDelay = .milliseconds(50)
+        let targetProcessIdentifier = target.processIdentifier
+        let inserter = makeInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: true),
+            poster: poster,
+            submitSender: submitSender,
+            settleDelay: .milliseconds(10),
+            snapshotter: snapshotter,
+            frontmostApp: FrontmostApplicationStub {
+                log.add("frontmost")
+                return targetProcessIdentifier
+            }
+        )
+
+        let result = await inserter.insert("text", into: target, shouldSendAfterInsert: true)
+
+        #expect(result == .inserted)
+        let captureEnd = log.index(of: "captureEnd")
+        let frontmost = log.index(of: "frontmost")
+        let paste = log.index(of: "paste")
+        #expect(captureEnd != nil && frontmost != nil && paste != nil)
+        if let captureEnd, let frontmost, let paste {
+            #expect(captureEnd < frontmost)
+            #expect(frontmost < paste)
+        }
+        #expect(poster.records.count == 1)
+        #expect(submitSender.records.count == 1)
+        #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
+    }
+
+    @Test("AC-10: 前面の食い違いで止めるとき、それまでに他のアプリがクリップボードに書いていたら、元の内容で上書きしない")
+    func doesNotOverwriteWhenCopiedBeforeFrontmostMismatch() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        PasteboardFixture.writeRichContents(to: pasteboard)
+        let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
+        let snapshotter = RecordingSnapshotter(pasteboard: pasteboard)
+        let inserter = makeInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: true),
+            poster: poster,
+            snapshotter: snapshotter,
+            frontmostApp: FrontmostApplicationStub {
+                pasteboard.clearContents()
+                pasteboard.setString("copied by someone else", forType: .string)
+                return 202
+            }
+        )
+
+        let result = await inserter.insert("secret", into: target, shouldSendAfterInsert: false)
+
+        #expect(result == .targetNotActivated)
+        #expect(poster.records.isEmpty)
+        #expect(snapshotter.restoreResults == [false])
+        #expect(pasteboard.string(forType: .string) == "copied by someone else")
+        #expect(pasteboard.pasteboardItems?.count == 1)
+    }
+
+    @Test("AC-11: 前面の食い違いで止まった1回目が元に戻し終えてから、続けて来た2回目が始まり、2回目は挿入される")
+    func secondInsertionStartsAfterMismatchedFirstRestores() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        PasteboardFixture.writeRichContents(to: pasteboard)
+        let original = PasteboardSnapshot.capture(from: pasteboard)
+        let log = InsertionEventLog()
+        let activator = ActivatorStub(result: true)
+        activator.onActivate = { log.add("activate") }
+        let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
+        let snapshotter = RecordingSnapshotter(pasteboard: pasteboard, log: log)
+        var inserterBox: ClipboardTextInserter?
+        var secondInsertion: Task<InsertionResult, Never>?
+        var frontmostReadCount = 0
+        let target = target
+        let frontmostApp = FrontmostApplicationStub {
+            frontmostReadCount += 1
+            guard frontmostReadCount == 1 else { return target.processIdentifier }
+            if let inserter = inserterBox {
+                secondInsertion = Task { await inserter.insert("second", into: target, shouldSendAfterInsert: false) }
+            }
+            return 202
+        }
+        let inserter = makeInserter(
+            pasteboard: pasteboard,
+            activator: activator,
+            poster: poster,
+            snapshotter: snapshotter,
+            frontmostApp: frontmostApp
+        )
+        inserterBox = inserter
+
+        let firstResult = await inserter.insert("first", into: target, shouldSendAfterInsert: false)
+        let secondResult = await secondInsertion?.value
+
+        #expect(firstResult == .targetNotActivated)
+        #expect(secondResult == .inserted)
+        #expect(poster.records.map(\.string) == ["second"])
+        #expect(snapshotter.restoreResults == [true, true])
+        let firstRestore = log.index(of: "restore")
+        let secondActivate = log.index(of: "activate", after: 0)
+        #expect(firstRestore != nil && secondActivate != nil)
+        if let firstRestore, let secondActivate {
+            #expect(firstRestore < secondActivate)
+        }
+        #expect(snapshotter.returnedCaptures.last?.snapshot == original)
+        #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
+    }
+
+    // MARK: - この Mac だけの一時的な内容
+
+    @Test("AC-6: 挿入の文章は「この Mac だけ」の内容として、書く前に clearContents を使わずに入れ、⌘V の時点では文章と印だけの1項目で、後に元の内容に戻る")
+    func writesTransientTextForCurrentHostOnly() async {
+        let pasteboard = PasteboardFixture.makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        PasteboardFixture.writeRichContents(to: pasteboard)
+        let original = PasteboardSnapshot.capture(from: pasteboard)
+        let recording = OptionsRecordingPasteboard(base: pasteboard)
+        let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
+        var callsAtPaste: [String] = []
+        var optionsAtPaste: [NSPasteboard.ContentsOptions] = []
+        poster.onPost = {
+            callsAtPaste = recording.calls
+            optionsAtPaste = recording.options
+        }
+        let inserter = makeInserter(
+            pasteboard: pasteboard,
+            activator: ActivatorStub(result: true),
+            poster: poster,
+            insertionPasteboard: recording
+        )
+
+        let result = await inserter.insert("line1\nline2", into: target, shouldSendAfterInsert: false)
+
+        #expect(result == .inserted)
+        #expect(callsAtPaste == ["prepareForNewContents", "writeObjects"])
+        #expect(optionsAtPaste == [.currentHostOnly])
+        #expect(poster.records.count == 1)
+        #expect(poster.records.first?.itemCount == 1)
+        #expect(poster.records.first?.types == markerTypes)
+        #expect(poster.records.first?.string == "line1\nline2")
+        #expect(PasteboardSnapshot.capture(from: pasteboard) == original)
+    }
+
+    @Test("AC-7: 挿入先を前面にできないときも、入力欄でないときも、クリップボードに一度も書かず、変更回数も変わらない")
+    func neverWritesPasteboardWhenInsertionIsNotPossible() async {
+        let scenarios: [(String, Bool, FocusedTextInputState)] = [
+            ("前面にできない", false, .textInput),
+            ("入力欄でない", true, .notTextInput),
+        ]
+        for (name, canActivate, focusState) in scenarios {
+            let pasteboard = PasteboardFixture.makePasteboard()
+            defer { pasteboard.releaseGlobally() }
+            PasteboardFixture.writeRichContents(to: pasteboard)
+            let original = PasteboardSnapshot.capture(from: pasteboard)
+            let changeCountBefore = pasteboard.changeCount
+            let recording = OptionsRecordingPasteboard(base: pasteboard)
+            let poster = PasteShortcutPosterStub(pasteboard: pasteboard)
+            let inserter = makeInserter(
+                pasteboard: pasteboard,
+                activator: ActivatorStub(result: canActivate),
+                poster: poster,
+                focusInspector: FocusInspectorStub(state: focusState),
+                insertionPasteboard: recording
+            )
+
+            _ = await inserter.insert("text", into: target, shouldSendAfterInsert: false)
+
+            #expect(recording.calls.isEmpty, "\(name)")
+            #expect(poster.records.isEmpty, "\(name)")
+            #expect(pasteboard.changeCount == changeCountBefore, "\(name)")
+            #expect(PasteboardSnapshot.capture(from: pasteboard) == original, "\(name)")
         }
     }
 }

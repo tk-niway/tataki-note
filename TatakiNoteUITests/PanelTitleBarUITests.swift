@@ -3,8 +3,9 @@ import XCTest
 final class PanelTitleBarUITests: PanelDraftsUITestCase {
     // AC-46
     // AC-17
+    // AC-12
     @MainActor
-    func testAC46_AC17_titleBarLayoutSaveNewDraftAndShareIcons() throws {
+    func testAC46_AC17_AC12_titleBarLayoutSaveNewDraftAndShareIcons() throws {
         let app = try launchApp()
         let panel = openPanel(in: app)
         let body = textView(in: app)

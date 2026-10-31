@@ -4,27 +4,6 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-private final class FakeDestinationChooser: ExportDestinationChoosing {
-    private(set) var requests: [(initialName: String, directory: URL)] = []
-    private(set) var bringToFrontCount = 0
-    private var completions: [(URL?) -> Void] = []
-
-    func chooseDestination(initialName: String, directory: URL, completion: @escaping (URL?) -> Void) {
-        requests.append((initialName, directory))
-        completions.append(completion)
-    }
-
-    func bringToFront() {
-        bringToFrontCount += 1
-    }
-
-    func complete(with url: URL?) {
-        guard !completions.isEmpty else { return }
-        completions.removeFirst()(url)
-    }
-}
-
-@MainActor
 private final class OutcomeLog {
     var outcomes: [TextExportOutcome] = []
 }
@@ -33,7 +12,7 @@ private final class OutcomeLog {
 private struct ExporterFixture {
     let temp: TemporaryDefaults
     let settings: AppSettings
-    let chooser = FakeDestinationChooser()
+    let chooser = ExportChooserSpy()
     let log = OutcomeLog()
     let root: URL
     let documents: URL
@@ -208,7 +187,7 @@ struct TextExporterTests {
         #expect(fixture.settings.lastExportDirectoryPath == destination.path)
         let recreated = fixture.temp.makeSettings()
         #expect(recreated.lastExportDirectoryPath == destination.path)
-        let next = FakeDestinationChooser()
+        let next = ExportChooserSpy()
         let exporter = TextExporter(settings: recreated, chooser: next, documentsDirectory: fixture.documents)
         exporter.export("memo") { _ in }
         #expect(next.requests.first?.directory.path == destination.path)

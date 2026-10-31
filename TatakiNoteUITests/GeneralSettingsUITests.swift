@@ -30,10 +30,26 @@ final class GeneralSettingsUITests: XCTestCase {
     // AC-14
     // AC-52
     // AC-18
+    // AC-10
     @MainActor
-    func testAC13_AC14_AC52_AC18_confirmationInTheRow() throws {
+    func testAC13_AC14_AC52_AC18_AC10_confirmationInTheRow() throws {
         let app = try launchApp(historyCount: 1)
         openSettingsFromMenu(in: app)
+
+        // AC-10
+        let retentionPicker = element(in: app, identifier: "settings.historyRetentionPicker")
+        XCTAssertTrue(retentionPicker.waitForExistence(timeout: timeout))
+        app.revealInSettings(retentionPicker)
+        let oneDay = segment("1日", in: retentionPicker)
+        XCTAssertTrue(oneDay.waitForExistence(timeout: timeout))
+        oneDay.click()
+        XCTAssertTrue(element(in: app, identifier: "settings.historyRetentionWarning").waitForExistence(timeout: timeout))
+        XCTAssertTrue(element(in: app, identifier: "settings.historyRetentionCancel").exists)
+        XCTAssertTrue(element(in: app, identifier: "settings.historyRetentionConfirm").exists)
+        element(in: app, identifier: "settings.historyRetentionCancel").click()
+        XCTAssertTrue(element(in: app, identifier: "settings.historyRetentionWarning").waitForNonExistence(timeout: timeout))
+        XCTAssertTrue(element(in: app, identifier: "settings.historyRetentionPicker").waitForExistence(timeout: timeout))
+        XCTAssertEqual(text(of: element(in: app, identifier: countID)), "1")
 
         // AC-13
         let count = element(in: app, identifier: countID)
@@ -120,6 +136,12 @@ final class GeneralSettingsUITests: XCTestCase {
     @MainActor
     private func element(in app: XCUIApplication, identifier: String) -> XCUIElement {
         app.descendants(matching: .any)[identifier].firstMatch
+    }
+
+    @MainActor
+    private func segment(_ name: String, in picker: XCUIElement) -> XCUIElement {
+        let predicate = NSPredicate(format: "label == %@ OR title == %@", name, name)
+        return picker.descendants(matching: .any).matching(predicate).firstMatch
     }
 
     @MainActor

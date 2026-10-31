@@ -34,12 +34,22 @@ final class WebContentExposer {
         }
     }
 
-    /// まだ頼んでいないアプリなら頼む。
-    func expose(_ target: InsertionTarget) {
-        guard !exposedProcessIdentifiers.contains(target.processIdentifier) else { return }
-        if Self.shouldRemember(request(target)) {
+    /// まだ頼んでいない(頼んで覚えていない)アプリか。
+    func needsRequest(for target: InsertionTarget) -> Bool {
+        !exposedProcessIdentifiers.contains(target.processIdentifier)
+    }
+
+    /// 頼んだ結果を受け取り、覚えるべき結果なら覚える。
+    func record(_ result: AXError, for target: InsertionTarget) {
+        if Self.shouldRemember(result) {
             exposedProcessIdentifiers.insert(target.processIdentifier)
         }
+    }
+
+    /// まだ頼んでいないアプリなら頼む。
+    func expose(_ target: InsertionTarget) {
+        guard needsRequest(for: target) else { return }
+        record(request(target), for: target)
     }
 
     /// 終了したアプリを忘れる。

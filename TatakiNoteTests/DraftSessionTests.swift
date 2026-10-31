@@ -427,6 +427,84 @@ struct DraftSessionTests {
         #expect(fixture.library.drafts.isEmpty)
     }
 
+    // MARK: - 文章が入ったのを確かめられなかったとき
+
+    @Test("AC-6: 確かめられなかったときは履歴に残らない")
+    func notConfirmedInsertionIsNotRecorded() {
+        let fixture = Fixture()
+        fixture.panel.text = "unconfirmed"
+
+        let plan = fixture.commit()
+        #expect(fixture.panel.restoreDraft("unconfirmed"))
+        fixture.session.finishCommit(plan, outcome: .notConfirmed)
+
+        #expect(fixture.library.history.isEmpty)
+        #expect(fixture.panel.text == "unconfirmed")
+    }
+
+    @Test("AC-6: 保存した下書きから挿入して確かめられず、文章がパネルに戻ったら、同じ下書きの表示に戻る")
+    func notConfirmedRestoresSavedDraftDocument() throws {
+        let fixture = Fixture()
+        fixture.panel.text = "retry me"
+        fixture.session.saveCurrent()
+        let id = try #require(fixture.savedDraftID())
+
+        let plan = fixture.commit()
+        #expect(fixture.session.document == .scratch)
+        #expect(fixture.panel.restoreDraft("retry me"))
+        fixture.session.finishCommit(plan, outcome: .notConfirmed)
+
+        #expect(fixture.session.document == .savedDraft(id))
+        #expect(fixture.library.history.isEmpty)
+    }
+
+    @Test("AC-6: 履歴から読み込んだ文章が確かめられず、文章がパネルに戻ったら、また履歴から読み込んだ文章の扱いに戻る")
+    func notConfirmedRestoresFromHistoryDocument() {
+        let fixture = Fixture()
+        fixture.library.recordInsertion(text: "past text", appName: nil, bundleIdentifier: nil)
+        let id = fixture.library.history[0].id
+        fixture.session.request(.history(id))
+
+        let plan = fixture.commit()
+        #expect(fixture.session.document == .scratch)
+        #expect(fixture.panel.restoreDraft("past text"))
+        fixture.session.finishCommit(plan, outcome: .notConfirmed)
+
+        #expect(fixture.session.document == .fromHistory(id))
+        #expect(fixture.library.history.count == 1)
+    }
+
+    @Test("AC-6: 書きかけが確かめられず、文章がパネルに戻ったら、書きかけのまま")
+    func notConfirmedScratchStaysScratch() {
+        let fixture = Fixture()
+        fixture.panel.text = "send"
+
+        let plan = fixture.commit()
+        #expect(fixture.panel.restoreDraft("send"))
+        fixture.session.finishCommit(plan, outcome: .notConfirmed)
+
+        #expect(fixture.panel.text == "send")
+        #expect(fixture.session.document == .scratch)
+        #expect(fixture.library.drafts.isEmpty)
+        #expect(fixture.library.history.isEmpty)
+    }
+
+    @Test("AC-6: 確かめられなかった後に別の文章を書き始めていれば、保存していない書きかけのまま")
+    func notConfirmedWithNewTextStaysScratch() throws {
+        let fixture = Fixture()
+        fixture.panel.text = "old"
+        fixture.session.saveCurrent()
+        let id = try #require(fixture.savedDraftID())
+
+        let plan = fixture.commit()
+        fixture.panel.text = "new text"
+        #expect(!fixture.panel.restoreDraft("old"))
+        fixture.session.finishCommit(plan, outcome: .notConfirmed)
+
+        #expect(fixture.session.document == .scratch)
+        #expect(fixture.library.draft(id: id)?.text == "old")
+    }
+
     // MARK: - 削除
 
     @Test("AC-18: パネルに出している下書きを削除すると、本文はパネルに残り、保存していない書きかけになる")

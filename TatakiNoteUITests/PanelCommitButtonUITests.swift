@@ -14,8 +14,9 @@ final class PanelCommitButtonUITests: XCTestCase {
     }
 
     // AC-5
+    // AC-12
     @MainActor
-    func testAC5_commitButtonWithoutPermissionClosesAndShowsGuide() throws {
+    func testAC5_AC12_commitButtonWithoutPermissionClosesAndShowsGuide() throws {
         let app = try launchApp(
             permission: AccessibilityOverride.untrusted,
             seed: ["commitKey": "commandShiftEnter", "commitAndSendKey": "commandEnter"]
@@ -44,6 +45,20 @@ final class PanelCommitButtonUITests: XCTestCase {
         XCTAssertTrue(closeButton.exists)
         closeButton.click()
         XCTAssertTrue(closeButton.waitForNonExistence(timeout: timeout))
+
+        openPanelFromMenu(in: app)
+        XCTAssertTrue(textView.waitForExistence(timeout: timeout))
+        XCTAssertEqual(textView.promptPanelText, "abc", "挿入のボタンの後に本文が残っていない")
+        let commitAndSendButton = element(in: app, identifier: "promptPanel.status.commitAndSend")
+        XCTAssertTrue(commitAndSendButton.waitForExistence(timeout: timeout))
+        commitAndSendButton.click()
+
+        XCTAssertTrue(textView.waitForNonExistence(timeout: timeout))
+        XCTAssertTrue(element(in: app, identifier: "permissionGuide.draftKept").waitForExistence(timeout: timeout))
+        let sendGuideCloseButton = app.buttons["permissionGuide.close"]
+        XCTAssertTrue(sendGuideCloseButton.exists)
+        sendGuideCloseButton.click()
+        XCTAssertTrue(sendGuideCloseButton.waitForNonExistence(timeout: timeout))
     }
 
     // AC-5

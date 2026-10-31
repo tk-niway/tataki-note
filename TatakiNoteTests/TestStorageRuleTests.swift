@@ -2,7 +2,7 @@ import Foundation
 import Testing
 
 struct TestStorageRuleTests {
-    private static let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+    private static let testsDirectory = TestSourceFiles.testsDirectory
     private static let sharedStoragePatterns = [
         "UserDefaults" + "(suiteName",
         "UserDefaults" + "()",
@@ -15,8 +15,7 @@ struct TestStorageRuleTests {
 
     @Test("単体テストは Mac で共有する保存先(本物の UserDefaults・共有のクリップボード)に書かない")
     func unitTestsDoNotWriteSharedStorage() throws {
-        let files = try FileManager.default.contentsOfDirectory(atPath: Self.testsDirectory.path)
-            .filter { $0.hasSuffix(".swift") }
+        let files = try TestSourceFiles.swiftFiles(in: Self.testsDirectory)
         #expect(!files.isEmpty, "\(Self.testsDirectory.path) にテストのファイルがありません")
 
         var offenders: [String] = []

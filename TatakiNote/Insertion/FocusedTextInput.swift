@@ -1,20 +1,20 @@
 import ApplicationServices
 
 /// 挿入先のアプリで、キー入力を受ける要素(フォーカスのある要素)が文章の入力欄か。
-enum FocusedTextInputState: Equatable {
+nonisolated enum FocusedTextInputState: Equatable {
     case textInput
     case notTextInput
     case unknown
 }
 
 /// フォーカスのある要素を問い合わせた結果。
-enum FocusedElementLookup: Equatable {
+nonisolated enum FocusedElementLookup: Equatable, Sendable {
     case element(role: String?, subrole: String?, isSelectedTextRangeSettable: Bool)
     case noFocusedElement
     case unavailable
 }
 
-extension FocusedTextInputState {
+nonisolated extension FocusedTextInputState {
     static let textInputRoles: Set<String> = ["AXTextField", "AXTextArea", "AXComboBox"]
 
     static let nonTextInputRoles: Set<String> = [
@@ -56,14 +56,40 @@ extension FocusedTextInputState {
         }
         return state
     }
+
+    /// パスワード欄(subrole が AXSecureTextField)か。
+    static func isSecureTextField(_ lookup: FocusedElementLookup) -> Bool {
+        if case .element(_, let subrole, _) = lookup {
+            return subrole == secureTextFieldSubrole
+        }
+        return false
+    }
+}
+
+/// 挿入の前に調べた、フォーカスのある要素。
+struct FocusedInputInspection: Equatable {
+    let state: FocusedTextInputState
+    let isSecureTextField: Bool
 }
 
 protocol FocusedTextInputInspecting {
     func focusedTextInputState(in target: InsertionTarget) -> FocusedTextInputState
+    /// 入力欄かと、パスワード欄かを1回の問い合わせで調べる。
+    func inspectFocusedInput(in target: InsertionTarget) -> FocusedInputInspection
+    /// フォーカスのある要素の中身の文字列。読めなければ nil。
+    func focusedTextValue(in target: InsertionTarget) -> String?
+}
+
+extension FocusedTextInputInspecting {
+    func inspectFocusedInput(in target: InsertionTarget) -> FocusedInputInspection {
+        FocusedInputInspection(state: focusedTextInputState(in: target), isSecureTextField: false)
+    }
+
+    func focusedTextValue(in target: InsertionTarget) -> String? { nil }
 }
 
 /// フォーカスのある要素を1回の問い合わせでまとめて取った結果。
-struct FocusedElementProbe {
+nonisolated struct FocusedElementProbe: @unchecked Sendable {
     let element: AXUIElement?
     let lookup: FocusedElementLookup
     let frame: CGRect?
@@ -90,7 +116,28 @@ protocol FocusedElementProbing {
 
 /// アクセシビリティ API で、挿入先のアプリのフォーカスのある要素を調べる。
 struct AXFocusedTextInputInspector: FocusedTextInputInspecting, FocusedElementProbing {
-    static let messagingTimeout: Float = 0.5
+    nonisolated static let messagingTimeout: Float = 0.5
+    static let valueReadTimeout: Float = 0.2
+
+    func focusedTextValue(in target: InsertionTarget) -> String? {
+        let app = AXUIElementCreateApplication(target.processIdentifier)
+        AXUIElementSetMessagingTimeout(app, Self.valueReadTimeout)
+
+        var focusedValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &focusedValue) == .success,
+              let focusedValue, CFGetTypeID(focusedValue) == AXUIElementGetTypeID()
+        else {
+            return nil
+        }
+        let element = unsafeDowncast(focusedValue, to: AXUIElement.self)
+        AXUIElementSetMessagingTimeout(element, Self.valueReadTimeout)
+
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &value) == .success else {
+            return nil
+        }
+        return value as? String
+    }
 
     func focusedTextInputState(in target: InsertionTarget) -> FocusedTextInputState {
         FocusedTextInputState.classifyForInsertion(
@@ -99,15 +146,23 @@ struct AXFocusedTextInputInspector: FocusedTextInputInspecting, FocusedElementPr
         )
     }
 
+    func inspectFocusedInput(in target: InsertionTarget) -> FocusedInputInspection {
+        let lookup = probeFocusedElement(in: target, readsFrame: false).lookup
+        return FocusedInputInspection(
+            state: FocusedTextInputState.classifyForInsertion(lookup, bundleIdentifier: target.bundleIdentifier),
+            isSecureTextField: FocusedTextInputState.isSecureTextField(lookup)
+        )
+    }
+
     /// Web の中身をアクセシビリティの仕組みに出すよう、挿入先のアプリに頼み、その結果を返す。
     @discardableResult
-    static func exposeWebContent(of target: InsertionTarget) -> AXError {
+    nonisolated static func exposeWebContent(of target: InsertionTarget) -> AXError {
         let app = AXUIElementCreateApplication(target.processIdentifier)
         AXUIElementSetMessagingTimeout(app, messagingTimeout)
         return AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
     }
 
-    func probeFocusedElement(in target: InsertionTarget, readsFrame: Bool) -> FocusedElementProbe {
+    nonisolated func probeFocusedElement(in target: InsertionTarget, readsFrame: Bool) -> FocusedElementProbe {
         let app = AXUIElementCreateApplication(target.processIdentifier)
         AXUIElementSetMessagingTimeout(app, Self.messagingTimeout)
 
@@ -139,11 +194,11 @@ struct AXFocusedTextInputInspector: FocusedTextInputInspecting, FocusedElementPr
     }
 
     /// フォーカスのある要素の位置と大きさを読むか。
-    static func shouldReadFrame(requested: Bool, lookup: FocusedElementLookup) -> Bool {
+    nonisolated static func shouldReadFrame(requested: Bool, lookup: FocusedElementLookup) -> Bool {
         requested && FocusedTextInputState.classify(lookup) == .textInput
     }
 
-    private func stringAttribute(_ attribute: String, of element: AXUIElement) -> String? {
+    private nonisolated func stringAttribute(_ attribute: String, of element: AXUIElement) -> String? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else {
             return nil
@@ -151,7 +206,7 @@ struct AXFocusedTextInputInspector: FocusedTextInputInspecting, FocusedElementPr
         return value as? String
     }
 
-    func frame(of element: AXUIElement) -> CGRect? {
+    nonisolated func frame(of element: AXUIElement) -> CGRect? {
         AXUIElementSetMessagingTimeout(element, Self.messagingTimeout)
         var origin = CGPoint.zero
         var size = CGSize.zero
@@ -165,7 +220,7 @@ struct AXFocusedTextInputInspector: FocusedTextInputInspecting, FocusedElementPr
         return CGRect(origin: origin, size: size)
     }
 
-    private func axValueAttribute(_ attribute: String, of element: AXUIElement) -> AXValue? {
+    private nonisolated func axValueAttribute(_ attribute: String, of element: AXUIElement) -> AXValue? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,
               let value, CFGetTypeID(value) == AXValueGetTypeID()

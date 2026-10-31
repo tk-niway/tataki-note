@@ -219,7 +219,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private(set) lazy var library = DraftLibrary(
         store: DraftLibraryStore(directory: AppLaunchContext.dataDirectory(environment: ProcessInfo.processInfo.environment)),
-        historyLimit: settings.historyLimit
+        historyLimit: settings.historyLimit,
+        historyRetention: settings.historyRetention,
+        writer: BackgroundDraftLibraryWriter()
     )
 
     private(set) lazy var panelController: PanelController = {
@@ -228,6 +230,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             targetTracker: self.targetTracker,
             permission: self.permission,
             exposeWebContent: { [webContentExposer] in webContentExposer.expose($0) },
+            openingLookup: BackgroundOpeningTargetLookup(exposer: webContentExposer),
             library: self.library
         )
         controller.isTargetLookupDisabled = AppLaunchContext.isInsertionTargetDisabled(
