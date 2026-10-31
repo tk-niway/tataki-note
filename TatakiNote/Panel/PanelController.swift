@@ -17,11 +17,6 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let library: DraftLibrary
     private let targetMonitor: InsertionTargetMonitor
     private let outlineController: InsertionTargetOutlineController
-    private let shaker: PanelShaking
-    private let beep: () -> Void
-    private let exporter: TextExporter
-    private let presentExportFailure: (String, NSWindow?, @escaping () -> Void) -> Void
-    private let sharer: TextSharing
     private let sharingAnchorRegistry = SharingAnchorRegistry()
 
     let session: DraftSession
@@ -31,6 +26,10 @@ final class PanelController: NSObject, NSWindowDelegate {
     let sizeController: PanelSizeController
 
     private let motionController: PanelMotionController
+
+    private let feedback: PanelFeedback
+
+    private let exportSharing: PanelExportSharing
 
     var heldPanelSize: CGSize? { sizeController.sizing.heldSize }
 
@@ -83,13 +82,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.model = model
         self.panel = panel
         self.settings = settings
-        self.shaker = shaker
-        self.beep = beep
-        self.exporter = TextExporter(settings: settings, chooser: exportChooser, write: writeTextFile)
-        self.sharer = sharer ?? SharingServicePresenter(panel: panel, anchorRegistry: sharingAnchorRegistry)
-        self.presentExportFailure = presentExportFailure ?? { message, window, completion in
-            ExportFailureAlert.show(message: message, attachedTo: window, completion: completion)
-        }
         self.hideApplication = hideApplication
         self.targetTracker = targetTracker
         self.permission = permission
@@ -134,6 +126,26 @@ final class PanelController: NSObject, NSWindowDelegate {
             restoreMinimumSize: { [sizeController] in sizeController.applyMinimumSize() }
         )
         self.saveAnimation = saveAnimation
+        self.feedback = PanelFeedback(
+            panel: panel,
+            model: model,
+            session: session,
+            sidebarModel: sidebarModel,
+            library: library,
+            saveAnimation: saveAnimation,
+            settings: settings,
+            shaker: shaker,
+            beep: beep
+        )
+        self.exportSharing = PanelExportSharing(
+            model: model,
+            panel: panel,
+            exporter: TextExporter(settings: settings, chooser: exportChooser, write: writeTextFile),
+            sharer: sharer ?? SharingServicePresenter(panel: panel, anchorRegistry: sharingAnchorRegistry),
+            presentFailure: presentExportFailure ?? { message, window, completion in
+                ExportFailureAlert.show(message: message, attachedTo: window, completion: completion)
+            }
+        )
         super.init()
 
         let hostingView = NSHostingView(
@@ -158,9 +170,15 @@ final class PanelController: NSObject, NSWindowDelegate {
         sizeController.applyMinimumSize()
         configureSidebarModel()
         observeBodyFocusRequests()
-        observeSaveEvents()
-        observeArchivedScratch()
+        feedback.startObserving()
+        connectParts()
         targetMonitor.onFieldAdopted = { [weak self] in self?.handleFieldAdopted() }
+    }
+
+    private func connectParts() {
+        exportSharing.onEmptyInput = { [weak self] in self?.signalEmptyInput() }
+        exportSharing.onToast = { [weak self] message, style in self?.feedback.showToast(message, style: style) }
+        exportSharing.onReturnInput = { [weak self] in self?.returnInputToPanel() }
     }
 
     /// 他のアプリの入力欄をクリックして挿入先が移ったときに、キー入力をパネルへ戻すか。インサートの書きかけだけ戻す。
@@ -178,64 +196,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         settings.isInsertionTargetOutlineShown
     }
 
-    private func observeSaveEvents() {
-        observeRepeatedly(
-            tracking: { [weak self] in _ = self?.session.lastSaveEvent },
-            onChange: { [weak self] in
-                guard let self else { return false }
-                if let event = self.session.lastSaveEvent {
-                    self.playSaveAnimation(for: event)
-                }
-                return true
-            }
-        )
-    }
-
-    private func playSaveAnimation(for event: DraftSaveEvent) {
-        guard model.isPresented else { return }
-        let id: UUID
-        switch event.kind {
-        case .created(let savedID), .overwritten(let savedID):
-            id = savedID
-        }
-        if SaveFlightDestination.shouldSwitchToDrafts(
-            isSidebarOpen: sidebarModel.isOpen,
-            tab: sidebarModel.tab
-        ) {
-            sidebarModel.tab = .drafts
-        }
-        let text = library.draft(id: id)?.text ?? model.text
-        let destination = SaveFlightDestination.resolve(
-            savedDraftID: id,
-            isSidebarOpen: sidebarModel.isOpen,
-            isShowingDrafts: sidebarModel.tab == .drafts,
-            visibleDraftIDs: sidebarModel.rows.map(\.id)
-        )
-        let animation = saveAnimation
-        let showsToast = event.showsToast
-        let isAnimated = settings.isAnimationEnabled
-        Task {
-            await animation.play(text: text, destination: destination, showsToast: showsToast, isAnimated: isAnimated)
-        }
-    }
-
-    private func observeArchivedScratch() {
-        observeRepeatedly(
-            tracking: { [weak self] in _ = self?.session.archivedScratchCount },
-            onChange: { [weak self] in
-                guard let self else { return false }
-                self.showArchivedToast()
-                return true
-            }
-        )
-    }
-
-    private func showArchivedToast() {
-        guard model.isPresented else { return }
-        let animation = saveAnimation
-        Task { await animation.showToast(SaveAnimationModel.archivedMessage) }
-    }
-
     private func configureSidebarModel() {
         let panel = panel
         sidebarModel.markedTextProbe = { [weak panel] in
@@ -247,8 +207,8 @@ final class PanelController: NSObject, NSWindowDelegate {
             }
         }
         sidebarModel.closePanel = { [weak self] in self?.close() }
-        sidebarModel.exportText = { [weak self] in self?.exportText($0) }
-        sidebarModel.shareText = { [weak self] in self?.sharer.share($0, from: .pointer) }
+        sidebarModel.exportText = { [weak self] in self?.exportSharing.exportText($0) }
+        sidebarModel.shareText = { [weak self] in self?.exportSharing.share($0, from: .pointer) }
     }
 
     private func observeBodyFocusRequests() {
@@ -348,7 +308,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     private func dismiss(_ dismissal: Dismissal) {
-        stopPanelEffects()
+        feedback.stopEffects()
         switch dismissal {
         case .animated: hidePanel()
         case .animatedThenHideApplication: hidePanel(then: { [weak self] in self?.hideApplication() })
@@ -368,21 +328,9 @@ final class PanelController: NSObject, NSWindowDelegate {
         motionController.hideWithoutMotion()
     }
 
-    private func stopPanelEffects() {
-        shaker.stop(panel)
-        saveAnimation.cancel()
-    }
-
     private func signalEmptyInput() {
         sizeController.finishSidebarSlide()
-        switch PanelShake.emptyInputFeedback(motionPhase: motionController.phase, isAnimationEnabled: settings.isAnimationEnabled) {
-        case .shake:
-            shaker.shake(panel)
-        case .beep:
-            beep()
-        case .none:
-            break
-        }
+        feedback.signalEmptyInput(motionPhase: motionController.phase)
     }
 
     func toggle() {
@@ -428,8 +376,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         case .switchToInsert: session.switchToInsert()
         case .toggleSidebar: toggleSidebarAndMoveFocus()
         case .openSettings: onOpenSettings?()
-        case .exportToFile: exportCurrentText()
-        case .share: shareCurrentText()
+        case .exportToFile: exportSharing.exportCurrentText()
+        case .share: exportSharing.shareCurrentText()
         }
         if command.requestsEditorFocusAfterward(from: source) {
             model.requestFocus()
@@ -449,51 +397,6 @@ final class PanelController: NSObject, NSWindowDelegate {
             session.saveCurrent()
         } else {
             signalEmptyInput()
-        }
-    }
-
-    private func shareCurrentText() {
-        guard !ExportableText.isEmpty(model.text) else {
-            signalEmptyInput()
-            let animation = saveAnimation
-            Task { await animation.showToast(SaveAnimationModel.nothingToShareMessage, style: .notice) }
-            model.requestFocus()
-            return
-        }
-        sharer.share(model.text, from: .titleBarButton)
-    }
-
-    // MARK: - ファイルへの書き出し
-
-    private func exportCurrentText() {
-        exportText(model.text)
-    }
-
-    private func exportText(_ text: String) {
-        exporter.export(text) { [weak self] outcome in
-            self?.handleExportOutcome(outcome)
-        }
-    }
-
-    private func handleExportOutcome(_ outcome: TextExportOutcome) {
-        let feedback = ExportFeedback.feedback(for: outcome, isPanelPresented: model.isPresented)
-        if feedback.signalsEmpty {
-            signalEmptyInput()
-        }
-        if let message = feedback.toastMessage {
-            let animation = saveAnimation
-            let style = feedback.toastStyle
-            Task { await animation.showToast(message, style: style) }
-        }
-        if let failure = feedback.failureMessage {
-            let shouldReturnInput = feedback.returnsInput
-            presentExportFailure(failure, model.isPresented ? panel : nil) { [weak self] in
-                if shouldReturnInput {
-                    self?.returnInputToPanel()
-                }
-            }
-        } else if feedback.returnsInput {
-            returnInputToPanel()
         }
     }
 
@@ -546,7 +449,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// サイドバーを開閉する。パネルが開いていれば、窓の枠をサイドバーの幅だけ変える。アニメーションがオンなら滑らせて変える。
     func setSidebarOpen(_ isOpen: Bool) {
-        shaker.stop(panel)
+        feedback.stopShaking()
         sizeController.setSidebarOpen(
             isOpen,
             isPanelPresented: model.isPresented,
@@ -594,7 +497,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             signalEmptyInput()
             return
         }
-        stopPanelEffects()
+        feedback.stopEffects()
         sizeController.finishSidebarSlide()
         hidePanel()
         library.flush()
