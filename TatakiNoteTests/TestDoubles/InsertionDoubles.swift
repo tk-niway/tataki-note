@@ -70,6 +70,9 @@ final class FocusInspectorStub: FocusedTextInputInspecting {
     var state: FocusedTextInputState
     var isSecureTextField: Bool
     var onInspect: (() -> Void)?
+    var values: [String?] = []
+    var onReadValue: (() -> Void)?
+    private(set) var valueReadCount = 0
     private(set) var targets: [InsertionTarget] = []
 
     init(state: FocusedTextInputState, isSecureTextField: Bool = false) {
@@ -85,6 +88,14 @@ final class FocusInspectorStub: FocusedTextInputInspecting {
 
     func inspectFocusedInput(in target: InsertionTarget) -> FocusedInputInspection {
         FocusedInputInspection(state: focusedTextInputState(in: target), isSecureTextField: isSecureTextField)
+    }
+
+    func focusedTextValue(in target: InsertionTarget) -> String? {
+        let index = valueReadCount
+        valueReadCount += 1
+        onReadValue?()
+        guard !values.isEmpty else { return nil }
+        return values[min(index, values.count - 1)]
     }
 }
 
