@@ -27,7 +27,7 @@ final class MoveToApplicationsController {
             homeDirectory: FileManager.default.homeDirectoryForCurrentUser.path,
             isOnReadOnlyVolume: Self.isOnReadOnlyVolume(bundleURL)
         )
-        guard ApplicationLocation.shouldAsk(source: source, isSuppressed: settings.suppressesMoveToApplicationsPrompt),
+        guard ApplicationLocation.shouldAsk(source: source, isSuppressed: settings.state.suppressesMoveToApplicationsPrompt),
               let source
         else { return false }
 
@@ -35,7 +35,7 @@ final class MoveToApplicationsController {
         let choice = ask(otherInstanceIsRunning: !others.isEmpty)
         switch MoveToApplicationsPrompt.step(choice: choice, otherInstanceIsRunning: !others.isEmpty) {
         case .stay(let suppresses):
-            if suppresses { settings.suppressesMoveToApplicationsPrompt = true }
+            if suppresses { settings.state.suppressesMoveToApplicationsPrompt = true }
             return false
         case .terminateOthersThenMove:
             guard terminator.terminateAll(others) else {

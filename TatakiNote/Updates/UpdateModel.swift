@@ -101,7 +101,7 @@ enum UpdatePresentation {
             isAutomaticCheckEnabled: settings.checksForUpdatesAutomatically,
             isOnline: isOnline,
             isSessionInProgress: updater.isSessionInProgress || isUpdatePending,
-            lastCheckDate: settings.lastUpdateCheckDate,
+            lastCheckDate: settings.state.lastUpdateCheckDate,
             now: now()
         )
         if shouldCheck { updater.checkInBackground() }
@@ -123,7 +123,7 @@ enum UpdatePresentation {
         case .foundInBackground(let version):
             pendingVersion = version
         case .checkCompleted:
-            settings.lastUpdateCheckDate = now()
+            settings.state.lastUpdateCheckDate = now()
         case .checkFailed:
             break
         case .userAttended, .sessionFinished:
