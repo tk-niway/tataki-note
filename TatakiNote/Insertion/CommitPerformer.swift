@@ -5,6 +5,7 @@ enum CommitOutcome: Equatable {
     case inserted
     case insertedIntoSecureField
     case notInserted
+    case notConfirmed
 }
 
 extension CommitOutcome {
@@ -54,6 +55,9 @@ final class CommitPerformer {
                 return .insertedIntoSecureField
             case .targetNotActivated, .noTextInput:
                 model.restoreDraft(text)
+            case .pasteNotConfirmed:
+                model.restoreDraft(text)
+                return .notConfirmed
             }
         }
         return .notInserted

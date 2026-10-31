@@ -128,6 +128,45 @@ struct CommitPerformerTests {
         #expect(model.text == "committed")
     }
 
+    @Test("AC-6: 文章が入ったのを確かめられなければ、文章がパネルの本文に戻り、確かめられなかった結果になる")
+    func pasteNotConfirmedRestoresDraft() async {
+        let model = PanelModel()
+        model.present(target: textEdit)
+        model.text = "committed"
+        let permission = PermissionStub(isTrusted: true)
+        let inserter = InserterStub(result: .pasteNotConfirmed)
+        let performer = makePerformer(model: model, permission: permission, inserter: inserter)
+
+        let outcome = await performer.perform(model.prepareCommit(isAccessibilityTrusted: permission.isTrusted))
+
+        #expect(outcome == .notConfirmed)
+        #expect(inserter.calls.count == 1)
+        #expect(model.isPresented == false)
+        #expect(model.text == "committed")
+    }
+
+    @Test("AC-6: 確かめられなかった間に新しい文章を書き始めていれば、本文を上書きしない")
+    func pasteNotConfirmedKeepsNewText() async {
+        let model = PanelModel()
+        model.present(target: textEdit)
+        model.text = "committed"
+        let permission = PermissionStub(isTrusted: true)
+        let inserter = InserterStub(result: .pasteNotConfirmed)
+        inserter.onInsert = { model.text = "new" }
+        let performer = makePerformer(model: model, permission: permission, inserter: inserter)
+
+        let outcome = await performer.perform(model.prepareCommit(isAccessibilityTrusted: permission.isTrusted))
+
+        #expect(outcome == .notConfirmed)
+        #expect(model.text == "new")
+    }
+
+    @Test("AC-6: 確かめられなかった結果は、挿入できたことにも履歴に残すことにもならない")
+    func notConfirmedIsNotInsertion() {
+        #expect(CommitOutcome.notConfirmed.didInsert == false)
+        #expect(CommitOutcome.notConfirmed.recordsHistory == false)
+    }
+
     // MARK: - 権限が無いときの案内
 
     @Test("AC-3: 権限が無く、案内を開く処理があれば、それが1回呼ばれ、許可の要求・挿入はせず、文章は下書きに残る")

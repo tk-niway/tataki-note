@@ -5,6 +5,7 @@ enum InsertionResult: Equatable {
     case insertedIntoSecureField
     case targetNotActivated
     case noTextInput
+    case pasteNotConfirmed
 }
 
 protocol TextInserting {

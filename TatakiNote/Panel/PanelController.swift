@@ -199,6 +199,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             self?.hidePanel()
         }
         commitFlow.onReopen = { [weak self] in self?.open() }
+        commitFlow.onNotice = { [weak self] message in self?.feedback.showToast(message, style: .notice) }
     }
 
     /// 他のアプリの入力欄をクリックして挿入先が移ったときに、キー入力をパネルへ戻すか。インサートの書きかけだけ戻す。

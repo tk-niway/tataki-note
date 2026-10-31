@@ -17,6 +17,8 @@ final class PanelCommitFlow {
     var onHide: () -> Void = {}
     /// 挿入できなかったときに、パネルを開き直すために呼ぶ。
     var onReopen: () -> Void = {}
+    /// 挿入の結果をパネルで知らせるときに、その文を渡して呼ぶ。
+    var onNotice: (String) -> Void = { _ in }
 
     private let model: PanelModel
     private let session: DraftSession
@@ -94,11 +96,16 @@ final class PanelCommitFlow {
             let outcome = await performer.perform(plan, shouldSendAfterInsert: shouldSendAfterInsert)
             self?.sizing.handleCommitOutcome(outcome)
             self?.session.finishCommit(plan, outcome: outcome)
-            if case .insert(let text, _) = plan,
-               outcome == .notInserted,
-               !model.isPresented,
-               model.text == text {
-                self?.reopenAfterFailedInsertion()
+            if case .insert(let text, _) = plan {
+                let recovery = Self.recovery(for: outcome, isPresented: model.isPresented, isTextRestored: model.text == text)
+                switch recovery {
+                case .none: break
+                case .reopen: self?.reopenAfterFailedInsertion()
+                case .rejectTarget: self?.rejectTargetAfterUnconfirmedInsertion()
+                }
+                if recovery != .none, let message = Self.notice(for: outcome, shouldSendAfterInsert: shouldSendAfterInsert) {
+                    self?.onNotice(message)
+                }
             }
         }
     }
@@ -107,5 +114,41 @@ final class PanelCommitFlow {
         onReopen()
         targetMonitor.rejectCurrentField()
         model.signalNoTarget()
+    }
+
+    private func rejectTargetAfterUnconfirmedInsertion() {
+        targetMonitor.rejectCurrentField()
+        model.signalNoTarget()
+    }
+
+    /// 確定+送信で文章が入ったのを確かめられなかったときの文。
+    static let notConfirmedSentMessage = String(localized: "送信できませんでした")
+    /// 確定+挿入で文章が入ったのを確かめられなかったときの文。
+    static let notConfirmedInsertedMessage = String(localized: "挿入できませんでした")
+
+    /// 挿入の結果に応じて、パネルで知らせる文。知らせないなら nil。
+    static func notice(for outcome: CommitOutcome, shouldSendAfterInsert: Bool) -> String? {
+        guard outcome == .notConfirmed else { return nil }
+        return shouldSendAfterInsert ? notConfirmedSentMessage : notConfirmedInsertedMessage
+    }
+
+    /// 確定の後に、パネルをどう戻すか。
+    enum FailureRecovery: Equatable {
+        case none
+        case reopen
+        case rejectTarget
+    }
+
+    /// 確定の結果・パネルが開いているか・確定した文章が本文に戻ったかから、パネルの戻し方を決める。
+    static func recovery(for outcome: CommitOutcome, isPresented: Bool, isTextRestored: Bool) -> FailureRecovery {
+        guard isTextRestored else { return .none }
+        switch outcome {
+        case .inserted, .insertedIntoSecureField:
+            return .none
+        case .notInserted:
+            return isPresented ? .none : .reopen
+        case .notConfirmed:
+            return isPresented ? .rejectTarget : .reopen
+        }
     }
 }

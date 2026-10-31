@@ -271,7 +271,7 @@ struct DraftSaveEvent: Equatable {
             resetModeForNewDraft()
             guard outcome.recordsHistory, !target.isOwnApp(ownProcessIdentifier) else { return }
             library.recordInsertion(text: text, appName: target.localizedName, bundleIdentifier: target.bundleIdentifier)
-        case .notInserted:
+        case .notInserted, .notConfirmed:
             guard let inserting, panel.text == inserting.text else { return }
             switch inserting.document {
             case .savedDraft(let id):
