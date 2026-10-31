@@ -38,377 +38,188 @@ struct SettingsStore {
 
     let defaults: any SettingsStorage
 
-    // MARK: - 確定+挿入キー・確定+送信キー(新しい保存形式)
+    // MARK: - 定義による読み書き
 
-    func loadCommitShortcut() -> PanelShortcut? {
-        loadShortcut(forKey: Key.commitShortcut, legacyKey: Key.commitKey, fallback: commitShortcutFallback())
+    /// 定義に従って値を読む。無い・読めない値は定義の初期値。
+    func value<Value>(_ definition: SettingDefinition<Value>) -> Value { definition.read(defaults) }
+
+    /// 定義に従って、値を直してから保存する。
+    func set<Value>(_ value: Value, for definition: SettingDefinition<Value>) {
+        definition.write(definition.normalized(value), defaults)
     }
 
-    func saveCommitShortcut(_ shortcut: PanelShortcut?) {
-        saveShortcut(shortcut, forKey: Key.commitShortcut)
+    /// オブジェクトのプロパティを定義に従って直し、直した値が違えば書き戻してから保存する。
+    func persist<Root: AnyObject, Value>(
+        _ keyPath: ReferenceWritableKeyPath<Root, Value>, of object: Root, as definition: SettingDefinition<Value>
+    ) {
+        let normalized = definition.normalized(object[keyPath: keyPath])
+        if normalized != object[keyPath: keyPath] {
+            object[keyPath: keyPath] = normalized
+        }
+        set(object[keyPath: keyPath], for: definition)
     }
 
-    func loadCommitAndSendShortcut() -> PanelShortcut? {
-        loadShortcut(
-            forKey: Key.commitAndSendShortcut,
-            legacyKey: Key.commitAndSendKey,
-            fallback: commitAndSendShortcutFallback()
-        )
-    }
+    // MARK: - 確定+挿入キー・確定+送信キー
+
+    func loadCommitShortcut() -> PanelShortcut? { value(SettingDefinitions.commitKey) }
+
+    func saveCommitShortcut(_ shortcut: PanelShortcut?) { set(shortcut, for: SettingDefinitions.commitKey) }
+
+    func loadCommitAndSendShortcut() -> PanelShortcut? { value(SettingDefinitions.commitAndSendKey) }
 
     func saveCommitAndSendShortcut(_ shortcut: PanelShortcut?) {
-        saveShortcut(shortcut, forKey: Key.commitAndSendShortcut)
-    }
-
-    private func loadShortcut(forKey key: String, legacyKey: String, fallback: PanelShortcut?) -> PanelShortcut? {
-        if let stored = defaults.object(forKey: key) {
-            guard let array = stored as? [Any] else { return fallback }
-            return array.isEmpty ? nil : (PanelShortcut(storedValue: array) ?? fallback)
-        }
-        if let legacy = defaults.string(forKey: legacyKey) {
-            guard let actionKey = PanelActionKey(rawValue: legacy) else { return fallback }
-            return actionKey.shortcut
-        }
-        return fallback
-    }
-
-    private func saveShortcut(_ shortcut: PanelShortcut?, forKey key: String) {
-        defaults.set(shortcut?.storedValue ?? [], forKey: key)
-    }
-
-    private var hasLegacyActionKeys: Bool {
-        defaults.object(forKey: Key.commitKey) != nil || defaults.object(forKey: Key.commitAndSendKey) != nil
-    }
-
-    private func commitShortcutFallback() -> PanelShortcut? {
-        hasLegacyActionKeys ? PanelShortcut.legacyDefaultCommitKey : PanelShortcut.defaultCommitKey
-    }
-
-    private func commitAndSendShortcutFallback() -> PanelShortcut? {
-        hasLegacyActionKeys ? PanelShortcut.legacyDefaultCommitAndSendKey : PanelShortcut.defaultCommitAndSendKey
+        set(shortcut, for: SettingDefinitions.commitAndSendKey)
     }
 
     // MARK: - モード
 
-    func loadNewDraftMode() -> DraftMode {
-        loadStringEnum(DraftMode.self, forKey: Key.newDraftMode) ?? .insert
-    }
+    func loadNewDraftMode() -> DraftMode { value(SettingDefinitions.newDraftMode) }
 
-    func saveNewDraftMode(_ mode: DraftMode) {
-        saveStringEnum(mode, forKey: Key.newDraftMode)
-    }
+    func saveNewDraftMode(_ mode: DraftMode) { set(mode, for: SettingDefinitions.newDraftMode) }
 
-    func loadPanelScreen() -> PanelScreen {
-        loadStringEnum(PanelScreen.self, forKey: Key.panelScreen) ?? .defaultValue
-    }
+    func loadPanelScreen() -> PanelScreen { value(SettingDefinitions.panelScreen) }
 
-    func savePanelScreen(_ panelScreen: PanelScreen) {
-        saveStringEnum(panelScreen, forKey: Key.panelScreen)
-    }
+    func savePanelScreen(_ panelScreen: PanelScreen) { set(panelScreen, for: SettingDefinitions.panelScreen) }
 
-    func loadAutoShowMode() -> AutoShowMode {
-        loadStringEnum(AutoShowMode.self, forKey: Key.autoShowMode) ?? .defaultValue
-    }
+    func loadAutoShowMode() -> AutoShowMode { value(SettingDefinitions.autoShowMode) }
 
-    func saveAutoShowMode(_ mode: AutoShowMode) {
-        saveStringEnum(mode, forKey: Key.autoShowMode)
-    }
+    func saveAutoShowMode(_ mode: AutoShowMode) { set(mode, for: SettingDefinitions.autoShowMode) }
 
-    func loadAutoShowApps() -> [AutoShowApp] {
-        guard let data = defaults.data(forKey: Key.autoShowApps) else { return [] }
-        let apps = (try? JSONDecoder().decode([AutoShowApp].self, from: data)) ?? []
-        return AutoShowApp.normalized(apps)
-    }
+    func loadAutoShowApps() -> [AutoShowApp] { value(SettingDefinitions.autoShowApps) }
 
-    func saveAutoShowApps(_ apps: [AutoShowApp]) {
-        guard let data = try? JSONEncoder().encode(AutoShowApp.normalized(apps)) else { return }
-        defaults.set(data, forKey: Key.autoShowApps)
-    }
+    func saveAutoShowApps(_ apps: [AutoShowApp]) { set(apps, for: SettingDefinitions.autoShowApps) }
 
     // MARK: - テーマ
 
-    func loadAppTheme() -> AppTheme {
-        loadStringEnum(AppTheme.self, forKey: Key.appTheme) ?? .defaultValue
-    }
+    func loadAppTheme() -> AppTheme { value(SettingDefinitions.theme) }
 
-    func saveAppTheme(_ theme: AppTheme) {
-        saveStringEnum(theme, forKey: Key.appTheme)
-    }
+    func saveAppTheme(_ theme: AppTheme) { set(theme, for: SettingDefinitions.theme) }
 
     // MARK: - パネルの文字と透明度
 
-    func loadPanelFontName() -> String? {
-        loadNonEmptyString(forKey: Key.panelFontName)
-    }
+    func loadPanelFontName() -> String? { value(SettingDefinitions.panelFontName) }
 
-    func savePanelFontName(_ name: String?) {
-        saveNonEmptyString(name, forKey: Key.panelFontName)
-    }
+    func savePanelFontName(_ name: String?) { set(name, for: SettingDefinitions.panelFontName) }
 
     /// パネルの入力欄のフォントのファミリー名を読む。無い・空・文字列でない値は `nil`。
-    func loadPanelFontFamilyName() -> String? {
-        loadNonEmptyString(forKey: Key.panelFontFamilyName)
-    }
+    func loadPanelFontFamilyName() -> String? { value(SettingDefinitions.panelFontFamilyName) }
 
     /// パネルの入力欄のフォントのファミリー名を保存する。`nil`・空文字ならキーを消す。
-    func savePanelFontFamilyName(_ name: String?) {
-        saveNonEmptyString(name, forKey: Key.panelFontFamilyName)
-    }
+    func savePanelFontFamilyName(_ name: String?) { set(name, for: SettingDefinitions.panelFontFamilyName) }
 
-    func loadPanelFontSize() -> Double {
-        loadClampedNumber(
-            forKey: Key.panelFontSize,
-            defaultValue: PanelTextStyle.defaultFontSize,
-            clamp: PanelTextStyle.clampedFontSize
-        )
-    }
+    func loadPanelFontSize() -> Double { value(SettingDefinitions.panelFontSize) }
 
-    func savePanelFontSize(_ size: Double) {
-        defaults.set(PanelTextStyle.clampedFontSize(size), forKey: Key.panelFontSize)
-    }
+    func savePanelFontSize(_ size: Double) { set(size, for: SettingDefinitions.panelFontSize) }
 
-    func loadPanelOpacity() -> Double {
-        loadClampedNumber(
-            forKey: Key.panelOpacity,
-            defaultValue: PanelTextStyle.defaultOpacity,
-            clamp: PanelTextStyle.clampedOpacity
-        )
-    }
+    func loadPanelOpacity() -> Double { value(SettingDefinitions.panelOpacity) }
 
-    func savePanelOpacity(_ opacity: Double) {
-        defaults.set(PanelTextStyle.clampedOpacity(opacity), forKey: Key.panelOpacity)
-    }
+    func savePanelOpacity(_ opacity: Double) { set(opacity, for: SettingDefinitions.panelOpacity) }
 
     // MARK: - 帯の項目
 
-    func loadHiddenPanelStatusItems() -> Set<PanelStatusItem> {
-        guard let values = defaults.array(forKey: Key.hiddenPanelStatusItems) else { return [] }
-        return Set(values.compactMap { ($0 as? String).flatMap(PanelStatusItem.init(rawValue:)) })
-    }
+    func loadHiddenPanelStatusItems() -> Set<PanelStatusItem> { value(SettingDefinitions.hiddenPanelStatusItems) }
 
     func saveHiddenPanelStatusItems(_ items: Set<PanelStatusItem>) {
-        let rawValues = PanelStatusItem.allCases.filter { items.contains($0) }.map(\.rawValue)
-        defaults.set(rawValues, forKey: Key.hiddenPanelStatusItems)
+        set(items, for: SettingDefinitions.hiddenPanelStatusItems)
     }
 
     // MARK: - メニューバーのアイコン
 
-    func loadHidesMenuBarIcon() -> Bool {
-        boolean(forKey: Key.hidesMenuBarIcon) ?? false
-    }
+    func loadHidesMenuBarIcon() -> Bool { !value(SettingDefinitions.isMenuBarIconShown) }
 
-    func saveHidesMenuBarIcon(_ hides: Bool) {
-        defaults.set(hides, forKey: Key.hidesMenuBarIcon)
-    }
+    func saveHidesMenuBarIcon(_ hides: Bool) { set(!hides, for: SettingDefinitions.isMenuBarIconShown) }
 
     // MARK: - アニメーション
 
-    func loadAnimationMode() -> AnimationMode {
-        loadStringEnum(AnimationMode.self, forKey: Key.animationMode) ?? .defaultValue
-    }
+    func loadAnimationMode() -> AnimationMode { value(SettingDefinitions.animationMode) }
 
-    func saveAnimationMode(_ mode: AnimationMode) {
-        saveStringEnum(mode, forKey: Key.animationMode)
-    }
+    func saveAnimationMode(_ mode: AnimationMode) { set(mode, for: SettingDefinitions.animationMode) }
 
     // MARK: - 挿入先の枠線
 
-    func loadIsInsertionTargetOutlineShown() -> Bool {
-        boolean(forKey: Key.insertionTargetOutlineShown) ?? true
-    }
+    func loadIsInsertionTargetOutlineShown() -> Bool { value(SettingDefinitions.isInsertionTargetOutlineShown) }
 
     func saveIsInsertionTargetOutlineShown(_ isShown: Bool) {
-        defaults.set(isShown, forKey: Key.insertionTargetOutlineShown)
+        set(isShown, for: SettingDefinitions.isInsertionTargetOutlineShown)
     }
 
     // MARK: - Dock のアイコン
 
-    func loadShowsDockIcon() -> Bool {
-        boolean(forKey: Key.showsDockIcon) ?? true
-    }
+    func loadShowsDockIcon() -> Bool { value(SettingDefinitions.showsDockIcon) }
 
-    func saveShowsDockIcon(_ shows: Bool) {
-        defaults.set(shows, forKey: Key.showsDockIcon)
-    }
+    func saveShowsDockIcon(_ shows: Bool) { set(shows, for: SettingDefinitions.showsDockIcon) }
 
     // MARK: - 終了の確かめ
 
-    func loadConfirmsQuit() -> Bool {
-        boolean(forKey: Key.confirmsQuit) ?? true
-    }
+    func loadConfirmsQuit() -> Bool { value(SettingDefinitions.confirmsQuit) }
 
-    func saveConfirmsQuit(_ confirms: Bool) {
-        defaults.set(confirms, forKey: Key.confirmsQuit)
-    }
+    func saveConfirmsQuit(_ confirms: Bool) { set(confirms, for: SettingDefinitions.confirmsQuit) }
 
     // MARK: - アップデート
 
-    func loadChecksForUpdatesAutomatically() -> Bool {
-        boolean(forKey: Key.checksForUpdatesAutomatically) ?? true
-    }
+    func loadChecksForUpdatesAutomatically() -> Bool { value(SettingDefinitions.checksForUpdatesAutomatically) }
 
     func saveChecksForUpdatesAutomatically(_ checks: Bool) {
-        defaults.set(checks, forKey: Key.checksForUpdatesAutomatically)
+        set(checks, for: SettingDefinitions.checksForUpdatesAutomatically)
     }
 
     /// 前回アップデートを確かめた日時を読む。無い・数値でない・有限でない値は nil。
-    func loadLastUpdateCheckDate() -> Date? {
-        guard let seconds = number(forKey: Key.lastUpdateCheckDate)?.doubleValue, seconds.isFinite else { return nil }
-        return Date(timeIntervalSince1970: seconds)
-    }
+    func loadLastUpdateCheckDate() -> Date? { value(SettingDefinitions.lastUpdateCheckDate) }
 
-    func saveLastUpdateCheckDate(_ date: Date?) {
-        guard let date, date.timeIntervalSince1970.isFinite else {
-            defaults.removeObject(forKey: Key.lastUpdateCheckDate)
-            return
-        }
-        defaults.set(date.timeIntervalSince1970, forKey: Key.lastUpdateCheckDate)
-    }
+    func saveLastUpdateCheckDate(_ date: Date?) { set(date, for: SettingDefinitions.lastUpdateCheckDate) }
 
-    func loadSuppressesMoveToApplicationsPrompt() -> Bool {
-        boolean(forKey: Key.suppressesMoveToApplicationsPrompt) ?? false
-    }
+    func loadSuppressesMoveToApplicationsPrompt() -> Bool { value(SettingDefinitions.suppressesMoveToApplicationsPrompt) }
 
     func saveSuppressesMoveToApplicationsPrompt(_ suppresses: Bool) {
-        defaults.set(suppresses, forKey: Key.suppressesMoveToApplicationsPrompt)
+        set(suppresses, for: SettingDefinitions.suppressesMoveToApplicationsPrompt)
     }
 
     // MARK: - 書き出し
 
     /// 前回書き出したフォルダのパスを読む。無い・文字列でない・空文字は nil。
-    func loadLastExportDirectoryPath() -> String? {
-        loadNonEmptyString(forKey: Key.lastExportDirectory)
-    }
+    func loadLastExportDirectoryPath() -> String? { value(SettingDefinitions.lastExportDirectoryPath) }
 
-    func saveLastExportDirectoryPath(_ path: String?) {
-        saveNonEmptyString(path, forKey: Key.lastExportDirectory)
-    }
+    func saveLastExportDirectoryPath(_ path: String?) { set(path, for: SettingDefinitions.lastExportDirectoryPath) }
 
     // MARK: - 初回起動のチュートリアル
 
-    func loadHasShownFirstLaunchTutorial() -> Bool {
-        boolean(forKey: Key.hasShownFirstLaunchTutorial) ?? false
-    }
+    func loadHasShownFirstLaunchTutorial() -> Bool { value(SettingDefinitions.hasShownFirstLaunchTutorial) }
 
     func saveHasShownFirstLaunchTutorial(_ shown: Bool) {
-        defaults.set(shown, forKey: Key.hasShownFirstLaunchTutorial)
+        set(shown, for: SettingDefinitions.hasShownFirstLaunchTutorial)
     }
 
     // MARK: - サイドバー
 
-    func loadSidebarIsOpen() -> Bool {
-        boolean(forKey: Key.sidebarIsOpen) ?? false
-    }
+    func loadSidebarIsOpen() -> Bool { value(SettingDefinitions.isSidebarOpen) }
 
-    func saveSidebarIsOpen(_ isOpen: Bool) {
-        defaults.set(isOpen, forKey: Key.sidebarIsOpen)
-    }
+    func saveSidebarIsOpen(_ isOpen: Bool) { set(isOpen, for: SettingDefinitions.isSidebarOpen) }
 
-    func loadSidebarTab() -> SidebarTab {
-        loadStringEnum(SidebarTab.self, forKey: Key.sidebarTab) ?? .drafts
-    }
+    func loadSidebarTab() -> SidebarTab { value(SettingDefinitions.sidebarTab) }
 
-    func saveSidebarTab(_ tab: SidebarTab) {
-        saveStringEnum(tab, forKey: Key.sidebarTab)
-    }
+    func saveSidebarTab(_ tab: SidebarTab) { set(tab, for: SettingDefinitions.sidebarTab) }
 
     // MARK: - 履歴の上限
 
     /// 履歴に残す件数の上限を読む。数値でない・無い・有限でない値は初期値、範囲外は端に丸める。
-    func loadHistoryLimit() -> Int {
-        guard let value = number(forKey: Key.historyLimit)?.doubleValue, value.isFinite else {
-            return HistoryLimit.defaultValue
-        }
-        let lower = Double(HistoryLimit.range.lowerBound)
-        let upper = Double(HistoryLimit.range.upperBound)
-        return Int(min(max(value, lower), upper))
-    }
+    func loadHistoryLimit() -> Int { value(SettingDefinitions.historyLimit) }
 
-    func saveHistoryLimit(_ limit: Int) {
-        defaults.set(HistoryLimit.clamped(limit), forKey: Key.historyLimit)
-    }
+    func saveHistoryLimit(_ limit: Int) { set(limit, for: SettingDefinitions.historyLimit) }
 
     // MARK: - 履歴を残す期間
 
     /// 履歴を残す期間を読む。無い・文字列でない・知らない値は無期限。
-    func loadHistoryRetention() -> HistoryRetention {
-        loadStringEnum(HistoryRetention.self, forKey: Key.historyRetention) ?? .defaultValue
-    }
+    func loadHistoryRetention() -> HistoryRetention { value(SettingDefinitions.historyRetention) }
 
-    func saveHistoryRetention(_ retention: HistoryRetention) {
-        saveStringEnum(retention, forKey: Key.historyRetention)
-    }
+    func saveHistoryRetention(_ retention: HistoryRetention) { set(retention, for: SettingDefinitions.historyRetention) }
 
     // MARK: - パネルの既定の大きさ
 
-    func loadPanelDefaultWidth() -> Double {
-        loadPanelDefaultLength(
-            forKey: Key.panelDefaultWidth,
-            in: PanelMetrics.defaultWidthRange,
-            defaultValue: Double(PanelMetrics.defaultSize.width)
-        )
-    }
+    func loadPanelDefaultWidth() -> Double { value(SettingDefinitions.panelDefaultWidth) }
 
-    func savePanelDefaultWidth(_ width: Double) {
-        defaults.set(PanelMetrics.clampedDefaultWidth(width), forKey: Key.panelDefaultWidth)
-    }
+    func savePanelDefaultWidth(_ width: Double) { set(width, for: SettingDefinitions.panelDefaultWidth) }
 
-    func loadPanelDefaultHeight() -> Double {
-        loadPanelDefaultLength(
-            forKey: Key.panelDefaultHeight,
-            in: PanelMetrics.defaultHeightRange,
-            defaultValue: Double(PanelMetrics.defaultSize.height)
-        )
-    }
+    func loadPanelDefaultHeight() -> Double { value(SettingDefinitions.panelDefaultHeight) }
 
-    func savePanelDefaultHeight(_ height: Double) {
-        defaults.set(PanelMetrics.clampedDefaultHeight(height), forKey: Key.panelDefaultHeight)
-    }
-
-    private func loadPanelDefaultLength(forKey key: String, in range: ClosedRange<Double>, defaultValue: Double) -> Double {
-        guard let value = number(forKey: key)?.doubleValue, range.contains(value) else { return defaultValue }
-        return value
-    }
-
-    // MARK: - 型で読み分ける
-
-    private func loadStringEnum<T: RawRepresentable>(_ type: T.Type, forKey key: String) -> T? where T.RawValue == String {
-        defaults.string(forKey: key).flatMap(T.init(rawValue:))
-    }
-
-    private func saveStringEnum<T: RawRepresentable>(_ value: T, forKey key: String) where T.RawValue == String {
-        defaults.set(value.rawValue, forKey: key)
-    }
-
-    private func loadNonEmptyString(forKey key: String) -> String? {
-        guard let value = defaults.object(forKey: key) as? String, !value.isEmpty else { return nil }
-        return value
-    }
-
-    private func saveNonEmptyString(_ value: String?, forKey key: String) {
-        if let value, !value.isEmpty {
-            defaults.set(value, forKey: key)
-        } else {
-            defaults.removeObject(forKey: key)
-        }
-    }
-
-    private func loadClampedNumber(forKey key: String, defaultValue: Double, clamp: (Double) -> Double) -> Double {
-        guard let stored = number(forKey: key) else { return defaultValue }
-        return clamp(stored.doubleValue)
-    }
-
-    private func number(forKey key: String) -> NSNumber? {
-        guard let value = defaults.object(forKey: key) as? NSNumber,
-              CFGetTypeID(value) != CFBooleanGetTypeID()
-        else { return nil }
-        return value
-    }
-
-    private func boolean(forKey key: String) -> Bool? {
-        guard let value = defaults.object(forKey: key) as? NSNumber,
-              CFGetTypeID(value) == CFBooleanGetTypeID()
-        else { return nil }
-        return value.boolValue
-    }
+    func savePanelDefaultHeight(_ height: Double) { set(height, for: SettingDefinitions.panelDefaultHeight) }
 }
