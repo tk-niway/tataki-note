@@ -351,7 +351,7 @@ struct AppLaunchContextTests {
         }
     }
 
-    @Test("AC-21: DEBUG のビルドは、TATAKINOTE_UPDATE_OVERRIDE=available のときだけ新しい版ありの偽物、それ以外は何もしない仕組み")
+    @Test("AC-21: DEBUG のビルドは、TATAKINOTE_UPDATE_OVERRIDE=available のときだけ新しいバージョンありの偽物、それ以外は何もしない仕組み")
     func updaterKindInDebugBuild() {
         #expect(AppLaunchContext.updaterKind(environment: [:], isDebugBuild: true) == .inert)
         #expect(AppLaunchContext.updaterKind(environment: [Self.updateOverride: "available"], isDebugBuild: true) == .preview)

@@ -43,7 +43,6 @@ struct AppInfoSettingsView: View {
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("settings.appInfo.version")
-            SettingDescription(text: "かっこの中はビルド番号です。")
         }
         .frame(maxWidth: .infinity)
     }

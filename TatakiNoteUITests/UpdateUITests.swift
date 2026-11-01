@@ -19,7 +19,7 @@ final class UpdateUITests: XCTestCase {
         launch(app)
 
         openMenu(in: app)
-        let updateItem = menuItem(in: app, identifier: "menu.updateAvailable", title: "新しい版があります(9.9.9)")
+        let updateItem = menuItem(in: app, identifier: "menu.updateAvailable", title: "新しいバージョンがあります(9.9.9)")
         // AC-7
         XCTAssertTrue(updateItem.waitForExistence(timeout: timeout))
         let checkItem = menuItem(in: app, identifier: "menu.checkForUpdates", title: "アップデートを確認…")
@@ -62,7 +62,7 @@ final class UpdateUITests: XCTestCase {
         XCTAssertTrue(reopenedCheckItem.waitForExistence(timeout: timeout))
         // AC-7
         XCTAssertFalse(app.menuItems["menu.updateAvailable"].exists)
-        XCTAssertFalse(app.menuItems["新しい版があります(9.9.9)"].exists)
+        XCTAssertFalse(app.menuItems["新しいバージョンがあります(9.9.9)"].exists)
         app.typeKey(.escape, modifierFlags: [])
     }
 

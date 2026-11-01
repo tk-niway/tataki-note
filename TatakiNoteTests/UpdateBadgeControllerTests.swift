@@ -26,7 +26,7 @@ struct UpdateBadgeControllerTests {
         try await body(model, badge, log, settings)
     }
 
-    @Test("AC-9: 始めたときに今の状態を当てる。新しい版が無ければ印は付けない")
+    @Test("AC-9: 始めたときに今の状態を当てる。新しいバージョンが無ければ印は付けない")
     func startAppliesNoBadgeWhenNothingPending() async throws {
         try await withBadge { _, badge, log, _ in
             badge.start()
@@ -35,7 +35,7 @@ struct UpdateBadgeControllerTests {
         }
     }
 
-    @Test("AC-9: 新しい版が見つかると印が付き、見たら消える")
+    @Test("AC-9: 新しいバージョンが見つかると印が付き、見たら消える")
     func badgeFollowsPendingUpdate() async throws {
         try await withBadge { model, badge, log, _ in
             badge.start()
@@ -49,7 +49,7 @@ struct UpdateBadgeControllerTests {
         }
     }
 
-    @Test("AC-9: 新しい版があるまま始めると、最初から印が付く")
+    @Test("AC-9: 新しいバージョンがあるまま始めると、最初から印が付く")
     func startAppliesBadgeWhenAlreadyPending() async throws {
         try await withBadge { model, badge, log, _ in
             model.handle(.foundInBackground(version: "1.3.0"))
@@ -60,7 +60,7 @@ struct UpdateBadgeControllerTests {
         }
     }
 
-    @Test("AC-9: 新しい版の有無が変わらない出来事では付け直さない")
+    @Test("AC-9: 新しいバージョンの有無が変わらない出来事では付け直さない")
     func unrelatedEventsDoNotReapply() async throws {
         try await withBadge { model, badge, log, _ in
             badge.start()
