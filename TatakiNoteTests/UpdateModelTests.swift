@@ -168,7 +168,7 @@ struct UpdateModelTests {
         #expect(fixture.temporary.makeSettings().lastUpdateCheckDate == fixture.clock.date)
     }
 
-    @Test("AC-5: 新しい版を見つけたときも、確認が済んだ日時を記録する")
+    @Test("AC-5: 新しいバージョンを見つけたときも、確認が済んだ日時を記録する")
     func foundUpdateRecordsDate() throws {
         let fixture = try Fixture()
         defer { fixture.remove() }
@@ -223,7 +223,7 @@ struct UpdateModelTests {
         #expect(updater.backgroundCheckCount == 1)
     }
 
-    @Test("AC-6: 裏の確認で新しい版が見つかると、版の番号つきで「新しい版あり」になる")
+    @Test("AC-6: 裏の確認で新しいバージョンが見つかると、版の番号つきで「新しいバージョンあり」になる")
     func foundInBackgroundSetsPendingVersion() throws {
         let fixture = try Fixture()
         defer { fixture.remove() }
@@ -235,8 +235,8 @@ struct UpdateModelTests {
 
         #expect(fixture.model.pendingVersion == "1.3.0")
         #expect(fixture.model.isUpdatePending)
-        #expect(fixture.model.menuTitleForPendingUpdate == "新しい版があります(1.3.0)")
-        #expect(fixture.model.settingsStatusText == "新しい版 1.3.0 があります")
+        #expect(fixture.model.menuTitleForPendingUpdate == "新しいバージョンがあります(1.3.0)")
+        #expect(fixture.model.settingsStatusText == "新しいバージョン 1.3.0 があります")
         #expect(fixture.model.badgedSettingsSections == [.appInfo])
     }
 
@@ -260,7 +260,7 @@ struct UpdateModelTests {
         #expect(UpdatePresentation.supportsGentleReminders == true)
     }
 
-    @Test("AC-6: 新しい版を見つけても、見つけただけでは手の確認(窓)を始めない")
+    @Test("AC-6: 新しいバージョンを見つけても、見つけただけでは手の確認(窓)を始めない")
     func foundInBackgroundDoesNotOpenWindow() throws {
         let fixture = try Fixture()
         defer { fixture.remove() }
@@ -295,7 +295,7 @@ struct UpdateModelTests {
         #expect(fixture.updater.backgroundCheckCount == 0)
     }
 
-    @Test("AC-7: メニューの新しい版の項目は、新しい版があるときだけ「新しい版があります(<版>)」になる")
+    @Test("AC-7: メニューの新しいバージョンの項目は、新しいバージョンがあるときだけ「新しいバージョンがあります(<バージョン>)」になる")
     func menuTitleAppearsOnlyWhenUpdateIsPending() throws {
         let fixture = try Fixture()
         defer { fixture.remove() }
@@ -303,13 +303,13 @@ struct UpdateModelTests {
         #expect(fixture.model.menuTitleForPendingUpdate == nil)
 
         fixture.updater.send(.foundInBackground(version: "9.9.9"))
-        #expect(fixture.model.menuTitleForPendingUpdate == "新しい版があります(9.9.9)")
+        #expect(fixture.model.menuTitleForPendingUpdate == "新しいバージョンがあります(9.9.9)")
 
         fixture.updater.send(.userAttended)
         #expect(fixture.model.menuTitleForPendingUpdate == nil)
     }
 
-    @Test("AC-7: 新しい版の項目を押しても、変更点の窓を出す前は項目が残り、押すたびに呼び出しが行われる")
+    @Test("AC-7: 新しいバージョンの項目を押しても、変更点の窓を出す前は項目が残り、押すたびに呼び出しが行われる")
     func showPendingUpdateKeepsItemUntilAttended() throws {
         let fixture = try Fixture()
         defer { fixture.remove() }
@@ -319,10 +319,10 @@ struct UpdateModelTests {
         fixture.model.showPendingUpdate()
 
         #expect(fixture.updater.userCheckCount == 2)
-        #expect(fixture.model.menuTitleForPendingUpdate == "新しい版があります(1.3.0)")
+        #expect(fixture.model.menuTitleForPendingUpdate == "新しいバージョンがあります(1.3.0)")
     }
 
-    @Test("AC-7: 新しい版の項目を押すと、変更点の窓を出す呼び出しが1回行われる")
+    @Test("AC-7: 新しいバージョンの項目を押すと、変更点の窓を出す呼び出しが1回行われる")
     func showPendingUpdateCallsUser() throws {
         let fixture = try Fixture()
         defer { fixture.remove() }
@@ -333,7 +333,7 @@ struct UpdateModelTests {
         #expect(fixture.updater.userCheckCount == 1)
     }
 
-    @Test("AC-9: Dock のアイコンの印は、新しい版があるときだけ付く")
+    @Test("AC-9: Dock のアイコンの印は、新しいバージョンがあるときだけ付く")
     func dockBadgeLabel() {
         #expect(UpdatePresentation.dockBadgeLabel(isUpdatePending: true) == "1")
         #expect(UpdatePresentation.dockBadgeLabel(isUpdatePending: false) == nil)

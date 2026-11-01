@@ -72,16 +72,16 @@ struct DistributionDocsTests {
 
         #expect(info.contains("「アップデートを自動で確認」"))
         #expect(info.contains("「アップデートを確認…」"))
-        #expect(info.contains("説明文は「1日に1回、新しい版があるかを確かめます。」です"))
+        #expect(info.contains("説明文は「1日に1回、新しいバージョンがあるかを確かめます。」です"))
     }
 
-    @Test("AC-27: パネルのページの「メニューバーのメニュー」の表に、新しい版の項目と「アップデートを確認…」がある")
+    @Test("AC-27: パネルのページの「メニューバーのメニュー」の表に、新しいバージョンの項目と「アップデートを確認…」がある")
     func panelPageMenuTableListsUpdateItems() throws {
         let panel = try read("docs/features/panel.md")
         let menu = try section(titled: "メニューバーのメニュー", in: panel)
         let rows = menu.split(whereSeparator: \.isNewline).filter { $0.hasPrefix("|") }
 
-        #expect(rows.contains { $0.contains("「新しい版があります(<版>)」") })
+        #expect(rows.contains { $0.contains("「新しいバージョンがあります(<バージョン>)」") })
         #expect(rows.contains { $0.contains("「アップデートを確認…」") })
     }
 

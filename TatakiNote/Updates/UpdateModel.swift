@@ -8,7 +8,7 @@ enum UpdatePresentation {
     /// 控えめな知らせを使うか。
     static let supportsGentleReminders = true
 
-    /// Dock のアイコンに付ける文字。新しい版があれば "1"、無ければ nil。
+    /// Dock のアイコンに付ける文字。新しいバージョンがあれば "1"、無ければ nil。
     static func dockBadgeLabel(isUpdatePending: Bool) -> String? {
         isUpdatePending ? "1" : nil
     }
@@ -21,7 +21,7 @@ enum UpdatePresentation {
     private(set) var canCheckForUpdates: Bool
     private(set) var isOnline = false
 
-    /// 利用者がまだ見ていない新しい版があるか。
+    /// 利用者がまだ見ていない新しいバージョンがあるか。
     var isUpdatePending: Bool { pendingVersion != nil }
 
     /// 自動で確かめるか。オンにしたらその場で判定する。
@@ -38,14 +38,14 @@ enum UpdatePresentation {
         isUpdatePending ? [.appInfo] : []
     }
 
-    /// メニューバーのメニューに出す新しい版の項目の題。無ければ nil。
+    /// メニューバーのメニューに出す新しいバージョンの項目の題。無ければ nil。
     var menuTitleForPendingUpdate: String? {
-        pendingVersion.map { String(localized: "新しい版があります(\($0))") }
+        pendingVersion.map { String(localized: "新しいバージョンがあります(\($0))") }
     }
 
-    /// 設定の「情報」に出す新しい版の説明。無ければ nil。
+    /// 設定の「情報」に出す新しいバージョンの説明。無ければ nil。
     var settingsStatusText: String? {
-        pendingVersion.map { String(localized: "新しい版 \($0) があります") }
+        pendingVersion.map { String(localized: "新しいバージョン \($0) があります") }
     }
 
     /// 更新の入れ替えで開き直す直前に呼ぶ。
@@ -107,7 +107,7 @@ enum UpdatePresentation {
         if shouldCheck { updater.checkInBackground() }
     }
 
-    /// 見つけた新しい版の窓を出す。
+    /// 見つけた新しいバージョンの窓を出す。
     func showPendingUpdate() {
         updater.checkByUser()
     }

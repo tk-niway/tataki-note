@@ -25,7 +25,7 @@ struct SettingsSidebar: View {
                                 .padding(.trailing, 10)
                                 .allowsHitTesting(false)
                                 .accessibilityElement()
-                                .accessibilityLabel("新しい版があります")
+                                .accessibilityLabel("新しいバージョンがあります")
                                 .accessibilityIdentifier("settings.sidebar.updateBadge")
                         }
                     }

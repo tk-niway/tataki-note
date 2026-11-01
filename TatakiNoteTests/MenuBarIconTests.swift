@@ -32,7 +32,7 @@ struct MenuBarIconTests {
         try #require(rep.colorAt(x: x, y: y)).alphaComponent
     }
 
-    @Test("AC-8: 新しい版が無いときは、テンプレートで18ptのふだんの画像になる")
+    @Test("AC-8: 新しいバージョンが無いときは、テンプレートで18ptのふだんの画像になる")
     func plainImage() throws {
         let image = MenuBarIcon.image(isUpdatePending: false)
 
@@ -40,7 +40,7 @@ struct MenuBarIconTests {
         #expect(image.size == NSSize(width: 18, height: 18))
     }
 
-    @Test("AC-8: 新しい版があるときは、テンプレートでふだんと同じ大きさの印の付いた画像になる")
+    @Test("AC-8: 新しいバージョンがあるときは、テンプレートでふだんと同じ大きさの印の付いた画像になる")
     func badgedImageIsTemplateWithSameSize() throws {
         let plain = MenuBarIcon.image(isUpdatePending: false)
         let badged = MenuBarIcon.image(isUpdatePending: true)

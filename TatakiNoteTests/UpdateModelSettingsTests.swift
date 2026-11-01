@@ -4,7 +4,7 @@ import Testing
 
 @MainActor
 struct UpdateModelSettingsTests {
-    @Test("AC-10: 新しい版が無いとき、設定の印も状態の文言も無い")
+    @Test("AC-10: 新しいバージョンが無いとき、設定の印も状態の文言も無い")
     func noBadgeWithoutPendingUpdate() throws {
         let temporary = try TemporaryDefaults()
         defer { temporary.remove() }
@@ -15,7 +15,7 @@ struct UpdateModelSettingsTests {
         #expect(model.settingsStatusText == nil)
     }
 
-    @Test("AC-10: 新しい版があるとき、「情報」に印が付き、状態の文言に版が入る")
+    @Test("AC-10: 新しいバージョンがあるとき、「情報」に印が付き、状態の文言に版が入る")
     func badgeAndStatusTextForPendingUpdate() throws {
         let temporary = try TemporaryDefaults()
         defer { temporary.remove() }
@@ -25,7 +25,7 @@ struct UpdateModelSettingsTests {
         updater.send(.foundInBackground(version: "9.9.9"))
 
         #expect(model.badgedSettingsSections == [.appInfo])
-        #expect(model.settingsStatusText == "新しい版 9.9.9 があります")
+        #expect(model.settingsStatusText == "新しいバージョン 9.9.9 があります")
     }
 
     @Test("AC-10: 「詳しく見る…」で変更点の窓を出す処理を呼び、窓を見たら印と文言が消える")
@@ -56,12 +56,12 @@ struct UpdateModelSettingsTests {
         model.isAutomaticCheckEnabled = false
 
         #expect(model.badgedSettingsSections == [.appInfo])
-        #expect(model.settingsStatusText == "新しい版 1.3.0 があります")
+        #expect(model.settingsStatusText == "新しいバージョン 1.3.0 があります")
     }
 
-    @Test("AC-10: 自動の確認の説明文は、1日に1回新しい版を確かめることだけを伝える")
+    @Test("AC-10: 自動の確認の説明文は、1日に1回新しいバージョンを確かめることだけを伝える")
     func automaticCheckHelpTextOnlyDescribesDailyCheck() {
-        #expect(SettingsHelpText.automaticUpdateCheck == "1日に1回、新しい版があるかを確かめます。")
+        #expect(SettingsHelpText.automaticUpdateCheck == "1日に1回、新しいバージョンがあるかを確かめます。")
     }
 
     @Test("AC-12: 更新の仕組みの「確認できるか」が、画面に出す値に写る")
