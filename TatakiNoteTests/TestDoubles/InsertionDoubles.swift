@@ -7,13 +7,20 @@ final class InserterStub: TextInserting {
     var result: InsertionResult
     var onInsert: (() -> Void)?
     private(set) var calls: [(text: String, target: InsertionTarget, shouldSendAfterInsert: Bool)] = []
+    private(set) var expectedFields: [AXUIElement?] = []
 
     init(result: InsertionResult) {
         self.result = result
     }
 
-    func insert(_ text: String, into target: InsertionTarget, shouldSendAfterInsert: Bool) async -> InsertionResult {
+    func insert(
+        _ text: String,
+        into target: InsertionTarget,
+        expectedField: AXUIElement?,
+        shouldSendAfterInsert: Bool
+    ) async -> InsertionResult {
         calls.append((text, target, shouldSendAfterInsert))
+        expectedFields.append(expectedField)
         onInsert?()
         return result
     }
@@ -72,7 +79,10 @@ final class FocusInspectorStub: FocusedTextInputInspecting {
     var onInspect: (() -> Void)?
     var values: [String?] = []
     var onReadValue: (() -> Void)?
+    var focusedElements: [AXUIElement?] = []
+    var onReadFocusedElement: (() -> Void)?
     private(set) var valueReadCount = 0
+    private(set) var focusedElementReadCount = 0
     private(set) var targets: [InsertionTarget] = []
 
     init(state: FocusedTextInputState, isSecureTextField: Bool = false) {
@@ -96,6 +106,14 @@ final class FocusInspectorStub: FocusedTextInputInspecting {
         onReadValue?()
         guard !values.isEmpty else { return nil }
         return values[min(index, values.count - 1)]
+    }
+
+    func focusedElement(in target: InsertionTarget) -> AXUIElement? {
+        let index = focusedElementReadCount
+        focusedElementReadCount += 1
+        onReadFocusedElement?()
+        guard !focusedElements.isEmpty else { return nil }
+        return focusedElements[min(index, focusedElements.count - 1)]
     }
 }
 

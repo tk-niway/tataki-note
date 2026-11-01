@@ -35,7 +35,11 @@ final class CommitPerformer {
     }
 
     @discardableResult
-    func perform(_ plan: CommitPlan, shouldSendAfterInsert: Bool = false) async -> CommitOutcome {
+    func perform(
+        _ plan: CommitPlan,
+        expectedField: AXUIElement? = nil,
+        shouldSendAfterInsert: Bool = false
+    ) async -> CommitOutcome {
         switch plan {
         case .emptyText:
             break
@@ -48,12 +52,17 @@ final class CommitPerformer {
         case .noTarget:
             break
         case .insert(let text, let target):
-            switch await inserter.insert(text, into: target, shouldSendAfterInsert: shouldSendAfterInsert) {
+            switch await inserter.insert(
+                text,
+                into: target,
+                expectedField: expectedField,
+                shouldSendAfterInsert: shouldSendAfterInsert
+            ) {
             case .inserted:
                 return .inserted
             case .insertedIntoSecureField:
                 return .insertedIntoSecureField
-            case .targetNotActivated, .noTextInput:
+            case .targetNotActivated, .noTextInput, .focusMoved:
                 model.restoreDraft(text)
             case .pasteNotConfirmed:
                 model.restoreDraft(text)
