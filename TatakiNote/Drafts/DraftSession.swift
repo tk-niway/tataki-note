@@ -100,6 +100,11 @@ struct DraftSaveEvent: Equatable {
         mode = mode.toggled
     }
 
+    /// 今の書きかけをノートにする。ノートなら何もしない。
+    func switchToNote() {
+        mode = .note
+    }
+
     /// 今の書きかけをインサートにする。インサートなら何もしない。
     func switchToInsert() {
         mode = .insert

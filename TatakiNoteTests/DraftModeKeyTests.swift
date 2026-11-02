@@ -321,6 +321,39 @@ struct DraftModeKeyTests {
 
     // MARK: - 「ノート」のボタン
 
+    @Test("AC-1: インサートの書きかけで、ノートにする操作をボタンから行うと、ノートになり、本文・挿入先は変えず、パネルは開いたまま")
+    func switchToNoteFromButtonLeavesInsert() async throws {
+        try await withFixture(mode: .insert) { fixture in
+            fixture.controller.open()
+            fixture.model.text = "hello"
+            let target = fixture.model.target
+            #expect(fixture.session.mode == .insert)
+
+            fixture.controller.switchToNoteFromButton()
+
+            #expect(fixture.session.mode == .note)
+            #expect(fixture.model.text == "hello")
+            #expect(fixture.model.target == target)
+            #expect(fixture.model.isPresented)
+        }
+    }
+
+    @Test("AC-2: ノートの書きかけでノートにする操作を呼んでも、ノートのまま。インサートには戻らず、本文・挿入先も変わらない")
+    func switchToNoteFromButtonKeepsNote() async throws {
+        try await withFixture(mode: .note) { fixture in
+            fixture.controller.open()
+            fixture.model.text = "hello"
+            let target = fixture.model.target
+
+            fixture.controller.switchToNoteFromButton()
+
+            #expect(fixture.session.mode == .note)
+            #expect(fixture.model.text == "hello")
+            #expect(fixture.model.target == target)
+            #expect(fixture.model.isPresented)
+        }
+    }
+
     @Test("AC-29: タイトルバーの「ノート」の処理は、ノートの書きかけをインサートにし、本文・挿入先は変えず、パネルは開いたまま")
     func switchToInsertFromButtonLeavesNote() async throws {
         try await withFixture(mode: .note) { fixture in

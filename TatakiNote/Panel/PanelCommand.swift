@@ -1,3 +1,5 @@
+import Foundation
+
 /// パネルの操作。キーでもボタンでも、`PanelController.perform(_:from:)` に渡す。
 enum PanelCommand: Equatable, CaseIterable {
     case close
@@ -7,6 +9,7 @@ enum PanelCommand: Equatable, CaseIterable {
     case saveDraft
     case newDraft
     case toggleMode
+    case switchToNote
     case switchToInsert
     case toggleSidebar
     case openSettings
@@ -29,7 +32,7 @@ extension PanelCommand {
             case .key: return true
             case .button: return mode == .insert
             }
-        case .close, .openSearch, .saveDraft, .newDraft, .toggleMode, .switchToInsert,
+        case .close, .openSearch, .saveDraft, .newDraft, .toggleMode, .switchToNote, .switchToInsert,
              .toggleSidebar, .openSettings, .exportToFile, .share:
             return true
         }
@@ -42,7 +45,7 @@ extension PanelCommand {
             return true
         case .close, .commit, .commitAndSend, .saveDraft, .newDraft, .share:
             return source == .button
-        case .openSearch, .toggleMode, .switchToInsert, .toggleSidebar, .exportToFile:
+        case .openSearch, .toggleMode, .switchToNote, .switchToInsert, .toggleSidebar, .exportToFile:
             return false
         }
     }
@@ -52,7 +55,7 @@ extension PanelCommand {
         switch self {
         case .saveDraft:
             return source == .button
-        case .close, .commit, .commitAndSend, .openSearch, .newDraft, .toggleMode, .switchToInsert,
+        case .close, .commit, .commitAndSend, .openSearch, .newDraft, .toggleMode, .switchToNote, .switchToInsert,
              .toggleSidebar, .openSettings, .exportToFile, .share:
             return false
         }
@@ -85,6 +88,24 @@ extension PanelStatusItem {
         case .commit: return .commit
         case .commitAndSend: return .commitAndSend
         case .close, .lineBreak, .characterCount, .lineCount: return nil
+        }
+    }
+}
+
+extension DraftMode {
+    /// タイトルバーの右端の表示を押したときの操作。
+    var titleBarTrailingCommand: PanelCommand {
+        switch self {
+        case .insert: return .switchToNote
+        case .note: return .switchToInsert
+        }
+    }
+
+    /// タイトルバーの右端の表示の、押したときに起きることの読み上げ。
+    var titleBarTrailingAccessibilityHint: String {
+        switch self {
+        case .insert: return String(localized: "押すとノートに切り替わります")
+        case .note: return String(localized: "押すとインサートに戻ります")
         }
     }
 }

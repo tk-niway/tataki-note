@@ -427,6 +427,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         case .saveDraft: saveDraftOrSignalEmpty()
         case .newDraft: requestNewScratch()
         case .toggleMode: session.toggleMode()
+        case .switchToNote: session.switchToNote()
         case .switchToInsert: session.switchToInsert()
         case .toggleSidebar: toggleSidebarAndMoveFocus()
         case .openSettings: onOpenSettings?()
