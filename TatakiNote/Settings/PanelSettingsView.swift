@@ -5,6 +5,7 @@ struct PanelSettingsView: View {
     @Bindable var settings: AppSettings
     @Bindable var model: EditorSettingsModel
     @Bindable var panelDefaultSize: PanelDefaultSizeModel
+    @Bindable var pointerModel: PanelPointerSettingsModel
     let onShowFontPanel: () -> Void
 
     var body: some View {
@@ -12,6 +13,7 @@ struct PanelSettingsView: View {
             screenGroup
             fontAndOpacityGroup
             defaultSizeGroup
+            pointerGroup
             statusItemsGroup
             outlineGroup
         }
@@ -164,6 +166,60 @@ struct PanelSettingsView: View {
         }
     }
 
+    // MARK: - 修飾キーで移動・サイズ変更
+
+    private var pointerGroup: some View {
+        SettingsGroup(
+            title: "修飾キーで移動・サイズ変更",
+            footer: PanelPointerSettingsModel.groupFooter,
+            identifier: "settings.group.pointerModifiers"
+        ) {
+            SettingsCard {
+                ForEach(PanelPointerAction.allCases, id: \.self) { action in
+                    pointerRow(action)
+                }
+            }
+            .id(pointerModel.rejectionCount)
+        }
+    }
+
+    private func pointerRow(_ action: PanelPointerAction) -> some View {
+        PanelSettingsRowContainer {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(verbatim: PanelPointerSettingsModel.title(for: action))
+                        .font(.system(size: 13, weight: .medium))
+                    if pointerModel.isDisabled(action) {
+                        let disabledText = PanelPointerSettingsModel.disabledText
+                        SettingDescription(disabledText)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(disabledText)
+                            .accessibilityIdentifier("settings.pointerModifierDisabled.\(action.rawValue)")
+                    }
+                    if let message = pointerModel.rejectionMessage(for: action) {
+                        SettingErrorNote(
+                            message,
+                            identifier: "settings.pointerModifierRejected.\(action.rawValue)"
+                        )
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 10) {
+                    ForEach(PanelPointerModifier.allCases, id: \.self) { modifier in
+                        Toggle(isOn: pointerBinding(modifier, for: action)) {
+                            Text(verbatim: modifier.symbol)
+                                .font(.system(size: 13))
+                        }
+                        .toggleStyle(.checkbox)
+                        .accessibilityLabel(modifier.accessibilityName)
+                        .accessibilityIdentifier("settings.pointerModifier.\(action.rawValue).\(modifier.rawValue)")
+                    }
+                }
+                .fixedSize()
+            }
+        }
+    }
+
     // MARK: - 帯に出す項目
 
     private var statusItemsGroup: some View {
@@ -227,6 +283,13 @@ struct PanelSettingsView: View {
         switch note {
         case .keyNotAssigned: String(localized: "キーを登録していないあいだは帯に出ません")
         }
+    }
+
+    private func pointerBinding(_ modifier: PanelPointerModifier, for action: PanelPointerAction) -> Binding<Bool> {
+        Binding(
+            get: { pointerModel.isOn(modifier, for: action) },
+            set: { pointerModel.setModifier(modifier, isOn: $0, for: action) }
+        )
     }
 
     private func statusItemBinding(_ item: PanelStatusItem) -> Binding<Bool> {
