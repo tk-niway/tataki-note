@@ -255,4 +255,6 @@ private struct DefaultInspectorStub: FocusedTextInputInspecting {
     func focusedTextInputState(in target: InsertionTarget) -> FocusedTextInputState {
         state
     }
+
+    func focusedElement(in target: InsertionTarget) -> AXUIElement? { nil }
 }

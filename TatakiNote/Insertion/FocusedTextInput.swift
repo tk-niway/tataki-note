@@ -78,6 +78,8 @@ protocol FocusedTextInputInspecting {
     func inspectFocusedInput(in target: InsertionTarget) -> FocusedInputInspection
     /// フォーカスのある要素の中身の文字列。読めなければ nil。
     func focusedTextValue(in target: InsertionTarget) -> String?
+    /// フォーカスのある要素。読めなければ nil。
+    func focusedElement(in target: InsertionTarget) -> AXUIElement?
 }
 
 extension FocusedTextInputInspecting {
@@ -99,6 +101,12 @@ nonisolated struct FocusedElementProbe: @unchecked Sendable {
             return subrole
         }
         return nil
+    }
+
+    /// 2つの要素が同じ要素か。どちらかが nil なら偽。
+    nonisolated static func isSameElement(_ lhs: AXUIElement?, _ rhs: AXUIElement?) -> Bool {
+        guard let lhs, let rhs else { return false }
+        return CFEqual(lhs, rhs)
     }
 }
 
@@ -137,6 +145,19 @@ struct AXFocusedTextInputInspector: FocusedTextInputInspecting, FocusedElementPr
             return nil
         }
         return value as? String
+    }
+
+    func focusedElement(in target: InsertionTarget) -> AXUIElement? {
+        let app = AXUIElementCreateApplication(target.processIdentifier)
+        AXUIElementSetMessagingTimeout(app, Self.messagingTimeout)
+
+        var focusedValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &focusedValue) == .success,
+              let focusedValue, CFGetTypeID(focusedValue) == AXUIElementGetTypeID()
+        else {
+            return nil
+        }
+        return unsafeDowncast(focusedValue, to: AXUIElement.self)
     }
 
     func focusedTextInputState(in target: InsertionTarget) -> FocusedTextInputState {

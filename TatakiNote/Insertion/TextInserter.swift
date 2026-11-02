@@ -6,10 +6,23 @@ enum InsertionResult: Equatable {
     case targetNotActivated
     case noTextInput
     case pasteNotConfirmed
+    case focusMoved
 }
 
 protocol TextInserting {
-    func insert(_ text: String, into target: InsertionTarget, shouldSendAfterInsert: Bool) async -> InsertionResult
+    func insert(
+        _ text: String,
+        into target: InsertionTarget,
+        expectedField: AXUIElement?,
+        shouldSendAfterInsert: Bool
+    ) async -> InsertionResult
+}
+
+extension TextInserting {
+    /// 入力欄を確かめずに挿入する。
+    func insert(_ text: String, into target: InsertionTarget, shouldSendAfterInsert: Bool) async -> InsertionResult {
+        await insert(text, into: target, expectedField: nil, shouldSendAfterInsert: shouldSendAfterInsert)
+    }
 }
 
 protocol ApplicationActivating {
@@ -242,19 +255,36 @@ final class ClipboardTextInserter: TextInserting {
         self.frontmostApp = frontmostApp
     }
 
-    func insert(_ text: String, into target: InsertionTarget, shouldSendAfterInsert: Bool) async -> InsertionResult {
+    func insert(
+        _ text: String,
+        into target: InsertionTarget,
+        expectedField: AXUIElement?,
+        shouldSendAfterInsert: Bool
+    ) async -> InsertionResult {
         let previous = tail
         let task = Task {
             _ = await previous?.value
-            return await self.performInsertion(text, into: target, shouldSendAfterInsert: shouldSendAfterInsert)
+            return await self.performInsertion(
+                text,
+                into: target,
+                expectedField: expectedField,
+                shouldSendAfterInsert: shouldSendAfterInsert
+            )
         }
         tail = task
         return await task.value
     }
 
+    /// 貼り付けの直前に、フォーカスが挿入先として選ばれていた入力欄から移っているか。入力欄を指定していなければ偽。
+    static func hasFocusMoved(expectedField: AXUIElement?, focusedElement: AXUIElement?) -> Bool {
+        guard let expectedField else { return false }
+        return !FocusedElementProbe.isSameElement(focusedElement, expectedField)
+    }
+
     private func performInsertion(
         _ text: String,
         into target: InsertionTarget,
+        expectedField: AXUIElement?,
         shouldSendAfterInsert: Bool
     ) async -> InsertionResult {
         guard await activator.activate(target) else {
@@ -265,6 +295,11 @@ final class ClipboardTextInserter: TextInserting {
         try? await Task.sleep(for: settleDelay)
 
         let isOwnTarget = target.isOwnApp(ownProcessIdentifier)
+        if !isOwnTarget, expectedField != nil,
+           Self.hasFocusMoved(expectedField: expectedField, focusedElement: focusInspector.focusedElement(in: target)) {
+            _ = await capturing.value
+            return .focusMoved
+        }
         let inspection = isOwnTarget ? nil : focusInspector.inspectFocusedInput(in: target)
         if let inspection, inspection.state != .textInput {
             _ = await capturing.value
