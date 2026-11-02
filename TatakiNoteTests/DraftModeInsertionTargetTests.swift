@@ -212,6 +212,42 @@ struct DraftModeInsertionTargetTests {
         #expect(fixture.inserter.calls.first?.target == other)
     }
 
+    @Test("AC-4: 押してノートにした後も、挿入先を調べ続け、クリックで別のアプリの入力欄を選び直せ、インサートに戻すとその挿入先に挿入できる")
+    func switchToNoteFromButtonKeepsTrackingAndInsertsAfterReturning() async throws {
+        let fixture = try InsertionTargetFixture(newDraftMode: .insert)
+        defer { fixture.finish() }
+        fixture.controller.open()
+        fixture.controller.model.text = "abc"
+        #expect(fixture.controller.model.target == editor)
+
+        fixture.controller.switchToNoteFromButton()
+        #expect(fixture.session.mode == .note)
+        #expect(fixture.clicks.activeCount == 1)
+        #expect(fixture.controller.model.target == editor)
+
+        fixture.probe.results[other.processIdentifier] = FocusedElementProbe(
+            element: InsertionTargetFixture.otherElement,
+            lookup: WatcherFixture.textFieldLookup,
+            frame: InsertionTargetFixture.otherFieldRect
+        )
+        fixture.events.frontmost = other
+        fixture.events.mouse = CGPoint(x: 500, y: 480)
+        fixture.clicks.fire()
+
+        #expect(fixture.controller.model.target == other)
+        #expect(fixture.monitor?.outline.rect == InsertionTargetFixture.otherFieldRect)
+        #expect(fixture.session.mode == .note)
+
+        fixture.controller.switchToInsertFromButton()
+        #expect(fixture.session.mode == .insert)
+        #expect(fixture.controller.model.target == other)
+
+        fixture.controller.commit()
+        #expect(try await waitUntil(attempts: 100, interval: .milliseconds(10)) { !fixture.inserter.calls.isEmpty })
+        #expect(fixture.inserter.calls.first?.text == "abc")
+        #expect(fixture.inserter.calls.first?.target == other)
+    }
+
     @Test("AC-19: ノートの書きかけでも、最初の挿入先に、インサートへ切り替えた後でそのまま挿入できる")
     func noteDraftInsertsIntoOpeningTargetAfterSwitchingToInsert() async throws {
         let fixture = try InsertionTargetFixture(newDraftMode: .note)

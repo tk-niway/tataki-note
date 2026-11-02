@@ -1,44 +1,62 @@
 import AppKit
 import SwiftUI
 
-/// タイトルバーの右端に出す、挿入先のアプリの表示。挿入先が無いときは「挿入先なし」を出す。
+/// タイトルバーの右端に出す、挿入先のアプリの表示。挿入先が無いときは「挿入先なし」を出す。押すとノートに切り替える。
 struct InsertionTargetView: View {
     let target: InsertionTarget?
     let noTargetAlertCount: Int
     let isPending: Bool
     let appIcon: @MainActor (InsertionTarget) -> NSImage
+    let onSwitchToNote: () -> Void
 
     @Environment(\.isAppAnimationReduced) private var reduceMotion
-    @State private var isHovering = false
 
     private static let iconSize: CGFloat = 16
-    private static let noTargetTipWidth: CGFloat = 260
+    private static let hitInset: CGFloat = 4
+    private static let hitHeight: CGFloat = 22
 
     init(
         target: InsertionTarget?,
         noTargetAlertCount: Int = 0,
         isPending: Bool = false,
-        appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = InsertionTargetBadge.systemIcon(for:)
+        appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = InsertionTargetBadge.systemIcon(for:),
+        onSwitchToNote: @escaping () -> Void = {}
     ) {
         self.target = target
         self.noTargetAlertCount = noTargetAlertCount
         self.isPending = isPending
         self.appIcon = appIcon
+        self.onSwitchToNote = onSwitchToNote
     }
 
     var body: some View {
         let display = InsertionTargetBadge.display(target: target, isPending: isPending)
+        Button(action: onSwitchToNote) {
+            content(for: display)
+                .padding(.horizontal, Self.hitInset)
+                .frame(height: Self.hitHeight)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(InsertionTargetButtonStyle())
+        .focusable(false)
+        .padding(.horizontal, -Self.hitInset)
+        .accessibilityLabel(display.accessibilityLabel)
+        .accessibilityHint(DraftMode.insert.titleBarTrailingAccessibilityHint)
+        .accessibilityIdentifier(display.accessibilityIdentifier)
+    }
+
+    @ViewBuilder
+    private func content(for display: InsertionTargetDisplay) -> some View {
         switch display {
         case .target(let badge):
             targetBody(badge)
         case .pending, .noTarget:
             noTargetBody
                 .opacity(display.isNoTargetLabelVisible ? 1 : 0)
-                .accessibilityHidden(!display.isNoTargetLabelVisible)
-                .allowsHitTesting(display.isNoTargetLabelVisible)
                 .overlay(alignment: .trailing) {
                     if display == .pending {
-                        pendingIndicator
+                        ProgressView()
+                            .controlSize(.mini)
                     }
                 }
         }
@@ -57,29 +75,7 @@ struct InsertionTargetView: View {
                     RoundedRectangle(cornerRadius: 5)
                         .fill(Color.primary.opacity(0.14))
                 )
-                .contentShape(Rectangle())
-                .onHover { isHovering = $0 }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(badge.accessibilityLabel)
-        .accessibilityIdentifier("promptPanel.insertionTarget")
-        .overlay(alignment: .bottomTrailing) {
-            if isHovering {
-                tip(badge.tipText)
-                    .alignmentGuide(.bottom) { $0[.top] - 8 }
-            }
-        }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: isHovering)
-    }
-
-    // MARK: - 待ち
-
-    private var pendingIndicator: some View {
-        ProgressView()
-            .controlSize(.mini)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(InsertionTargetBadge.pendingAccessibilityLabel)
-            .accessibilityIdentifier("promptPanel.insertionTargetPending")
     }
 
     // MARK: - 挿入先なし
@@ -112,51 +108,23 @@ struct InsertionTargetView: View {
                     MoveKeyframe(0)
                 }
             }
-            .contentShape(Rectangle())
-            .onHover { isHovering = $0 }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(InsertionTargetBadge.noTargetLabel)
-            .accessibilityIdentifier("promptPanel.noInsertionTarget")
-            .overlay(alignment: .bottomTrailing) {
-                if isHovering {
-                    wrappedTip(InsertionTargetBadge.noTargetTipText)
-                        .alignmentGuide(.bottom) { $0[.top] - 8 }
-                }
+    }
+}
+
+private struct InsertionTargetButtonStyle: ButtonStyle {
+    @State private var isHovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.primary.opacity(backgroundOpacity(isPressed: configuration.isPressed)))
             }
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: isHovering)
+            .onHover { isHovering = $0 }
     }
 
-    // MARK: - チップ
-
-    private func tip(_ text: String) -> some View {
-        tipChrome(Text(verbatim: text).fixedSize())
-    }
-
-    private func wrappedTip(_ text: String) -> some View {
-        tipChrome(
-            Text(verbatim: text)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(width: Self.noTargetTipWidth, alignment: .leading)
-        )
-    }
-
-    private func tipChrome<Content: View>(_ content: Content) -> some View {
-        content
-            .font(.system(size: 11))
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                RoundedRectangle(cornerRadius: 5)
-                    .fill(Color(nsColor: .windowBackgroundColor))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 5)
-                    .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
-            )
-            .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
-            .allowsHitTesting(false)
-            .accessibilityIdentifier("promptPanel.insertionTargetTip")
-            .transition(.opacity)
+    private func backgroundOpacity(isPressed: Bool) -> Double {
+        if isPressed { return 0.24 }
+        return isHovering ? 0.14 : 0
     }
 }

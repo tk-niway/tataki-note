@@ -60,7 +60,8 @@ struct PanelTitleBar: View {
                     target: target,
                     noTargetAlertCount: noTargetAlertCount,
                     isPending: isTargetPending,
-                    appIcon: appIcon
+                    appIcon: appIcon,
+                    onSwitchToNote: { onCommand(DraftMode.insert.titleBarTrailingCommand) }
                 )
                     .padding(.leading, 10)
             case .note:
@@ -144,7 +145,7 @@ struct PanelTitleBar: View {
     }
 
     private var noteModeButton: some View {
-        Button(action: { onCommand(.switchToInsert) }) {
+        Button(action: { onCommand(DraftMode.note.titleBarTrailingCommand) }) {
             Text(DraftMode.note.displayName)
                 .font(.system(size: 11, weight: .medium))
                 .padding(.horizontal, 8)
@@ -153,9 +154,8 @@ struct PanelTitleBar: View {
         }
         .buttonStyle(NoteModeButtonStyle())
         .focusable(false)
-        .help("インサートに戻す(⌘E)")
-        .accessibilityLabel("ノート")
-        .accessibilityHint("押すとインサートに戻ります")
+        .accessibilityLabel(DraftMode.note.displayName)
+        .accessibilityHint(DraftMode.note.titleBarTrailingAccessibilityHint)
         .accessibilityIdentifier("promptPanel.noteModeButton")
     }
 

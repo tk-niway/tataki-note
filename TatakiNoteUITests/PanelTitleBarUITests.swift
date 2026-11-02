@@ -45,7 +45,7 @@ final class PanelTitleBarUITests: PanelDraftsUITestCase {
 
     // AC-45
     @MainActor
-    func testAC45_insertionTargetShowsTipOnHover() throws {
+    func testAC45_insertionTargetSitsRightOfSaveIcon() throws {
         let app = try launchApp(showsTutorial: true)
         XCTAssertTrue(app.windows["tutorial"].waitForExistence(timeout: timeout), "チュートリアルの窓が開かない")
         let field = element(in: app, identifier: "tutorial.practiceField")
@@ -59,15 +59,5 @@ final class PanelTitleBarUITests: PanelDraftsUITestCase {
         XCTAssertTrue(save.waitForExistence(timeout: timeout))
         XCTAssertGreaterThan(badge.frame.midX, panel.frame.midX, "挿入先の表示が窓の右側にない")
         XCTAssertGreaterThanOrEqual(badge.frame.minX, save.frame.maxX - tolerance, "挿入先の表示が保存のアイコンより左にある")
-        let tip = element(in: app, identifier: "promptPanel.insertionTargetTip")
-        XCTAssertFalse(tip.exists, "マウスを乗せる前にチップが出ている")
-
-        badge.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).hover()
-        XCTAssertTrue(tip.waitForExistence(timeout: timeout), "アイコンにマウスを乗せてもチップが出ない")
-        let tipText = [tip.label, tip.value as? String ?? ""].joined(separator: " ")
-        XCTAssertTrue(tipText.contains("TatakiNote に挿入します"), "チップの文が違う: \(tipText)")
-
-        textView(in: app).hover()
-        XCTAssertTrue(tip.waitForNonExistence(timeout: timeout), "マウスを外してもチップが消えない")
     }
 }

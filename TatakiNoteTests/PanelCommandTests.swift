@@ -39,6 +39,33 @@ struct PanelCommandTests {
         }
     }
 
+    @Test("AC-3: 右端を押したときの操作は、インサートではノートにする操作、ノートではインサートにする操作")
+    func titleBarTrailingCommandSwitchesToOtherMode() {
+        #expect(DraftMode.insert.titleBarTrailingCommand == .switchToNote)
+        #expect(DraftMode.note.titleBarTrailingCommand == .switchToInsert)
+    }
+
+    @Test("AC-3: 右端を押したときの読み上げは、インサートではノートに切り替わる、ノートではインサートに戻ると伝える")
+    func titleBarTrailingHintDescribesResult() {
+        #expect(DraftMode.insert.titleBarTrailingAccessibilityHint == "押すとノートに切り替わります")
+        #expect(DraftMode.note.titleBarTrailingAccessibilityHint == "押すとインサートに戻ります")
+    }
+
+    @Test("AC-8: 右端の読み上げのヒントはモードごとに決まった文で、「ノート」のボタンのラベルの元は「ノート」")
+    func titleBarTrailingTexts() {
+        #expect(DraftMode.insert.titleBarTrailingAccessibilityHint == "押すとノートに切り替わります")
+        #expect(DraftMode.note.titleBarTrailingAccessibilityHint == "押すとインサートに戻ります")
+        #expect(DraftMode.note.displayName == "ノート")
+    }
+
+    @Test("AC-3: ノートにする操作は、どのモード・呼び出し元でも行われ、変換中の文字を先に確定せず、入力欄へのフォーカスも頼まない",
+          arguments: DraftMode.allCases, PanelCommandSource.allCases)
+    func switchToNoteIsAlwaysAvailableWithoutSideEffects(mode: DraftMode, source: PanelCommandSource) {
+        #expect(PanelCommand.switchToNote.isAvailable(in: mode, from: source))
+        #expect(PanelCommand.switchToNote.commitsMarkedTextFirst(from: source) == false)
+        #expect(PanelCommand.switchToNote.requestsEditorFocusAfterward(from: source) == false)
+    }
+
     @Test("AC-8: キーで選ばれた操作は、esc が閉じる・ほかは同じ名前の操作に対応し、改行を入れる・通すは操作にならない")
     func keyActionMapsToCommand() {
         #expect(PanelKeyAction.cancel.command == .close)

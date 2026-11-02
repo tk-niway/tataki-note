@@ -6,8 +6,9 @@ final class DraftModePanelUITests: PanelDraftsUITestCase {
 
     // AC-17
     // AC-12
+    // AC-11
     @MainActor
-    func testAC17_AC12_titleBarFollowsDraftMode() throws {
+    func testAC17_AC12_AC11_titleBarFollowsDraftMode() throws {
         let app = try launchApp()
         let panel = openPanel(in: app)
         let save = app.buttons["promptPanel.saveDraftButton"]
@@ -40,6 +41,17 @@ final class DraftModePanelUITests: PanelDraftsUITestCase {
         XCTAssertTrue(noteButton.waitForNonExistence(timeout: timeout), "⌘E でインサートに戻らない")
         XCTAssertTrue(waitUntil { self.hasInsertionTarget(in: app) })
 
+        let targetElement = try XCTUnwrap(insertionTargetElement(in: app), "挿入先の表示が見つからない")
+        targetElement.click()
+        XCTAssertTrue(noteButton.waitForExistence(timeout: timeout), "挿入先の表示のクリックでノートにならない")
+        XCTAssertTrue(waitUntil { !self.hasInsertionTarget(in: app) }, "ノートにしても挿入先の表示が残っている")
+        XCTAssertTrue(element(in: app, identifier: "promptPanel.status.commit").waitForNonExistence(timeout: timeout))
+
+        noteButton.click()
+        XCTAssertTrue(noteButton.waitForNonExistence(timeout: timeout), "「ノート」のクリックでインサートに戻らない")
+        XCTAssertTrue(waitUntil { self.hasInsertionTarget(in: app) }, "インサートに戻っても挿入先の表示が出ない")
+        XCTAssertTrue(element(in: app, identifier: "promptPanel.status.commit").waitForExistence(timeout: timeout))
+
         app.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(textView(in: app).waitForNonExistence(timeout: timeout))
     }
@@ -68,6 +80,13 @@ final class DraftModePanelUITests: PanelDraftsUITestCase {
 
     @MainActor
     private func hasInsertionTarget(in app: XCUIApplication) -> Bool {
-        targetIDs.contains { element(in: app, identifier: $0).exists }
+        insertionTargetElement(in: app) != nil
+    }
+
+    @MainActor
+    private func insertionTargetElement(in app: XCUIApplication) -> XCUIElement? {
+        targetIDs
+            .map { element(in: app, identifier: $0) }
+            .first { $0.exists }
     }
 }

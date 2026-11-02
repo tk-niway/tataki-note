@@ -22,13 +22,30 @@ extension InsertionTargetDisplay {
     var isNoTargetLabelVisible: Bool {
         self == .noTarget
     }
+
+    /// 読み上げのラベル。
+    var accessibilityLabel: String {
+        switch self {
+        case .pending: InsertionTargetBadge.pendingAccessibilityLabel
+        case .target(let badge): badge.accessibilityLabel
+        case .noTarget: InsertionTargetBadge.noTargetLabel
+        }
+    }
+
+    /// アクセシビリティの識別子。
+    var accessibilityIdentifier: String {
+        switch self {
+        case .pending: "promptPanel.insertionTargetPending"
+        case .target: "promptPanel.insertionTarget"
+        case .noTarget: "promptPanel.noInsertionTarget"
+        }
+    }
 }
 
 /// タイトルバーに出す挿入先の表示の中身。
 struct InsertionTargetBadge: Equatable {
     static let label = String(localized: "挿入先")
     static let noTargetLabel = String(localized: "挿入先なし")
-    static let noTargetTipText = String(localized: "このまま確定しても挿入しません。入れたい入力欄をクリックすると、そこが挿入先になります")
     static let pendingAccessibilityLabel = String(localized: "挿入先を調べています")
 
     let target: InsertionTarget
@@ -48,14 +65,6 @@ struct InsertionTargetBadge: Equatable {
     /// 「挿入先なし」の合図で、横にずらす量を順に並べたもの。動きを使わないときはすべて 0。
     static func noTargetShakeOffsets(isAnimationEnabled: Bool) -> [CGFloat] {
         isAnimationEnabled ? [-4, 4, -4, 4, -2, 0] : [0, 0, 0, 0, 0, 0]
-    }
-
-    /// アイコンにマウスを乗せたときのチップの文。
-    var tipText: String {
-        if let name = appName {
-            return String(localized: "\(name) に挿入します")
-        }
-        return String(localized: "パネルを開いたときに使っていたアプリに挿入します")
     }
 
     var accessibilityLabel: String {
