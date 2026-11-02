@@ -24,7 +24,8 @@ enum PanelControllerFactory {
         exportChooser: ExportDestinationChoosing? = nil,
         writeTextFile: @escaping (String, URL) throws -> Void = TextFileWriter.write,
         sharer: TextSharing? = nil,
-        presentExportFailure: @escaping (String, NSWindow?, @escaping () -> Void) -> Void = { _, _, completion in completion() }
+        presentExportFailure: @escaping (String, NSWindow?, @escaping () -> Void) -> Void = { _, _, completion in completion() },
+        pointerEventMonitor: PanelPointerEventMonitoring? = nil
     ) -> PanelController {
         let probe = probe ?? FocusedElementProbeStub()
         return PanelController(
@@ -49,7 +50,8 @@ enum PanelControllerFactory {
             exportChooser: exportChooser ?? ExportChooserSpy(),
             writeTextFile: writeTextFile,
             sharer: sharer ?? SharerSpy(),
-            presentExportFailure: presentExportFailure
+            presentExportFailure: presentExportFailure,
+            pointerEventMonitor: pointerEventMonitor ?? PanelPointerEventMonitorSpy()
         )
     }
 }

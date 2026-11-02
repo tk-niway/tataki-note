@@ -102,6 +102,26 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertFalse(element(in: app, identifier: statusItemNoteID("commitAndSend")).exists)
         XCTAssertFalse(element(in: app, identifier: statusItemNoteID("characterCount")).exists)
 
+        // AC-3
+        let resizeOption = element(in: app, identifier: pointerModifierID("resize", "option"))
+        app.revealInSettings(resizeOption)
+        XCTAssertTrue(isChecked(resizeOption))
+        resizeOption.click()
+        XCTAssertTrue(waitUntil { !self.isChecked(self.element(in: app, identifier: self.pointerModifierID("resize", "option"))) })
+
+        let resizeCommand = element(in: app, identifier: pointerModifierID("resize", "command"))
+        app.revealInSettings(resizeCommand)
+        resizeCommand.click()
+        let rejected = element(in: app, identifier: pointerModifierRejectedID("resize"))
+        XCTAssertTrue(rejected.waitForExistence(timeout: timeout), "同じ組み合わせを拒んだ理由が出ない")
+        XCTAssertFalse(isChecked(element(in: app, identifier: pointerModifierID("resize", "command"))))
+
+        let resizeControl = element(in: app, identifier: pointerModifierID("resize", "control"))
+        app.revealInSettings(resizeControl)
+        resizeControl.click()
+        XCTAssertTrue(waitUntil { self.isChecked(self.element(in: app, identifier: self.pointerModifierID("resize", "control"))) })
+        XCTAssertTrue(rejected.waitForNonExistence(timeout: timeout), "受け付けた後も理由が残る")
+
         closeSettings(in: app)
     }
 
@@ -298,6 +318,14 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
 
     private func statusItemNoteID(_ rawValue: String) -> String {
         "settings.statusItemNote.\(rawValue)"
+    }
+
+    private func pointerModifierID(_ action: String, _ modifier: String) -> String {
+        "settings.pointerModifier.\(action).\(modifier)"
+    }
+
+    private func pointerModifierRejectedID(_ action: String) -> String {
+        "settings.pointerModifierRejected.\(action)"
     }
 
     @MainActor

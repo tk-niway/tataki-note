@@ -27,6 +27,7 @@ final class PromptPanel: NSPanel {
         isReleasedWhenClosed = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         isMovableByWindowBackground = true
+        acceptsMouseMovedEvents = true
 
         identifier = NSUserInterfaceItemIdentifier("promptPanel")
         setAccessibilityIdentifier("promptPanel")

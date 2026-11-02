@@ -139,6 +139,16 @@ import Observation
         }
     }
 
+    /// 移動に使う修飾キーの組み合わせ。空なら使えない。
+    var panelMoveModifiers: Set<PanelPointerModifier> {
+        didSet { store.persist(\.panelMoveModifiers, of: self, as: SettingDefinitions.panelMoveModifiers) }
+    }
+
+    /// サイズ変更に使う修飾キーの組み合わせ。空なら使えない。
+    var panelResizeModifiers: Set<PanelPointerModifier> {
+        didSet { store.persist(\.panelResizeModifiers, of: self, as: SettingDefinitions.panelResizeModifiers) }
+    }
+
     /// アプリが自分で覚えておく状態。
     let state: AppState
 
@@ -184,6 +194,8 @@ import Observation
         self.historyLimit = store.value(SettingDefinitions.historyLimit)
         self.historyRetention = store.value(SettingDefinitions.historyRetention)
         self.checksForUpdatesAutomatically = store.value(SettingDefinitions.checksForUpdatesAutomatically)
+        self.panelMoveModifiers = store.value(SettingDefinitions.panelMoveModifiers)
+        self.panelResizeModifiers = store.value(SettingDefinitions.panelResizeModifiers)
         self.commitKeyDisplayText = commitKey?.displayText
         self.commitAndSendKeyDisplayText = commitAndSendKey?.displayText
     }
@@ -271,6 +283,25 @@ import Observation
     func selectCommitAndSendKey(_ key: PanelShortcut?) -> Bool {
         guard key == nil || key != commitKey else { return false }
         commitAndSendKey = key
+        return true
+    }
+
+    /// 操作の修飾キーの組み合わせ。
+    func pointerModifiers(for action: PanelPointerAction) -> Set<PanelPointerModifier> {
+        switch action {
+        case .move: panelMoveModifiers
+        case .resize: panelResizeModifiers
+        }
+    }
+
+    /// 操作の修飾キーの組み合わせを変える。空でなく、もう一方と同じなら変えずに false を返す。
+    @discardableResult
+    func selectPointerModifiers(_ modifiers: Set<PanelPointerModifier>, for action: PanelPointerAction) -> Bool {
+        guard modifiers.isEmpty || modifiers != pointerModifiers(for: action.other) else { return false }
+        switch action {
+        case .move: panelMoveModifiers = modifiers
+        case .resize: panelResizeModifiers = modifiers
+        }
         return true
     }
 }
