@@ -51,6 +51,13 @@ struct PanelCommandTests {
         #expect(DraftMode.note.titleBarTrailingAccessibilityHint == "押すとインサートに戻ります")
     }
 
+    @Test("AC-8: 右端の読み上げのヒントはモードごとに決まった文で、「ノート」のボタンのラベルの元は「ノート」")
+    func titleBarTrailingTexts() {
+        #expect(DraftMode.insert.titleBarTrailingAccessibilityHint == "押すとノートに切り替わります")
+        #expect(DraftMode.note.titleBarTrailingAccessibilityHint == "押すとインサートに戻ります")
+        #expect(DraftMode.note.displayName == "ノート")
+    }
+
     @Test("AC-3: ノートにする操作は、どのモード・呼び出し元でも行われ、変換中の文字を先に確定せず、入力欄へのフォーカスも頼まない",
           arguments: DraftMode.allCases, PanelCommandSource.allCases)
     func switchToNoteIsAlwaysAvailableWithoutSideEffects(mode: DraftMode, source: PanelCommandSource) {

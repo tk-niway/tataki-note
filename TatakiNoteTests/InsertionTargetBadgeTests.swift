@@ -37,7 +37,6 @@ struct InsertionTargetBadgeTests {
     @Test("AC-20: 挿入先なしの文字は「挿入先なし」で、挿入先が無いときはアイコンの表示の中身が作られず、合図のたびに合図の数が1増える")
     func noTargetLabelAndAlertCount() {
         #expect(InsertionTargetBadge.noTargetLabel == "挿入先なし")
-        #expect(InsertionTargetBadge.noTargetTipText.isEmpty == false)
         #expect(InsertionTargetBadge.make(for: nil) == nil)
 
         let model = PanelModel()
@@ -48,11 +47,10 @@ struct InsertionTargetBadgeTests {
         #expect(model.noTargetAlertCount == 2)
     }
 
-    @Test("AC-44: チップの文は「<アプリ名> に挿入します」、アクセシビリティのラベルは「挿入先: <アプリ名>」")
+    @Test("AC-44: アクセシビリティのラベルは「挿入先: <アプリ名>」")
     func textsNameTheApp() throws {
         let badge = try #require(InsertionTargetBadge.make(for: target(name: "Safari")))
 
-        #expect(badge.tipText == "Safari に挿入します")
         #expect(badge.accessibilityLabel == "挿入先: Safari")
     }
 
@@ -60,7 +58,6 @@ struct InsertionTargetBadgeTests {
     func nameIsTrimmed() throws {
         let badge = try #require(InsertionTargetBadge.make(for: target(name: "  Safari \n")))
 
-        #expect(badge.tipText == "Safari に挿入します")
         #expect(badge.accessibilityLabel == "挿入先: Safari")
     }
 
@@ -68,7 +65,6 @@ struct InsertionTargetBadgeTests {
     func textsWithoutName(name: String?) throws {
         let badge = try #require(InsertionTargetBadge.make(for: target(name: name)))
 
-        #expect(badge.tipText == "パネルを開いたときに使っていたアプリに挿入します")
         #expect(badge.accessibilityLabel == "挿入先: パネルを開いたときに使っていたアプリ")
     }
 
@@ -82,7 +78,19 @@ struct InsertionTargetBadgeTests {
 
         let badge = try #require(InsertionTargetBadge.make(for: own))
 
-        #expect(badge.tipText == "TatakiNote に挿入します")
+        #expect(badge.accessibilityLabel == "挿入先: TatakiNote")
+    }
+
+    @Test("AC-8: 右端の表示の読み上げのラベルと識別子は、挿入先あり・挿入先なし・調べている間ごとに決まった値")
+    func displayAccessibilityValues() throws {
+        let badge = try #require(InsertionTargetBadge.make(for: target(name: "Safari")))
+
+        #expect(InsertionTargetDisplay.target(badge).accessibilityLabel == "挿入先: Safari")
+        #expect(InsertionTargetDisplay.noTarget.accessibilityLabel == "挿入先なし")
+        #expect(InsertionTargetDisplay.pending.accessibilityLabel == "挿入先を調べています")
+        #expect(InsertionTargetDisplay.target(badge).accessibilityIdentifier == "promptPanel.insertionTarget")
+        #expect(InsertionTargetDisplay.noTarget.accessibilityIdentifier == "promptPanel.noInsertionTarget")
+        #expect(InsertionTargetDisplay.pending.accessibilityIdentifier == "promptPanel.insertionTargetPending")
     }
 
     @Test("AC-14: 待ちの間は、挿入先があってもなくても、挿入先もアイコンも出さず待ちになる")
