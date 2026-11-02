@@ -124,6 +124,18 @@ enum SettingDefinitions {
         default: true
     )
 
+    static let panelMoveModifiers = SettingDefinition<Set<PanelPointerModifier>>(
+        key: "panelMoveModifiers",
+        read: { storage in pointerModifiers(storage, "panelMoveModifiers", default: [.command]) },
+        write: { modifiers, storage in writePointerModifiers(modifiers, storage, "panelMoveModifiers") }
+    )
+
+    static let panelResizeModifiers = SettingDefinition<Set<PanelPointerModifier>>(
+        key: "panelResizeModifiers",
+        read: { storage in pointerModifiers(storage, "panelResizeModifiers", default: [.option]) },
+        write: { modifiers, storage in writePointerModifiers(modifiers, storage, "panelResizeModifiers") }
+    )
+
     // MARK: - アプリが覚えておく状態
 
     static let hasShownFirstLaunchTutorial: SettingDefinition<Bool> = .boolean(
@@ -161,6 +173,27 @@ enum SettingDefinitions {
         "suppressesMoveToApplicationsPrompt",
         default: false
     )
+
+    // MARK: - 修飾キー
+
+    private static func pointerModifiers(
+        _ storage: any SettingsStorage,
+        _ key: String,
+        default defaultValue: Set<PanelPointerModifier>
+    ) -> Set<PanelPointerModifier> {
+        guard storage.object(forKey: key) != nil else { return defaultValue }
+        guard let values = storage.array(forKey: key) else { return defaultValue }
+        return Set(values.compactMap { ($0 as? String).flatMap(PanelPointerModifier.init(rawValue:)) })
+    }
+
+    private static func writePointerModifiers(
+        _ modifiers: Set<PanelPointerModifier>,
+        _ storage: any SettingsStorage,
+        _ key: String
+    ) {
+        let rawValues = PanelPointerModifier.allCases.filter { modifiers.contains($0) }.map(\.rawValue)
+        storage.set(rawValues, forKey: key)
+    }
 
     // MARK: - 確定キー
 
