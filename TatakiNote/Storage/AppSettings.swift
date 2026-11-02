@@ -118,6 +118,13 @@ import Observation
         didSet { store.persist(\.historyLimit, of: self, as: SettingDefinitions.historyLimit) }
     }
 
+    /// 入力欄の最後の行の下に空ける行数。
+    var editorBottomPaddingLines: Int {
+        didSet {
+            store.persist(\.editorBottomPaddingLines, of: self, as: SettingDefinitions.editorBottomPaddingLines)
+        }
+    }
+
     /// 履歴を残す期間。
     var historyRetention: HistoryRetention {
         didSet { store.persist(\.historyRetention, of: self, as: SettingDefinitions.historyRetention) }
@@ -192,6 +199,7 @@ import Observation
         self.showsDockIcon = store.value(SettingDefinitions.showsDockIcon)
         self.confirmsQuit = store.value(SettingDefinitions.confirmsQuit)
         self.historyLimit = store.value(SettingDefinitions.historyLimit)
+        self.editorBottomPaddingLines = store.value(SettingDefinitions.editorBottomPaddingLines)
         self.historyRetention = store.value(SettingDefinitions.historyRetention)
         self.checksForUpdatesAutomatically = store.value(SettingDefinitions.checksForUpdatesAutomatically)
         self.panelMoveModifiers = store.value(SettingDefinitions.panelMoveModifiers)

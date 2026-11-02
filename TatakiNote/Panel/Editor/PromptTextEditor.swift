@@ -5,6 +5,56 @@ import SwiftUI
 final class PromptTextView: EditorTextView {
     var onKeyInput: ((PanelKeyInput) -> Bool)?
 
+    /// 余白を足す前の textContainerInset。
+    var baseContainerInset: NSSize = .zero {
+        didSet { applyContainerInset() }
+    }
+
+    /// 最後の行の下に空ける高さ。
+    var bottomPadding: CGFloat = 0 {
+        didSet { applyContainerInset() }
+    }
+
+    // MARK: - 余白
+
+    override var textContainerOrigin: NSPoint {
+        NSPoint(x: super.textContainerOrigin.x, y: baseContainerInset.height)
+    }
+
+    override func scrollRangeToVisible(_ range: NSRange) {
+        super.scrollRangeToVisible(range)
+        revealBottomPadding(for: range)
+    }
+
+    override func didChangeText() {
+        super.didChangeText()
+        revealBottomPadding(for: selectedRange())
+    }
+
+    private func applyContainerInset() {
+        textContainerInset = EditorBottomPadding.containerInset(base: baseContainerInset, padding: bottomPadding)
+        invalidateTextContainerOrigin()
+        sizeToFit()
+    }
+
+    private func revealBottomPadding(for range: NSRange) {
+        guard bottomPadding > 0, let window else { return }
+        let text = string as NSString
+        guard EditorBottomPadding.isInLastLine(range, of: text) else { return }
+        let end = min(NSMaxRange(range), text.length)
+        let screenRect = firstRect(forCharacterRange: NSRange(location: end, length: 0), actualRange: nil)
+        guard screenRect.height > 0 else { return }
+        let caretRect = convert(window.convertFromScreen(screenRect), from: nil)
+        let rect = EditorBottomPadding.revealRect(
+            caretRect: caretRect,
+            documentMaxY: caretRect.maxY + baseContainerInset.height + bottomPadding,
+            visibleHeight: visibleRect.height,
+            padding: bottomPadding,
+            isInLastLine: true
+        )
+        scrollToVisible(rect)
+    }
+
     // MARK: - キー操作
 
     override func keyDown(with event: NSEvent) {
@@ -165,9 +215,14 @@ struct PromptTextEditor: NSViewRepresentable {
     let focusRequest: Int
     let font: NSFont
     var placeholder: String = ""
+    var bottomPaddingLines: Int = 0
     let onKeyInput: (PanelKeyInput) -> Bool
 
     typealias Coordinator = EditorTextCoordinator
+
+    private var bottomPadding: CGFloat {
+        EditorBottomPadding.height(lines: bottomPaddingLines, lineHeight: EditorBottomPadding.lineHeight(for: font))
+    }
 
     func makeCoordinator() -> Coordinator {
         EditorTextCoordinator(text: $text)
@@ -181,7 +236,9 @@ struct PromptTextEditor: NSViewRepresentable {
             textContainerInset: PanelMetrics.textContainerInset,
             accessibilityIdentifier: "promptPanel.textView"
         )
+        textView.baseContainerInset = PanelMetrics.textContainerInset
         textView.applyFont(font)
+        textView.bottomPadding = bottomPadding
         textView.placeholder = placeholder
         textView.string = text
         return EditorTextView.scrollView(containing: textView, backgroundColor: nil)
@@ -192,6 +249,9 @@ struct PromptTextEditor: NSViewRepresentable {
         textView.onKeyInput = onKeyInput
         context.coordinator.text = $text
         textView.applyFont(font)
+        if textView.bottomPadding != bottomPadding {
+            textView.bottomPadding = bottomPadding
+        }
         if textView.placeholder != placeholder {
             textView.placeholder = placeholder
         }

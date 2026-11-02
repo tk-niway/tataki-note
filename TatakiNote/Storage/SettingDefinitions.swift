@@ -112,6 +112,20 @@ enum SettingDefinitions {
         normalize: HistoryLimit.clamped
     )
 
+    static let editorBottomPaddingLines = SettingDefinition<Int>(
+        key: "editorBottomPaddingLines",
+        read: { storage in
+            guard let value = StoredValue.number(in: storage, forKey: "editorBottomPaddingLines")?.doubleValue,
+                  value.isFinite
+            else { return EditorBottomPadding.defaultLines }
+            let lower = Double(EditorBottomPadding.lineRange.lowerBound)
+            let upper = Double(EditorBottomPadding.lineRange.upperBound)
+            return Int(min(max(value, lower), upper))
+        },
+        write: { lines, storage in storage.set(lines, forKey: "editorBottomPaddingLines") },
+        normalize: EditorBottomPadding.clampedLines
+    )
+
     static let historyRetention: SettingDefinition<HistoryRetention> = .stringEnum(
         "historyRetention",
         default: .defaultValue

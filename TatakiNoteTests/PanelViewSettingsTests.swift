@@ -194,6 +194,105 @@ struct PanelViewSettingsTests {
         })
     }
 
+    // MARK: - 最終行の下の余白
+
+    private static let longText = Array(repeating: "line", count: 60).joined(separator: "\n")
+
+    private func loadedLongText(_ harness: PanelViewHarness) throws -> PromptTextView {
+        let textView = try #require(harness.textView)
+        harness.model.text = Self.longText
+        #expect(harness.settle { textView.string.hasPrefix("line\nline") })
+        return textView
+    }
+
+    private func lineHeight(of textView: PromptTextView) throws -> CGFloat {
+        EditorBottomPadding.lineHeight(for: try #require(textView.font))
+    }
+
+    private func showsDocumentBottom(_ textView: PromptTextView) -> Bool {
+        textView.visibleRect.contains(CGPoint(x: 0, y: textView.frame.height - 1))
+    }
+
+    @Test("AC-19: 余白 3 行の入力欄は、0 行のときより 3 × 行の高さだけ文書が高く、先頭の余白は変わらない")
+    func bottomPaddingAddsLinesBelowLastLine() throws {
+        let padded = try PanelViewHarness()
+        let plain = try PanelViewHarness { $0.editorBottomPaddingLines = 0 }
+        defer {
+            padded.removeDefaults()
+            plain.removeDefaults()
+        }
+        let paddedView = try loadedLongText(padded)
+        let plainView = try loadedLongText(plain)
+        let expected = 3 * (try lineHeight(of: paddedView))
+
+        #expect(padded.settle { abs(paddedView.frame.height - plainView.frame.height - expected) < 1 })
+        #expect(paddedView.textContainerOrigin.y == plainView.textContainerOrigin.y)
+        #expect(plainView.textContainerInset == PanelMetrics.textContainerInset)
+    }
+
+    @Test("AC-20: 最後の行で文字を打つと、文書の下端(余白の下端)まで見えるところまでスクロールする")
+    func typingInLastLineRevealsBottomPadding() throws {
+        let harness = try PanelViewHarness()
+        defer { harness.removeDefaults() }
+        let textView = try loadedLongText(harness)
+        textView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+        #expect(harness.settle { !showsDocumentBottom(textView) })
+
+        let end = (textView.string as NSString).length
+        textView.setSelectedRange(NSRange(location: end, length: 0))
+        textView.insertText("z", replacementRange: NSRange(location: end, length: 0))
+
+        #expect(harness.settle { showsDocumentBottom(textView) })
+    }
+
+    @Test("AC-20: 最後の行でない行で文字を打っても、文書の下端までは進まない")
+    func typingInMiddleLineDoesNotRevealBottom() throws {
+        let harness = try PanelViewHarness()
+        defer { harness.removeDefaults() }
+        let textView = try loadedLongText(harness)
+        textView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+        #expect(harness.settle { !showsDocumentBottom(textView) })
+
+        let middle = ("line\n" as NSString).length * 30
+        textView.setSelectedRange(NSRange(location: middle, length: 0))
+        textView.insertText("z", replacementRange: NSRange(location: middle, length: 0))
+        harness.settle()
+
+        #expect(!showsDocumentBottom(textView))
+    }
+
+    @Test("AC-20: 選択が末尾にあっても、先頭の範囲を見せる scrollRangeToVisible は余白まで進まない")
+    func scrollingToTopWithSelectionAtEndStaysAtTop() throws {
+        let harness = try PanelViewHarness()
+        defer { harness.removeDefaults() }
+        let textView = try loadedLongText(harness)
+        let end = (textView.string as NSString).length
+        textView.setSelectedRange(NSRange(location: end, length: 0))
+
+        textView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+        harness.settle()
+
+        #expect(!showsDocumentBottom(textView))
+    }
+
+    @Test("AC-21: 設定で余白の行数を変えると、開いているパネルの入力欄の余白がすぐに変わる")
+    func changingBottomPaddingSettingResizesOpenEditor() throws {
+        let harness = try PanelViewHarness()
+        defer { harness.removeDefaults() }
+        let textView = try loadedLongText(harness)
+        let lineHeight = try lineHeight(of: textView)
+        let initial = textView.frame.height
+        #expect(harness.settle { textView.bottomPadding == 3 * lineHeight })
+
+        harness.settings.editorBottomPaddingLines = 0
+        #expect(harness.settle { textView.bottomPadding == 0 })
+        #expect(harness.settle { abs(initial - textView.frame.height - 3 * lineHeight) < 1 })
+
+        harness.settings.editorBottomPaddingLines = 10
+        #expect(harness.settle { textView.bottomPadding == 10 * lineHeight })
+        #expect(harness.settle { abs(textView.frame.height - initial - 7 * lineHeight) < 1 })
+    }
+
     @Test("AC-4: 透明度の初期値 100% では窓は透けず、開いたまま変えると窓全体の透明度がすぐに変わる")
     func opacityIsAppliedToWindow() throws {
         let harness = try PanelViewHarness()

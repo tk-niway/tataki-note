@@ -49,6 +49,7 @@ struct PanelSettingsView: View {
                 fontRow
                 fontSizeRow
                 opacityRow
+                bottomPaddingRow
             }
         }
     }
@@ -108,6 +109,22 @@ struct PanelSettingsView: View {
                     .monospacedDigit()
                     .frame(width: 40, alignment: .trailing)
                     .accessibilityIdentifier("settings.opacityValue")
+            }
+        }
+    }
+
+    private var bottomPaddingRow: some View {
+        SettingsRow(title: "最終行の下の余白", description: EditorSettingsModel.bottomPaddingDescription) {
+            HStack(spacing: 6) {
+                Text(verbatim: model.bottomPaddingText)
+                    .monospacedDigit()
+                    .frame(width: 44, alignment: .trailing)
+                    .accessibilityIdentifier("settings.bottomPaddingValue")
+                Stepper(value: $settings.editorBottomPaddingLines, in: EditorBottomPadding.lineRange) {
+                    Text("最終行の下の余白")
+                }
+                .labelsHidden()
+                .accessibilityIdentifier("settings.bottomPaddingStepper")
             }
         }
     }

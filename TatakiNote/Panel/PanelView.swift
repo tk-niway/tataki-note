@@ -127,6 +127,7 @@ struct PanelView: View {
                 focusRequest: model.focusRequest,
                 font: font,
                 placeholder: Self.placeholderText,
+                bottomPaddingLines: settings.editorBottomPaddingLines,
                 onKeyInput: onKeyInput
             )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
