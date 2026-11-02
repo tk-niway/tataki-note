@@ -127,6 +127,11 @@ final class PanelSizeController {
         sizing.userDidResize(from: startSize, to: bodySize(of: panel.frame.size))
     }
 
+    /// 修飾キーでのサイズ変更で窓の大きさが変わったことを、ドラッグで決めた大きさとして覚える。
+    func recordPointerResize(fromWindowSize: CGSize, toWindowSize: CGSize) {
+        sizing.userDidResize(from: bodySize(of: fromWindowSize), to: bodySize(of: toWindowSize))
+    }
+
     func windowWillResize(_ sender: NSWindow, to frameSize: NSSize, motionPhase: PanelMotionPhase) -> NSSize {
         if motionPhase == .opening || isSidebarSliding {
             return frameSize

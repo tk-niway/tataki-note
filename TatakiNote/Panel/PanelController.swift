@@ -27,6 +27,8 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private let motionController: PanelMotionController
 
+    private let pointerController: PanelPointerController
+
     private let feedback: PanelFeedback
 
     private let exportSharing: PanelExportSharing
@@ -82,7 +84,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         exportChooser: ExportDestinationChoosing = SavePanelDestinationChooser(),
         writeTextFile: @escaping (String, URL) throws -> Void = TextFileWriter.write,
         sharer: TextSharing? = nil,
-        presentExportFailure: ((String, NSWindow?, @escaping () -> Void) -> Void)? = nil
+        presentExportFailure: ((String, NSWindow?, @escaping () -> Void) -> Void)? = nil,
+        pointerEventMonitor: PanelPointerEventMonitoring = NSEventPanelPointerEventMonitor()
     ) {
         let panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
         self.model = model
@@ -127,13 +130,14 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.sidebarModel = sidebarModel
         let sizeController = PanelSizeController(panel: panel, sidebarModel: sidebarModel, animator: animator)
         self.sizeController = sizeController
-        self.motionController = PanelMotionController(
+        let motionController = PanelMotionController(
             panel: panel,
             animator: animator,
             restoreMinimumSize: { [sizeController] in sizeController.applyMinimumSize() }
         )
+        self.motionController = motionController
         self.saveAnimation = saveAnimation
-        self.feedback = PanelFeedback(
+        let feedback = PanelFeedback(
             panel: panel,
             model: model,
             session: session,
@@ -143,6 +147,22 @@ final class PanelController: NSObject, NSWindowDelegate {
             settings: settings,
             shaker: shaker,
             beep: beep
+        )
+        self.feedback = feedback
+        self.pointerController = PanelPointerController(
+            panel: panel,
+            settings: settings,
+            monitor: pointerEventMonitor,
+            availability: {
+                PanelPointerAvailability.make(
+                    isPresented: model.isPresented,
+                    motionPhase: motionController.phase,
+                    isSidebarSliding: sizeController.isSidebarSliding,
+                    isSidebarOpen: sidebarModel.isOpen
+                )
+            },
+            willBegin: { feedback.stopShaking() },
+            didResize: { from, to in sizeController.recordPointerResize(fromWindowSize: from, toWindowSize: to) }
         )
         self.exportSharing = PanelExportSharing(
             model: model,
@@ -316,6 +336,7 @@ final class PanelController: NSObject, NSWindowDelegate {
                 panel.center()
             }
             motionController.present(at: panel.frame, isAnimationEnabled: settings.isAnimationEnabled)
+            pointerController.start()
             if let pending {
                 pending.lookup.whenFinished { [weak self, token = pending.token] result in
                     self?.targetMonitor.finishPending(token, result: result)
@@ -373,11 +394,13 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     private func hidePanel(then completion: (() -> Void)? = nil) {
+        pointerController.stop()
         sizeController.finishSidebarSlide()
         motionController.hide(isAnimationEnabled: settings.isAnimationEnabled, then: completion)
     }
 
     private func hideWithoutMotion() {
+        pointerController.stop()
         sizeController.finishSidebarSlide()
         motionController.hideWithoutMotion()
     }
