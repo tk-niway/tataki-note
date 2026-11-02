@@ -24,7 +24,20 @@ enum EditorShortcuts {
     /// パネルの操作のキーの表(`PanelCommandKeys`)から作る、一覧の行。
     static let panelCommands: [EditorShortcut] = PanelCommandKeys.all.map(\.listing)
 
-    /// 「行の操作」「コピーと貼り付け」「下書き」「表示」の4つの分類。
+    /// 検索・置換のキーの一覧の行。
+    static let find: [EditorShortcut] = [
+        EditorShortcut(id: "findOpen", keys: "⌘F", action: String(localized: "検索バーを出す(選択中の文字を検索語にする)")),
+        EditorShortcut(id: "findReplaceOpen", keys: "⌥⌘F", action: String(localized: "置換の欄まで出す")),
+        EditorShortcut(id: "findNext", keys: "↩ / ⌘G", action: String(localized: "次の一致へ")),
+        EditorShortcut(id: "findPrevious", keys: "⇧↩ / ⇧⌘G", action: String(localized: "前の一致へ")),
+        EditorShortcut(id: "findToggleOptions", keys: "⌥⌘C / ⌥⌘W / ⌥⌘R", action: String(localized: "大文字と小文字の区別・単語単位・正規表現を切り替える")),
+        EditorShortcut(id: "findPreserveCase", keys: "⌥⌘P", action: String(localized: "置換で大文字と小文字を保持する")),
+        EditorShortcut(id: "findReplaceOne", keys: "⇧⌘1", action: String(localized: "次を置換する(置換欄では ↩)")),
+        EditorShortcut(id: "findReplaceAll", keys: "⌥⌘↩", action: String(localized: "すべて置換する(置換欄では ⌘↩)")),
+        EditorShortcut(id: "findClose", keys: "esc", action: String(localized: "検索バーを閉じる")),
+    ]
+
+    /// 「行の操作」「コピーと貼り付け」「下書き」「検索と置換」「表示」の5つの分類。
     static let groups: [EditorShortcutGroup] = [
         EditorShortcutGroup(
             id: "line",
@@ -42,6 +55,11 @@ enum EditorShortcuts {
             shortcuts: shortcuts(withIDs: ["saveDraft", "exportToFile", "newDraft", "toggleMode", "searchDrafts"])
         ),
         EditorShortcutGroup(
+            id: "find",
+            title: String(localized: "検索と置換"),
+            shortcuts: find
+        ),
+        EditorShortcutGroup(
             id: "view",
             title: String(localized: "表示"),
             shortcuts: shortcuts(withIDs: ["toggleSidebar", "openSettings"])
@@ -49,7 +67,7 @@ enum EditorShortcuts {
     ]
 
     private static func shortcuts(withIDs ids: [String]) -> [EditorShortcut] {
-        let candidates = all + panelCommands
+        let candidates = all + panelCommands + find
         return ids.compactMap { id in candidates.first { $0.id == id } }
     }
 }
