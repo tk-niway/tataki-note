@@ -21,7 +21,7 @@ struct ProjectLayoutTests {
     private static let appRootFiles: Set<String> = ["MyApp.swift", "AppDelegate.swift"]
     private static let featureFolders: Set<String> = [
         "App", "AutoShow", "Drafts", "Export", "Insertion", "InsertionTarget", "Keys",
-        "Panel", "Panel/Editor", "Panel/Frame", "Permission", "Settings", "Shared",
+        "Panel", "Panel/Editor", "Panel/Find", "Panel/Frame", "Permission", "Settings", "Shared",
         "Storage", "Tutorial", "Updates",
     ]
 

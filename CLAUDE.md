@@ -41,6 +41,7 @@ xcodebuild build -project TatakiNote.xcodeproj -scheme TatakiNote -destination '
 | `TatakiNote/Panel/` | 入力パネルの窓・状態・画面(タイトルバー・帯・トースト・保存の動き・揺れ) |
 | `TatakiNote/Panel/Editor/` | パネルの入力欄(行の編集・入力欄のキー) |
 | `TatakiNote/Panel/Frame/` | パネルの大きさ・位置・出す画面・開閉の動き |
+| `TatakiNote/Panel/Find/` | パネルの検索・置換(検索バー・一致の計算・置換) |
 | `TatakiNote/Drafts/` | 下書きと履歴・サイドバー・その保存・履歴の設定 |
 | `TatakiNote/Export/` | ファイルへの書き出しと共有 |
 | `TatakiNote/Keys/` | ホットキー・パネルのキー・キーの記録と表示・キーの設定のページ。`extension KeyboardShortcuts.Name { static let … }` はここに集める |
