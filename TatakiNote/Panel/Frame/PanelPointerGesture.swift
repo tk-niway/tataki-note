@@ -78,6 +78,23 @@ enum PanelPointerStep: Equatable {
     }
 }
 
+/// 押している修飾キーの組み合わせと、押したときにカーソルがパネルの上にあったか。
+struct PanelPointerPress: Equatable {
+    var modifiers: Set<PanelPointerModifier>
+    var isOverPanel: Bool
+
+    /// サンプルの組み合わせが今の押下と違えば、新しい押下として、そのサンプルの位置で決め直す。
+    func updated(with sample: PanelPointerSample, in context: PanelPointerContext) -> PanelPointerPress {
+        guard sample.modifiers != modifiers else { return self }
+        return PanelPointerPress(
+            modifiers: sample.modifiers,
+            isOverPanel: !sample.modifiers.isEmpty
+                && context.isPanelShown
+                && context.panelFrame.contains(sample.pointer)
+        )
+    }
+}
+
 /// 修飾キーを押したままのカーソルの動きを、パネルの移動・サイズ変更にする。
 struct PanelPointerGesture: Equatable {
     enum State: Equatable {
@@ -87,14 +104,16 @@ struct PanelPointerGesture: Equatable {
     }
 
     private(set) var state: State = .idle
+    private(set) var press = PanelPointerPress(modifiers: [], isOverPanel: false)
 
     /// サンプルを受け取り、することを返す。
     mutating func handle(_ sample: PanelPointerSample, in context: PanelPointerContext) -> PanelPointerStep {
+        press = press.updated(with: sample, in: context)
         let anchor: PanelPointerAnchor
         let action: PanelPointerAction
         switch state {
         case .idle:
-            guard let started = Self.startingAction(for: sample, in: context) else { return .none }
+            guard let started = pressedStartingAction(for: sample, in: context) else { return .none }
             return .begin(started)
         case .moving(let movingAnchor):
             anchor = movingAnchor
@@ -160,9 +179,10 @@ struct PanelPointerGesture: Equatable {
         }
     }
 
-    /// 止める(idle に戻す)。
-    mutating func reset() {
+    /// 止めて(idle に戻し)、押している組み合わせをパネルの外で押したものとして置き直す。
+    mutating func reset(heldModifiers: Set<PanelPointerModifier> = []) {
         state = .idle
+        press = PanelPointerPress(modifiers: heldModifiers, isOverPanel: false)
     }
 
     /// 始める操作。始めないなら nil。
@@ -182,8 +202,16 @@ struct PanelPointerGesture: Equatable {
         in context: PanelPointerContext
     ) -> PanelPointerStep {
         state = .idle
-        guard let action = Self.startingAction(for: sample, in: context) else { return .none }
+        guard let action = pressedStartingAction(for: sample, in: context) else { return .none }
         return .begin(action)
+    }
+
+    private func pressedStartingAction(
+        for sample: PanelPointerSample,
+        in context: PanelPointerContext
+    ) -> PanelPointerAction? {
+        guard press.isOverPanel else { return nil }
+        return Self.startingAction(for: sample, in: context)
     }
 }
 

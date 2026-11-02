@@ -22,6 +22,7 @@ struct PanelPointerControllerTests {
         var willBegin: () -> Void = {}
         var willBeginCount = 0
         var mouseReadCount = 0
+        var heldFlags: NSEvent.ModifierFlags = []
         var resizes: [(from: CGSize, to: CGSize)] = []
     }
 
@@ -71,7 +72,8 @@ struct PanelPointerControllerTests {
                     return environment.mouse
                 },
                 isMouseButtonPressed: { environment.isMouseButtonPressed },
-                screenTopLimit: { _ in environment.screenTopLimit }
+                screenTopLimit: { _ in environment.screenTopLimit },
+                currentModifierFlags: { environment.heldFlags }
             )
         }
 
@@ -137,16 +139,21 @@ struct PanelPointerControllerTests {
         #expect(fixture.sizeController.sizing.heldSize == nil)
     }
 
-    @Test("AC-5: 修飾キーが設定の組み合わせと一致しなければ、位置も画面も読まず何もしない")
+    @Test("AC-5: 修飾キーが設定の組み合わせと一致しなければ何もせず、同じ組み合わせが続く間は位置も画面も読まない")
     func nonMatchingModifiersDoNothing() throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
 
         fixture.send(.moved, [], at: CGPoint(x: 730, y: 470))
-        fixture.send(.moved, [.command, .shift], at: CGPoint(x: 740, y: 480))
-        fixture.send(.modifiersChanged, [.control])
-
         #expect(fixture.environment.mouseReadCount == 0)
+
+        fixture.send(.moved, [.command, .shift], at: CGPoint(x: 740, y: 480))
+        fixture.send(.moved, [.command, .shift], at: CGPoint(x: 750, y: 490))
+        #expect(fixture.environment.mouseReadCount == 1)
+
+        fixture.send(.modifiersChanged, [.control])
+        fixture.send(.modifiersChanged, [.control])
+        #expect(fixture.environment.mouseReadCount == 2)
         #expect(fixture.environment.willBeginCount == 0)
         #expect(fixture.controller.state == .idle)
         #expect(fixture.panel.frame == Self.panelFrame)
@@ -164,6 +171,135 @@ struct PanelPointerControllerTests {
         fixture.send(.modifiersChanged, [.command], at: Self.insidePoint)
         #expect(fixture.controller.state == .idle)
         #expect(fixture.environment.willBeginCount == 0)
+    }
+
+    // MARK: - 押した瞬間の位置
+
+    @Test("AC-16: パネルの外で押して押したまま入っても始まらず、離してパネルの上で押し直すと始まる")
+    func pressedOutsideThenEnteringDoesNotBegin() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+
+        fixture.send(.modifiersChanged, [.command], at: CGPoint(x: 100, y: 100))
+        fixture.send(.moved, [.command], at: Self.insidePoint)
+        fixture.send(.moved, [.command], at: CGPoint(x: 730, y: 470))
+        #expect(fixture.controller.state == .idle)
+        #expect(fixture.panel.frame == Self.panelFrame)
+
+        fixture.send(.modifiersChanged, [], at: Self.insidePoint)
+        fixture.send(.modifiersChanged, [.command], at: Self.insidePoint)
+        #expect(fixture.isMoving)
+        fixture.send(.moved, [.command], at: CGPoint(x: 730, y: 470))
+        #expect(fixture.panel.frame == NSRect(x: 430, y: 320, width: 520, height: 340))
+    }
+
+    @Test("AC-16: パネルが表示中でないときに押した押下は、パネルが出ても始まらない")
+    func pressedWhileNotShownDoesNotBegin() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+
+        fixture.environment.availability.isPanelShown = false
+        fixture.send(.modifiersChanged, [.command], at: Self.insidePoint)
+        fixture.environment.availability.isPanelShown = true
+        fixture.send(.moved, [.command], at: Self.insidePoint)
+        fixture.send(.moved, [.command], at: CGPoint(x: 730, y: 470))
+
+        #expect(fixture.controller.state == .idle)
+        #expect(fixture.environment.willBeginCount == 0)
+        #expect(fixture.panel.frame == Self.panelFrame)
+    }
+
+    @Test("AC-17: パネルの上で押した押下は、ボタンで止まった後に外へ出て戻ると、また始まる")
+    func pressedOverPanelRestartsAfterButtonStop() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+
+        fixture.send(.modifiersChanged, [.command])
+        #expect(fixture.isMoving)
+        fixture.send(.buttonDown, [.command], at: CGPoint(x: 760, y: 500))
+        #expect(fixture.controller.state == .idle)
+
+        fixture.send(.moved, [.command], at: CGPoint(x: 100, y: 100))
+        #expect(fixture.controller.state == .idle)
+        fixture.send(.moved, [.command], at: Self.insidePoint)
+        #expect(fixture.isMoving)
+        fixture.send(.moved, [.command], at: CGPoint(x: 730, y: 470))
+        #expect(fixture.panel.frame == NSRect(x: 430, y: 320, width: 520, height: 340))
+    }
+
+    @Test("AC-17: 動かしている途中にカーソルがパネルの外で持ち替えると、移動は止まり、サイズ変更は始まらない")
+    func switchingOutsidePanelStopsWithoutResizing() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        fixture.environment.screenTopLimit = 650
+
+        fixture.send(.modifiersChanged, [.command])
+        fixture.send(.moved, [.command], at: CGPoint(x: 700, y: 800))
+        let clamped = NSRect(x: 400, y: 310, width: 520, height: 340)
+        #expect(fixture.panel.frame == clamped)
+        #expect(fixture.isMoving)
+
+        fixture.send(.modifiersChanged, [.option], at: CGPoint(x: 700, y: 800))
+        #expect(fixture.controller.state == .idle)
+        fixture.send(.moved, [.option], at: Self.insidePoint)
+        fixture.send(.moved, [.option], at: CGPoint(x: 800, y: 400))
+
+        #expect(fixture.controller.state == .idle)
+        #expect(fixture.panel.frame == clamped)
+        #expect(fixture.environment.resizes.isEmpty)
+    }
+
+    @Test("AC-18: 押した瞬間が届かず、カーソルの動きだけが届くときは、組み合わせが変わった最初の位置で決まる")
+    func movedEventsAloneDecideAtFirstChange() throws {
+        let outsideFixture = try Fixture()
+        defer { outsideFixture.cleanUp() }
+        outsideFixture.send(.moved, [.command], at: CGPoint(x: 100, y: 100))
+        outsideFixture.send(.moved, [.command], at: Self.insidePoint)
+        #expect(outsideFixture.controller.state == .idle)
+
+        let insideFixture = try Fixture()
+        defer { insideFixture.cleanUp() }
+        insideFixture.send(.moved, [.command], at: Self.insidePoint)
+        #expect(insideFixture.isMoving)
+        insideFixture.send(.moved, [.command], at: CGPoint(x: 730, y: 470))
+        #expect(insideFixture.panel.frame == NSRect(x: 430, y: 320, width: 520, height: 340))
+    }
+
+    @Test("AC-19: 修飾キーを押したまま見張りを始めると、パネルの上でも始まらず、離して押し直すと始まる")
+    func heldModifiersAtStartDoNotBegin() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        fixture.environment.heldFlags = .command
+
+        fixture.controller.start()
+        fixture.send(.moved, [.command], at: Self.insidePoint)
+        fixture.send(.moved, [.command], at: CGPoint(x: 730, y: 470))
+        #expect(fixture.controller.state == .idle)
+        #expect(fixture.panel.frame == Self.panelFrame)
+
+        fixture.send(.modifiersChanged, [], at: Self.insidePoint)
+        fixture.send(.modifiersChanged, [.command], at: Self.insidePoint)
+        #expect(fixture.isMoving)
+        fixture.send(.moved, [.command], at: CGPoint(x: 730, y: 470))
+        #expect(fixture.panel.frame == NSRect(x: 430, y: 320, width: 520, height: 340))
+    }
+
+    @Test("AC-19: 設定と一致しない組み合わせへの変化も押下の判定に使われ、外で足して離した押下は外で押したものになる")
+    func unmatchedCombinationRenewsPress() throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+
+        fixture.send(.buttonDown, [.command], at: Self.insidePoint)
+        #expect(fixture.controller.state == .idle)
+
+        let far = CGPoint(x: 100, y: 100)
+        fixture.send(.modifiersChanged, [.control, .command], at: far)
+        fixture.send(.modifiersChanged, [.command], at: far)
+        fixture.send(.moved, [.command], at: Self.insidePoint)
+        fixture.send(.moved, [.command], at: CGPoint(x: 730, y: 470))
+
+        #expect(fixture.controller.state == .idle)
+        #expect(fixture.panel.frame == Self.panelFrame)
     }
 
     // MARK: - 止まる

@@ -121,6 +121,11 @@ struct PanelPointerSettingsModelTests {
         #expect(PanelPointerSettingsModel.title(for: .move) == "ウィンドウの移動")
         #expect(PanelPointerSettingsModel.title(for: .resize) == "ウィンドウのサイズ変更")
         #expect(PanelPointerSettingsModel.disabledText == "チェックが無いあいだは使えません")
-        #expect(PanelPointerSettingsModel.groupFooter == "修飾キーを押したままカーソルを動かすと、パネルが動く・大きさが変わる(クリックは要らない)")
+        #expect(PanelPointerSettingsModel.groupFooter == "修飾キーを押したままカーソルを動かすと、パネルが動く・大きさが変わる")
+    }
+
+    @Test("AC-20: 説明文に「(クリックは要らない)」を含まない")
+    func groupFooterHasNoClickNote() {
+        #expect(!PanelPointerSettingsModel.groupFooter.contains("クリックは要らない"))
     }
 }

@@ -36,15 +36,19 @@ struct PanelPointerGestureTests {
 
     private func movingGesture() -> PanelPointerGesture {
         var gesture = PanelPointerGesture()
+        _ = gesture.handle(sample(inside, [.command]), in: context())
         gesture.begin(.move, pointer: inside, frame: frame, isSidebarOpen: false)
         return gesture
     }
 
     private func resizingGesture(at pointer: CGPoint, frame: CGRect? = nil, isSidebarOpen: Bool = false) -> PanelPointerGesture {
         var gesture = PanelPointerGesture()
+        _ = gesture.handle(sample(pointer, [.option]), in: context(frame: frame, isSidebarOpen: isSidebarOpen))
         gesture.begin(.resize, pointer: pointer, frame: frame ?? self.frame, isSidebarOpen: isSidebarOpen)
         return gesture
     }
+
+    private let outside = CGPoint(x: 50, y: 50)
 
     // MARK: 始める条件
 
@@ -291,6 +295,121 @@ struct PanelPointerGestureTests {
         var gesture = movingGesture()
         let step = gesture.handle(sample(CGPoint(x: 2000, y: 300), [.option]), in: context())
         #expect(step == .none)
+    }
+
+    // MARK: 押した瞬間の位置
+
+    private func press(_ modifiers: Set<PanelPointerModifier>, isOverPanel: Bool) -> PanelPointerPress {
+        PanelPointerPress(modifiers: modifiers, isOverPanel: isOverPanel)
+    }
+
+    @Test("AC-16: 押下は、組み合わせが変わったサンプルがパネルの上で表示中のときだけ「上で押した」になる")
+    func pressIsDecidedAtTheChangingSample() {
+        let none = press([], isOverPanel: false)
+        #expect(none.updated(with: sample(inside, [.command]), in: context()) == press([.command], isOverPanel: true))
+        #expect(none.updated(with: sample(outside, [.command]), in: context()) == press([.command], isOverPanel: false))
+        #expect(none.updated(with: sample(inside, [.command]), in: context(isShown: false)) == press([.command], isOverPanel: false))
+        #expect(none.updated(with: sample(inside, []), in: context()) == press([], isOverPanel: false))
+    }
+
+    @Test("AC-16: 外で押した押下は、パネルの上に入っても変わらない")
+    func pressedOutsideStaysOutside() {
+        let outsidePress = press([.command], isOverPanel: false)
+        #expect(outsidePress.updated(with: sample(inside, [.command]), in: context()) == outsidePress)
+    }
+
+    @Test("AC-17: 上で押した押下は、外へ出ても・戻っても・ボタンを押しても変わらず、離すと空に戻る")
+    func pressedOverPanelStaysUntilReleased() {
+        let overPress = press([.command], isOverPanel: true)
+        #expect(overPress.updated(with: sample(outside, [.command]), in: context()) == overPress)
+        #expect(overPress.updated(with: sample(inside, [.command], pressed: true), in: context()) == overPress)
+        #expect(overPress.updated(with: sample(inside, []), in: context()) == press([], isOverPanel: false))
+    }
+
+    @Test("AC-17: 組み合わせを持ち替えると、持ち替えたサンプルの位置で新しく決まる")
+    func switchingDecidesAgain() {
+        let overPress = press([.command], isOverPanel: true)
+        #expect(overPress.updated(with: sample(outside, [.option]), in: context()) == press([.option], isOverPanel: false))
+        #expect(overPress.updated(with: sample(inside, [.option]), in: context()) == press([.option], isOverPanel: true))
+        #expect(overPress.updated(with: sample(inside, [.control, .command]), in: context()) == press([.control, .command], isOverPanel: true))
+    }
+
+    @Test("AC-16: パネルの外で押して入っても始まらず、離してパネルの上で押し直すと始まる")
+    func pressingOutsideThenEnteringDoesNotBegin() {
+        var gesture = PanelPointerGesture()
+        #expect(gesture.handle(sample(outside), in: context()) == .none)
+        #expect(gesture.handle(sample(inside), in: context()) == .none)
+        #expect(gesture.handle(sample(inside, []), in: context()) == .none)
+        #expect(gesture.handle(sample(inside), in: context()) == .begin(.move))
+    }
+
+    @Test("AC-16: 開く動きの途中に押した押下は、開き終わっても始まらない")
+    func pressingWhileOpeningDoesNotBegin() {
+        var gesture = PanelPointerGesture()
+        #expect(gesture.handle(sample(inside), in: context(isShown: false)) == .none)
+        #expect(gesture.handle(sample(inside), in: context()) == .none)
+        #expect(gesture.handle(sample(inside, []), in: context()) == .none)
+        #expect(gesture.handle(sample(inside), in: context()) == .begin(.move))
+    }
+
+    @Test("AC-16: reset(heldModifiers:) で置いた押下は、離すまでパネルの上でも始まらない")
+    func heldModifiersDoNotBegin() {
+        var gesture = PanelPointerGesture()
+        gesture.reset(heldModifiers: [.command])
+        #expect(gesture.press == press([.command], isOverPanel: false))
+        #expect(gesture.handle(sample(inside), in: context()) == .none)
+        #expect(gesture.handle(sample(inside, []), in: context()) == .none)
+        #expect(gesture.handle(sample(inside), in: context()) == .begin(.move))
+    }
+
+    @Test("AC-16: reset() は止めて押下も空に戻す")
+    func resetClearsPress() {
+        var gesture = movingGesture()
+        gesture.reset()
+        #expect(gesture.state == .idle)
+        #expect(gesture.press == press([], isOverPanel: false))
+    }
+
+    @Test("AC-17: 上で押した押下は、ボタンで止まった後に外へ出て戻ると、また始まる")
+    func restartsAfterButtonStopAndReentering() {
+        var gesture = movingGesture()
+        #expect(gesture.handle(sample(CGPoint(x: 330, y: 300), pressed: true), in: context()) == .none)
+        #expect(gesture.state == .idle)
+        #expect(gesture.handle(sample(outside), in: context()) == .none)
+        #expect(gesture.handle(sample(inside), in: context()) == .begin(.move))
+    }
+
+    @Test("AC-17: 外で持ち替えると移動は止まりサイズ変更は始まらず、パネルの上へ戻っても始まらない")
+    func switchingOutsideStopsAndDoesNotBegin() {
+        var gesture = movingGesture()
+        #expect(gesture.handle(sample(CGPoint(x: 2000, y: 300), [.option]), in: context()) == .none)
+        #expect(gesture.state == .idle)
+        #expect(gesture.handle(sample(inside, [.option]), in: context()) == .none)
+        #expect(gesture.handle(sample(inside, []), in: context()) == .none)
+        #expect(gesture.handle(sample(inside, [.option]), in: context()) == .begin(.resize))
+    }
+
+    @Test("AC-17: パネルの上で持ち替えるとサイズ変更が始まる")
+    func switchingOverPanelBegins() {
+        var gesture = movingGesture()
+        #expect(gesture.handle(sample(CGPoint(x: 330, y: 300), [.option]), in: context()) == .begin(.resize))
+        #expect(gesture.state == .idle)
+    }
+
+    @Test("AC-18: カーソルの動きのサンプルだけが届くとき、組み合わせが変わった最初のサンプルが外なら、入っても始まらない")
+    func movedOnlyPressedOutsideDoesNotBegin() {
+        var gesture = PanelPointerGesture()
+        #expect(gesture.handle(sample(inside, []), in: context()) == .none)
+        #expect(gesture.handle(sample(outside), in: context()) == .none)
+        #expect(gesture.handle(sample(inside), in: context()) == .none)
+        #expect(gesture.handle(sample(CGPoint(x: 310, y: 310)), in: context()) == .none)
+    }
+
+    @Test("AC-18: カーソルの動きのサンプルだけが届くとき、組み合わせが変わった最初のサンプルが上なら始まる")
+    func movedOnlyPressedInsideBegins() {
+        var gesture = PanelPointerGesture()
+        #expect(gesture.handle(sample(outside, []), in: context()) == .none)
+        #expect(gesture.handle(sample(inside), in: context()) == .begin(.move))
     }
 
     @Test("AC-7: 設定で組み合わせを空にすると止まる")

@@ -69,6 +69,6 @@ import Observation
 
     /// グループの説明。
     static var groupFooter: String {
-        String(localized: "修飾キーを押したままカーソルを動かすと、パネルが動く・大きさが変わる(クリックは要らない)")
+        String(localized: "修飾キーを押したままカーソルを動かすと、パネルが動く・大きさが変わる")
     }
 }

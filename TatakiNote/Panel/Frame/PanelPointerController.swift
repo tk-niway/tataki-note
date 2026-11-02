@@ -92,6 +92,7 @@ final class PanelPointerController {
     private let mouseLocation: () -> CGPoint
     private let isMouseButtonPressed: () -> Bool
     private let screenTopLimit: (CGPoint) -> CGFloat?
+    private let currentModifierFlags: () -> NSEvent.ModifierFlags
     private var gesture = PanelPointerGesture()
 
     init(
@@ -105,7 +106,8 @@ final class PanelPointerController {
         isMouseButtonPressed: @escaping () -> Bool = { NSEvent.pressedMouseButtons != 0 },
         screenTopLimit: @escaping (CGPoint) -> CGFloat? = { point in
             PanelPointerFrame.screenTopLimit(at: point, screens: NSScreen.screens.map { ($0.frame, $0.visibleFrame) })
-        }
+        },
+        currentModifierFlags: @escaping () -> NSEvent.ModifierFlags = { NSEvent.modifierFlags }
     ) {
         self.panel = panel
         self.settings = settings
@@ -116,13 +118,15 @@ final class PanelPointerController {
         self.mouseLocation = mouseLocation
         self.isMouseButtonPressed = isMouseButtonPressed
         self.screenTopLimit = screenTopLimit
+        self.currentModifierFlags = currentModifierFlags
     }
 
     /// 今の状態。
     var state: PanelPointerGesture.State { gesture.state }
 
-    /// 見張りを始める。
+    /// 今押している修飾キーをパネルの外で押したものとして、見張りを始める。
     func start() {
+        gesture.reset(heldModifiers: PanelPointerModifier.set(from: currentModifierFlags()))
         monitor.start { [weak self] event in
             self?.handle(event)
         }
@@ -143,10 +147,10 @@ final class PanelPointerController {
         let moveModifiers = settings.pointerModifiers(for: .move)
         let resizeModifiers = settings.pointerModifiers(for: .resize)
 
-        if gesture.state == .idle {
+        if gesture.state == .idle, modifiers == gesture.press.modifiers {
             let matchesMove = !moveModifiers.isEmpty && modifiers == moveModifiers
             let matchesResize = !resizeModifiers.isEmpty && modifiers == resizeModifiers
-            guard matchesMove || matchesResize else { return }
+            guard gesture.press.isOverPanel, matchesMove || matchesResize else { return }
         }
 
         let pointer = mouseLocation()
