@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 final class ExportSavePanel: NSSavePanel {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard event.type == .keyDown,
-              let action = SavePanelEditKey.action(
+              let action = FieldEditKey.action(
                   modifiers: event.modifierFlags,
                   character: event.charactersIgnoringModifiers?.lowercased() ?? ""
               ),
@@ -15,7 +15,7 @@ final class ExportSavePanel: NSSavePanel {
         return true
     }
 
-    private static func selector(for action: SavePanelEditAction) -> Selector {
+    private static func selector(for action: FieldEditAction) -> Selector {
         switch action {
         case .cut: return #selector(NSText.cut(_:))
         case .copy: return #selector(NSText.copy(_:))

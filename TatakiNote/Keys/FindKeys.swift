@@ -179,9 +179,9 @@ enum FindKeys {
         character: String,
         isEditing: Bool,
         hasMarkedText: Bool
-    ) -> SavePanelEditAction? {
+    ) -> FieldEditAction? {
         guard isEditing, !hasMarkedText else { return nil }
-        return SavePanelEditKey.action(modifiers: modifiers, character: character)
+        return FieldEditKey.action(modifiers: modifiers, character: character)
     }
 }
 

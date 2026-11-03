@@ -304,7 +304,7 @@ struct FindKeysTests {
 
     @Test("AC-43: 検索欄・置換欄を編集中なら、⌘X・⌘C・⌘V・⌘A・⌘Z・⇧⌘Z が欄の編集の操作になる")
     func fieldEditActionMatchesEditingKeys() {
-        let cases: [(NSEvent.ModifierFlags, String, SavePanelEditAction)] = [
+        let cases: [(NSEvent.ModifierFlags, String, FieldEditAction)] = [
             ([.command], "x", .cut), ([.command], "c", .copy), ([.command], "v", .paste),
             ([.command], "a", .selectAll), ([.command], "z", .undo), ([.command, .shift], "z", .redo),
         ]
