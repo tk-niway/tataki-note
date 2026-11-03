@@ -1,178 +1,14 @@
 import AppKit
 import KeyboardShortcuts
 
-/// 起動のされ方の判定。
-enum AppLaunchContext {
-    static func isRunningUnitTests(environment: [String: String]) -> Bool {
-        environment["XCTestConfigurationFilePath"] != nil || environment["XCTestBundlePath"] != nil
-    }
-
-    static func shouldRegisterHotkeys(environment: [String: String]) -> Bool {
-        !isRunningUnitTests(environment: environment)
-    }
-
-    static func settingsSuiteName(environment: [String: String]) -> String? {
-        #if DEBUG
-        guard let name = environment["TATAKINOTE_SETTINGS_SUITE"], !name.isEmpty else { return nil }
-        return name
-        #else
-        return nil
-        #endif
-    }
-
-    static func settingsDefaults(
-        environment: [String: String],
-        makeSuite: (String) -> (any SettingsStorage)? = { UserDefaults(suiteName: $0) }
-    ) -> any SettingsStorage {
-        guard let name = settingsSuiteName(environment: environment) else { return UserDefaults.standard }
-        guard let suite = makeSuite(name) else {
-            preconditionFailure("設定の保存先の suite「\(name)」を作れません")
-        }
-        do {
-            try SettingsSeed.apply(environment: environment, to: suite)
-        } catch {
-            preconditionFailure("\(SettingsSeed.environmentKey) を読めません: \(error)")
-        }
-        return suite
-    }
-
-    static func dataDirectory(
-        environment: [String: String],
-        bundleIdentifier: String? = Bundle.main.bundleIdentifier
-    ) -> URL? {
-        if isRunningUnitTests(environment: environment) { return nil }
-        #if DEBUG
-        if let path = environment["TATAKINOTE_DATA_DIRECTORY"], !path.isEmpty {
-            return URL(fileURLWithPath: path, isDirectory: true)
-        }
-        if let suite = settingsSuiteName(environment: environment) {
-            return FileManager.default.temporaryDirectory
-                .appendingPathComponent("TatakiNote-\(suite)", isDirectory: true)
-        }
-        #endif
-        let folderName = bundleIdentifier.flatMap { $0.isEmpty ? nil : $0 } ?? "TatakiNote"
-        return URL.applicationSupportDirectory.appendingPathComponent(folderName, isDirectory: true)
-    }
-
-    static func accessibilityOverride(environment: [String: String]) -> Bool? {
-        #if DEBUG
-        switch environment["TATAKINOTE_ACCESSIBILITY_OVERRIDE"] {
-        case "trusted":
-            return true
-        case "untrusted":
-            return false
-        default:
-            return nil
-        }
-        #else
-        return nil
-        #endif
-    }
-
-    static func accessibilityPermission(environment: [String: String]) -> AccessibilityPermissionChecking {
-        guard let isTrusted = accessibilityOverride(environment: environment) else {
-            return SystemAccessibilityPermission()
-        }
-        return OverriddenAccessibilityPermission(isTrusted: isTrusted)
-    }
-
-    static func shouldPresentPermissionGuideOnLaunch(environment: [String: String]) -> Bool {
-        !isRunningUnitTests(environment: environment)
-    }
-
-    static func isFirstLaunchTutorialSuppressed(environment: [String: String]) -> Bool {
-        #if DEBUG
-        guard settingsSuiteName(environment: environment) != nil else { return false }
-        return environment["TATAKINOTE_FIRST_LAUNCH_TUTORIAL"] != "enabled"
-        #else
-        return false
-        #endif
-    }
-
-    static func shouldWatchFocusedElement(environment: [String: String]) -> Bool {
-        !isRunningUnitTests(environment: environment)
-    }
-
-    static func loginItemService(environment: [String: String]) -> LoginItemService {
-        #if DEBUG
-        if environment["TATAKINOTE_LOGIN_ITEM_OVERRIDE"] == "memory" {
-            return InMemoryLoginItemService()
-        }
-        #endif
-        return MainAppLoginItemService()
-    }
-
-    static func isInsertionTargetDisabled(environment: [String: String]) -> Bool {
-        #if DEBUG
-        return environment["TATAKINOTE_INSERTION_TARGET"] == "none"
-        #else
-        return false
-        #endif
-    }
-
-    static func shouldApplyDockIcon(environment: [String: String]) -> Bool {
-        !isRunningUnitTests(environment: environment)
-    }
-
-    static func isOpenPanelOnLaunchSuppressed(environment: [String: String]) -> Bool {
-        #if DEBUG
-        guard settingsSuiteName(environment: environment) != nil else { return false }
-        return environment["TATAKINOTE_OPEN_PANEL_ON_LAUNCH"] != "enabled"
-        #else
-        return false
-        #endif
-    }
-
-    static func isOpenPanelOnReopenSuppressed(environment: [String: String]) -> Bool {
-        #if DEBUG
-        guard settingsSuiteName(environment: environment) != nil else { return false }
-        return environment["TATAKINOTE_OPEN_PANEL_ON_REOPEN"] != "enabled"
-        #else
-        return false
-        #endif
-    }
-
-    enum UpdaterKind: Equatable {
-        case sparkle
-        case inert
-        case preview
-    }
-
-    static var isDebugBuild: Bool {
-        #if DEBUG
-        return true
-        #else
-        return false
-        #endif
-    }
-
-    static func updaterKind(
-        environment: [String: String],
-        isDebugBuild: Bool = AppLaunchContext.isDebugBuild
-    ) -> UpdaterKind {
-        if isRunningUnitTests(environment: environment) { return .inert }
-        guard isDebugBuild else { return .sparkle }
-        return environment["TATAKINOTE_UPDATE_OVERRIDE"] == "available" ? .preview : .inert
-    }
-
-    static func shouldOfferMoveToApplications(
-        environment: [String: String],
-        isDebugBuild: Bool = AppLaunchContext.isDebugBuild
-    ) -> Bool {
-        if isRunningUnitTests(environment: environment) { return false }
-        guard isDebugBuild else { return true }
-        return environment["TATAKINOTE_MOVE_PROMPT"] == "enabled"
-    }
-}
-
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let settings = AppSettings(
-        store: SettingsStore(defaults: AppLaunchContext.settingsDefaults(environment: ProcessInfo.processInfo.environment))
+        store: SettingsStore(defaults: AppLaunchContext.settingsDefaults(environment: AppLaunchContext.processEnvironment))
     )
 
     let targetTracker = FrontmostAppTracker()
 
-    let permission = AppLaunchContext.accessibilityPermission(environment: ProcessInfo.processInfo.environment)
+    let permission = AppLaunchContext.accessibilityPermission(environment: AppLaunchContext.processEnvironment)
 
     private(set) lazy var permissionGuide: PermissionGuideWindowController = {
         let controller = PermissionGuideWindowController(
@@ -195,7 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let controller = SettingsWindowController(
             settings: self.settings,
             launchAtLogin: LaunchAtLoginModel(
-                service: AppLaunchContext.loginItemService(environment: ProcessInfo.processInfo.environment)
+                service: AppLaunchContext.loginItemService(environment: AppLaunchContext.processEnvironment)
             ),
             appInfo: AppInfoModel(
                 infoDictionary: Bundle.main.infoDictionary ?? [:],
@@ -218,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let webContentExposer = WebContentExposer()
 
     private(set) lazy var library = DraftLibrary(
-        store: DraftLibraryStore(directory: AppLaunchContext.dataDirectory(environment: ProcessInfo.processInfo.environment)),
+        store: DraftLibraryStore(directory: AppLaunchContext.dataDirectory(environment: AppLaunchContext.processEnvironment)),
         historyLimit: settings.historyLimit,
         historyRetention: settings.historyRetention,
         writer: BackgroundDraftLibraryWriter()
@@ -234,7 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             library: self.library
         )
         controller.isTargetLookupDisabled = AppLaunchContext.isInsertionTargetDisabled(
-            environment: ProcessInfo.processInfo.environment
+            environment: AppLaunchContext.processEnvironment
         )
         controller.onPermissionDenied = { [weak self] in
             self?.permissionGuide.show(reason: .commitDenied)
@@ -259,7 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) lazy var updates: UpdateModel = {
         let model = UpdateModel(
             settings: settings,
-            updater: AppDelegate.makeUpdater(kind: AppLaunchContext.updaterKind(environment: ProcessInfo.processInfo.environment))
+            updater: AppDelegate.makeUpdater(kind: AppLaunchContext.updaterKind(environment: AppLaunchContext.processEnvironment))
         )
         model.onWillRelaunch = { [weak self] in self?.markRelaunching() }
         return model
@@ -327,7 +163,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var terminationReason: TerminationReason = .normal
 
     private let relaunchDraftStore = RelaunchDraftStore(
-        directory: AppLaunchContext.dataDirectory(environment: ProcessInfo.processInfo.environment)
+        directory: AppLaunchContext.dataDirectory(environment: AppLaunchContext.processEnvironment)
     )
 
     /// 書きかけを残して開き直すために、終了の理由を記録して終了する。
@@ -351,7 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let environment = ProcessInfo.processInfo.environment
+        let environment = AppLaunchContext.processEnvironment
         if AppLaunchContext.shouldApplyDockIcon(environment: environment) {
             dockIcon.start()
             updateBadge.start()
@@ -466,7 +302,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if AppOpenRequest.shouldOpenPanelOnReopen(
             isPanelPresented: panelController.model.isPresented,
             isConfirmingQuit: isConfirmingQuit,
-            isSuppressed: AppLaunchContext.isOpenPanelOnReopenSuppressed(environment: ProcessInfo.processInfo.environment)
+            isSuppressed: AppLaunchContext.isOpenPanelOnReopenSuppressed(environment: AppLaunchContext.processEnvironment)
         ) {
             panelController.openWithoutTarget()
         }
