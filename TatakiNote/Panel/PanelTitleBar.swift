@@ -6,7 +6,6 @@ struct PanelTitleBar: View {
     let target: InsertionTarget?
     let noTargetAlertCount: Int
     let isTargetPending: Bool
-    let session: DraftSession?
     let isSidebarOpen: Bool
     let saveArrival: SaveArrival
     let onCommand: (PanelCommand) -> Void
@@ -19,7 +18,6 @@ struct PanelTitleBar: View {
         mode: DraftMode = .insert,
         noTargetAlertCount: Int = 0,
         isTargetPending: Bool = false,
-        session: DraftSession? = nil,
         isSidebarOpen: Bool = false,
         saveArrival: SaveArrival = SaveArrival(),
         onCommand: @escaping (PanelCommand) -> Void = { _ in },
@@ -30,7 +28,6 @@ struct PanelTitleBar: View {
         self.mode = mode
         self.noTargetAlertCount = noTargetAlertCount
         self.isTargetPending = isTargetPending
-        self.session = session
         self.isSidebarOpen = isSidebarOpen
         self.saveArrival = saveArrival
         self.onCommand = onCommand
