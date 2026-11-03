@@ -5,6 +5,18 @@ import SwiftUI
 final class PromptTextView: EditorTextView {
     var onKeyInput: ((PanelKeyInput) -> Bool)?
 
+    /// 文章が変わったとき(打つ・置換・取り消し・別の文章の入れ替え)に呼ぶ。
+    var onStringChange: (() -> Void)?
+
+    /// 選択が確定して変わったときに呼ぶ。
+    var onSelectionChange: (() -> Void)?
+
+    /// 今ハイライトしている一致。
+    private(set) var findHighlights: [FindHighlight] = []
+
+    private var undoObservers: [NSObjectProtocol] = []
+    private weak var observedUndoManager: UndoManager?
+
     /// 余白を足す前の textContainerInset。
     var baseContainerInset: NSSize = .zero {
         didSet { applyContainerInset() }
@@ -29,6 +41,56 @@ final class PromptTextView: EditorTextView {
     override func didChangeText() {
         super.didChangeText()
         revealBottomPadding(for: selectedRange())
+        observeUndoManagerIfNeeded()
+        onStringChange?()
+    }
+
+    isolated deinit {
+        removeUndoObservers()
+    }
+
+    private func observeUndoManagerIfNeeded() {
+        guard let undoManager, undoManager !== observedUndoManager else { return }
+        removeUndoObservers()
+        observedUndoManager = undoManager
+        for name in [Notification.Name.NSUndoManagerDidUndoChange, Notification.Name.NSUndoManagerDidRedoChange] {
+            let observer = NotificationCenter.default.addObserver(
+                forName: name,
+                object: undoManager,
+                queue: nil
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.onStringChange?() }
+            }
+            undoObservers.append(observer)
+        }
+    }
+
+    private func removeUndoObservers() {
+        for observer in undoObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        undoObservers = []
+        observedUndoManager = nil
+    }
+
+    override var string: String {
+        didSet { onStringChange?() }
+    }
+
+    override func setSelectedRanges(
+        _ ranges: [NSValue],
+        affinity: NSSelectionAffinity,
+        stillSelecting stillSelectingFlag: Bool
+    ) {
+        super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelectingFlag)
+        if !stillSelectingFlag {
+            onSelectionChange?()
+        }
+    }
+
+    /// ハイライトの記録を入れ替える。
+    func storeFindHighlights(_ highlights: [FindHighlight]) {
+        findHighlights = highlights
     }
 
     private func applyContainerInset() {
@@ -217,6 +279,9 @@ struct PromptTextEditor: NSViewRepresentable {
     var placeholder: String = ""
     var bottomPaddingLines: Int = 0
     let onKeyInput: (PanelKeyInput) -> Bool
+    var findRegistry: FindEditorRegistry?
+    var onFindTextChange: () -> Void = {}
+    var onFindSelectionChange: () -> Void = {}
 
     typealias Coordinator = EditorTextCoordinator
 
@@ -232,6 +297,7 @@ struct PromptTextEditor: NSViewRepresentable {
         let textView = PromptTextView()
         textView.delegate = context.coordinator
         textView.onKeyInput = onKeyInput
+        findRegistry?.editor = textView
         textView.configurePlainTextEditing(
             textContainerInset: PanelMetrics.textContainerInset,
             accessibilityIdentifier: "promptPanel.textView"
@@ -241,12 +307,17 @@ struct PromptTextEditor: NSViewRepresentable {
         textView.bottomPadding = bottomPadding
         textView.placeholder = placeholder
         textView.string = text
+        textView.onStringChange = onFindTextChange
+        textView.onSelectionChange = onFindSelectionChange
         return EditorTextView.scrollView(containing: textView, backgroundColor: nil)
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? PromptTextView else { return }
         textView.onKeyInput = onKeyInput
+        textView.onStringChange = onFindTextChange
+        textView.onSelectionChange = onFindSelectionChange
+        findRegistry?.editor = textView
         context.coordinator.text = $text
         textView.applyFont(font)
         if textView.bottomPadding != bottomPadding {
