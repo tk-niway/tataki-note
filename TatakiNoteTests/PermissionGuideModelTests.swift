@@ -4,32 +4,27 @@ import Testing
 
 @MainActor
 struct PermissionGuideModelTests {
-    @Test("AC-1: 許可が無いと、起動時の案内が開き、許可が無いこと(手順を出す状態)になる")
-    func launchWithoutPermissionPresents() {
-        let model = PermissionGuideModel(permission: PermissionStub(isTrusted: false), opener: SettingsOpenerStub())
+    @Test("AC-1: 作った後に許可の状態が変わっても、起動の理由で開くと開いた時点の許可の状態になる")
+    func presentForLaunchUsesPermissionAtPresentTime() {
+        let revoked = PermissionStub(isTrusted: true)
+        let revokedModel = PermissionGuideModel(permission: revoked, opener: SettingsOpenerStub())
+        revoked.isTrusted = false
 
-        #expect(model.presentOnLaunchIfNeeded() == true)
-        #expect(model.isPresented == true)
-        #expect(model.state == .notGranted(.launch))
-    }
+        revokedModel.present(reason: .launch)
 
-    @Test("AC-2: 許可があると、起動時の案内は開かない")
-    func launchWithPermissionDoesNotPresent() {
-        let model = PermissionGuideModel(permission: PermissionStub(isTrusted: true), opener: SettingsOpenerStub())
+        #expect(revokedModel.isPresented == true)
+        #expect(revokedModel.state == .notGranted(.launch))
+        #expect(revokedModel.buttons == [.close, .openSystemSettings])
 
-        #expect(model.presentOnLaunchIfNeeded() == false)
-        #expect(model.isPresented == false)
-        #expect(model.state == .granted)
-    }
+        let granted = PermissionStub(isTrusted: false)
+        let grantedModel = PermissionGuideModel(permission: granted, opener: SettingsOpenerStub())
+        granted.isTrusted = true
 
-    @Test("AC-1, AC-2: 起動時の判定は、作った後に変わった許可の状態で行う")
-    func launchUsesCurrentPermission() {
-        let permission = PermissionStub(isTrusted: true)
-        let model = PermissionGuideModel(permission: permission, opener: SettingsOpenerStub())
-        permission.isTrusted = false
+        grantedModel.present(reason: .launch)
 
-        #expect(model.presentOnLaunchIfNeeded() == true)
-        #expect(model.state == .notGranted(.launch))
+        #expect(grantedModel.isPresented == true)
+        #expect(grantedModel.state == .granted)
+        #expect(grantedModel.buttons == [.close])
     }
 
     @Test("AC-3: 確定で開くと、下書きに残っていることを出す理由になる")

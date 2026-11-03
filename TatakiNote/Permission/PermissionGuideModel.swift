@@ -88,13 +88,6 @@ enum PermissionGuideButton: Equatable {
         isPresented = true
     }
 
-    func presentOnLaunchIfNeeded() -> Bool {
-        refresh()
-        guard !isTrusted else { return false }
-        present(reason: .launch)
-        return true
-    }
-
     func dismiss() {
         isPresented = false
     }
