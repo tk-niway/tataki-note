@@ -1,11 +1,5 @@
 import AppKit
 
-/// ⌘ と文字の組み合わせ。
-struct EditorKeyEquivalent: Equatable {
-    let modifiers: NSEvent.ModifierFlags
-    let character: String
-}
-
 /// 入力欄の編集キーの操作。並びは「ショートカットキー」の一覧の並び。
 enum EditorKeyCommand: CaseIterable {
     case moveLines
@@ -18,10 +12,6 @@ enum EditorKeyCommand: CaseIterable {
     case selectAll
     case undo
     case redo
-
-    private static let otherReserved: [EditorKeyEquivalent] = [
-        EditorKeyEquivalent(modifiers: [.command], character: "h"),
-    ]
 
     /// ⌘ と文字で押すキー(矢印で押す操作は nil)。
     var keyEquivalent: EditorKeyEquivalent? {
@@ -104,7 +94,7 @@ enum EditorKeyCommand: CaseIterable {
 
     /// 記録ボックスで登録できない ⌘ のキーか(編集キーと、⌘H)。
     static func isReservedKeyEquivalent(modifiers: NSEvent.ModifierFlags, character: String) -> Bool {
-        let pressed = EditorKeyEquivalent(modifiers: modifiers, character: character)
-        return command(modifiers: modifiers, character: character) != nil || otherReserved.contains(pressed)
+        command(modifiers: modifiers, character: character) != nil
+            || PanelHideKey.key.matches(modifiers: modifiers, character: character)
     }
 }

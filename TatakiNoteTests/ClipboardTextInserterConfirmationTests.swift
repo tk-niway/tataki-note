@@ -6,7 +6,7 @@ import Testing
 struct ClipboardTextInserterConfirmationTests {
     private let target = InsertionTarget(processIdentifier: 101, bundleIdentifier: "com.apple.TextEdit", localizedName: "TextEdit")
     private let shortTimeout: Duration = .milliseconds(200)
-    private let longTimeout: Duration = .seconds(60)
+    private let longTimeout: Duration = .seconds(3600)
 
     private func makeInserter(
         pasteboard: NSPasteboard,

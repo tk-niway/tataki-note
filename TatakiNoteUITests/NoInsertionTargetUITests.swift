@@ -14,8 +14,9 @@ final class NoInsertionTargetUITests: XCTestCase {
     }
 
     // AC-21
+    // AC-5
     @MainActor
-    func testAC21_noInsertionTargetKeepsPanelOpenOnCommit() throws {
+    func testAC21_AC5_noInsertionTargetKeepsPanelOpenOnCommit() throws {
         let app = launchApp()
 
         openPanelFromMenu(in: app)
@@ -41,6 +42,15 @@ final class NoInsertionTargetUITests: XCTestCase {
         XCTAssertEqual(textView.promptPanelText, "abc")
         XCTAssertTrue(noTarget.exists)
         XCTAssertFalse(element(in: app, identifier: "insertionFailureBubble").exists, "吹き出しが出ている")
+
+        noTarget.click()
+        let noteButton = element(in: app, identifier: "promptPanel.noteModeButton")
+        XCTAssertTrue(noteButton.waitForExistence(timeout: timeout), "「挿入先なし」を押してもノートにならない")
+        XCTAssertTrue(noTarget.waitForNonExistence(timeout: timeout), "ノートで「挿入先なし」が残っている")
+
+        noteButton.click()
+        XCTAssertTrue(noTarget.waitForExistence(timeout: timeout), "「ノート」を押してもインサートに戻らない")
+        XCTAssertEqual(noTarget.label, "挿入先なし")
     }
 
     // MARK: - 起動と要素の探し方(PermissionGuideUITests と同じ方法)

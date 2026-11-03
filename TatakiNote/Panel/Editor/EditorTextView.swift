@@ -218,7 +218,7 @@ final class EditorTextCoordinator: NSObject, NSTextViewDelegate {
     func focusIfRequested(_ request: Int, textView: EditorTextView) {
         guard lastFocusRequest != request else { return }
         lastFocusRequest = request
-        DispatchQueue.main.async { [weak textView] in
+        Task { @MainActor [weak textView] in
             guard let textView else { return }
             textView.window?.makeFirstResponder(textView)
             let end = (textView.string as NSString).length

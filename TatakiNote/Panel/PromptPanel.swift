@@ -5,6 +5,9 @@ final class PromptPanel: NSPanel {
     /// ビューの階層が受けなかったパネルの操作のキーを受け取る処理。処理したら `true` を返す。
     var onKeyEquivalent: ((PanelKeyInput) -> Bool)?
 
+    /// 検索のキーを受け取る処理。処理したら `true` を返す。
+    var onFindKeyEquivalent: ((PanelKeyInput) -> Bool)?
+
     init(contentRect: NSRect) {
         super.init(
             contentRect: contentRect,
@@ -27,6 +30,7 @@ final class PromptPanel: NSPanel {
         isReleasedWhenClosed = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         isMovableByWindowBackground = true
+        acceptsMouseMovedEvents = true
 
         identifier = NSUserInterfaceItemIdentifier("promptPanel")
         setAccessibilityIdentifier("promptPanel")
@@ -47,12 +51,7 @@ final class PromptPanel: NSPanel {
         if event.type == .keyDown,
            !(firstResponder is PromptTextView),
            let handler = onKeyDownOutsideEditor {
-            let input = PanelKeyInput(
-                keyCode: event.keyCode,
-                modifiers: event.modifierFlags.intersection(.deviceIndependentFlagsMask),
-                hasMarkedText: Self.firstResponderHasMarkedText(firstResponder),
-                characters: event.charactersIgnoringModifiers?.lowercased() ?? ""
-            )
+            let input = PanelKeyInput(event: event, hasMarkedText: Self.firstResponderHasMarkedText(firstResponder))
             if handler(input) { return }
         }
         super.sendEvent(event)
@@ -68,10 +67,13 @@ final class PromptPanel: NSPanel {
             return true
         }
         let hasMarkedText = Self.firstResponderHasMarkedText(firstResponder)
-        guard let input = Self.panelCommandInput(for: event, hasMarkedText: hasMarkedText) else {
-            return false
+        if let input = Self.panelCommandInput(for: event, hasMarkedText: hasMarkedText),
+           onKeyEquivalent?(input) == true {
+            return true
         }
-        return onKeyEquivalent?(input) ?? false
+        guard event.type == .keyDown else { return false }
+        let findInput = PanelKeyInput(event: event, hasMarkedText: hasMarkedText)
+        return onFindKeyEquivalent?(findInput) ?? false
     }
 
     /// ファーストレスポンダーに未確定の文字があるか。
@@ -81,14 +83,8 @@ final class PromptPanel: NSPanel {
 
     /// パネルの操作のキー(`PanelCommandKeys`)の値。どれでもなければ `nil`。
     static func panelCommandInput(for event: NSEvent, hasMarkedText: Bool) -> PanelKeyInput? {
-        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let characters = event.charactersIgnoringModifiers?.lowercased() ?? ""
-        guard ReservedPanelKeys.contains(modifiers: modifiers, character: characters) else { return nil }
-        return PanelKeyInput(
-            keyCode: event.keyCode,
-            modifiers: modifiers,
-            hasMarkedText: hasMarkedText,
-            characters: characters
-        )
+        let input = PanelKeyInput(event: event, hasMarkedText: hasMarkedText)
+        guard ReservedPanelKeys.contains(modifiers: input.modifiers, character: input.characters) else { return nil }
+        return input
     }
 }

@@ -6,7 +6,6 @@ struct PanelTitleBar: View {
     let target: InsertionTarget?
     let noTargetAlertCount: Int
     let isTargetPending: Bool
-    let session: DraftSession?
     let isSidebarOpen: Bool
     let saveArrival: SaveArrival
     let onCommand: (PanelCommand) -> Void
@@ -19,7 +18,6 @@ struct PanelTitleBar: View {
         mode: DraftMode = .insert,
         noTargetAlertCount: Int = 0,
         isTargetPending: Bool = false,
-        session: DraftSession? = nil,
         isSidebarOpen: Bool = false,
         saveArrival: SaveArrival = SaveArrival(),
         onCommand: @escaping (PanelCommand) -> Void = { _ in },
@@ -30,7 +28,6 @@ struct PanelTitleBar: View {
         self.mode = mode
         self.noTargetAlertCount = noTargetAlertCount
         self.isTargetPending = isTargetPending
-        self.session = session
         self.isSidebarOpen = isSidebarOpen
         self.saveArrival = saveArrival
         self.onCommand = onCommand
@@ -49,7 +46,9 @@ struct PanelTitleBar: View {
             sidebarToggleButton
                 .padding(.leading, 4)
             Spacer(minLength: 0)
+            findButton
             newDraftButton
+                .padding(.leading, 4)
             saveDraftButton
                 .padding(.leading, 4)
             shareButton
@@ -60,7 +59,8 @@ struct PanelTitleBar: View {
                     target: target,
                     noTargetAlertCount: noTargetAlertCount,
                     isPending: isTargetPending,
-                    appIcon: appIcon
+                    appIcon: appIcon,
+                    onSwitchToNote: { onCommand(DraftMode.insert.titleBarTrailingCommand) }
                 )
                     .padding(.leading, 10)
             case .note:
@@ -105,6 +105,17 @@ struct PanelTitleBar: View {
         .accessibilityIdentifier("promptPanel.sidebarToggle")
     }
 
+    private var findButton: some View {
+        Button(action: { onCommand(.toggleFind) }) {
+            iconLabel("magnifyingglass")
+        }
+        .buttonStyle(PanelIconButtonStyle())
+        .focusable(false)
+        .help("検索と置換(⌘F)")
+        .accessibilityLabel("検索")
+        .accessibilityIdentifier("promptPanel.findButton")
+    }
+
     private var newDraftButton: some View {
         Button(action: { onCommand(.newDraft) }) {
             iconLabel("square.and.pencil")
@@ -144,7 +155,7 @@ struct PanelTitleBar: View {
     }
 
     private var noteModeButton: some View {
-        Button(action: { onCommand(.switchToInsert) }) {
+        Button(action: { onCommand(DraftMode.note.titleBarTrailingCommand) }) {
             Text(DraftMode.note.displayName)
                 .font(.system(size: 11, weight: .medium))
                 .padding(.horizontal, 8)
@@ -153,9 +164,8 @@ struct PanelTitleBar: View {
         }
         .buttonStyle(NoteModeButtonStyle())
         .focusable(false)
-        .help("インサートに戻す(⌘E)")
-        .accessibilityLabel("ノート")
-        .accessibilityHint("押すとインサートに戻ります")
+        .accessibilityLabel(DraftMode.note.displayName)
+        .accessibilityHint(DraftMode.note.titleBarTrailingAccessibilityHint)
         .accessibilityIdentifier("promptPanel.noteModeButton")
     }
 

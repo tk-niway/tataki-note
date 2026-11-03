@@ -156,12 +156,12 @@ final class FocusedElementWatcher {
         let focused = probe.probeFocusedElement(in: target, readsFrame: trigger == .userClick)
 
         if trigger == .focusChanged, let lastShown, lastShown.processIdentifier == target.processIdentifier,
-           !Self.isSameElement(lastShown.element, focused.element) {
+           !FocusedElementProbe.isSameElement(lastShown.element, focused.element) {
             self.lastShown = nil
         }
         let currentTime = now()
         if trigger == .focusChanged, let clickSuppression, clickSuppression.processIdentifier == target.processIdentifier,
-           !Self.isSameElement(clickSuppression.element, focused.element) {
+           !FocusedElementProbe.isSameElement(clickSuppression.element, focused.element) {
             self.clickSuppression = nil
         }
         if trigger == .userClick, let clickSuppression,
@@ -169,10 +169,12 @@ final class FocusedElementWatcher {
             self.clickSuppression = nil
         }
         let isClickSuppressed = trigger == .userClick && (clickSuppression.map {
-            $0.processIdentifier == target.processIdentifier && Self.isSameElement($0.element, focused.element)
+            $0.processIdentifier == target.processIdentifier
+                && FocusedElementProbe.isSameElement($0.element, focused.element)
         } ?? false)
         let isSameElementAsLastShown = lastShown.map {
-            $0.processIdentifier == target.processIdentifier && Self.isSameElement($0.element, focused.element)
+            $0.processIdentifier == target.processIdentifier
+                && FocusedElementProbe.isSameElement($0.element, focused.element)
         } ?? false
 
         var isClickInsideFocusedElement = false
@@ -200,11 +202,6 @@ final class FocusedElementWatcher {
         guard AutoShowDecision.shouldShow(input) else { return }
         lastShown = ShownElement(processIdentifier: target.processIdentifier, element: focused.element)
         onShow(ObservedFocus(processIdentifier: target.processIdentifier, probe: focused))
-    }
-
-    private static func isSameElement(_ lhs: AXUIElement?, _ rhs: AXUIElement?) -> Bool {
-        guard let lhs, let rhs else { return false }
-        return CFEqual(lhs, rhs)
     }
 
     private static func isWithin(_ grace: TimeInterval, since date: Date?, now: Date) -> Bool {

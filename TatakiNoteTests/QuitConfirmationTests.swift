@@ -251,6 +251,58 @@ struct QuitConfirmationTests {
         ))
     }
 
+    // MARK: - isPanelCommitKey(イベント)
+
+    private func commitEvent(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) throws -> NSEvent {
+        try keyEvent(modifiers: modifiers, keyCode: keyCode, characters: "\r")
+    }
+
+    private func otherWindow() -> NSWindow {
+        NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: true)
+    }
+
+    @Test("AC-8: パネルの窓で押した確定キー・確定+送信キー(テンキーの Enter・Caps Lock 付きも)は確定キーとみなす")
+    func eventInPanelIsCommitKey() throws {
+        let panel = PromptPanel(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300))
+        let commitKey = PanelShortcut.commandReturn
+        let commitAndSendKey = PanelShortcut.commandShiftReturn
+        let commit = try commitEvent(keyCode: KeyCode.returnKey, modifiers: .command)
+        let commitAndSend = try commitEvent(keyCode: KeyCode.returnKey, modifiers: [.command, .shift])
+        let keypad = try commitEvent(keyCode: KeyCode.keypadEnter, modifiers: [.command, .numericPad])
+        let capsLock = try commitEvent(keyCode: KeyCode.returnKey, modifiers: [.command, .capsLock])
+        for event in [commit, commitAndSend, keypad, capsLock] {
+            #expect(QuitConfirmation.isPanelCommitKey(
+                event, in: panel, panel: panel, commitKey: commitKey, commitAndSendKey: commitAndSendKey
+            ))
+        }
+    }
+
+    @Test("AC-8: パネルの窓でも、確定キーでも確定+送信キーでもないキーや登録の無いときは確定キーとみなさない")
+    func eventInPanelWithOtherKeyIsNotCommitKey() throws {
+        let panel = PromptPanel(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300))
+        let commandQ = try keyEvent()
+        let commit = try commitEvent(keyCode: KeyCode.returnKey, modifiers: .command)
+        #expect(!QuitConfirmation.isPanelCommitKey(
+            commandQ, in: panel, panel: panel, commitKey: .commandReturn, commitAndSendKey: .commandShiftReturn
+        ))
+        #expect(!QuitConfirmation.isPanelCommitKey(
+            commit, in: panel, panel: panel, commitKey: nil, commitAndSendKey: nil
+        ))
+    }
+
+    @Test("AC-8: パネル以外の窓・窓なしでは、確定キーを押しても確定キーとみなさない")
+    func eventOutsidePanelIsNotCommitKey() throws {
+        let panel = PromptPanel(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300))
+        let window = otherWindow()
+        let commit = try commitEvent(keyCode: KeyCode.returnKey, modifiers: .command)
+        #expect(!QuitConfirmation.isPanelCommitKey(
+            commit, in: window, panel: panel, commitKey: .commandReturn, commitAndSendKey: .commandShiftReturn
+        ))
+        #expect(!QuitConfirmation.isPanelCommitKey(
+            commit, in: nil, panel: panel, commitKey: .commandReturn, commitAndSendKey: .commandShiftReturn
+        ))
+    }
+
     // MARK: - action
 
     @Test("AC-15: 終了のキーでなければ、そのまま流す")

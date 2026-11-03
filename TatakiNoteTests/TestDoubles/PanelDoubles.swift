@@ -20,6 +20,27 @@ final class PanelShakerSpy: PanelShaking {
 }
 
 @MainActor
+final class PanelPointerEventMonitorSpy: PanelPointerEventMonitoring {
+    private(set) var startCount = 0
+    private(set) var stopCount = 0
+    private(set) var handler: ((PanelPointerEvent) -> Void)?
+
+    func start(_ handler: @escaping (PanelPointerEvent) -> Void) {
+        startCount += 1
+        self.handler = handler
+    }
+
+    func stop() {
+        stopCount += 1
+        handler = nil
+    }
+
+    func send(_ event: PanelPointerEvent) {
+        handler?(event)
+    }
+}
+
+@MainActor
 final class BeepSpy {
     private(set) var count = 0
 

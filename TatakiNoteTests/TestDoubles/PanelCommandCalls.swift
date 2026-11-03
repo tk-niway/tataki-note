@@ -6,6 +6,7 @@ extension PanelController {
     func newDraftFromButton() { perform(.newDraft, from: .button) }
     func saveDraftFromButton() { perform(.saveDraft, from: .button) }
     func shareFromButton() { perform(.share, from: .button) }
+    func switchToNoteFromButton() { perform(.switchToNote, from: .button) }
     func switchToInsertFromButton() { perform(.switchToInsert, from: .button) }
     func toggleSidebarFromButton() { perform(.toggleSidebar, from: .button) }
     func openSettings() { perform(.openSettings, from: .button) }

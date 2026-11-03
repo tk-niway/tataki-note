@@ -40,6 +40,16 @@ enum StatusItemNote: Equatable {
         return String(localized: "\(percent)%")
     }
 
+    var bottomPaddingText: String {
+        let lines = settings.editorBottomPaddingLines
+        return String(localized: "\(lines) 行")
+    }
+
+    /// 「最終行の下の余白」の下に出す説明文。
+    static var bottomPaddingDescription: String {
+        String(localized: "入力欄の最後の行の下に空ける行数です。0 にすると余白なしになります。")
+    }
+
     /// フォント名を描くフォント。システムフォントのときはシステムフォント、書体を選んでいるときはその書体(12pt)。
     var fontNameFont: NSFont {
         guard let font = settings.resolvedPanelFont else { return .systemFont(ofSize: Self.fontNameSize) }

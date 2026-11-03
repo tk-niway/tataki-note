@@ -281,6 +281,89 @@ struct PanelShortcutRulesTests {
         }
     }
 
+    @Test("AC-15: 検索のキー(⌘F・⌥⌘F・⌘G・⇧⌘G・⌥⌘C・⌥⌘W・⌥⌘R・⌥⌘P・⇧⌘1・⌥⌘↩)は両方の役割で reservedForFind になり、理由は検索・置換で使っていると伝える全文")
+    func findKeysAreRejected() {
+        let keys: [(UInt16, NSEvent.ModifierFlags, String, String)] = [
+            (3, [.command], "f", "⌘F"), (3, [.command, .option], "f", "⌥⌘F"),
+            (5, [.command], "g", "⌘G"), (5, [.command, .shift], "g", "⇧⌘G"),
+            (8, [.command, .option], "c", "⌥⌘C"), (13, [.command, .option], "w", "⌥⌘W"),
+            (15, [.command, .option], "r", "⌥⌘R"), (35, [.command, .option], "p", "⌥⌘P"),
+            (18, [.command, .shift], "!", "⇧⌘1"), (36, [.command, .option], "\r", "⌥⌘↩"),
+        ]
+        for role in PanelShortcutRole.allCases {
+            for (keyCode, modifiers, characters, label) in keys {
+                let key = PanelShortcut(keyCode: keyCode, modifiers: modifiers)
+                let rejection = PanelShortcutRules.rejection(
+                    for: PanelShortcutCandidate(shortcut: key, characters: characters),
+                    role: role,
+                    hotkey: nil,
+                    commitKey: nil,
+                    commitAndSendKey: nil
+                )
+                #expect(rejection == .reservedForFind, "\(role) \(label)")
+                #expect(
+                    rejection?.message(for: key)
+                        == "\(label) はパネルの検索・置換の操作(⌘F・⌥⌘F・⌘G・⇧⌘G・⌥⌘C・⌥⌘W・⌥⌘R・⌥⌘P・⇧⌘1・⌥⌘↩)で使っているため、登録できません。"
+                )
+            }
+        }
+    }
+
+    @Test("AC-15: 検索のキーと修飾キーが違うキー(⇧⌘F・⌥⌘G・⌘C の別の文字・⌘1・⌘↩・⇧⌘↩)は reservedForFind にならない。既存の理由は変わらない")
+    func nearbyKeysAreNotReservedForFind() {
+        let others: [(UInt16, NSEvent.ModifierFlags, String)] = [
+            (3, [.command, .shift], "f"), (5, [.command, .option], "g"), (8, [.command, .shift], "c"),
+            (18, [.command], "1"), (18, [.command, .option], "1"), (36, [.command], "\r"), (36, [.command, .shift], "\r"),
+            (38, [.command], "j"),
+        ]
+        for role in PanelShortcutRole.allCases {
+            for (keyCode, modifiers, characters) in others {
+                let rejection = PanelShortcutRules.rejection(
+                    for: candidate(keyCode: keyCode, modifiers: modifiers, characters: characters),
+                    role: role,
+                    hotkey: nil,
+                    commitKey: nil,
+                    commitAndSendKey: nil
+                )
+                #expect(rejection != .reservedForFind, "\(role) \(modifiers) \(characters)")
+            }
+        }
+
+        let commandK = PanelShortcut(keyCode: 40, modifiers: [.command])
+        #expect(PanelShortcutRejection.reservedForPanelCommands.message(for: commandK).hasPrefix("⌘K はパネルの検索・下書きの保存"))
+        let commandL = PanelShortcutRules.rejection(
+            for: candidate(keyCode: 37, modifiers: [.command], characters: "l"),
+            role: .commit,
+            hotkey: nil,
+            commitKey: nil,
+            commitAndSendKey: nil
+        )
+        #expect(commandL == .reservedForEditing)
+    }
+
+    @Test("AC-15: 検索のキーの判定は予約のキーの後・ホットキーとの重なりの前")
+    func findRejectionOrder() {
+        let commandF = PanelShortcut(keyCode: 3, modifiers: [.command])
+        let withHotkey = PanelShortcutRules.rejection(
+            for: PanelShortcutCandidate(shortcut: commandF, characters: "f"),
+            role: .commit,
+            hotkey: commandF,
+            commitKey: nil,
+            commitAndSendKey: commandF
+        )
+        #expect(withHotkey == .reservedForFind)
+
+        let commandS = PanelShortcut(keyCode: 1, modifiers: [.command])
+        let panelCommand = PanelShortcutRules.rejection(
+            for: PanelShortcutCandidate(shortcut: commandS, characters: "s"),
+            role: .commit,
+            hotkey: nil,
+            commitKey: nil,
+            commitAndSendKey: nil
+        )
+        #expect(panelCommand == .reservedForPanelCommands)
+    }
+
     @Test("AC-7: 予約の判定は編集キーの後・ホットキーとの重なりの前。既存の理由は変わらない")
     func panelCommandRejectionOrder() {
         let commandK = PanelShortcut(keyCode: 40, modifiers: [.command])

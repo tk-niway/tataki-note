@@ -1,3 +1,4 @@
+import ApplicationServices
 import Foundation
 
 /// 確定。挿入先の入力欄を確かめ、パネルを隠して挿入し、挿入できなければパネルを開き直す。
@@ -79,6 +80,7 @@ final class PanelCommitFlow {
     }
 
     private func performCommit(shouldSendAfterInsert: Bool) {
+        let expectedField = targetMonitor.trackedField
         let plan = session.prepareCommit {
             model.prepareCommit(isAccessibilityTrusted: permission.isTrusted)
         }
@@ -93,7 +95,11 @@ final class PanelCommitFlow {
             onInsertionRequested?(text, target, shouldSendAfterInsert)
         }
         Task { [weak self, performer, model] in
-            let outcome = await performer.perform(plan, shouldSendAfterInsert: shouldSendAfterInsert)
+            let outcome = await performer.perform(
+                plan,
+                expectedField: expectedField,
+                shouldSendAfterInsert: shouldSendAfterInsert
+            )
             self?.sizing.handleCommitOutcome(outcome)
             self?.session.finishCommit(plan, outcome: outcome)
             if case .insert(let text, _) = plan {
@@ -126,10 +132,19 @@ final class PanelCommitFlow {
     /// 確定+挿入で文章が入ったのを確かめられなかったときの文。
     static let notConfirmedInsertedMessage = String(localized: "挿入できませんでした")
 
+    /// 貼り付けの直前にフォーカスが挿入先の入力欄から移っていたときの文。
+    static let focusMovedMessage = String(localized: "入力欄を選択し直してください")
+
     /// 挿入の結果に応じて、パネルで知らせる文。知らせないなら nil。
     static func notice(for outcome: CommitOutcome, shouldSendAfterInsert: Bool) -> String? {
-        guard outcome == .notConfirmed else { return nil }
-        return shouldSendAfterInsert ? notConfirmedSentMessage : notConfirmedInsertedMessage
+        switch outcome {
+        case .notConfirmed:
+            return shouldSendAfterInsert ? notConfirmedSentMessage : notConfirmedInsertedMessage
+        case .focusMoved:
+            return focusMovedMessage
+        case .inserted, .insertedIntoSecureField, .notInserted:
+            return nil
+        }
     }
 
     /// 確定の後に、パネルをどう戻すか。
@@ -147,7 +162,7 @@ final class PanelCommitFlow {
             return .none
         case .notInserted:
             return isPresented ? .none : .reopen
-        case .notConfirmed:
+        case .notConfirmed, .focusMoved:
             return isPresented ? .rejectTarget : .reopen
         }
     }

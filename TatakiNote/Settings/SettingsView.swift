@@ -20,6 +20,7 @@ struct SettingsView: View {
     let onQuit: () -> Void
 
     @State private var editorModel: EditorSettingsModel
+    @State private var pointerModel: PanelPointerSettingsModel
     @State private var keySettingsModel: PanelKeySettingsModel
     @State private var historyModel: HistorySettingsModel
 
@@ -29,8 +30,7 @@ struct SettingsView: View {
         launchAtLogin: LaunchAtLoginModel,
         appInfo: AppInfoModel,
         panelDefaultSize: PanelDefaultSizeModel,
-        library: DraftLibrary = DraftLibrary(store: .inMemory),
-        history: HistorySettingsModel? = nil,
+        history: HistorySettingsModel,
         updates: UpdateModel? = nil,
         onShowFontPanel: @escaping () -> Void,
         onQuit: @escaping () -> Void
@@ -44,8 +44,9 @@ struct SettingsView: View {
         self.onShowFontPanel = onShowFontPanel
         self.onQuit = onQuit
         _editorModel = State(initialValue: EditorSettingsModel(settings: settings))
+        _pointerModel = State(initialValue: PanelPointerSettingsModel(settings: settings))
         _keySettingsModel = State(initialValue: PanelKeySettingsModel(settings: settings))
-        _historyModel = State(initialValue: history ?? HistorySettingsModel(library: library, settings: settings))
+        _historyModel = State(initialValue: history)
     }
 
     var body: some View {
@@ -95,6 +96,7 @@ struct SettingsView: View {
                 settings: settings,
                 model: editorModel,
                 panelDefaultSize: panelDefaultSize,
+                pointerModel: pointerModel,
                 onShowFontPanel: onShowFontPanel
             )
         case .appInfo:

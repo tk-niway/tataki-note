@@ -354,26 +354,4 @@ struct TextExporterTests {
         #expect(ExportFeedback.feedback(for: .failed("理由"), isPanelPresented: false) == ExportFeedback(failureMessage: "理由"))
         #expect(ExportFeedback.feedback(for: .alreadyChoosing, isPanelPresented: false) == ExportFeedback())
     }
-
-    // MARK: - 保存ダイアログの編集のキー
-
-    @Test("AC-32: ⌘X・⌘C・⌘V・⌘A・⌘Z・⇧⌘Z は編集の操作になり、それ以外のキーはならない")
-    func savePanelEditKeys() {
-        #expect(SavePanelEditKey.action(modifiers: [.command], character: "x") == .cut)
-        #expect(SavePanelEditKey.action(modifiers: [.command], character: "c") == .copy)
-        #expect(SavePanelEditKey.action(modifiers: [.command], character: "v") == .paste)
-        #expect(SavePanelEditKey.action(modifiers: [.command], character: "a") == .selectAll)
-        #expect(SavePanelEditKey.action(modifiers: [.command], character: "z") == .undo)
-        #expect(SavePanelEditKey.action(modifiers: [.command, .shift], character: "z") == .redo)
-        #expect(SavePanelEditKey.action(modifiers: [.command, .capsLock], character: "v") == .paste)
-
-        #expect(SavePanelEditKey.action(modifiers: [.command], character: "l") == nil)
-        #expect(SavePanelEditKey.action(modifiers: [.command], character: "d") == nil)
-        #expect(SavePanelEditKey.action(modifiers: [.command], character: "s") == nil)
-        #expect(SavePanelEditKey.action(modifiers: [.command, .shift], character: "s") == nil)
-        #expect(SavePanelEditKey.action(modifiers: [.command], character: "w") == nil)
-        #expect(SavePanelEditKey.action(modifiers: [.command], character: "q") == nil)
-        #expect(SavePanelEditKey.action(modifiers: [.command, .option], character: "v") == nil)
-        #expect(SavePanelEditKey.action(modifiers: [], character: "v") == nil)
-    }
 }

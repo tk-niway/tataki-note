@@ -22,11 +22,6 @@ final class PermissionGuideWindowController: NSObject, NSWindowDelegate {
         bringWindowToFront()
     }
 
-    func showOnLaunchIfNeeded() {
-        guard model.presentOnLaunchIfNeeded() else { return }
-        bringWindowToFront()
-    }
-
     func close() {
         window?.close()
     }

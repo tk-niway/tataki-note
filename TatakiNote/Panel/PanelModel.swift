@@ -56,16 +56,7 @@ enum PanelDismissal: Equatable {
 
     /// 開くときの調べが終わり、挿入先を決める。閉じているときは何もしない。
     func finishTargetLookup(_ target: InsertionTarget?) {
-        guard isPresented else { return }
-        if isTargetPending {
-            isTargetPending = false
-        }
-        if pendingLookupApp != nil {
-            pendingLookupApp = nil
-        }
-        if self.target != target {
-            self.target = target
-        }
+        updateTarget(target)
     }
 
     /// 開いている間に挿入先を入れ替える。閉じているとき・変わらないときは何もしない。

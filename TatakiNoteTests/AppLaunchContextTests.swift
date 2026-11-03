@@ -398,4 +398,112 @@ struct AppLaunchContextTests {
         #expect(AppLaunchContext.shouldOfferMoveToApplications(environment: [Self.movePrompt: "enabled"], isDebugBuild: false) == true)
         #expect(AppLaunchContext.shouldOfferMoveToApplications(environment: [Self.movePrompt: "other"], isDebugBuild: false) == true)
     }
+
+    // MARK: - 抑止の判定のまとめ
+
+    enum SuppressionCase: CaseIterable {
+        case firstLaunchTutorial
+        case openPanelOnLaunch
+        case openPanelOnReopen
+
+        var key: String {
+            switch self {
+            case .firstLaunchTutorial: "TATAKINOTE_FIRST_LAUNCH_TUTORIAL"
+            case .openPanelOnLaunch: "TATAKINOTE_OPEN_PANEL_ON_LAUNCH"
+            case .openPanelOnReopen: "TATAKINOTE_OPEN_PANEL_ON_REOPEN"
+            }
+        }
+
+        var otherKeys: [String] {
+            Self.allCases.filter { $0 != self }.map(\.key)
+        }
+
+        func isSuppressed(environment: [String: String]) -> Bool {
+            switch self {
+            case .firstLaunchTutorial: AppLaunchContext.isFirstLaunchTutorialSuppressed(environment: environment)
+            case .openPanelOnLaunch: AppLaunchContext.isOpenPanelOnLaunchSuppressed(environment: environment)
+            case .openPanelOnReopen: AppLaunchContext.isOpenPanelOnReopenSuppressed(environment: environment)
+            }
+        }
+    }
+
+    @Test("AC-1: 3つの抑止は、suite の指定が無い・空なら、抑止の環境変数が何であっても抑止しない", arguments: SuppressionCase.allCases)
+    func suppressionIsOffWithoutSuite(_ suppression: SuppressionCase) {
+        let values: [String?] = [nil, "", "enabled", "other"]
+        let suites: [String?] = [nil, ""]
+        for suite in suites {
+            for value in values {
+                var environment: [String: String] = [:]
+                if let suite { environment[Self.suite] = suite }
+                if let value { environment[suppression.key] = value }
+                #expect(suppression.isSuppressed(environment: environment) == false, "\(environment)")
+            }
+        }
+    }
+
+    @Test("AC-1: 3つの抑止は、suite があれば、その抑止の環境変数がちょうど enabled のときだけ抑止しない", arguments: SuppressionCase.allCases)
+    func suppressionDependsOnExactEnabledWithSuite(_ suppression: SuppressionCase) {
+        let suite = "TatakiNoteUITests.abc"
+
+        #expect(suppression.isSuppressed(environment: [Self.suite: suite]) == true)
+        for value in ["", "Enabled", "1", "other"] {
+            #expect(
+                suppression.isSuppressed(environment: [Self.suite: suite, suppression.key: value]) == true,
+                "\(value)"
+            )
+        }
+        #expect(suppression.isSuppressed(environment: [Self.suite: suite, suppression.key: "enabled"]) == false)
+    }
+
+    @Test("AC-1: 3つの抑止は、他の抑止の環境変数だけが enabled でも抑止する", arguments: SuppressionCase.allCases)
+    func suppressionIgnoresOtherSuppressionKeys(_ suppression: SuppressionCase) {
+        for other in suppression.otherKeys {
+            let environment = [Self.suite: "TatakiNoteUITests.abc", other: "enabled"]
+            #expect(suppression.isSuppressed(environment: environment) == true, "\(other)")
+        }
+        let allOthers = Dictionary(uniqueKeysWithValues: suppression.otherKeys.map { ($0, "enabled") })
+            .merging([Self.suite: "TatakiNoteUITests.abc"]) { current, _ in current }
+        #expect(suppression.isSuppressed(environment: allOthers) == true)
+    }
+
+    // MARK: - 環境変数の読み出し
+
+    @Test("AC-2: 起動の環境変数は読むたびに同じ値で、単体テストのホストでは単体テストの実行中と判定される")
+    func processEnvironmentIsStableAndMarksUnitTestHost() {
+        let first = AppLaunchContext.processEnvironment
+        let second = AppLaunchContext.processEnvironment
+
+        #expect(first == second)
+        #expect(first.isEmpty == false)
+        #expect(AppLaunchContext.isRunningUnitTests(environment: first) == true)
+        #expect(AppLaunchContext.shouldRegisterHotkeys(environment: first) == false)
+    }
+
+    @Test("AC-3: アプリのソースでプロセスの環境変数を読むのは AppLaunchContext.swift の1か所だけ")
+    func onlyAppLaunchContextReadsProcessEnvironment() throws {
+        let needle = "ProcessInfo.processInfo.environment"
+        let directory = TestSourceFiles.appSourceDirectory
+        var occurrences: [String: Int] = [:]
+        for path in try TestSourceFiles.swiftFiles(in: directory) {
+            let url = directory.appendingPathComponent(path)
+            let contents = try #require(try? String(contentsOf: url, encoding: .utf8), "\(url.path) を読めません")
+            let count = contents.components(separatedBy: needle).count - 1
+            if count > 0 { occurrences[path] = count }
+        }
+
+        #expect(occurrences == ["App/AppLaunchContext.swift": 1])
+    }
+
+    @Test("AC-3: AppLaunchContext の宣言は AppLaunchContext.swift にだけある")
+    func appLaunchContextIsDeclaredOnlyInItsOwnFile() throws {
+        let directory = TestSourceFiles.appSourceDirectory
+        var declaring: [String] = []
+        for path in try TestSourceFiles.swiftFiles(in: directory) {
+            let url = directory.appendingPathComponent(path)
+            let contents = try #require(try? String(contentsOf: url, encoding: .utf8), "\(url.path) を読めません")
+            if contents.contains("enum AppLaunchContext") { declaring.append(path) }
+        }
+
+        #expect(declaring == ["App/AppLaunchContext.swift"])
+    }
 }

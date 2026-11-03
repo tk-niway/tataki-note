@@ -42,6 +42,21 @@ struct WorkspaceApplicationActivatorTests {
         }
     }
 
+    private func postInOrderAfterRequest(
+        _ names: [Notification.Name],
+        about app: NSRunningApplication,
+        on center: NotificationCenter,
+        by requester: ActivationRequesterStub
+    ) {
+        requester.onRequest = {
+            Task { @MainActor in
+                for name in names {
+                    center.post(name: name, object: nil, userInfo: [NSWorkspace.applicationUserInfoKey: app])
+                }
+            }
+        }
+    }
+
     // MARK: - 前面になった通知で進む
 
     @Test("AC-8: 前面でないとき前面にする依頼をし、前面になった通知が届いたら上限を待たずに true を返す", .untilStuck)
@@ -204,6 +219,52 @@ struct WorkspaceApplicationActivatorTests {
 
         #expect(result == false)
         #expect(requester.requestCount == 1)
+    }
+
+    // MARK: - 2つの通知が続けて届く
+
+    @Test("AC-4: 前面になった知らせの後に終了の知らせが続けて届いたら、先に届いた前面になった知らせで true を返す", .untilStuck)
+    func firstActivationNotificationWinsOverTerminationNotification() async {
+        let center = NotificationCenter()
+        let requester = ActivationRequesterStub()
+        let activator = WorkspaceApplicationActivator(
+            requester: requester,
+            frontmostApp: FrontmostApplicationStub { nil },
+            notificationCenter: center,
+            timeout: unreachableTimeout
+        )
+        postInOrderAfterRequest(
+            [NSWorkspace.didActivateApplicationNotification, NSWorkspace.didTerminateApplicationNotification],
+            about: currentApp,
+            on: center,
+            by: requester
+        )
+
+        let result = await activator.activate(currentTarget)
+
+        #expect(result == true)
+    }
+
+    @Test("AC-4: 終了の知らせの後に前面になった知らせが続けて届いたら、先に届いた終了の知らせで false を返す", .untilStuck)
+    func firstTerminationNotificationWinsOverActivationNotification() async {
+        let center = NotificationCenter()
+        let requester = ActivationRequesterStub()
+        let activator = WorkspaceApplicationActivator(
+            requester: requester,
+            frontmostApp: FrontmostApplicationStub { nil },
+            notificationCenter: center,
+            timeout: unreachableTimeout
+        )
+        postInOrderAfterRequest(
+            [NSWorkspace.didTerminateApplicationNotification, NSWorkspace.didActivateApplicationNotification],
+            about: currentApp,
+            on: center,
+            by: requester
+        )
+
+        let result = await activator.activate(currentTarget)
+
+        #expect(result == false)
     }
 
     // MARK: - 依頼の直後の確認・既定の上限

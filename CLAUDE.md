@@ -38,21 +38,22 @@ xcodebuild build -project TatakiNote.xcodeproj -scheme TatakiNote -destination '
 | フォルダ | 機能 |
 |---|---|
 | `TatakiNote/App/` | 起動・終了の確認・Dock・メニューバーのアイコンとメニュー・アプリケーションフォルダへの移動・ログイン時に開く |
-| `TatakiNote/Panel/` | 入力パネルの窓・状態・画面(タイトルバー・帯・トースト・保存の動き・揺れ) |
+| `TatakiNote/Panel/` | 入力パネルの窓・状態・画面(タイトルバー・帯・トースト・保存の動き・揺れ)と、確定の後の挿入の結果 |
 | `TatakiNote/Panel/Editor/` | パネルの入力欄(行の編集・入力欄のキー) |
 | `TatakiNote/Panel/Frame/` | パネルの大きさ・位置・出す画面・開閉の動き |
+| `TatakiNote/Panel/Find/` | パネルの検索・置換(検索バー・一致の計算・置換) |
 | `TatakiNote/Drafts/` | 下書きと履歴・サイドバー・その保存・履歴の設定 |
 | `TatakiNote/Export/` | ファイルへの書き出しと共有 |
 | `TatakiNote/Keys/` | ホットキー・パネルのキー・キーの記録と表示・キーの設定のページ。`extension KeyboardShortcuts.Name { static let … }` はここに集める |
 | `TatakiNote/AutoShow/` | 自動表示(フォーカスの見張り・対象のアプリ・その設定) |
-| `TatakiNote/Insertion/` | 挿入(クリップボードの退避と戻し・貼り付け・送信のキー・Web の中身を見えるようにする) |
-| `TatakiNote/InsertionTarget/` | 挿入先(前面のアプリの見張り・挿入先の表示と枠線) |
+| `TatakiNote/Insertion/` | 挿入(挿入先を前面にする・クリップボードの退避と戻し・貼り付け・送信のキー) |
+| `TatakiNote/InsertionTarget/` | 挿入先(前面のアプリの見張り・挿入先の表示と枠線・Web の中身を見えるようにする) |
 | `TatakiNote/Permission/` | アクセシビリティの許可と案内 |
 | `TatakiNote/Tutorial/` | チュートリアルと練習用のチャット |
 | `TatakiNote/Settings/` | 設定の窓と、複数の機能にまたがるページ(一般・パネル・情報) |
 | `TatakiNote/Updates/` | アップデートの確認と印 |
 | `TatakiNote/Storage/` | 設定の保存(`AppSettings`・`AppState`・設定の定義と保存先) |
-| `TatakiNote/Shared/` | 複数の機能で使う部品 |
+| `TatakiNote/Shared/` | 複数の機能で使う部品(挿入先のアプリ・フォーカスのある要素の調べを含む) |
 
 直下は `MyApp.swift`・`AppDelegate.swift`(と `Info.plist`・`Assets.xcassets`)だけ。1つの機能だけの設定のページはその機能のフォルダに、
 複数の機能にまたがるページは `Settings/` に置く。新しい機能はフォルダを作ってこの表に足す(同期フォルダ方式なので、作れば入る。
@@ -68,10 +69,14 @@ xcodebuild build -project TatakiNote.xcodeproj -scheme TatakiNote -destination '
 ### 書き方
 
 - 既定で MainActor。重い処理はメインスレッドの外へ(`nonisolated` な関数、`Task.detached`)
+- 非同期の処理は Swift Concurrency(`async`/`await`・`Task`)で書く。`DispatchQueue`・完了ハンドラは、それしか
+  受け付けない API(`NWPathMonitor` など)とのつなぎ目にだけ使う
 - 強制アンラップ・`as!`・`try!` を使わない。`try?` で失敗を捨てるのは、失敗しても利用者に影響が無いときだけ
 - 失敗は `throws` で返し、画面はモデルのエラー状態を表示する
 - 名前は Swift の API Design Guidelines に従う(型は UpperCamelCase、それ以外は lowerCamelCase、
   真偽値は `is`/`has`/`should`)。コメントで補わなくても分かる名前にする
+- 同じものには同じ名前を付ける。機能・画面の部品の名前は、上の「構成」の表と利用者ガイド(`docs/`)の言葉に
+  合わせる(パネルは `Panel`、入力欄は `Editor`)
 - 利用者に見える文字列は日本語。String Catalog に乗る書き方(`Text("…")`・`String(localized:)`)にする
 
 ### テスト

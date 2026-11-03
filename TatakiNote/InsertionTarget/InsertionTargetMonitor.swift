@@ -222,6 +222,9 @@ final class InsertionTargetMonitor {
         return changed
     }
 
+    /// 挿入先として見張っている入力欄。見張っていない・入力欄が無いときは nil。
+    var trackedField: AXUIElement? { isWatching ? field : nil }
+
     /// 覚えている入力欄の位置を今1回読み、まだ使える入力欄かを返す。
     func isTrackedFieldReadable() -> Bool {
         guard isWatching, let field else { return false }
@@ -278,7 +281,7 @@ final class InsertionTargetMonitor {
             return false
         }
         if let frame = result.frame {
-            let point = AutoShowDecision.accessibilityPoint(fromCocoa: location, primaryScreenFrame: primaryScreenFrame())
+            let point = ScreenCoordinates.topLeftPoint(fromCocoa: location, primaryScreenHeight: primaryScreenFrame().maxY)
             guard frame.contains(point) else { return false }
         }
         let isNewApp = app?.processIdentifier != front.processIdentifier

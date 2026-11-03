@@ -5,15 +5,157 @@ import SwiftUI
 final class PromptTextView: EditorTextView {
     var onKeyInput: ((PanelKeyInput) -> Bool)?
 
+    /// 文章が変わったとき(打つ・置換・取り消し・別の文章の入れ替え)に呼ぶ。
+    var onStringChange: (() -> Void)?
+
+    /// 選択が確定して変わったときに呼ぶ。
+    var onSelectionChange: (() -> Void)?
+
+    /// 今ハイライトしている一致。
+    private(set) var findHighlights: [FindHighlight] = []
+
+    private lazy var baseSelectedTextAttributes = selectedTextAttributes
+    private var findBorderView: FindBorderView?
+    private var undoObservers: [NSObjectProtocol] = []
+    private weak var observedUndoManager: UndoManager?
+
+    /// 余白を足す前の textContainerInset。
+    var baseContainerInset: NSSize = .zero {
+        didSet { applyContainerInset() }
+    }
+
+    /// 最後の行の下に空ける高さ。
+    var bottomPadding: CGFloat = 0 {
+        didSet { applyContainerInset() }
+    }
+
+    // MARK: - 余白
+
+    override var textContainerOrigin: NSPoint {
+        NSPoint(x: super.textContainerOrigin.x, y: baseContainerInset.height)
+    }
+
+    override func scrollRangeToVisible(_ range: NSRange) {
+        super.scrollRangeToVisible(range)
+        revealBottomPadding(for: range)
+    }
+
+    override func didChangeText() {
+        super.didChangeText()
+        revealBottomPadding(for: selectedRange())
+        findBorderView?.needsDisplay = true
+        observeUndoManagerIfNeeded()
+        onStringChange?()
+    }
+
+    isolated deinit {
+        removeUndoObservers()
+    }
+
+    private func observeUndoManagerIfNeeded() {
+        guard let undoManager, undoManager !== observedUndoManager else { return }
+        removeUndoObservers()
+        observedUndoManager = undoManager
+        for name in [Notification.Name.NSUndoManagerDidUndoChange, Notification.Name.NSUndoManagerDidRedoChange] {
+            let observer = NotificationCenter.default.addObserver(
+                forName: name,
+                object: undoManager,
+                queue: nil
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.onStringChange?() }
+            }
+            undoObservers.append(observer)
+        }
+    }
+
+    private func removeUndoObservers() {
+        for observer in undoObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        undoObservers = []
+        observedUndoManager = nil
+    }
+
+    override var string: String {
+        didSet { onStringChange?() }
+    }
+
+    override func setSelectedRanges(
+        _ ranges: [NSValue],
+        affinity: NSSelectionAffinity,
+        stillSelecting stillSelectingFlag: Bool
+    ) {
+        super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelectingFlag)
+        if !findHighlights.isEmpty {
+            refreshSelectionAppearance()
+        }
+        if !stillSelectingFlag {
+            onSelectionChange?()
+        }
+    }
+
+    /// ハイライトの記録を入れ替える。
+    func storeFindHighlights(_ highlights: [FindHighlight]) {
+        findHighlights = highlights
+        updateFindBorder()
+        refreshSelectionAppearance()
+    }
+
+    private func updateFindBorder() {
+        guard let current = findHighlights.first(where: \.isCurrent)?.range else {
+            findBorderView?.range = nil
+            return
+        }
+        let border = findBorderView ?? makeFindBorderView()
+        border.frame = bounds
+        border.range = current
+    }
+
+    private func makeFindBorderView() -> FindBorderView {
+        let border = FindBorderView(frame: bounds)
+        addSubview(border)
+        findBorderView = border
+        return border
+    }
+
+    /// 今の一致が選択と重なるときだけ、選択の塗りを消す。
+    func refreshSelectionAppearance() {
+        let hidesFill = FindHighlighter.isCurrentSelected(findHighlights, selection: selectedRange())
+        selectedTextAttributes = FindHighlighter.selectedTextAttributes(
+            base: baseSelectedTextAttributes,
+            hidesSelectionFill: hidesFill
+        )
+        needsDisplay = true
+    }
+
+    private func applyContainerInset() {
+        textContainerInset = EditorBottomPadding.containerInset(base: baseContainerInset, padding: bottomPadding)
+        invalidateTextContainerOrigin()
+        sizeToFit()
+    }
+
+    private func revealBottomPadding(for range: NSRange) {
+        guard bottomPadding > 0, let window else { return }
+        let text = string as NSString
+        guard EditorBottomPadding.isInLastLine(range, of: text) else { return }
+        let end = min(NSMaxRange(range), text.length)
+        let screenRect = firstRect(forCharacterRange: NSRange(location: end, length: 0), actualRange: nil)
+        guard screenRect.height > 0 else { return }
+        let caretRect = convert(window.convertFromScreen(screenRect), from: nil)
+        let rect = EditorBottomPadding.revealRect(
+            caretRect: caretRect,
+            documentMaxY: caretRect.maxY + baseContainerInset.height + bottomPadding,
+            visibleHeight: visibleRect.height,
+            padding: bottomPadding,
+            isInLastLine: true
+        )
+        scrollToVisible(rect)
+    }
+
     // MARK: - キー操作
 
     override func keyDown(with event: NSEvent) {
-        let input = PanelKeyInput(
-            keyCode: event.keyCode,
-            modifiers: event.modifierFlags.intersection(.deviceIndependentFlagsMask),
-            hasMarkedText: hasMarkedText(),
-            characters: event.charactersIgnoringModifiers?.lowercased() ?? ""
-        )
+        let input = PanelKeyInput(event: event, hasMarkedText: hasMarkedText())
         if onKeyInput?(input) == true {
             return
         }
@@ -25,12 +167,7 @@ final class PromptTextView: EditorTextView {
     }
 
     override func handleKeyEquivalent(_ event: NSEvent) -> EditorKeyEquivalentResult {
-        let input = PanelKeyInput(
-            keyCode: event.keyCode,
-            modifiers: event.modifierFlags.intersection(.deviceIndependentFlagsMask),
-            hasMarkedText: false,
-            characters: event.charactersIgnoringModifiers?.lowercased() ?? ""
-        )
+        let input = PanelKeyInput(event: event, hasMarkedText: false)
         if onKeyInput?(input) == true {
             return .handled
         }
@@ -165,9 +302,17 @@ struct PromptTextEditor: NSViewRepresentable {
     let focusRequest: Int
     let font: NSFont
     var placeholder: String = ""
+    var bottomPaddingLines: Int = 0
     let onKeyInput: (PanelKeyInput) -> Bool
+    var findRegistry: FindEditorRegistry?
+    var onFindTextChange: () -> Void = {}
+    var onFindSelectionChange: () -> Void = {}
 
     typealias Coordinator = EditorTextCoordinator
+
+    private var bottomPadding: CGFloat {
+        EditorBottomPadding.height(lines: bottomPaddingLines, lineHeight: EditorBottomPadding.lineHeight(for: font))
+    }
 
     func makeCoordinator() -> Coordinator {
         EditorTextCoordinator(text: $text)
@@ -177,21 +322,32 @@ struct PromptTextEditor: NSViewRepresentable {
         let textView = PromptTextView()
         textView.delegate = context.coordinator
         textView.onKeyInput = onKeyInput
+        findRegistry?.editor = textView
         textView.configurePlainTextEditing(
             textContainerInset: PanelMetrics.textContainerInset,
             accessibilityIdentifier: "promptPanel.textView"
         )
+        textView.baseContainerInset = PanelMetrics.textContainerInset
         textView.applyFont(font)
+        textView.bottomPadding = bottomPadding
         textView.placeholder = placeholder
         textView.string = text
+        textView.onStringChange = onFindTextChange
+        textView.onSelectionChange = onFindSelectionChange
         return EditorTextView.scrollView(containing: textView, backgroundColor: nil)
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? PromptTextView else { return }
         textView.onKeyInput = onKeyInput
+        textView.onStringChange = onFindTextChange
+        textView.onSelectionChange = onFindSelectionChange
+        findRegistry?.editor = textView
         context.coordinator.text = $text
         textView.applyFont(font)
+        if textView.bottomPadding != bottomPadding {
+            textView.bottomPadding = bottomPadding
+        }
         if textView.placeholder != placeholder {
             textView.placeholder = placeholder
         }

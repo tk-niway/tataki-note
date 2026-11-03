@@ -112,6 +112,20 @@ enum SettingDefinitions {
         normalize: HistoryLimit.clamped
     )
 
+    static let editorBottomPaddingLines = SettingDefinition<Int>(
+        key: "editorBottomPaddingLines",
+        read: { storage in
+            guard let value = StoredValue.number(in: storage, forKey: "editorBottomPaddingLines")?.doubleValue,
+                  value.isFinite
+            else { return EditorBottomPadding.defaultLines }
+            let lower = Double(EditorBottomPadding.lineRange.lowerBound)
+            let upper = Double(EditorBottomPadding.lineRange.upperBound)
+            return Int(min(max(value, lower), upper))
+        },
+        write: { lines, storage in storage.set(lines, forKey: "editorBottomPaddingLines") },
+        normalize: EditorBottomPadding.clampedLines
+    )
+
     static let historyRetention: SettingDefinition<HistoryRetention> = .stringEnum(
         "historyRetention",
         default: .defaultValue
@@ -122,6 +136,18 @@ enum SettingDefinitions {
     static let checksForUpdatesAutomatically: SettingDefinition<Bool> = .boolean(
         "checksForUpdatesAutomatically",
         default: true
+    )
+
+    static let panelMoveModifiers = SettingDefinition<Set<PanelPointerModifier>>(
+        key: "panelMoveModifiers",
+        read: { storage in pointerModifiers(storage, "panelMoveModifiers", default: [.command]) },
+        write: { modifiers, storage in writePointerModifiers(modifiers, storage, "panelMoveModifiers") }
+    )
+
+    static let panelResizeModifiers = SettingDefinition<Set<PanelPointerModifier>>(
+        key: "panelResizeModifiers",
+        read: { storage in pointerModifiers(storage, "panelResizeModifiers", default: [.option]) },
+        write: { modifiers, storage in writePointerModifiers(modifiers, storage, "panelResizeModifiers") }
     )
 
     // MARK: - アプリが覚えておく状態
@@ -161,6 +187,27 @@ enum SettingDefinitions {
         "suppressesMoveToApplicationsPrompt",
         default: false
     )
+
+    // MARK: - 修飾キー
+
+    private static func pointerModifiers(
+        _ storage: any SettingsStorage,
+        _ key: String,
+        default defaultValue: Set<PanelPointerModifier>
+    ) -> Set<PanelPointerModifier> {
+        guard storage.object(forKey: key) != nil else { return defaultValue }
+        guard let values = storage.array(forKey: key) else { return defaultValue }
+        return Set(values.compactMap { ($0 as? String).flatMap(PanelPointerModifier.init(rawValue:)) })
+    }
+
+    private static func writePointerModifiers(
+        _ modifiers: Set<PanelPointerModifier>,
+        _ storage: any SettingsStorage,
+        _ key: String
+    ) {
+        let rawValues = PanelPointerModifier.allCases.filter { modifiers.contains($0) }.map(\.rawValue)
+        storage.set(rawValues, forKey: key)
+    }
 
     // MARK: - 確定キー
 

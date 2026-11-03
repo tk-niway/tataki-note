@@ -24,6 +24,7 @@ struct SettingsWindowControllerThemeTests {
                 permissionStatus: PermissionGuideModel(permission: OverriddenAccessibilityPermission(isTrusted: true))
             ),
             panelDefaultSize: PanelDefaultSizeModel(settings: settings, currentPanelSize: { nil }),
+            history: HistorySettingsModel(library: DraftLibrary(store: .inMemory), settings: settings),
             onShowFontPanel: {},
             onQuit: {}
         )

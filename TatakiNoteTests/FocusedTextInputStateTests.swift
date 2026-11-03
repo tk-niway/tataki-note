@@ -2,7 +2,7 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-struct FocusedTextInputTests {
+struct FocusedTextInputStateTests {
     @Test("文章の入力欄の役割なら入力欄")
     func textInputRoles() {
         for role in ["AXTextField", "AXTextArea", "AXComboBox"] {

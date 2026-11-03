@@ -8,14 +8,11 @@ final class PanelController: NSObject, NSWindowDelegate {
     let panel: PromptPanel
     private let settings: AppSettings
     private let hideApplication: () -> Void
-    private let targetTracker: FrontmostAppTracker
     private let permission: AccessibilityPermissionChecking
     private let openFrameResolver: PanelOpenFrameResolver
-    private let exposeWebContent: (InsertionTarget) -> Void
-    private let openingLookup: OpeningTargetLookup
-    private let ownProcessIdentifier: pid_t
     private let library: DraftLibrary
     private let targetMonitor: InsertionTargetMonitor
+    private let targetStarter: OpeningTargetStarter
     private let outlineController: InsertionTargetOutlineController
     private let sharingAnchorRegistry = SharingAnchorRegistry()
 
@@ -25,7 +22,16 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     let sizeController: PanelSizeController
 
+    /// 検索バーの状態。
+    let findModel = FindModel()
+    /// 入力欄を検索の対象として覚える入れ物。
+    let findEditorRegistry = FindEditorRegistry()
+    /// 検索バーのキーとボタンの操作の振り分け。
+    let findController: PanelFindController
+
     private let motionController: PanelMotionController
+
+    private let pointerController: PanelPointerController
 
     private let feedback: PanelFeedback
 
@@ -41,10 +47,16 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     /// 返した挿入先を、前面のアプリの代わりに挿入先にする。`nil` を返すと前面のアプリを使う。
-    var targetOverride: (() -> InsertionTarget?)?
+    var targetOverride: (() -> InsertionTarget?)? {
+        get { targetStarter.targetOverride }
+        set { targetStarter.targetOverride = newValue }
+    }
 
     /// 挿入先を探さず、挿入先が無いものとして開くか。
-    var isTargetLookupDisabled = false
+    var isTargetLookupDisabled: Bool {
+        get { targetStarter.isTargetLookupDisabled }
+        set { targetStarter.isTargetLookupDisabled = newValue }
+    }
 
     /// TatakiNote 自身が挿入先のとき、その入力欄がまだ使えるか。nil なら使えるとみなす。
     var isOwnTargetAvailable: (() -> Bool)? {
@@ -82,24 +94,20 @@ final class PanelController: NSObject, NSWindowDelegate {
         exportChooser: ExportDestinationChoosing = SavePanelDestinationChooser(),
         writeTextFile: @escaping (String, URL) throws -> Void = TextFileWriter.write,
         sharer: TextSharing? = nil,
-        presentExportFailure: ((String, NSWindow?, @escaping () -> Void) -> Void)? = nil
+        presentExportFailure: ((String, NSWindow?, @escaping () -> Void) -> Void)? = nil,
+        pointerEventMonitor: PanelPointerEventMonitoring = NSEventPanelPointerEventMonitor()
     ) {
         let panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
         self.model = model
         self.panel = panel
         self.settings = settings
         self.hideApplication = hideApplication
-        self.targetTracker = targetTracker
         self.permission = permission
         self.openFrameResolver = PanelOpenFrameResolver(
             fieldProbe: fieldProbe,
             locateTargetWindowFrame: locateTargetWindowFrame,
             ownProcessIdentifier: ownProcessIdentifier
         )
-        self.exposeWebContent = exposeWebContent
-        self.openingLookup = openingLookup
-            ?? SynchronousOpeningTargetLookup(probe: fieldProbe, exposeWebContent: exposeWebContent)
-        self.ownProcessIdentifier = ownProcessIdentifier
         self.library = library
         let session = DraftSession(
             panel: model,
@@ -115,6 +123,16 @@ final class PanelController: NSObject, NSWindowDelegate {
             isOutlineEnabled: { [settings] in PanelController.isOutlineTrackingEnabled(settings: settings) }
         )
         self.targetMonitor = targetMonitor
+        self.targetStarter = OpeningTargetStarter(
+            targetMonitor: targetMonitor,
+            openingLookup: openingLookup
+                ?? SynchronousOpeningTargetLookup(probe: fieldProbe, exposeWebContent: exposeWebContent),
+            exposeWebContent: exposeWebContent,
+            ownProcessIdentifier: ownProcessIdentifier,
+            currentTarget: { [targetTracker] in targetTracker.currentTarget() },
+            isOutlineEnabled: { [settings] in PanelController.isOutlineTrackingEnabled(settings: settings) },
+            panelScreen: { [settings] in settings.panelScreen }
+        )
         self.outlineController = InsertionTargetOutlineController(
             outline: targetMonitor.outline,
             settings: settings,
@@ -127,13 +145,19 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.sidebarModel = sidebarModel
         let sizeController = PanelSizeController(panel: panel, sidebarModel: sidebarModel, animator: animator)
         self.sizeController = sizeController
-        self.motionController = PanelMotionController(
+        let findModel = self.findModel
+        let findEditorRegistry = self.findEditorRegistry
+        findModel.editor = { [findEditorRegistry] in findEditorRegistry.editor }
+        findModel.isAnimationEnabled = { [settings] in settings.isAnimationEnabled }
+        let motionController = PanelMotionController(
             panel: panel,
             animator: animator,
             restoreMinimumSize: { [sizeController] in sizeController.applyMinimumSize() }
         )
+        self.motionController = motionController
+        self.findController = PanelFindController(model: findModel, registry: findEditorRegistry, panel: panel)
         self.saveAnimation = saveAnimation
-        self.feedback = PanelFeedback(
+        let feedback = PanelFeedback(
             panel: panel,
             model: model,
             session: session,
@@ -143,6 +167,22 @@ final class PanelController: NSObject, NSWindowDelegate {
             settings: settings,
             shaker: shaker,
             beep: beep
+        )
+        self.feedback = feedback
+        self.pointerController = PanelPointerController(
+            panel: panel,
+            settings: settings,
+            monitor: pointerEventMonitor,
+            availability: {
+                PanelPointerAvailability.make(
+                    isPresented: model.isPresented,
+                    motionPhase: motionController.phase,
+                    isSidebarSliding: sizeController.isSidebarSliding,
+                    isSidebarOpen: sidebarModel.isOpen
+                )
+            },
+            willBegin: { feedback.stopShaking() },
+            didResize: { from, to in sizeController.recordPointerResize(fromWindowSize: from, toWindowSize: to) }
         )
         self.exportSharing = PanelExportSharing(
             model: model,
@@ -174,7 +214,12 @@ final class PanelController: NSObject, NSWindowDelegate {
                 session: session,
                 sidebarModel: sidebarModel,
                 saveAnimation: saveAnimation,
-                sharingAnchorRegistry: sharingAnchorRegistry
+                sharingAnchorRegistry: sharingAnchorRegistry,
+                findModel: findModel,
+                onFindAction: { [weak self] in self?.findController.perform($0) },
+                findRegistry: findEditorRegistry,
+                onFindTextChange: { findModel.textDidChange() },
+                onFindSelectionChange: { findModel.selectionDidChange() }
             )
         )
         hostingView.sizingOptions = []
@@ -182,6 +227,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.setContentSize(PanelMetrics.defaultSize)
         panel.delegate = self
         panel.onKeyEquivalent = { [weak self] in self?.handleKey($0) ?? false }
+        panel.onFindKeyEquivalent = { [weak self] in self?.findController.handleKey($0) ?? false }
         panel.onHideKey = { [weak self] in self?.handleHideKey() ?? false }
         panel.onKeyDownOutsideEditor = { [weak self] in self?.handleKeyOutsideEditor($0) ?? false }
         sizeController.applyMinimumSize()
@@ -254,76 +300,40 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func open(observedFocus: ObservedFocus? = nil, looksUpTarget: Bool = true) {
-        let app = (isTargetLookupDisabled || !looksUpTarget) ? nil : (targetOverride?() ?? targetTracker.currentTarget())
+        let app = targetStarter.selectApp(looksUpTarget: looksUpTarget)
         settings.refreshKeyDisplayTexts()
-        let wasPresented = model.isPresented
-        var start: InsertionTargetStart?
-        var pending: (lookup: PendingOpeningTargetLookup, token: InsertionTargetLookupToken)?
-        var queriesField = true
         let isTrusted = permission.isTrusted
-        if !wasPresented {
-            let shouldExpose = PanelOpenFrameResolver.shouldExposeWebContent(
-                target: app,
-                ownProcessIdentifier: ownProcessIdentifier,
-                isTrusted: isTrusted
-            )
-            if let app, targetMonitor.needsOpeningLookup(for: app) {
-                queriesField = false
-                let request = OpeningTargetLookupRequest.make(
-                    app: app,
-                    observedFocus: observedFocus,
-                    isOutlineEnabled: Self.isOutlineTrackingEnabled(settings: settings),
-                    panelScreen: settings.panelScreen,
-                    isTrusted: isTrusted,
-                    shouldExposeWebContent: shouldExpose
-                )
-                switch openingLookup.lookUp(request, waitingUpTo: OpeningTargetLookupRequest.deadline) {
-                case .finished(let result):
-                    start = targetMonitor.begin(app: app, lookedUp: result)
-                case .pending(let lookup):
-                    pending = (lookup, targetMonitor.beginPending(app: app))
-                }
-            } else {
-                if let app, shouldExpose {
-                    exposeWebContent(app)
-                }
-                start = targetMonitor.begin(app: app, observedFocus: observedFocus)
-            }
-        }
-        model.present(
-            target: wasPresented ? app : start?.target,
-            pendingLookupApp: pending != nil ? app : nil
-        )
-        if !wasPresented {
-            library.pruneExpiredHistory()
-            sidebarModel.discardPendingFocusRequests()
-            motionController.stop()
-            sizeController.sizing.beginOpening(defaultSize: settings.panelDefaultSize, hasText: !model.text.isEmpty)
-            let openingFrame = openFrameResolver.frame(
-                target: app,
-                mode: settings.panelScreen,
-                isTrusted: isTrusted,
-                observedFocus: queriesField ? (start?.focus ?? observedFocus) : start?.focus,
-                queriesField: queriesField,
-                isSidebarOpen: sidebarModel.isOpen,
-                openingSize: { [sizeController] in sizeController.sizing.openingSize(in: $0) }
-            )
-            if let frame = openingFrame {
-                sizeController.applyMinimumSize()
-                panel.setFrame(frame, display: false)
-            } else {
-                sizeController.applyMinimumSize()
-                panel.center()
-            }
-            motionController.present(at: panel.frame, isAnimationEnabled: settings.isAnimationEnabled)
-            if let pending {
-                pending.lookup.whenFinished { [weak self, token = pending.token] result in
-                    self?.targetMonitor.finishPending(token, result: result)
-                }
-            }
+        guard !model.isPresented else {
+            model.present(target: app)
+            panel.makeKeyAndOrderFront(nil)
             return
         }
-        panel.makeKeyAndOrderFront(nil)
+        let opening = targetStarter.start(app: app, observedFocus: observedFocus, isTrusted: isTrusted)
+        model.present(target: opening.target, pendingLookupApp: opening.pendingLookupApp)
+        library.pruneExpiredHistory()
+        sidebarModel.discardPendingFocusRequests()
+        motionController.stop()
+        sizeController.sizing.beginOpening(defaultSize: settings.panelDefaultSize, hasText: !model.text.isEmpty)
+        let openingFrame = openFrameResolver.frame(
+            target: opening.app,
+            mode: settings.panelScreen,
+            isTrusted: isTrusted,
+            observedFocus: opening.fieldFocus,
+            queriesField: opening.queriesField,
+            isSidebarOpen: sidebarModel.isOpen,
+            openingSize: { [sizeController] in sizeController.sizing.openingSize(in: $0) }
+        )
+        if let frame = openingFrame {
+            sizeController.applyMinimumSize()
+            panel.setFrame(frame, display: false)
+        } else {
+            sizeController.applyMinimumSize()
+            panel.center()
+        }
+        motionController.present(at: panel.frame, isAnimationEnabled: settings.isAnimationEnabled)
+        findModel.textDidChange()
+        pointerController.start()
+        targetStarter.deliverPendingAnswer(of: opening)
     }
 
     func close() {
@@ -373,11 +383,13 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     private func hidePanel(then completion: (() -> Void)? = nil) {
+        pointerController.stop()
         sizeController.finishSidebarSlide()
         motionController.hide(isAnimationEnabled: settings.isAnimationEnabled, then: completion)
     }
 
     private func hideWithoutMotion() {
+        pointerController.stop()
         sizeController.finishSidebarSlide()
         motionController.hideWithoutMotion()
     }
@@ -400,6 +412,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func handleKey(_ input: PanelKeyInput) -> Bool {
+        if findController.handleKey(input) { return true }
         let action = PanelKeyResolver.action(
             for: input,
             commitKey: settings.commitKey,
@@ -424,9 +437,11 @@ final class PanelController: NSObject, NSWindowDelegate {
         case .commit: commit(shouldSendAfterInsert: false)
         case .commitAndSend: commit(shouldSendAfterInsert: true)
         case .openSearch: openSearch()
+        case .toggleFind: findController.toggleBar()
         case .saveDraft: saveDraftOrSignalEmpty()
         case .newDraft: requestNewScratch()
         case .toggleMode: session.toggleMode()
+        case .switchToNote: session.switchToNote()
         case .switchToInsert: session.switchToInsert()
         case .toggleSidebar: toggleSidebarAndMoveFocus()
         case .openSettings: onOpenSettings?()
@@ -484,6 +499,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// 一覧・検索欄にフォーカスがあるときに押されたキーを処理する。確定・確定+送信なら実行して `true` を返す。
     func handleKeyOutsideEditor(_ input: PanelKeyInput) -> Bool {
+        if findController.handleKey(input) { return true }
         switch PanelKeyResolver.actionOutsideEditor(
             for: input,
             commitKey: settings.commitKey,

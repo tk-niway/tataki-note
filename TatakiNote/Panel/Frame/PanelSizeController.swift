@@ -85,7 +85,7 @@ final class PanelSizeController {
         if isOpen {
             sidebarModel.setOpen(true)
         } else {
-            panel.contentMinSize = SidebarLayout.minimumWindowSize(isSidebarOpen: false)
+            panel.contentMinSize = minimumWindowSize(isSidebarOpen: false)
         }
         animator.animate(panel, to: target, duration: PanelMotion.duration, curve: isOpen ? .easeOut : .easeIn) { [weak self] in
             guard let self, let slide = self.sidebarSlide, slide.generation == generation else { return }
@@ -111,7 +111,7 @@ final class PanelSizeController {
 
     /// サイドバーの開閉に合わせた最小の大きさを窓に入れる。
     func applyMinimumSize() {
-        panel.contentMinSize = SidebarLayout.minimumWindowSize(isSidebarOpen: sidebarModel.isOpen)
+        panel.contentMinSize = minimumWindowSize(isSidebarOpen: sidebarModel.isOpen)
     }
 
     // MARK: - 大きさ
@@ -127,6 +127,11 @@ final class PanelSizeController {
         sizing.userDidResize(from: startSize, to: bodySize(of: panel.frame.size))
     }
 
+    /// 修飾キーでのサイズ変更で窓の大きさが変わったことを、ドラッグで決めた大きさとして覚える。
+    func recordPointerResize(fromWindowSize: CGSize, toWindowSize: CGSize) {
+        sizing.userDidResize(from: bodySize(of: fromWindowSize), to: bodySize(of: toWindowSize))
+    }
+
     func windowWillResize(_ sender: NSWindow, to frameSize: NSSize, motionPhase: PanelMotionPhase) -> NSSize {
         if motionPhase == .opening || isSidebarSliding {
             return frameSize
@@ -134,7 +139,7 @@ final class PanelSizeController {
         if !sender.inLiveResize, motionPhase == .shown, !isAdjustingFrameForSidebar, resizeStartSize == nil {
             resizeStartSize = bodySize(of: sender.frame.size)
         }
-        let minimum = SidebarLayout.minimumWindowSize(isSidebarOpen: sidebarModel.isOpen)
+        let minimum = minimumWindowSize(isSidebarOpen: sidebarModel.isOpen)
         return NSSize(
             width: max(frameSize.width, minimum.width),
             height: max(frameSize.height, minimum.height)
@@ -150,5 +155,9 @@ final class PanelSizeController {
 
     private func bodySize(of windowSize: CGSize) -> CGSize {
         SidebarLayout.bodySize(windowSize: windowSize, isSidebarOpen: sidebarModel.isOpen)
+    }
+
+    private func minimumWindowSize(isSidebarOpen: Bool) -> CGSize {
+        SidebarLayout.minimumWindowSize(isSidebarOpen: isSidebarOpen)
     }
 }

@@ -13,7 +13,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let launchAtLogin: LaunchAtLoginModel
     private let appInfo: AppInfoModel
     private let panelDefaultSize: PanelDefaultSizeModel
-    private let library: DraftLibrary
     private let updates: UpdateModel
     private var window: NSWindow?
 
@@ -31,7 +30,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         self.launchAtLogin = launchAtLogin
         self.appInfo = appInfo
         self.panelDefaultSize = panelDefaultSize
-        self.library = library
         self.updates = updates ?? UpdateModel.inert(settings: settings)
         self.history = HistorySettingsModel(library: library, settings: settings)
         super.init()
@@ -67,7 +65,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         model.prepareForOpen()
         history.resetPhase()
         fontPanel.close()
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
             self?.onDidClose?()
         }
     }
@@ -84,7 +82,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 launchAtLogin: launchAtLogin,
                 appInfo: appInfo,
                 panelDefaultSize: panelDefaultSize,
-                library: library,
                 history: history,
                 updates: updates,
                 onShowFontPanel: { [weak self] in self?.fontPanel.show() },

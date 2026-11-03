@@ -24,7 +24,10 @@ enum EditorShortcuts {
     /// パネルの操作のキーの表(`PanelCommandKeys`)から作る、一覧の行。
     static let panelCommands: [EditorShortcut] = PanelCommandKeys.all.map(\.listing)
 
-    /// 「行の操作」「コピーと貼り付け」「下書き」「表示」の4つの分類。
+    /// 検索の操作のキーの表(`FindKeys`)から作る、一覧の行。
+    static let find: [EditorShortcut] = FindKeys.listings.map(\.listing)
+
+    /// 「行の操作」「コピーと貼り付け」「下書き」「検索と置換」「表示」の5つの分類。
     static let groups: [EditorShortcutGroup] = [
         EditorShortcutGroup(
             id: "line",
@@ -42,6 +45,11 @@ enum EditorShortcuts {
             shortcuts: shortcuts(withIDs: ["saveDraft", "exportToFile", "newDraft", "toggleMode", "searchDrafts"])
         ),
         EditorShortcutGroup(
+            id: "find",
+            title: String(localized: "検索と置換"),
+            shortcuts: find
+        ),
+        EditorShortcutGroup(
             id: "view",
             title: String(localized: "表示"),
             shortcuts: shortcuts(withIDs: ["toggleSidebar", "openSettings"])
@@ -49,7 +57,7 @@ enum EditorShortcuts {
     ]
 
     private static func shortcuts(withIDs ids: [String]) -> [EditorShortcut] {
-        let candidates = all + panelCommands
+        let candidates = all + panelCommands + find
         return ids.compactMap { id in candidates.first { $0.id == id } }
     }
 }

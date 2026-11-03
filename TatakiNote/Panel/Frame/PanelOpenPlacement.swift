@@ -31,22 +31,6 @@ enum PanelOpenPlacement {
         return PanelPlacement.cocoaFrame(fromQuartz: frame, primaryScreenHeight: primaryScreenHeight)
     }
 
-    static func screen(
-        mode: PanelScreen,
-        screens: [ScreenGeometry],
-        mouseLocation: CGPoint,
-        targetWindowFrame: CGRect?,
-        fieldFrame: CGRect?
-    ) -> ScreenGeometry? {
-        screen(
-            mode: mode,
-            screens: screens,
-            mouseLocation: mouseLocation,
-            fieldFrame: fieldFrame,
-            locateTargetWindowFrame: { targetWindowFrame }
-        )
-    }
-
     /// 出す画面を選ぶ。挿入先のウィンドウの枠は、画面の決定に要るときだけ求める。
     static func screen(
         mode: PanelScreen,

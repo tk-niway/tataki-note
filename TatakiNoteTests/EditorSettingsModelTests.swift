@@ -171,6 +171,22 @@ struct EditorSettingsModelTests {
         #expect(EditorSettingsModel.opacityDescription == "パネル背景の透明度")
     }
 
+    @Test("AC-42: 余白の値の表示は行数を「n 行」で出す(0・3・20)")
+    func bottomPaddingText() throws {
+        let suite = UUID().uuidString
+        defer { removeSuite(suite) }
+        let settings = try makeSettings(suite: suite)
+        let model = EditorSettingsModel(settings: settings)
+
+        #expect(model.bottomPaddingText == "3 行")
+        settings.editorBottomPaddingLines = 0
+        #expect(model.bottomPaddingText == "0 行")
+        settings.editorBottomPaddingLines = 20
+        #expect(model.bottomPaddingText == "20 行")
+        settings.editorBottomPaddingLines = 3
+        #expect(model.bottomPaddingText == "3 行")
+    }
+
     // MARK: - フォント名の表示
 
     @Test("AC-40: フォント名を描くフォントは、システムフォントのときはシステムフォント、書体を選んでいるときはその書体で、どちらも 12pt")
