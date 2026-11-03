@@ -10,6 +10,7 @@ private final class FindModelFixture {
     init(_ marked: String) {
         editor = FakeFindEditor(marked)
         model.editor = { [editor] in editor }
+        model.isAnimationEnabled = { true }
         editor.onTextChange = { [model] in model.textDidChange() }
         editor.onSelectionChange = { [model] in model.selectionDidChange() }
     }
@@ -151,6 +152,121 @@ struct FindModelTests {
         #expect(cleared.ranges.isEmpty)
         #expect(cleared.current == nil)
         #expect(fixture.model.query == "foo")
+    }
+
+    @Test("AC-51: 次・前の一致へ移ったときだけ移った先の一致を浮き上がらせ、検索語を打って最初の一致に移ったときは出さない")
+    func popsMatchOnlyWhenNavigating() {
+        let fixture = FindModelFixture("foo bar| foo baz foo")
+        fixture.open("foo")
+        #expect(fixture.editor.popped.isEmpty)
+
+        fixture.model.query = "ba"
+        #expect(fixture.editor.popped.isEmpty)
+
+        fixture.model.query = "foo"
+        #expect(fixture.editor.popped.isEmpty)
+        fixture.editor.findSelection = NSRange(location: 8, length: 3)
+        fixture.model.selectionDidChange()
+
+        fixture.model.moveToNext()
+        #expect(fixture.editor.popped == [NSRange(location: 16, length: 3)])
+
+        fixture.model.moveToPrevious()
+        #expect(fixture.editor.popped == [NSRange(location: 16, length: 3), NSRange(location: 8, length: 3)])
+    }
+
+    @Test("AC-51: 一致が1つでも、次・前へ移ると同じ一致を浮き上がらせる")
+    func popsSingleMatchOnNavigation() {
+        let fixture = FindModelFixture("foo bar| baz")
+        fixture.open("foo")
+        #expect(fixture.editor.popped.isEmpty)
+
+        fixture.model.moveToNext()
+        fixture.model.moveToPrevious()
+
+        #expect(fixture.editor.popped == [NSRange(location: 0, length: 3), NSRange(location: 0, length: 3)])
+    }
+
+    @Test("AC-51: オプションの切り替え・検索バーを開く・一致が無い・検索語が空のときは浮き上がらせない")
+    func doesNotPopOutsideNavigation() {
+        let fixture = FindModelFixture("foo bar| foo baz")
+        fixture.model.open(revealsReplace: false, movesFocus: false, seed: "foo")
+        fixture.model.toggle(.caseSensitive)
+        fixture.model.toggle(.wholeWord)
+        #expect(fixture.editor.popped.isEmpty)
+
+        fixture.model.query = "zzz"
+        fixture.model.moveToNext()
+        fixture.model.moveToPrevious()
+        fixture.model.query = ""
+        fixture.model.moveToNext()
+        fixture.model.moveToPrevious()
+        #expect(fixture.editor.popped.isEmpty)
+    }
+
+    @Test("AC-51: 置き換えて次の一致へ移るときも、すべて置換のときも浮き上がらせない")
+    func doesNotPopOnReplacement() {
+        let fixture = FindModelFixture("foo foo| foo foo")
+        fixture.open("foo")
+        fixture.model.replacement = "X"
+
+        fixture.model.replaceOne()
+        #expect(fixture.editor.replaceCalls.count == 1)
+        fixture.model.replaceOne()
+        #expect(fixture.editor.replaceCalls.count == 2)
+        fixture.model.replaceAll()
+
+        #expect(fixture.editor.popped.isEmpty)
+    }
+
+    @Test("AC-51: 選択が一致でないときの次を置換は、次の一致へ移るだけで浮き上がらせない")
+    func doesNotPopWhenReplaceOnlyMoves() {
+        let fixture = FindModelFixture("foo| foo")
+        fixture.open("foo")
+        fixture.editor.findSelection = NSRange(location: 3, length: 0)
+        fixture.model.selectionDidChange()
+
+        fixture.model.replaceOne()
+
+        #expect(fixture.editor.replaceCalls.isEmpty)
+        #expect(fixture.editor.findSelection == NSRange(location: 4, length: 3))
+        #expect(fixture.editor.popped.isEmpty)
+    }
+
+    @Test("AC-52: アニメーションが切れているときは、次・前の一致へ移っても浮き上がらせず、選択と今の一致の印は移る")
+    func doesNotPopWhenAnimationIsOff() throws {
+        let fixture = FindModelFixture("foo bar| foo baz foo")
+        fixture.model.isAnimationEnabled = { false }
+        fixture.open("foo")
+
+        fixture.model.moveToNext()
+        #expect(fixture.editor.findSelection == NSRange(location: 16, length: 3))
+        #expect(try #require(fixture.editor.lastHighlights).current == NSRange(location: 16, length: 3))
+
+        fixture.model.moveToPrevious()
+        #expect(fixture.editor.findSelection == NSRange(location: 8, length: 3))
+        #expect(try #require(fixture.editor.lastHighlights).current == NSRange(location: 8, length: 3))
+        #expect(fixture.model.currentIndex == 1)
+        #expect(fixture.editor.popped.isEmpty)
+    }
+
+    @Test("AC-52: アニメーションの設定は移るたびに見直され、切り替えると次の移動から変わる")
+    func animationSettingIsReadOnEachMove() {
+        let fixture = FindModelFixture("foo bar| foo baz foo")
+        var isEnabled = true
+        fixture.model.isAnimationEnabled = { isEnabled }
+        fixture.open("foo")
+
+        fixture.model.moveToNext()
+        #expect(fixture.editor.popped.count == 1)
+
+        isEnabled = false
+        fixture.model.moveToNext()
+        #expect(fixture.editor.popped.count == 1)
+
+        isEnabled = true
+        fixture.model.moveToNext()
+        #expect(fixture.editor.popped.count == 2)
     }
 
     @Test("AC-25: 文章が変わると、検索語とオプションはそのままで、選択を動かさずに数え直す")

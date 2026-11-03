@@ -31,6 +31,9 @@ final class FindModel {
     /// 検索・置換をする入力欄。
     @ObservationIgnored var editor: () -> (any FindTextEditing)? = { nil }
 
+    /// 一致へ移ったときの浮き上がる動きを出してよいか。
+    @ObservationIgnored var isAnimationEnabled: () -> Bool = { false }
+
     /// 検索語。変わったら数え直し、選択の位置から最も近い一致を選ぶ。
     var query: String {
         get { storedQuery }
@@ -121,11 +124,7 @@ final class FindModel {
 
     /// 選択の後ろの一致へ進む。
     func moveToNext() {
-        guard isBarVisible, let editor = editor(),
-              let index = FindNavigation.nextIndex(in: matches, after: editor.findSelection)
-        else { return }
-        editor.revealFindMatch(matches[index])
-        selectionDidChange()
+        advance(popsMatch: true)
     }
 
     /// 選択の前の一致へ戻る。
@@ -133,8 +132,7 @@ final class FindModel {
         guard isBarVisible, let editor = editor(),
               let index = FindNavigation.previousIndex(in: matches, before: editor.findSelection)
         else { return }
-        editor.revealFindMatch(matches[index])
-        selectionDidChange()
+        move(to: matches[index], in: editor, popsMatch: true)
     }
 
     // MARK: - 置換
@@ -148,7 +146,7 @@ final class FindModel {
         let text = editor.findText as NSString
         let selection = editor.findSelection
         guard let match = all.first(where: { $0.range == selection }) else {
-            moveToNext()
+            advance(popsMatch: false)
             return
         }
         let replaced = ReplacePattern.replacement(for: match, in: text, template: replacement, options: options)
@@ -158,7 +156,7 @@ final class FindModel {
             selectionAfter: NSRange(location: end, length: 0)
         )
         research(movesSelection: false)
-        moveToNext()
+        advance(popsMatch: false)
     }
 
     /// すべての一致を1回の編集で置き換える。
@@ -197,6 +195,21 @@ final class FindModel {
     }
 
     // MARK: - 内部
+
+    private func advance(popsMatch: Bool) {
+        guard isBarVisible, let editor = editor(),
+              let index = FindNavigation.nextIndex(in: matches, after: editor.findSelection)
+        else { return }
+        move(to: matches[index], in: editor, popsMatch: popsMatch)
+    }
+
+    private func move(to match: NSRange, in editor: any FindTextEditing, popsMatch: Bool) {
+        editor.revealFindMatch(match)
+        selectionDidChange()
+        if popsMatch, isAnimationEnabled() {
+            editor.popFindMatch(match)
+        }
+    }
 
     private func fullSearch(in text: String) -> TextSearchResult {
         TextSearch.search(query, options: options, in: text, limit: nil)

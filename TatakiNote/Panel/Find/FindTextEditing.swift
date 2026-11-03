@@ -6,6 +6,7 @@ protocol FindTextEditing: AnyObject {
     var findSelection: NSRange { get }
     func showFindHighlights(_ ranges: [NSRange], current: NSRange?)
     func revealFindMatch(_ range: NSRange)
+    func popFindMatch(_ range: NSRange)
     func replaceForFind(_ edits: [FindEdit], selectionAfter: NSRange)
     func focusForFind()
 }

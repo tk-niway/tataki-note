@@ -525,6 +525,92 @@ struct PanelControllerFindTests {
         }
     }
 
+    // MARK: - AC-51・AC-52
+
+    private func withFakeEditor(
+        animated: Bool,
+        _ body: (Fixture, FakeFindEditor) throws -> Void
+    ) throws {
+        try withFixture(animated: animated) { fixture in
+            let editor = FakeFindEditor("|foo bar foo baz foo")
+            fixture.controller.findEditorRegistry.editor = editor
+            editor.onTextChange = { [model = fixture.findModel] in model.textDidChange() }
+            editor.onSelectionChange = { [model = fixture.findModel] in model.selectionDidChange() }
+            fixture.openBar()
+            #expect(editor.popped.isEmpty)
+            try body(fixture, editor)
+        }
+    }
+
+    @Test("AC-51: アニメーションが入っているとき、検索欄の ↩・⇧↩、⌘G・⇧⌘G、前・次のボタンで移るたびに今の一致を浮き上がらせる")
+    func navigationPopsMatchWhenAnimated() throws {
+        try withFakeEditor(animated: true) { fixture, editor in
+            fixture.focus(fixture.findField)
+            #expect(fixture.controller.handleKeyOutsideEditor(input(KeyCode.returnKey, [])))
+            #expect(editor.popped.count == 1)
+            #expect(fixture.controller.handleKeyOutsideEditor(input(KeyCode.returnKey, [.shift])))
+            #expect(editor.popped.count == 2)
+
+            fixture.focus(fixture.textView)
+            #expect(fixture.controller.handleKey(commandG))
+            #expect(editor.popped.count == 3)
+            #expect(fixture.controller.handleKey(shiftCommandG))
+            #expect(editor.popped.count == 4)
+
+            fixture.controller.findController.perform(FindBarAction.next)
+            #expect(editor.popped.count == 5)
+            fixture.controller.findController.perform(FindBarAction.previous)
+            #expect(editor.popped.count == 6)
+            #expect(editor.popped.last == editor.findSelection)
+        }
+    }
+
+    @Test("AC-51: 検索語を打つ・オプションを切り替える・置換で移るときは、アニメーションが入っていても浮き上がらせない")
+    func searchAndReplaceDoNotPop() throws {
+        try withFakeEditor(animated: true) { fixture, editor in
+            fixture.findModel.query = "bar"
+            fixture.controller.findController.perform(FindBarAction.toggle(.caseSensitive))
+            fixture.findModel.query = "foo"
+            fixture.controller.findController.perform(FindBarAction.replaceOne)
+            fixture.controller.findController.perform(FindBarAction.replaceAll)
+
+            #expect(editor.popped.isEmpty)
+        }
+    }
+
+    @Test("AC-52: 設定のアニメーションが切れているときは、同じ操作でも浮き上がらせず、選択は移る")
+    func navigationDoesNotPopWhenAnimationIsOff() throws {
+        try withFakeEditor(animated: false) { fixture, editor in
+            fixture.focus(fixture.findField)
+            #expect(fixture.controller.handleKeyOutsideEditor(input(KeyCode.returnKey, [])))
+            let afterReturn = editor.findSelection
+            fixture.focus(fixture.textView)
+            #expect(fixture.controller.handleKey(commandG))
+            fixture.controller.findController.perform(FindBarAction.next)
+            fixture.controller.findController.perform(FindBarAction.previous)
+
+            #expect(editor.popped.isEmpty)
+            #expect(afterReturn.length == 3)
+            #expect(editor.revealed.count >= 4)
+        }
+    }
+
+    @Test("AC-52: アニメーションの設定を変えると、次の移動から浮き上がらせる・やめるが切り替わる")
+    func animationSettingChangeAppliesToNextMove() throws {
+        try withFakeEditor(animated: false) { fixture, editor in
+            fixture.controller.findController.perform(FindBarAction.next)
+            #expect(editor.popped.isEmpty)
+
+            fixture.settings.animationMode = .on
+            fixture.controller.findController.perform(FindBarAction.next)
+            #expect(editor.popped.count == 1)
+
+            fixture.settings.animationMode = .off
+            fixture.controller.findController.perform(FindBarAction.next)
+            #expect(editor.popped.count == 1)
+        }
+    }
+
     // MARK: - AC-47
 
     private func assertPanelGeometryUnchanged(_ fixture: Fixture, frame: NSRect, minimumSize: NSSize) {

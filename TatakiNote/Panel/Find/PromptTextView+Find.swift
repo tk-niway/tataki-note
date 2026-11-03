@@ -22,6 +22,16 @@ extension PromptTextView: FindTextEditing {
         scrollRangeToVisible(selection)
     }
 
+    func popFindMatch(_ range: NSRange) {
+        let length = (string as NSString).length
+        guard window?.isVisible == true,
+              range.location != NSNotFound,
+              range.length > 0,
+              NSMaxRange(range) <= length
+        else { return }
+        showFindIndicator(for: range)
+    }
+
     func replaceForFind(_ edits: [FindEdit], selectionAfter: NSRange) {
         let text = string as NSString
         let sorted = edits

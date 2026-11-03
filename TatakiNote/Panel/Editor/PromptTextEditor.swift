@@ -14,6 +14,8 @@ final class PromptTextView: EditorTextView {
     /// 今ハイライトしている一致。
     private(set) var findHighlights: [FindHighlight] = []
 
+    private lazy var baseSelectedTextAttributes = selectedTextAttributes
+    private var findBorderView: FindBorderView?
     private var undoObservers: [NSObjectProtocol] = []
     private weak var observedUndoManager: UndoManager?
 
@@ -41,6 +43,7 @@ final class PromptTextView: EditorTextView {
     override func didChangeText() {
         super.didChangeText()
         revealBottomPadding(for: selectedRange())
+        findBorderView?.needsDisplay = true
         observeUndoManagerIfNeeded()
         onStringChange?()
     }
@@ -83,6 +86,9 @@ final class PromptTextView: EditorTextView {
         stillSelecting stillSelectingFlag: Bool
     ) {
         super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelectingFlag)
+        if !findHighlights.isEmpty {
+            refreshSelectionAppearance()
+        }
         if !stillSelectingFlag {
             onSelectionChange?()
         }
@@ -91,6 +97,35 @@ final class PromptTextView: EditorTextView {
     /// ハイライトの記録を入れ替える。
     func storeFindHighlights(_ highlights: [FindHighlight]) {
         findHighlights = highlights
+        updateFindBorder()
+        refreshSelectionAppearance()
+    }
+
+    private func updateFindBorder() {
+        guard let current = findHighlights.first(where: \.isCurrent)?.range else {
+            findBorderView?.range = nil
+            return
+        }
+        let border = findBorderView ?? makeFindBorderView()
+        border.frame = bounds
+        border.range = current
+    }
+
+    private func makeFindBorderView() -> FindBorderView {
+        let border = FindBorderView(frame: bounds)
+        addSubview(border)
+        findBorderView = border
+        return border
+    }
+
+    /// 今の一致が選択と重なるときだけ、選択の塗りを消す。
+    func refreshSelectionAppearance() {
+        let hidesFill = FindHighlighter.isCurrentSelected(findHighlights, selection: selectedRange())
+        selectedTextAttributes = FindHighlighter.selectedTextAttributes(
+            base: baseSelectedTextAttributes,
+            hidesSelectionFill: hidesFill
+        )
+        needsDisplay = true
     }
 
     private func applyContainerInset() {

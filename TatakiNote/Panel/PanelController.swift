@@ -140,6 +140,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         let findModel = self.findModel
         let findEditorRegistry = self.findEditorRegistry
         findModel.editor = { [findEditorRegistry] in findEditorRegistry.editor }
+        findModel.isAnimationEnabled = { [settings] in settings.isAnimationEnabled }
         let motionController = PanelMotionController(
             panel: panel,
             animator: animator,

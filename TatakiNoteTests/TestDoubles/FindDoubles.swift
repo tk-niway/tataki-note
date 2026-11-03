@@ -10,6 +10,7 @@ final class FakeFindEditor: FindTextEditing {
 
     private(set) var highlightCalls: [(ranges: [NSRange], current: NSRange?)] = []
     private(set) var revealed: [NSRange] = []
+    private(set) var popped: [NSRange] = []
     private(set) var replaceCalls: [(edits: [FindEdit], selectionAfter: NSRange)] = []
     private(set) var focusCount = 0
 
@@ -35,6 +36,10 @@ final class FakeFindEditor: FindTextEditing {
         revealed.append(range)
         findSelection = range
         onSelectionChange?()
+    }
+
+    func popFindMatch(_ range: NSRange) {
+        popped.append(range)
     }
 
     func replaceForFind(_ edits: [FindEdit], selectionAfter: NSRange) {
