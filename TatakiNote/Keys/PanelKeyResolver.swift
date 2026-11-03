@@ -1,13 +1,5 @@
 import AppKit
 
-/// 入力欄に届いたキーの値。
-struct PanelKeyInput: Equatable {
-    var keyCode: UInt16
-    var modifiers: NSEvent.ModifierFlags
-    var hasMarkedText: Bool
-    var characters: String = ""
-}
-
 enum PanelKeyAction: Equatable {
     case cancel
     case passThrough

@@ -309,15 +309,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         },
         isPanelCommitKey: { [weak self] event in
             guard let self else { return false }
-            let input = PanelKeyInput(
-                keyCode: event.keyCode,
-                modifiers: event.modifierFlags.intersection(.deviceIndependentFlagsMask),
-                hasMarkedText: PromptPanel.firstResponderHasMarkedText(event.window?.firstResponder),
-                characters: event.charactersIgnoringModifiers?.lowercased() ?? ""
-            )
             return QuitConfirmation.isPanelCommitKey(
-                input,
-                isPanelKey: event.window === self.panelController.panel,
+                event,
+                in: event.window,
+                panel: self.panelController.panel,
                 commitKey: self.settings.commitKey,
                 commitAndSendKey: self.settings.commitAndSendKey
             )
