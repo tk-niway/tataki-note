@@ -154,28 +154,23 @@ struct DraftSaveEvent: Equatable {
         perform(target, text: text)
     }
 
-    /// 終了の前に、書きかけがあれば挿入していない履歴へ移す。
-    func prepareForTermination() {
-        _ = archiveScratchIfNeeded()
-    }
-
     /// 終了の理由に応じて書きかけを扱う。開き直しなら履歴へ移さずファイルへ残し、書けなければ履歴へ移す。
     @discardableResult
     func prepareForTermination(reason: TerminationReason, store: RelaunchDraftStore) -> TerminationOutcome {
         switch reason {
         case .normal:
-            prepareForTermination()
+            _ = archiveScratchIfNeeded()
             return .archivedToHistory
         case .relaunch:
             guard let draft = relaunchDraft() else {
-                prepareForTermination()
+                _ = archiveScratchIfNeeded()
                 return .archivedToHistory
             }
             do {
                 try store.save(draft)
                 return .savedForRelaunch
             } catch {
-                prepareForTermination()
+                _ = archiveScratchIfNeeded()
                 return .archivedToHistory
             }
         }
