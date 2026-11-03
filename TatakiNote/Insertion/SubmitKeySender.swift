@@ -5,7 +5,7 @@ protocol SubmitKeySending {
     func sendSubmitKey(to target: InsertionTarget) async
 }
 
-/// Enter のキーのイベントを送り出す。
+/// 送信のキー(Enter)のイベントを送り出す。
 protocol SubmitKeyPosting {
     func postSubmitKey()
 }
@@ -13,11 +13,6 @@ protocol SubmitKeyPosting {
 /// いまキーボードで押されている修飾キーの読み取り。
 protocol ModifierKeyStateReading {
     var pressedModifiers: CGEventFlags { get }
-}
-
-/// いま前面にあるアプリの読み取り。
-protocol FrontmostApplicationReading {
-    var frontmostProcessIdentifier: pid_t? { get }
 }
 
 struct CGEventSubmitKeyPoster: SubmitKeyPosting {
@@ -37,14 +32,8 @@ struct SystemModifierKeyState: ModifierKeyStateReading {
     }
 }
 
-struct WorkspaceFrontmostApplication: FrontmostApplicationReading {
-    var frontmostProcessIdentifier: pid_t? {
-        NSWorkspace.shared.frontmostApplication?.processIdentifier
-    }
-}
-
-/// 修飾キーが離れるのを待ち、前面のアプリが挿入先のままなら Enter を1回送る。
-struct EnterKeySender: SubmitKeySending {
+/// 修飾キーが離れるのを待ち、前面のアプリが挿入先のままなら送信のキー(Enter)を1回送る。
+struct SubmitKeySender: SubmitKeySending {
     private let poster: SubmitKeyPosting
     private let modifierState: ModifierKeyStateReading
     private let frontmostApp: FrontmostApplicationReading
