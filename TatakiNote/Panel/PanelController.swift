@@ -8,14 +8,11 @@ final class PanelController: NSObject, NSWindowDelegate {
     let panel: PromptPanel
     private let settings: AppSettings
     private let hideApplication: () -> Void
-    private let targetTracker: FrontmostAppTracker
     private let permission: AccessibilityPermissionChecking
     private let openFrameResolver: PanelOpenFrameResolver
-    private let exposeWebContent: (InsertionTarget) -> Void
-    private let openingLookup: OpeningTargetLookup
-    private let ownProcessIdentifier: pid_t
     private let library: DraftLibrary
     private let targetMonitor: InsertionTargetMonitor
+    private let targetStarter: OpeningTargetStarter
     private let outlineController: InsertionTargetOutlineController
     private let sharingAnchorRegistry = SharingAnchorRegistry()
 
@@ -50,10 +47,16 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     /// 返した挿入先を、前面のアプリの代わりに挿入先にする。`nil` を返すと前面のアプリを使う。
-    var targetOverride: (() -> InsertionTarget?)?
+    var targetOverride: (() -> InsertionTarget?)? {
+        get { targetStarter.targetOverride }
+        set { targetStarter.targetOverride = newValue }
+    }
 
     /// 挿入先を探さず、挿入先が無いものとして開くか。
-    var isTargetLookupDisabled = false
+    var isTargetLookupDisabled: Bool {
+        get { targetStarter.isTargetLookupDisabled }
+        set { targetStarter.isTargetLookupDisabled = newValue }
+    }
 
     /// TatakiNote 自身が挿入先のとき、その入力欄がまだ使えるか。nil なら使えるとみなす。
     var isOwnTargetAvailable: (() -> Bool)? {
@@ -99,17 +102,12 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.panel = panel
         self.settings = settings
         self.hideApplication = hideApplication
-        self.targetTracker = targetTracker
         self.permission = permission
         self.openFrameResolver = PanelOpenFrameResolver(
             fieldProbe: fieldProbe,
             locateTargetWindowFrame: locateTargetWindowFrame,
             ownProcessIdentifier: ownProcessIdentifier
         )
-        self.exposeWebContent = exposeWebContent
-        self.openingLookup = openingLookup
-            ?? SynchronousOpeningTargetLookup(probe: fieldProbe, exposeWebContent: exposeWebContent)
-        self.ownProcessIdentifier = ownProcessIdentifier
         self.library = library
         let session = DraftSession(
             panel: model,
@@ -125,6 +123,16 @@ final class PanelController: NSObject, NSWindowDelegate {
             isOutlineEnabled: { [settings] in PanelController.isOutlineTrackingEnabled(settings: settings) }
         )
         self.targetMonitor = targetMonitor
+        self.targetStarter = OpeningTargetStarter(
+            targetMonitor: targetMonitor,
+            openingLookup: openingLookup
+                ?? SynchronousOpeningTargetLookup(probe: fieldProbe, exposeWebContent: exposeWebContent),
+            exposeWebContent: exposeWebContent,
+            ownProcessIdentifier: ownProcessIdentifier,
+            currentTarget: { [targetTracker] in targetTracker.currentTarget() },
+            isOutlineEnabled: { [settings] in PanelController.isOutlineTrackingEnabled(settings: settings) },
+            panelScreen: { [settings] in settings.panelScreen }
+        )
         self.outlineController = InsertionTargetOutlineController(
             outline: targetMonitor.outline,
             settings: settings,
@@ -292,78 +300,40 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func open(observedFocus: ObservedFocus? = nil, looksUpTarget: Bool = true) {
-        let app = (isTargetLookupDisabled || !looksUpTarget) ? nil : (targetOverride?() ?? targetTracker.currentTarget())
+        let app = targetStarter.selectApp(looksUpTarget: looksUpTarget)
         settings.refreshKeyDisplayTexts()
-        let wasPresented = model.isPresented
-        var start: InsertionTargetStart?
-        var pending: (lookup: PendingOpeningTargetLookup, token: InsertionTargetLookupToken)?
-        var queriesField = true
         let isTrusted = permission.isTrusted
-        if !wasPresented {
-            let shouldExpose = PanelOpenFrameResolver.shouldExposeWebContent(
-                target: app,
-                ownProcessIdentifier: ownProcessIdentifier,
-                isTrusted: isTrusted
-            )
-            if let app, targetMonitor.needsOpeningLookup(for: app) {
-                queriesField = false
-                let request = OpeningTargetLookupRequest.make(
-                    app: app,
-                    observedFocus: observedFocus,
-                    isOutlineEnabled: Self.isOutlineTrackingEnabled(settings: settings),
-                    panelScreen: settings.panelScreen,
-                    isTrusted: isTrusted,
-                    shouldExposeWebContent: shouldExpose
-                )
-                switch openingLookup.lookUp(request, waitingUpTo: OpeningTargetLookupRequest.deadline) {
-                case .finished(let result):
-                    start = targetMonitor.begin(app: app, lookedUp: result)
-                case .pending(let lookup):
-                    pending = (lookup, targetMonitor.beginPending(app: app))
-                }
-            } else {
-                if let app, shouldExpose {
-                    exposeWebContent(app)
-                }
-                start = targetMonitor.begin(app: app, observedFocus: observedFocus)
-            }
-        }
-        model.present(
-            target: wasPresented ? app : start?.target,
-            pendingLookupApp: pending != nil ? app : nil
-        )
-        if !wasPresented {
-            library.pruneExpiredHistory()
-            sidebarModel.discardPendingFocusRequests()
-            motionController.stop()
-            sizeController.sizing.beginOpening(defaultSize: settings.panelDefaultSize, hasText: !model.text.isEmpty)
-            let openingFrame = openFrameResolver.frame(
-                target: app,
-                mode: settings.panelScreen,
-                isTrusted: isTrusted,
-                observedFocus: queriesField ? (start?.focus ?? observedFocus) : start?.focus,
-                queriesField: queriesField,
-                isSidebarOpen: sidebarModel.isOpen,
-                openingSize: { [sizeController] in sizeController.sizing.openingSize(in: $0) }
-            )
-            if let frame = openingFrame {
-                sizeController.applyMinimumSize()
-                panel.setFrame(frame, display: false)
-            } else {
-                sizeController.applyMinimumSize()
-                panel.center()
-            }
-            motionController.present(at: panel.frame, isAnimationEnabled: settings.isAnimationEnabled)
-            findModel.textDidChange()
-            pointerController.start()
-            if let pending {
-                pending.lookup.whenFinished { [weak self, token = pending.token] result in
-                    self?.targetMonitor.finishPending(token, result: result)
-                }
-            }
+        guard !model.isPresented else {
+            model.present(target: app)
+            panel.makeKeyAndOrderFront(nil)
             return
         }
-        panel.makeKeyAndOrderFront(nil)
+        let opening = targetStarter.start(app: app, observedFocus: observedFocus, isTrusted: isTrusted)
+        model.present(target: opening.target, pendingLookupApp: opening.pendingLookupApp)
+        library.pruneExpiredHistory()
+        sidebarModel.discardPendingFocusRequests()
+        motionController.stop()
+        sizeController.sizing.beginOpening(defaultSize: settings.panelDefaultSize, hasText: !model.text.isEmpty)
+        let openingFrame = openFrameResolver.frame(
+            target: opening.app,
+            mode: settings.panelScreen,
+            isTrusted: isTrusted,
+            observedFocus: opening.fieldFocus,
+            queriesField: opening.queriesField,
+            isSidebarOpen: sidebarModel.isOpen,
+            openingSize: { [sizeController] in sizeController.sizing.openingSize(in: $0) }
+        )
+        if let frame = openingFrame {
+            sizeController.applyMinimumSize()
+            panel.setFrame(frame, display: false)
+        } else {
+            sizeController.applyMinimumSize()
+            panel.center()
+        }
+        motionController.present(at: panel.frame, isAnimationEnabled: settings.isAnimationEnabled)
+        findModel.textDidChange()
+        pointerController.start()
+        targetStarter.deliverPendingAnswer(of: opening)
     }
 
     func close() {
