@@ -1,10 +1,5 @@
 import AppKit
 
-extension KeyCode {
-    static let delete: UInt16 = 51
-    static let forwardDelete: UInt16 = 117
-}
-
 /// 記録ボックスで押されたキー・クリックの位置から、どう振る舞うかを決める。
 enum PanelShortcutRecorderInput {
     enum Action: Equatable {

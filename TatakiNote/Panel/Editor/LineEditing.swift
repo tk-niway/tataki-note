@@ -1,10 +1,5 @@
 import AppKit
 
-extension KeyCode {
-    static let upArrow: UInt16 = 126
-    static let downArrow: UInt16 = 125
-}
-
 enum LineDirection: Equatable {
     case up
     case down

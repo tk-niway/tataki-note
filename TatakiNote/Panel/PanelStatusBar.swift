@@ -154,7 +154,7 @@ private struct Keycaps: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(Array(KeycapText.keys(of: key).enumerated()), id: \.offset) { _, part in
+            ForEach(Array(KeyCaps.caps(in: key).enumerated()), id: \.offset) { _, part in
                 Keycap(text: part)
             }
         }

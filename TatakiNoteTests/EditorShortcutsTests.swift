@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import TatakiNote
 
@@ -99,6 +100,16 @@ struct EditorShortcutsTests {
         #expect(EditorShortcuts.all.count == 7)
         #expect(EditorShortcuts.panelCommands.count == 7)
         #expect(Set(EditorShortcuts.find.map(\.id)).isDisjoint(with: (EditorShortcuts.all + EditorShortcuts.panelCommands).map(\.id)))
+    }
+
+    @Test("AC-1: 検索のキーの表のどの表記も、「検索と置換」の一覧のどれかの行に、「 / 」で区切った表記の1つとして出る")
+    func everyFindKeyTextAppearsInTheFindListing() {
+        let listed = Set(EditorShortcuts.find.flatMap { $0.keys.components(separatedBy: " / ") })
+
+        #expect(FindKeys.global.count == 10)
+        for key in FindKeys.global {
+            #expect(listed.contains(key.keyText), "\(key.keyText)")
+        }
     }
 
     @Test("AC-25: 「パネルの中で使えるキー」の下の説明文は、いつも決めた全文")

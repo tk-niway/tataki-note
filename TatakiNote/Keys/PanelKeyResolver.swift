@@ -1,13 +1,5 @@
 import AppKit
 
-enum KeyCode {
-    static let escape: UInt16 = 53
-    static let returnKey: UInt16 = 36
-    static let keypadEnter: UInt16 = 76
-    static let tab: UInt16 = 48
-    static let space: UInt16 = 49
-}
-
 /// 入力欄に届いたキーの値。
 struct PanelKeyInput: Equatable {
     var keyCode: UInt16
