@@ -25,6 +25,13 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     let sizeController: PanelSizeController
 
+    /// 検索バーの状態。
+    let findModel = FindModel()
+    /// 入力欄を検索の対象として覚える入れ物。
+    let findEditorRegistry = FindEditorRegistry()
+    /// 検索バーのキーとボタンの操作の振り分け。
+    let findController: PanelFindController
+
     private let motionController: PanelMotionController
 
     private let pointerController: PanelPointerController
@@ -130,12 +137,17 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.sidebarModel = sidebarModel
         let sizeController = PanelSizeController(panel: panel, sidebarModel: sidebarModel, animator: animator)
         self.sizeController = sizeController
+        let findModel = self.findModel
+        let findEditorRegistry = self.findEditorRegistry
+        findModel.editor = { [findEditorRegistry] in findEditorRegistry.editor }
+        findModel.isAnimationEnabled = { [settings] in settings.isAnimationEnabled }
         let motionController = PanelMotionController(
             panel: panel,
             animator: animator,
             restoreMinimumSize: { [sizeController] in sizeController.applyMinimumSize() }
         )
         self.motionController = motionController
+        self.findController = PanelFindController(model: findModel, registry: findEditorRegistry, panel: panel)
         self.saveAnimation = saveAnimation
         let feedback = PanelFeedback(
             panel: panel,
@@ -194,7 +206,12 @@ final class PanelController: NSObject, NSWindowDelegate {
                 session: session,
                 sidebarModel: sidebarModel,
                 saveAnimation: saveAnimation,
-                sharingAnchorRegistry: sharingAnchorRegistry
+                sharingAnchorRegistry: sharingAnchorRegistry,
+                findModel: findModel,
+                onFindAction: { [weak self] in self?.findController.perform($0) },
+                findRegistry: findEditorRegistry,
+                onFindTextChange: { findModel.textDidChange() },
+                onFindSelectionChange: { findModel.selectionDidChange() }
             )
         )
         hostingView.sizingOptions = []
@@ -202,6 +219,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.setContentSize(PanelMetrics.defaultSize)
         panel.delegate = self
         panel.onKeyEquivalent = { [weak self] in self?.handleKey($0) ?? false }
+        panel.onFindKeyEquivalent = { [weak self] in self?.findController.handleKey($0) ?? false }
         panel.onHideKey = { [weak self] in self?.handleHideKey() ?? false }
         panel.onKeyDownOutsideEditor = { [weak self] in self?.handleKeyOutsideEditor($0) ?? false }
         sizeController.applyMinimumSize()
@@ -336,6 +354,7 @@ final class PanelController: NSObject, NSWindowDelegate {
                 panel.center()
             }
             motionController.present(at: panel.frame, isAnimationEnabled: settings.isAnimationEnabled)
+            findModel.textDidChange()
             pointerController.start()
             if let pending {
                 pending.lookup.whenFinished { [weak self, token = pending.token] result in
@@ -423,6 +442,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func handleKey(_ input: PanelKeyInput) -> Bool {
+        if findController.handleKey(input) { return true }
         let action = PanelKeyResolver.action(
             for: input,
             commitKey: settings.commitKey,
@@ -447,6 +467,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         case .commit: commit(shouldSendAfterInsert: false)
         case .commitAndSend: commit(shouldSendAfterInsert: true)
         case .openSearch: openSearch()
+        case .toggleFind: findController.toggleBar()
         case .saveDraft: saveDraftOrSignalEmpty()
         case .newDraft: requestNewScratch()
         case .toggleMode: session.toggleMode()
@@ -508,6 +529,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// 一覧・検索欄にフォーカスがあるときに押されたキーを処理する。確定・確定+送信なら実行して `true` を返す。
     func handleKeyOutsideEditor(_ input: PanelKeyInput) -> Bool {
+        if findController.handleKey(input) { return true }
         switch PanelKeyResolver.actionOutsideEditor(
             for: input,
             commitKey: settings.commitKey,

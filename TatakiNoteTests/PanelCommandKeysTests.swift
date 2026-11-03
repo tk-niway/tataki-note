@@ -170,6 +170,7 @@ struct PanelCommandKeysTests {
             ("line", ["moveLine", "duplicateLine", "selectLine", "selectWord"]),
             ("clipboard", ["copyLine", "cutLine", "pasteLine"]),
             ("drafts", ["saveDraft", "exportToFile", "newDraft", "toggleMode", "searchDrafts"]),
+            ("find", ["findOpen", "findReplaceOpen", "findNext", "findPrevious", "findToggleOptions", "findPreserveCase", "findReplaceOne", "findReplaceAll", "findClose"]),
             ("view", ["toggleSidebar", "openSettings"]),
         ]
         #expect(groupIDs.count == expectedGroups.count)

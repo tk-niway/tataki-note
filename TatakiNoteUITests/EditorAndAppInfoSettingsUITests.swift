@@ -65,7 +65,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     // AC-4
     // AC-5
     @MainActor
-    func testAC2_AC3_AC4_AC5_AC6_editorScenario() throws {
+    func testAC2_AC3_AC4_AC5_AC6_AC41_editorScenario() throws {
         let app = XCUIApplication()
         launch(app, permission: AccessibilityOverride.untrusted)
         openPanelSettings(in: app)
@@ -77,6 +77,15 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         app.revealInSettings(fontSizeUp)
         fontSizeUp.click()
         XCTAssertTrue(waitUntil { self.text(of: fontSizeValue).contains("15") }, "文字サイズが 15 pt にならない")
+
+        // AC-41
+        let bottomPaddingValue = element(in: app, identifier: bottomPaddingValueID)
+        app.revealInSettings(bottomPaddingValue)
+        XCTAssertTrue(text(of: bottomPaddingValue).contains("3 行"))
+        let bottomPaddingUp = incrementArrow(ofStepper: bottomPaddingStepperID, in: app)
+        app.revealInSettings(bottomPaddingUp)
+        bottomPaddingUp.click()
+        XCTAssertTrue(waitUntil { self.text(of: bottomPaddingValue).contains("4 行") }, "余白が 4 行にならない")
 
         // AC-5
         let opacityValue = element(in: app, identifier: opacityValueID)
@@ -298,6 +307,8 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     private let showFontPanelID = "settings.showFontPanel"
     private let fontSizeStepperID = "settings.fontSizeStepper"
     private let fontSizeValueID = "settings.fontSizeValue"
+    private let bottomPaddingStepperID = "settings.bottomPaddingStepper"
+    private let bottomPaddingValueID = "settings.bottomPaddingValue"
     private let opacitySliderID = "settings.opacitySlider"
     private let opacityValueID = "settings.opacityValue"
     private let widthFieldID = "settings.panelDefaultWidthField"

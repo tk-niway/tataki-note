@@ -35,14 +35,15 @@ enum ReservedPanelKeys {
         commitAndSendKey: PanelShortcut?,
         hotkey: PanelShortcut?,
         defaultHotkey: PanelShortcut?,
-        isReserved: (PanelShortcut) -> Bool = ReservedPanelKeys.isReserved
+        isReserved: (PanelShortcut) -> Bool = ReservedPanelKeys.isReserved,
+        isReservedForCommitKeys: (PanelShortcut) -> Bool = { _ in false }
     ) -> Migration {
         let shouldResetHotkey = hotkey.map(isReserved) ?? false
         let hotkeyAfter = shouldResetHotkey ? defaultHotkey : hotkey
 
         func needsReset(_ key: PanelShortcut?) -> Bool {
             guard let key else { return false }
-            return isReserved(key) || (shouldResetHotkey && key == hotkeyAfter)
+            return isReserved(key) || isReservedForCommitKeys(key) || (shouldResetHotkey && key == hotkeyAfter)
         }
 
         var commit = needsReset(commitKey) ? PanelShortcut.defaultCommitKey : commitKey
@@ -74,7 +75,8 @@ enum ReservedPanelKeys {
             commitKey: settings.commitKey,
             commitAndSendKey: settings.commitAndSendKey,
             hotkey: hotkey,
-            defaultHotkey: defaultHotkey
+            defaultHotkey: defaultHotkey,
+            isReservedForCommitKeys: FindKeys.isReserved
         )
         if migration.commitKey != settings.commitKey {
             settings.commitKey = migration.commitKey

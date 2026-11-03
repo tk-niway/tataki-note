@@ -273,6 +273,88 @@ struct ReservedPanelKeysTests {
         #expect(reloaded.commitAndSendKey == defaultCommitAndSend)
     }
 
+    private let optionCommandF = PanelShortcut(keyCode: 3, modifiers: [.command, .option])
+    private let shiftCommandG = PanelShortcut(keyCode: 5, modifiers: [.command, .shift])
+    private let commandG = PanelShortcut(keyCode: 5, modifiers: [.command])
+    private let optionCommandReturn = PanelShortcut(keyCode: 36, modifiers: [.command, .option])
+
+    private func migrateWithFindKeys(
+        commitKey: PanelShortcut?,
+        commitAndSendKey: PanelShortcut?,
+        hotkey: PanelShortcut?
+    ) -> ReservedPanelKeys.Migration {
+        ReservedPanelKeys.migrate(
+            commitKey: commitKey,
+            commitAndSendKey: commitAndSendKey,
+            hotkey: hotkey,
+            defaultHotkey: defaultHotkey,
+            isReserved: isReservedByKeyCode,
+            isReservedForCommitKeys: FindKeys.isReserved
+        )
+    }
+
+    @Test("AC-16: 確定+挿入キーが検索のキーなら初期値に戻り、確定+送信キーはそのまま")
+    func findKeyCommitKeyIsReset() {
+        let result = migrateWithFindKeys(commitKey: optionCommandF, commitAndSendKey: defaultCommitAndSend, hotkey: defaultHotkey)
+        #expect(result == .init(commitKey: defaultCommit, commitAndSendKey: defaultCommitAndSend, shouldResetHotkey: false))
+    }
+
+    @Test("AC-16: 確定+送信キーだけが検索のキーなら確定+送信キーだけ初期値に戻り、検索のキーでない確定キーは変わらない")
+    func findKeyCommitAndSendKeyIsResetAlone() {
+        let result = migrateWithFindKeys(commitKey: commandJ, commitAndSendKey: shiftCommandG, hotkey: nil)
+        #expect(result == .init(commitKey: commandJ, commitAndSendKey: defaultCommitAndSend, shouldResetHotkey: false))
+    }
+
+    @Test("AC-16: 検索のキーでも予約のキーでもない確定キー・登録なしは変わらない")
+    func nonFindKeysAreKept() {
+        let custom = migrateWithFindKeys(commitKey: commandJ, commitAndSendKey: PanelShortcut.shiftReturn, hotkey: defaultHotkey)
+        #expect(custom == .init(commitKey: commandJ, commitAndSendKey: PanelShortcut.shiftReturn, shouldResetHotkey: false))
+
+        let missing = migrateWithFindKeys(commitKey: nil, commitAndSendKey: nil, hotkey: nil)
+        #expect(missing == .init(commitKey: nil, commitAndSendKey: nil, shouldResetHotkey: false))
+    }
+
+    @Test("AC-16: ホットキーが検索のキー(⌘G)でもホットキーは変えない")
+    func findKeyHotkeyIsNotReset() {
+        let result = migrateWithFindKeys(commitKey: nil, commitAndSendKey: nil, hotkey: commandG)
+        #expect(!result.shouldResetHotkey)
+
+        let withCommitKeys = migrateWithFindKeys(commitKey: defaultCommit, commitAndSendKey: defaultCommitAndSend, hotkey: commandG)
+        #expect(withCommitKeys == .init(commitKey: defaultCommit, commitAndSendKey: defaultCommitAndSend, shouldResetHotkey: false))
+    }
+
+    @Test("AC-16: 戻した結果がもう一方の確定キーと同じになるなら、両方を初期値に戻す")
+    func collisionAfterFindResetResetsBoth() {
+        let result = migrateWithFindKeys(commitKey: optionCommandReturn, commitAndSendKey: defaultCommit, hotkey: nil)
+        #expect(result == .init(commitKey: defaultCommit, commitAndSendKey: defaultCommitAndSend, shouldResetHotkey: false))
+    }
+
+    @Test("AC-16: apply は確定キーが検索のキーなら初期値に戻して保存し、ホットキーは戻さない。検索のキーでなければ何も変えない")
+    func applyResetsFindKeysSilently() throws {
+        let temp = try TemporaryDefaults()
+        defer { temp.defaults.removePersistentDomain(forName: temp.name) }
+        let settings = temp.makeSettings()
+        settings.commitKey = optionCommandF
+        settings.commitAndSendKey = shiftCommandG
+
+        var resetCount = 0
+        ReservedPanelKeys.apply(to: settings, hotkey: commandG, defaultHotkey: defaultHotkey) { resetCount += 1 }
+
+        #expect(settings.commitKey == defaultCommit)
+        #expect(settings.commitAndSendKey == defaultCommitAndSend)
+        #expect(resetCount == 0)
+        let reloaded = AppSettings(store: SettingsStore(defaults: temp.defaults))
+        #expect(reloaded.commitKey == defaultCommit)
+        #expect(reloaded.commitAndSendKey == defaultCommitAndSend)
+
+        settings.commitKey = commandJ
+        settings.commitAndSendKey = nil
+        ReservedPanelKeys.apply(to: settings, hotkey: defaultHotkey, defaultHotkey: defaultHotkey) { resetCount += 1 }
+        #expect(settings.commitKey == commandJ)
+        #expect(settings.commitAndSendKey == nil)
+        #expect(resetCount == 0)
+    }
+
     @Test("AC-8, AC-9: apply は予約のキーが無ければ何も変えず、resetHotkey も呼ばない(2回目も同じ)")
     func applyLeavesUnreservedKeysAlone() throws {
         let temp = try TemporaryDefaults()

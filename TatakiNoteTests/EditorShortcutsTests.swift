@@ -45,27 +45,60 @@ struct EditorShortcutsTests {
         #expect(!shortcut.action.contains("閉じる"))
     }
 
-    @Test("AC-15: パネルの中で使えるキーは「行の操作」「コピーと貼り付け」「下書き」「表示」の4つに分かれ、「下書き」に ⇧⌘S(ファイルに書き出す)が入り、一覧の14行がちょうど1回ずつ、今のキーと文言のまま入る")
+    @Test("AC-15: パネルの中で使えるキーは「行の操作」「コピーと貼り付け」「下書き」「検索と置換」「表示」の5つに分かれ、「下書き」に ⇧⌘S(ファイルに書き出す)が入り、一覧の23行がちょうど1回ずつ、今のキーと文言のまま入る")
     func groupsCoverEveryShortcutExactlyOnce() {
         let groups = EditorShortcuts.groups
 
-        #expect(groups.map(\.title) == ["行の操作", "コピーと貼り付け", "下書き", "表示"])
+        #expect(groups.map(\.title) == ["行の操作", "コピーと貼り付け", "下書き", "検索と置換", "表示"])
         #expect(groups.map { $0.shortcuts.map(\.id) } == [
             ["moveLine", "duplicateLine", "selectLine", "selectWord"],
             ["copyLine", "cutLine", "pasteLine"],
             ["saveDraft", "exportToFile", "newDraft", "toggleMode", "searchDrafts"],
+            ["findOpen", "findReplaceOpen", "findNext", "findPrevious", "findToggleOptions", "findPreserveCase", "findReplaceOne", "findReplaceAll", "findClose"],
             ["toggleSidebar", "openSettings"],
         ])
 
         let grouped = groups.flatMap(\.shortcuts)
-        let source = EditorShortcuts.all + EditorShortcuts.panelCommands
-        #expect(grouped.count == 14)
+        let source = EditorShortcuts.all + EditorShortcuts.panelCommands + EditorShortcuts.find
+        #expect(grouped.count == 23)
         #expect(grouped.first { $0.id == "exportToFile" }?.keys == "⇧⌘S")
         #expect(Set(grouped.map(\.id)) == Set(source.map(\.id)))
-        #expect(Set(groups.map(\.id)).count == 4)
+        #expect(Set(groups.map(\.id)).count == 5)
         for shortcut in grouped {
             #expect(source.contains(shortcut), "\(shortcut.id)")
         }
+    }
+
+    @Test("AC-17: 「下書き」の次に「検索と置換」の分類が加わり、検索のキーの9行が表のキーと文言のまま並び、既存の4つの分類と行は変わらない")
+    func findGroupFollowsDraftsWithTheFindRows() throws {
+        let groups = EditorShortcuts.groups
+        let draftsIndex = try #require(groups.firstIndex { $0.id == "drafts" })
+        let find = groups[draftsIndex + 1]
+
+        #expect(find.id == "find")
+        #expect(find.title == "検索と置換")
+        #expect(find == EditorShortcutGroup(id: "find", title: "検索と置換", shortcuts: EditorShortcuts.find))
+        #expect(find.shortcuts.map(\.id) == ["findOpen", "findReplaceOpen", "findNext", "findPrevious", "findToggleOptions", "findPreserveCase", "findReplaceOne", "findReplaceAll", "findClose"])
+        #expect(find.shortcuts.map(\.keys) == ["⌘F", "⌥⌘F", "↩ / ⌘G", "⇧↩ / ⇧⌘G", "⌥⌘C / ⌥⌘W / ⌥⌘R", "⌥⌘P", "⇧⌘1", "⌥⌘↩", "esc"])
+        #expect(find.shortcuts.map(\.action) == [
+            "検索バーを出す(選択中の文字を検索語にする)",
+            "置換の欄まで出す",
+            "次の一致へ",
+            "前の一致へ",
+            "大文字と小文字の区別・単語単位・正規表現を切り替える",
+            "置換で大文字と小文字を保持する",
+            "次を置換する(置換欄では ↩)",
+            "すべて置換する(置換欄では ⌘↩)",
+            "検索バーを閉じる",
+        ])
+
+        let others = groups.filter { $0.id != "find" }
+        #expect(others.map(\.id) == ["line", "clipboard", "drafts", "view"])
+        #expect(others.map(\.title) == ["行の操作", "コピーと貼り付け", "下書き", "表示"])
+        #expect(others.map { $0.shortcuts.count } == [4, 3, 5, 2])
+        #expect(EditorShortcuts.all.count == 7)
+        #expect(EditorShortcuts.panelCommands.count == 7)
+        #expect(Set(EditorShortcuts.find.map(\.id)).isDisjoint(with: (EditorShortcuts.all + EditorShortcuts.panelCommands).map(\.id)))
     }
 
     @Test("AC-25: 「パネルの中で使えるキー」の下の説明文は、いつも決めた全文")

@@ -12,6 +12,11 @@ struct PanelView: View {
     let saveAnimation: SaveAnimationModel?
     let sharingAnchorRegistry: SharingAnchorRegistry?
     let appIcon: @MainActor (InsertionTarget) -> NSImage
+    let findModel: FindModel?
+    let onFindAction: (FindBarAction) -> Void
+    let findRegistry: FindEditorRegistry?
+    let onFindTextChange: () -> Void
+    let onFindSelectionChange: () -> Void
 
     init(
         model: PanelModel,
@@ -22,7 +27,12 @@ struct PanelView: View {
         sidebarModel: SidebarModel? = nil,
         saveAnimation: SaveAnimationModel? = nil,
         sharingAnchorRegistry: SharingAnchorRegistry? = nil,
-        appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = { InsertionTargetBadge.systemIcon(for: $0) }
+        appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = { InsertionTargetBadge.systemIcon(for: $0) },
+        findModel: FindModel? = nil,
+        onFindAction: @escaping (FindBarAction) -> Void = { _ in },
+        findRegistry: FindEditorRegistry? = nil,
+        onFindTextChange: @escaping () -> Void = {},
+        onFindSelectionChange: @escaping () -> Void = {}
     ) {
         self.model = model
         self.settings = settings
@@ -33,6 +43,11 @@ struct PanelView: View {
         self.saveAnimation = saveAnimation
         self.sharingAnchorRegistry = sharingAnchorRegistry
         self.appIcon = appIcon
+        self.findModel = findModel
+        self.onFindAction = onFindAction
+        self.findRegistry = findRegistry
+        self.onFindTextChange = onFindTextChange
+        self.onFindSelectionChange = onFindSelectionChange
     }
 
     private static let placeholderInset = NSSize(
@@ -122,12 +137,20 @@ struct PanelView: View {
         let content = statusBarContent
         return VStack(spacing: 0) {
             Color.clear.frame(height: PanelMetrics.titleBarHeight)
+            if let findModel, findModel.isBarVisible {
+                FindBarView(model: findModel, onAction: onFindAction)
+                    .zIndex(1)
+            }
             PromptTextEditor(
                 text: $model.text,
                 focusRequest: model.focusRequest,
                 font: font,
                 placeholder: Self.placeholderText,
-                onKeyInput: onKeyInput
+                bottomPaddingLines: settings.editorBottomPaddingLines,
+                onKeyInput: onKeyInput,
+                findRegistry: findRegistry,
+                onFindTextChange: onFindTextChange,
+                onFindSelectionChange: onFindSelectionChange
             )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .topLeading) {
@@ -146,6 +169,10 @@ struct PanelView: View {
                 PanelStatusBar(content: content, onCommand: onCommand)
             }
         }
+        .modifier(FindBarMotionModifier(
+            isBarVisible: findModel?.isBarVisible ?? false,
+            isReplaceShown: findModel?.isReplaceShown ?? false
+        ))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor))
         .overlay(alignment: .bottom) {

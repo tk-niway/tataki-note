@@ -24,7 +24,7 @@ struct KeyCapsTests {
 
     @Test("AC-21: 一覧のどの表記も、キーキャップに分けて元の表記に戻せる")
     func capsOfEveryListedShortcutRoundTrip() {
-        let shortcuts = EditorShortcuts.all + EditorShortcuts.panelCommands
+        let shortcuts = EditorShortcuts.all + EditorShortcuts.panelCommands + EditorShortcuts.find
         for shortcut in shortcuts {
             let alternatives = KeyCaps.alternatives(in: shortcut.keys)
             #expect(!alternatives.isEmpty, "\(shortcut.id)")
