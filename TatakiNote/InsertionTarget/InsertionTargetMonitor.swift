@@ -281,7 +281,7 @@ final class InsertionTargetMonitor {
             return false
         }
         if let frame = result.frame {
-            let point = AutoShowDecision.accessibilityPoint(fromCocoa: location, primaryScreenFrame: primaryScreenFrame())
+            let point = ScreenCoordinates.topLeftPoint(fromCocoa: location, primaryScreenHeight: primaryScreenFrame().maxY)
             guard frame.contains(point) else { return false }
         }
         let isNewApp = app?.processIdentifier != front.processIdentifier
