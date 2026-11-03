@@ -65,7 +65,7 @@ struct SubmitKeySenderTests {
         let modifierState = ModifierKeyStateStub(pressed: [.maskCommand, .maskShift], pressedReads: 3)
         var releasedWhenPosted: [Bool] = []
         poster.onPost = { releasedWhenPosted.append(modifierState.hasReturnedEmpty) }
-        let sender = EnterKeySender(
+        let sender = SubmitKeySender(
             poster: poster,
             modifierState: modifierState,
             frontmostApp: FrontmostApplicationStub { target.processIdentifier },
@@ -84,7 +84,7 @@ struct SubmitKeySenderTests {
     func sendsImmediatelyWhenNoModifierIsPressed() async {
         let poster = SubmitKeyPosterStub()
         let modifierState = ModifierKeyStateStub(pressed: [.maskShift], pressedReads: 0)
-        let sender = EnterKeySender(
+        let sender = SubmitKeySender(
             poster: poster,
             modifierState: modifierState,
             frontmostApp: FrontmostApplicationStub { target.processIdentifier },
@@ -102,7 +102,7 @@ struct SubmitKeySenderTests {
     func sendsAfterMaxPollsWhenModifiersStayPressed() async {
         let poster = SubmitKeyPosterStub()
         let modifierState = ModifierKeyStateStub(pressed: [.maskCommand], pressedReads: .max)
-        let sender = EnterKeySender(
+        let sender = SubmitKeySender(
             poster: poster,
             modifierState: modifierState,
             frontmostApp: FrontmostApplicationStub { target.processIdentifier },
@@ -126,7 +126,7 @@ struct SubmitKeySenderTests {
         let frontmostApp = FrontmostApplicationStub {
             modifierState.hasReturnedEmpty ? otherApp : target.processIdentifier
         }
-        let sender = EnterKeySender(
+        let sender = SubmitKeySender(
             poster: poster,
             modifierState: modifierState,
             frontmostApp: frontmostApp,
@@ -149,7 +149,7 @@ struct SubmitKeySenderTests {
         for (name, frontmost) in scenarios {
             let poster = SubmitKeyPosterStub()
             let frontmostApp = FrontmostApplicationStub { frontmost }
-            let sender = EnterKeySender(
+            let sender = SubmitKeySender(
                 poster: poster,
                 modifierState: ModifierKeyStateStub(pressed: [], pressedReads: 0),
                 frontmostApp: frontmostApp,
