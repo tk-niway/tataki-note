@@ -13,10 +13,6 @@ enum EditorKeyCommand: CaseIterable {
     case undo
     case redo
 
-    private static let otherReserved: [EditorKeyEquivalent] = [
-        EditorKeyEquivalent(modifiers: [.command], character: "h"),
-    ]
-
     /// ⌘ と文字で押すキー(矢印で押す操作は nil)。
     var keyEquivalent: EditorKeyEquivalent? {
         switch self {
@@ -98,7 +94,7 @@ enum EditorKeyCommand: CaseIterable {
 
     /// 記録ボックスで登録できない ⌘ のキーか(編集キーと、⌘H)。
     static func isReservedKeyEquivalent(modifiers: NSEvent.ModifierFlags, character: String) -> Bool {
-        let pressed = EditorKeyEquivalent(modifiers: modifiers, character: character)
-        return command(modifiers: modifiers, character: character) != nil || otherReserved.contains(pressed)
+        command(modifiers: modifiers, character: character) != nil
+            || PanelHideKey.key.matches(modifiers: modifiers, character: character)
     }
 }

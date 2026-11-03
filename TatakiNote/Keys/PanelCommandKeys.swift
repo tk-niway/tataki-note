@@ -80,8 +80,7 @@ enum PanelCommandKeys {
 
     /// 押されたキーに当たる行。修飾キーは `PanelShortcut.relevantModifiers` に絞って比べ、文字は小文字で渡す。
     static func row(modifiers: NSEvent.ModifierFlags, character: String) -> PanelCommandKey? {
-        let relevant = modifiers.intersection(PanelShortcut.relevantModifiers)
-        return all.first { $0.key.modifiers == relevant && $0.key.character == character }
+        all.first { $0.key.matches(modifiers: modifiers, character: character) }
     }
 
     /// 登録できないときの説明に並べる操作の名前。
