@@ -12,6 +12,9 @@ struct PanelView: View {
     let saveAnimation: SaveAnimationModel?
     let sharingAnchorRegistry: SharingAnchorRegistry?
     let appIcon: @MainActor (InsertionTarget) -> NSImage
+    let findRegistry: FindEditorRegistry?
+    let onFindTextChange: () -> Void
+    let onFindSelectionChange: () -> Void
 
     init(
         model: PanelModel,
@@ -22,7 +25,10 @@ struct PanelView: View {
         sidebarModel: SidebarModel? = nil,
         saveAnimation: SaveAnimationModel? = nil,
         sharingAnchorRegistry: SharingAnchorRegistry? = nil,
-        appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = { InsertionTargetBadge.systemIcon(for: $0) }
+        appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = { InsertionTargetBadge.systemIcon(for: $0) },
+        findRegistry: FindEditorRegistry? = nil,
+        onFindTextChange: @escaping () -> Void = {},
+        onFindSelectionChange: @escaping () -> Void = {}
     ) {
         self.model = model
         self.settings = settings
@@ -33,6 +39,9 @@ struct PanelView: View {
         self.saveAnimation = saveAnimation
         self.sharingAnchorRegistry = sharingAnchorRegistry
         self.appIcon = appIcon
+        self.findRegistry = findRegistry
+        self.onFindTextChange = onFindTextChange
+        self.onFindSelectionChange = onFindSelectionChange
     }
 
     private static let placeholderInset = NSSize(
@@ -128,7 +137,10 @@ struct PanelView: View {
                 font: font,
                 placeholder: Self.placeholderText,
                 bottomPaddingLines: settings.editorBottomPaddingLines,
-                onKeyInput: onKeyInput
+                onKeyInput: onKeyInput,
+                findRegistry: findRegistry,
+                onFindTextChange: onFindTextChange,
+                onFindSelectionChange: onFindSelectionChange
             )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .topLeading) {

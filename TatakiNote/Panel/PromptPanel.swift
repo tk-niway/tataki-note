@@ -5,6 +5,9 @@ final class PromptPanel: NSPanel {
     /// ビューの階層が受けなかったパネルの操作のキーを受け取る処理。処理したら `true` を返す。
     var onKeyEquivalent: ((PanelKeyInput) -> Bool)?
 
+    /// 検索のキーを受け取る処理。処理したら `true` を返す。
+    var onFindKeyEquivalent: ((PanelKeyInput) -> Bool)?
+
     init(contentRect: NSRect) {
         super.init(
             contentRect: contentRect,
@@ -69,10 +72,18 @@ final class PromptPanel: NSPanel {
             return true
         }
         let hasMarkedText = Self.firstResponderHasMarkedText(firstResponder)
-        guard let input = Self.panelCommandInput(for: event, hasMarkedText: hasMarkedText) else {
-            return false
+        if let input = Self.panelCommandInput(for: event, hasMarkedText: hasMarkedText),
+           onKeyEquivalent?(input) == true {
+            return true
         }
-        return onKeyEquivalent?(input) ?? false
+        guard event.type == .keyDown else { return false }
+        let findInput = PanelKeyInput(
+            keyCode: event.keyCode,
+            modifiers: event.modifierFlags.intersection(.deviceIndependentFlagsMask),
+            hasMarkedText: hasMarkedText,
+            characters: event.charactersIgnoringModifiers?.lowercased() ?? ""
+        )
+        return onFindKeyEquivalent?(findInput) ?? false
     }
 
     /// ファーストレスポンダーに未確定の文字があるか。
