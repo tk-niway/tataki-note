@@ -117,7 +117,7 @@ enum PanelShortcutRules {
     }
 
     private static func isReservedForHiding(_ candidate: PanelShortcutCandidate) -> Bool {
-        candidate.shortcut.modifiers == [.command] && candidate.characters == "h"
+        PanelHideKey.key.matches(modifiers: candidate.shortcut.modifiers, character: candidate.characters)
     }
 
     private static func isReservedForEditing(_ candidate: PanelShortcutCandidate) -> Bool {

@@ -7,8 +7,7 @@ enum ReservedPanelKeys {
 
     /// 押されたキー(修飾キーは `PanelShortcut.relevantModifiers` に絞ったもの、文字は小文字)が予約のキーかを返す。
     static func contains(modifiers: NSEvent.ModifierFlags, character: String) -> Bool {
-        let relevant = modifiers.intersection(PanelShortcut.relevantModifiers)
-        return keys.contains { $0.modifiers == relevant && $0.character == character }
+        PanelCommandKeys.row(modifiers: modifiers, character: character) != nil
     }
 
     /// 記録で押されたキーが予約のキーかを返す。

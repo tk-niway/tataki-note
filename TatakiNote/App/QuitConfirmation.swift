@@ -65,6 +65,18 @@ enum QuitConfirmation {
         return commitKey?.matches(input) == true || commitAndSendKey?.matches(input) == true
     }
 
+    /// キーのイベントが、パネルの窓で押した確定キーか確定+送信キーのとき true。
+    static func isPanelCommitKey(
+        _ event: NSEvent,
+        in window: NSWindow?,
+        panel: NSWindow,
+        commitKey: PanelShortcut?,
+        commitAndSendKey: PanelShortcut?
+    ) -> Bool {
+        let input = PanelKeyInput(event: event, hasMarkedText: PromptPanel.firstResponderHasMarkedText(window?.firstResponder))
+        return isPanelCommitKey(input, isPanelKey: window === panel, commitKey: commitKey, commitAndSendKey: commitAndSendKey)
+    }
+
     /// ⌘Q のときにすることを決める。
     static func action(
         isQuitKey: Bool,

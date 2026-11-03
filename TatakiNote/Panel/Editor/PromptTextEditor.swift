@@ -155,12 +155,7 @@ final class PromptTextView: EditorTextView {
     // MARK: - キー操作
 
     override func keyDown(with event: NSEvent) {
-        let input = PanelKeyInput(
-            keyCode: event.keyCode,
-            modifiers: event.modifierFlags.intersection(.deviceIndependentFlagsMask),
-            hasMarkedText: hasMarkedText(),
-            characters: event.charactersIgnoringModifiers?.lowercased() ?? ""
-        )
+        let input = PanelKeyInput(event: event, hasMarkedText: hasMarkedText())
         if onKeyInput?(input) == true {
             return
         }
@@ -172,12 +167,7 @@ final class PromptTextView: EditorTextView {
     }
 
     override func handleKeyEquivalent(_ event: NSEvent) -> EditorKeyEquivalentResult {
-        let input = PanelKeyInput(
-            keyCode: event.keyCode,
-            modifiers: event.modifierFlags.intersection(.deviceIndependentFlagsMask),
-            hasMarkedText: false,
-            characters: event.charactersIgnoringModifiers?.lowercased() ?? ""
-        )
+        let input = PanelKeyInput(event: event, hasMarkedText: false)
         if onKeyInput?(input) == true {
             return .handled
         }

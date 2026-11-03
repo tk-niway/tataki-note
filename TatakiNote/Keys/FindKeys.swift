@@ -38,6 +38,24 @@ struct FindKey: Equatable {
     let keyText: String
 }
 
+/// 「パネルの中で使えるキー」の一覧の、検索と置換の1行。
+struct FindKeyListing: Equatable {
+    /// 一覧の行の id。
+    let id: String
+    /// 表に無いキーの表記。表のキーより前に並べる。
+    let otherKeys: [String]
+    /// 表の行の操作。この順に表の表記を並べる。
+    let actions: [FindKeyAction]
+    /// 一覧に出す操作の説明。
+    let listingAction: String
+
+    /// 一覧の1行。
+    var listing: EditorShortcut {
+        let tableKeys = actions.compactMap { action in FindKeys.global.first { $0.action == action }?.keyText }
+        return EditorShortcut(id: id, keys: (otherKeys + tableKeys).joined(separator: " / "), action: listingAction)
+    }
+}
+
 /// 検索のキーの表。
 enum FindKeys {
     private static let digitOneKeyCode: UInt16 = 18
@@ -53,6 +71,64 @@ enum FindKeys {
         FindKey(action: .toggle(.preserveCase), modifiers: [.command, .option], stroke: .character("p"), keyText: "⌥⌘P"),
         FindKey(action: .replaceOne, modifiers: [.command, .shift], stroke: .keyCode(digitOneKeyCode), keyText: "⇧⌘1"),
         FindKey(action: .replaceAll, modifiers: [.command, .option], stroke: .keyCode(KeyCode.returnKey), keyText: "⌥⌘↩"),
+    ]
+
+    /// 「検索と置換」の一覧の行の定義。並びは一覧の並び。
+    static let listings: [FindKeyListing] = [
+        FindKeyListing(
+            id: "findOpen",
+            otherKeys: [],
+            actions: [.open(revealsReplace: false)],
+            listingAction: String(localized: "検索バーを出す(選択中の文字を検索語にする)")
+        ),
+        FindKeyListing(
+            id: "findReplaceOpen",
+            otherKeys: [],
+            actions: [.open(revealsReplace: true)],
+            listingAction: String(localized: "置換の欄まで出す")
+        ),
+        FindKeyListing(
+            id: "findNext",
+            otherKeys: ["↩"],
+            actions: [.next],
+            listingAction: String(localized: "次の一致へ")
+        ),
+        FindKeyListing(
+            id: "findPrevious",
+            otherKeys: ["⇧↩"],
+            actions: [.previous],
+            listingAction: String(localized: "前の一致へ")
+        ),
+        FindKeyListing(
+            id: "findToggleOptions",
+            otherKeys: [],
+            actions: [.toggle(.caseSensitive), .toggle(.wholeWord), .toggle(.regex)],
+            listingAction: String(localized: "大文字と小文字の区別・単語単位・正規表現を切り替える")
+        ),
+        FindKeyListing(
+            id: "findPreserveCase",
+            otherKeys: [],
+            actions: [.toggle(.preserveCase)],
+            listingAction: String(localized: "置換で大文字と小文字を保持する")
+        ),
+        FindKeyListing(
+            id: "findReplaceOne",
+            otherKeys: [],
+            actions: [.replaceOne],
+            listingAction: String(localized: "次を置換する(置換欄では ↩)")
+        ),
+        FindKeyListing(
+            id: "findReplaceAll",
+            otherKeys: [],
+            actions: [.replaceAll],
+            listingAction: String(localized: "すべて置換する(置換欄では ⌘↩)")
+        ),
+        FindKeyListing(
+            id: "findClose",
+            otherKeys: ["esc"],
+            actions: [],
+            listingAction: String(localized: "検索バーを閉じる")
+        ),
     ]
 
     /// 押されたキーに当たる検索のキーの行。
@@ -103,9 +179,9 @@ enum FindKeys {
         character: String,
         isEditing: Bool,
         hasMarkedText: Bool
-    ) -> SavePanelEditAction? {
+    ) -> FieldEditAction? {
         guard isEditing, !hasMarkedText else { return nil }
-        return SavePanelEditKey.action(modifiers: modifiers, character: character)
+        return FieldEditKey.action(modifiers: modifiers, character: character)
     }
 }
 

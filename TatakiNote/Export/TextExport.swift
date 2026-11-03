@@ -155,30 +155,3 @@ struct ExportFeedback: Equatable {
         }
     }
 }
-
-/// 保存ダイアログの中で、⌘ のキーに当てる編集の操作。
-enum SavePanelEditAction: Equatable {
-    case cut
-    case copy
-    case paste
-    case selectAll
-    case undo
-    case redo
-}
-
-/// 保存ダイアログの中の ⌘ のキーを、編集の操作に対応づける。
-enum SavePanelEditKey {
-    /// 押されたキーに当たる編集の操作。当たらなければ nil。
-    static func action(modifiers: NSEvent.ModifierFlags, character: String) -> SavePanelEditAction? {
-        let relevant = modifiers.intersection(PanelShortcut.relevantModifiers)
-        switch EditorKeyCommand.command(modifiers: relevant, character: character) {
-        case .cut: return .cut
-        case .copy: return .copy
-        case .paste: return .paste
-        case .selectAll: return .selectAll
-        case .undo: return .undo
-        case .redo: return .redo
-        case .moveLines, .duplicateLines, .selectLine, .selectWord, nil: return nil
-        }
-    }
-}
