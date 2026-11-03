@@ -112,6 +112,42 @@ struct EditorShortcutsTests {
         }
     }
 
+    @Test("AC-4: 「検索と置換」の9行は表の表記から作られ、表の10行の操作がどれもちょうど1回ずつ一覧に出る")
+    func findListingIsBuiltFromTheTable() {
+        let listings = FindKeys.listings
+
+        #expect(listings.map(\.id) == ["findOpen", "findReplaceOpen", "findNext", "findPrevious", "findToggleOptions", "findPreserveCase", "findReplaceOne", "findReplaceAll", "findClose"])
+        #expect(listings.map(\.listing) == EditorShortcuts.find)
+        #expect(listings.map(\.listing.keys) == ["⌘F", "⌥⌘F", "↩ / ⌘G", "⇧↩ / ⇧⌘G", "⌥⌘C / ⌥⌘W / ⌥⌘R", "⌥⌘P", "⇧⌘1", "⌥⌘↩", "esc"])
+        #expect(listings.map(\.listingAction) == [
+            "検索バーを出す(選択中の文字を検索語にする)",
+            "置換の欄まで出す",
+            "次の一致へ",
+            "前の一致へ",
+            "大文字と小文字の区別・単語単位・正規表現を切り替える",
+            "置換で大文字と小文字を保持する",
+            "次を置換する(置換欄では ↩)",
+            "すべて置換する(置換欄では ⌘↩)",
+            "検索バーを閉じる",
+        ])
+
+        let listedActions = listings.flatMap(\.actions)
+        #expect(listedActions.count == FindKeys.global.count)
+        for key in FindKeys.global {
+            #expect(listedActions.filter { $0 == key.action }.count == 1, "\(key.keyText)")
+        }
+    }
+
+    @Test("AC-4: 一覧の行の表記は、表のキーの表記を変えると一緒に変わる")
+    func listingFollowsTheTableText() {
+        let listing = FindKeyListing(id: "x", otherKeys: ["↩"], actions: [.next, .previous], listingAction: "説明")
+        let nextText = FindKeys.global.first { $0.action == .next }?.keyText
+        let previousText = FindKeys.global.first { $0.action == .previous }?.keyText
+
+        #expect(nextText != nil && previousText != nil)
+        #expect(listing.listing == EditorShortcut(id: "x", keys: "↩ / \(nextText ?? "") / \(previousText ?? "")", action: "説明"))
+    }
+
     @Test("AC-25: 「パネルの中で使えるキー」の下の説明文は、いつも決めた全文")
     func settingDescriptionIsExact() {
         #expect(EditorShortcuts.settingDescription == "割り当ては変えられません。確定のキーは上の「確定+挿入キー」「確定+送信キー」で確かめられます。")

@@ -1,11 +1,5 @@
 import AppKit
 
-/// ⌘ と文字の組み合わせ。
-struct EditorKeyEquivalent: Equatable {
-    let modifiers: NSEvent.ModifierFlags
-    let character: String
-}
-
 /// 入力欄の編集キーの操作。並びは「ショートカットキー」の一覧の並び。
 enum EditorKeyCommand: CaseIterable {
     case moveLines
