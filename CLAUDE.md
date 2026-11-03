@@ -69,10 +69,14 @@ xcodebuild build -project TatakiNote.xcodeproj -scheme TatakiNote -destination '
 ### 書き方
 
 - 既定で MainActor。重い処理はメインスレッドの外へ(`nonisolated` な関数、`Task.detached`)
+- 非同期の処理は Swift Concurrency(`async`/`await`・`Task`)で書く。`DispatchQueue`・完了ハンドラは、それしか
+  受け付けない API(`NWPathMonitor` など)とのつなぎ目にだけ使う
 - 強制アンラップ・`as!`・`try!` を使わない。`try?` で失敗を捨てるのは、失敗しても利用者に影響が無いときだけ
 - 失敗は `throws` で返し、画面はモデルのエラー状態を表示する
 - 名前は Swift の API Design Guidelines に従う(型は UpperCamelCase、それ以外は lowerCamelCase、
   真偽値は `is`/`has`/`should`)。コメントで補わなくても分かる名前にする
+- 同じものには同じ名前を付ける。機能・画面の部品の名前は、上の「構成」の表と利用者ガイド(`docs/`)の言葉に
+  合わせる(パネルは `Panel`、入力欄は `Editor`)
 - 利用者に見える文字列は日本語。String Catalog に乗る書き方(`Text("…")`・`String(localized:)`)にする
 
 ### テスト
