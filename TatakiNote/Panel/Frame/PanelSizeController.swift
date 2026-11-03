@@ -6,6 +6,10 @@ final class PanelSizeController {
     let sizing: PanelSizing
     /// サイドバーの開閉で窓の枠を変えている間か。
     var isAdjustingFrameForSidebar = false
+    /// 検索バーの高さに合わせて窓の枠を変えている間か。
+    var isAdjustingFrameForFindBar = false
+    /// 窓を実際に伸ばしている検索バーの高さ。
+    private(set) var findBarHeight: CGFloat = 0
 
     private let panel: NSWindow
     private let sidebarModel: SidebarModel
@@ -15,6 +19,7 @@ final class PanelSizeController {
     private var resizeStartSize: CGSize?
     private var sidebarSlide: SidebarSlide?
     private var sidebarSlideGeneration = 0
+    private var findBarUpwardShift: CGFloat = 0
 
     private struct SidebarSlide {
         let generation: Int
@@ -85,7 +90,7 @@ final class PanelSizeController {
         if isOpen {
             sidebarModel.setOpen(true)
         } else {
-            panel.contentMinSize = SidebarLayout.minimumWindowSize(isSidebarOpen: false)
+            panel.contentMinSize = minimumWindowSize(isSidebarOpen: false)
         }
         animator.animate(panel, to: target, duration: PanelMotion.duration, curve: isOpen ? .easeOut : .easeIn) { [weak self] in
             guard let self, let slide = self.sidebarSlide, slide.generation == generation else { return }
@@ -111,19 +116,64 @@ final class PanelSizeController {
 
     /// サイドバーの開閉に合わせた最小の大きさを窓に入れる。
     func applyMinimumSize() {
-        panel.contentMinSize = SidebarLayout.minimumWindowSize(isSidebarOpen: sidebarModel.isOpen)
+        panel.contentMinSize = minimumWindowSize(isSidebarOpen: sidebarModel.isOpen)
+    }
+
+    // MARK: - 検索バー
+
+    /// 窓の高さを、検索バーの高さに合わせる。足りない分は下へ伸ばし、収まらなければ上へずらす。ドラッグで決めた大きさとしては覚えない。
+    func syncFindBarHeight(_ desired: CGFloat) {
+        let delta = desired - findBarHeight
+        guard delta != 0 else { return }
+        finishSidebarSlide()
+        isAdjustingFrameForFindBar = true
+        defer { isAdjustingFrameForFindBar = false }
+        let change = FindBarFrame.resized(
+            panel.frame,
+            by: delta,
+            upwardShift: findBarUpwardShift,
+            visibleFrame: visibleFrame(panel)
+        )
+        findBarUpwardShift = change.upwardShift
+        if change.appliedDelta < 0 {
+            findBarHeight += change.appliedDelta
+            applyMinimumSize()
+            panel.setFrame(change.frame, display: true, animate: false)
+        } else {
+            findBarHeight += change.appliedDelta
+            panel.setFrame(change.frame, display: true, animate: false)
+            applyMinimumSize()
+        }
+    }
+
+    /// 上へずらした量を忘れる。窓を新しい位置に置き直すときに呼ぶ。
+    func resetFindBarShift() {
+        findBarUpwardShift = 0
+    }
+
+    /// 開くときの窓の大きさ。覚えた大きさに検索バーの分を足す。
+    func openingSize(in visibleFrame: CGRect, findBarHeight desired: CGFloat) -> CGSize {
+        let result = FindBarFrame.openingSize(
+            bodySize: sizing.openingSize(in: visibleFrame),
+            barHeight: desired,
+            visibleFrame: visibleFrame
+        )
+        findBarHeight = result.appliedBarHeight
+        findBarUpwardShift = 0
+        return result.size
     }
 
     // MARK: - 大きさ
 
     func windowWillStartLiveResize(motionPhase: PanelMotionPhase) {
-        guard !isAdjustingFrameForSidebar, motionPhase != .opening, motionPhase != .closing else { return }
+        guard !isAdjustingFrameForSidebar, !isAdjustingFrameForFindBar,
+              motionPhase != .opening, motionPhase != .closing else { return }
         liveResizeStartSize = bodySize(of: panel.frame.size)
     }
 
     func windowDidEndLiveResize() {
         defer { liveResizeStartSize = nil }
-        guard !isAdjustingFrameForSidebar, let startSize = liveResizeStartSize else { return }
+        guard !isAdjustingFrameForSidebar, !isAdjustingFrameForFindBar, let startSize = liveResizeStartSize else { return }
         sizing.userDidResize(from: startSize, to: bodySize(of: panel.frame.size))
     }
 
@@ -136,10 +186,11 @@ final class PanelSizeController {
         if motionPhase == .opening || isSidebarSliding {
             return frameSize
         }
-        if !sender.inLiveResize, motionPhase == .shown, !isAdjustingFrameForSidebar, resizeStartSize == nil {
+        if !sender.inLiveResize, motionPhase == .shown, !isAdjustingFrameForSidebar, !isAdjustingFrameForFindBar,
+           resizeStartSize == nil {
             resizeStartSize = bodySize(of: sender.frame.size)
         }
-        let minimum = SidebarLayout.minimumWindowSize(isSidebarOpen: sidebarModel.isOpen)
+        let minimum = minimumWindowSize(isSidebarOpen: sidebarModel.isOpen)
         return NSSize(
             width: max(frameSize.width, minimum.width),
             height: max(frameSize.height, minimum.height)
@@ -149,11 +200,17 @@ final class PanelSizeController {
     func windowDidResize(motionPhase: PanelMotionPhase) {
         guard let startSize = resizeStartSize else { return }
         resizeStartSize = nil
-        guard motionPhase == .shown, !isAdjustingFrameForSidebar, !isSidebarSliding else { return }
+        guard motionPhase == .shown, !isAdjustingFrameForSidebar, !isAdjustingFrameForFindBar, !isSidebarSliding else { return }
         sizing.userDidResize(from: startSize, to: bodySize(of: panel.frame.size))
     }
 
     private func bodySize(of windowSize: CGSize) -> CGSize {
-        SidebarLayout.bodySize(windowSize: windowSize, isSidebarOpen: sidebarModel.isOpen)
+        var body = SidebarLayout.bodySize(windowSize: windowSize, isSidebarOpen: sidebarModel.isOpen)
+        body.height -= findBarHeight
+        return body
+    }
+
+    private func minimumWindowSize(isSidebarOpen: Bool) -> CGSize {
+        FindBarFrame.minimumSize(SidebarLayout.minimumWindowSize(isSidebarOpen: isSidebarOpen), barHeight: findBarHeight)
     }
 }

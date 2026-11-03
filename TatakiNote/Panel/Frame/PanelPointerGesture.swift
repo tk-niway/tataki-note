@@ -12,18 +12,21 @@ struct PanelPointerAvailability: Equatable {
     var isPanelShown: Bool
     var isSidebarSliding: Bool
     var isSidebarOpen: Bool
+    var minimumHeightAddition: CGFloat = 0
 
     /// パネルの表示・動きの段階・サイドバーから状況を作る。
     static func make(
         isPresented: Bool,
         motionPhase: PanelMotionPhase,
         isSidebarSliding: Bool,
-        isSidebarOpen: Bool
+        isSidebarOpen: Bool,
+        minimumHeightAddition: CGFloat = 0
     ) -> PanelPointerAvailability {
         PanelPointerAvailability(
             isPanelShown: isPresented && motionPhase == .shown,
             isSidebarSliding: isSidebarSliding,
-            isSidebarOpen: isSidebarOpen
+            isSidebarOpen: isSidebarOpen,
+            minimumHeightAddition: minimumHeightAddition
         )
     }
 }
@@ -37,6 +40,7 @@ struct PanelPointerContext: Equatable {
     var moveModifiers: Set<PanelPointerModifier>
     var resizeModifiers: Set<PanelPointerModifier>
     var screenTopLimit: CGFloat?
+    var minimumHeightAddition: CGFloat = 0
 }
 
 /// サイズ変更で動かす角。
@@ -161,7 +165,10 @@ struct PanelPointerGesture: Equatable {
                 anchor: anchor,
                 corner: corner,
                 pointer: sample.pointer,
-                minimumSize: SidebarLayout.minimumWindowSize(isSidebarOpen: context.isSidebarOpen),
+                minimumSize: FindBarFrame.minimumSize(
+                    SidebarLayout.minimumWindowSize(isSidebarOpen: context.isSidebarOpen),
+                    barHeight: context.minimumHeightAddition
+                ),
                 screenTopLimit: context.screenTopLimit
             )
             return PanelPointerStep.applying(frame, to: context.panelFrame)

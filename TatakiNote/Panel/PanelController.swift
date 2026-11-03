@@ -140,18 +140,28 @@ final class PanelController: NSObject, NSWindowDelegate {
         let findModel = self.findModel
         let findEditorRegistry = self.findEditorRegistry
         findModel.editor = { [findEditorRegistry] in findEditorRegistry.editor }
+        let motionController = PanelMotionController(
+            panel: panel,
+            animator: animator,
+            restoreMinimumSize: { [sizeController] in sizeController.applyMinimumSize() },
+            didFinishShowing: { [sizeController, panel] in
+                Self.syncFindBarHeight(sizeController, to: findModel.barHeight, panel: panel, motionPhase: .shown)
+            }
+        )
+        self.motionController = motionController
         self.findController = PanelFindController(
             model: findModel,
             registry: findEditorRegistry,
             panel: panel,
-            barHeightDidChange: {}
+            barHeightDidChange: { [sizeController, panel] in
+                Self.syncFindBarHeight(
+                    sizeController,
+                    to: findModel.barHeight,
+                    panel: panel,
+                    motionPhase: motionController.phase
+                )
+            }
         )
-        let motionController = PanelMotionController(
-            panel: panel,
-            animator: animator,
-            restoreMinimumSize: { [sizeController] in sizeController.applyMinimumSize() }
-        )
-        self.motionController = motionController
         self.saveAnimation = saveAnimation
         let feedback = PanelFeedback(
             panel: panel,
@@ -174,7 +184,8 @@ final class PanelController: NSObject, NSWindowDelegate {
                     isPresented: model.isPresented,
                     motionPhase: motionController.phase,
                     isSidebarSliding: sizeController.isSidebarSliding,
-                    isSidebarOpen: sidebarModel.isOpen
+                    isSidebarOpen: sidebarModel.isOpen,
+                    minimumHeightAddition: sizeController.findBarHeight
                 )
             },
             willBegin: { feedback.stopShaking() },
@@ -230,6 +241,16 @@ final class PanelController: NSObject, NSWindowDelegate {
         feedback.startObserving()
         connectParts()
         targetMonitor.onFieldAdopted = { [weak self] in self?.handleFieldAdopted() }
+    }
+
+    private static func syncFindBarHeight(
+        _ sizeController: PanelSizeController,
+        to barHeight: CGFloat,
+        panel: NSWindow,
+        motionPhase: PanelMotionPhase
+    ) {
+        guard panel.isVisible, motionPhase == .shown else { return }
+        sizeController.syncFindBarHeight(barHeight)
     }
 
     private func connectParts() {
@@ -346,12 +367,16 @@ final class PanelController: NSObject, NSWindowDelegate {
                 observedFocus: queriesField ? (start?.focus ?? observedFocus) : start?.focus,
                 queriesField: queriesField,
                 isSidebarOpen: sidebarModel.isOpen,
-                openingSize: { [sizeController] in sizeController.sizing.openingSize(in: $0) }
+                openingSize: { [sizeController, findModel] in
+                    sizeController.openingSize(in: $0, findBarHeight: findModel.barHeight)
+                }
             )
             if let frame = openingFrame {
                 sizeController.applyMinimumSize()
                 panel.setFrame(frame, display: false)
             } else {
+                sizeController.resetFindBarShift()
+                sizeController.syncFindBarHeight(findModel.barHeight)
                 sizeController.applyMinimumSize()
                 panel.center()
             }

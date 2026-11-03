@@ -163,7 +163,8 @@ final class PanelPointerController {
             isSidebarOpen: availability.isSidebarOpen,
             moveModifiers: moveModifiers,
             resizeModifiers: resizeModifiers,
-            screenTopLimit: screenTopLimit(pointer)
+            screenTopLimit: screenTopLimit(pointer),
+            minimumHeightAddition: availability.minimumHeightAddition
         )
 
         switch gesture.handle(sample, in: context) {
