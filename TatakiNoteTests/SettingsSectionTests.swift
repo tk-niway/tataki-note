@@ -2,6 +2,10 @@ import AppKit
 import Testing
 @testable import TatakiNote
 
+private final class CloseLog {
+    var log: [String] = []
+}
+
 @MainActor
 struct SettingsSectionTests {
     @Test("AC-1: サイドバーの項目は「一般」「ホットキーとキー操作」「パネル」「情報」の順で、表示名・アイコン・識別子に使う値が決まっていて、「エディタ設定」は無い")
@@ -127,6 +131,24 @@ struct SettingsSectionTests {
         try await waitUntil(attempts: 100, interval: .milliseconds(20)) { closeCount > 0 }
         try await Task.sleep(for: .milliseconds(100))
         #expect(closeCount == 1)
+    }
+
+    @Test("AC-5: 設定の窓が閉じると、onDidClose はその場では呼ばれず、閉じた直後に main キューへ積んだ処理より先に1回だけ呼ばれる")
+    func closingWindowCallsOnDidCloseBeforeLaterMainQueueWork() async throws {
+        let name = UUID().uuidString
+        let defaults = try #require(InMemoryDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let controller = makeController(library: DraftLibrary(store: .inMemory), defaults: defaults)
+        let box = CloseLog()
+        controller.onDidClose = { box.log.append("onDidClose") }
+
+        controller.windowWillClose(Notification(name: NSWindow.willCloseNotification))
+        DispatchQueue.main.async { box.log.append("marker") }
+
+        #expect(box.log.isEmpty)
+        try await waitUntil(attempts: 100, interval: .milliseconds(20)) { box.log.count >= 2 }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(box.log == ["onDidClose", "marker"])
     }
 
     @Test("AC-19: onDidClose が無くても、設定画面の窓を閉じて落ちない")

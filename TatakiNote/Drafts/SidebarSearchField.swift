@@ -38,7 +38,7 @@ struct SidebarSearchField: NSViewRepresentable {
         }
         if hasPendingFocus, !context.coordinator.isFocusScheduled {
             context.coordinator.isFocusScheduled = true
-            DispatchQueue.main.async { [weak field, weak coordinator = context.coordinator] in
+            Task { @MainActor [weak field, weak coordinator = context.coordinator] in
                 coordinator?.isFocusScheduled = false
                 guard let field, let window = field.window else { return }
                 window.makeFirstResponder(field)

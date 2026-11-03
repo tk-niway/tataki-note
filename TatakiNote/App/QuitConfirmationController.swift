@@ -57,7 +57,7 @@ final class QuitConfirmationController: NSObject, NSWindowDelegate {
         case .cancel:
             return .terminateCancel
         case .cancelAndConfirm:
-            DispatchQueue.main.async { [weak self] in
+            Task { @MainActor [weak self] in
                 self?.present()
             }
             return .terminateCancel
@@ -77,7 +77,7 @@ final class QuitConfirmationController: NSObject, NSWindowDelegate {
         case .ignore, .quit:
             return nil
         case .confirm:
-            DispatchQueue.main.async { [weak self] in
+            Task { @MainActor [weak self] in
                 self?.present()
             }
             return nil
