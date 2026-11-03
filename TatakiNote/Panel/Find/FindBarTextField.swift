@@ -180,7 +180,7 @@ struct FindBarTextField: NSViewRepresentable {
             let model = parent.model
             guard model.hasPendingFocus(for: field.findField), !isFocusScheduled else { return }
             isFocusScheduled = true
-            DispatchQueue.main.async { [weak self, weak field] in
+            Task { @MainActor [weak self, weak field] in
                 self?.isFocusScheduled = false
                 guard let self, let field, let window = field.window,
                       model.hasPendingFocus(for: field.findField) else { return }

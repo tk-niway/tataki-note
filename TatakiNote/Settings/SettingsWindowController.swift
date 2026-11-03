@@ -65,7 +65,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         model.prepareForOpen()
         history.resetPhase()
         fontPanel.close()
-        DispatchQueue.main.async { [weak self] in
+        Task { @MainActor [weak self] in
             self?.onDidClose?()
         }
     }

@@ -17,7 +17,7 @@ struct ProjectLayoutTests {
         "UserDocsTests", "UserDocsWordingTests", "DistributionDocsTests",
         "SettingsDocsTests", "TestStorageRuleTests", "ProjectLayoutTests",
         "PublicCheckSecretsTests", "ReleaseAppcastSigningTests", "ReleaseHardeningTests",
-        "FeatureFolderRulesTests",
+        "FeatureFolderRulesTests", "DispatchQueueRuleTests",
     ]
     private static let appRootFiles: Set<String> = ["MyApp.swift", "AppDelegate.swift"]
     private static let featureFolders: Set<String> = [

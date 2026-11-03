@@ -179,7 +179,7 @@ struct SidebarView: View {
 
     private func applyPendingListFocus() {
         guard model.hasPendingListFocus else { return }
-        DispatchQueue.main.async {
+        Task { @MainActor in
             guard model.hasPendingListFocus else { return }
             isListFocused = true
             model.markListFocusHandled()

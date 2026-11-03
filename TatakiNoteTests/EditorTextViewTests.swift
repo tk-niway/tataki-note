@@ -69,6 +69,11 @@ struct EditorTextViewTests {
         var value = ""
     }
 
+    private final class FocusProbe {
+        var isFirstResponder: Bool?
+        var selection: NSRange?
+    }
+
     private struct Fixture {
         var window: NSWindow
         var textView: PromptTextView
@@ -394,6 +399,28 @@ struct EditorTextViewTests {
             await pumpRunLoop()
             #expect(fixture.window.firstResponder === fixture.textView)
             #expect(fixture.textView.selectedRange() == NSRange(location: 13, length: 0))
+        }
+    }
+
+    @Test("AC-6: 入力欄へのフォーカスの要求は、その場では入力欄をファーストレスポンダにせず、直後に main キューへ積んだ処理より先に、入力欄をファーストレスポンダにして末尾にカーソルを置く")
+    func focusRequestRunsBeforeLaterMainQueueWork() async {
+        await withFixture(initialText: "one\ntwo") { fixture in
+            fixture.window.makeFirstResponder(nil)
+            fixture.textView.setSelectedRange(NSRange(location: 0, length: 0))
+            let probe = FocusProbe()
+            let window = fixture.window
+            let textView = fixture.textView
+
+            fixture.coordinator.focusIfRequested(1, textView: textView)
+            #expect(window.firstResponder !== textView)
+            DispatchQueue.main.async {
+                probe.isFirstResponder = window.firstResponder === textView
+                probe.selection = textView.selectedRange()
+            }
+            await pumpRunLoop()
+
+            #expect(probe.isFirstResponder == true)
+            #expect(probe.selection == NSRange(location: 7, length: 0))
         }
     }
 
