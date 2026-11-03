@@ -60,13 +60,11 @@ final class BackgroundOpeningTargetLookup: OpeningTargetLookup {
         let exposer = exposer
         let app = request.app
         let output = job.abandonUnlessFinished { output in
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated {
-                    if let error = output.exposureError {
-                        exposer.record(error, for: app)
-                    }
-                    pending.finish(output.result)
+            Task { @MainActor in
+                if let error = output.exposureError {
+                    exposer.record(error, for: app)
                 }
+                pending.finish(output.result)
             }
         }
         guard let output else { return .pending(pending) }

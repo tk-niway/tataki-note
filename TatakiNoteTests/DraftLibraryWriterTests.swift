@@ -27,6 +27,10 @@ private nonisolated final class WriteRecorder: @unchecked Sendable {
     }
 }
 
+private final class CompletionBox {
+    var results: [(result: DraftLibraryWriteResult, isMain: Bool)] = []
+}
+
 @MainActor
 struct DraftLibraryWriterTests {
     private let date = Date(timeIntervalSince1970: 1_700_000_000)
@@ -64,6 +68,33 @@ struct DraftLibraryWriterTests {
             DraftLibraryWriteResult(fileName: "a.json", succeeded: true),
             DraftLibraryWriteResult(fileName: "b.json", succeeded: true),
         ])
+    }
+
+    @Test("AC-3: 背景の書き手で同じファイルの失敗する書き出しと成功する書き出しを続けて行うと、書き終わりの知らせはメインスレッドで失敗、成功の順に届く")
+    func completionsArriveOnMainInOrder() async {
+        struct Failure: Error {}
+        let writer = BackgroundDraftLibraryWriter()
+        let box = CompletionBox()
+
+        writer.write(
+            fileName: "a.json",
+            { throw Failure() },
+            completion: { box.results.append(($0, Thread.isMainThread)) }
+        )
+        writer.waitUntilIdle()
+        writer.write(
+            fileName: "a.json",
+            {},
+            completion: { box.results.append(($0, Thread.isMainThread)) }
+        )
+        writer.waitUntilIdle()
+        await waitUntil { box.results.count == 2 }
+
+        #expect(box.results.map(\.result) == [
+            DraftLibraryWriteResult(fileName: "a.json", succeeded: false),
+            DraftLibraryWriteResult(fileName: "a.json", succeeded: true),
+        ])
+        #expect(box.results.map(\.isMain) == [true, true])
     }
 
     @Test("AC-15: 背景の書き手で頼んだ下書きは、waitUntilIdle の後にファイルを読み直すと最後の中身がある")

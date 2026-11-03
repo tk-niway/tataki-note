@@ -44,6 +44,11 @@ nonisolated final class BlockingFocusProber: BackgroundFocusProbing, @unchecked 
     }
 }
 
+private final class NotificationBox {
+    var onMain: [Bool] = []
+    var neededRequest: [Bool] = []
+}
+
 @MainActor
 struct BackgroundOpeningTargetLookupTests {
     private let editor = MonitorFixture.editor
@@ -112,6 +117,31 @@ struct BackgroundOpeningTargetLookupTests {
         #expect(exposer.needsRequest(for: editor) == false)
         #expect(prober.probeCount == 1)
         #expect(prober.exposureCount == 1)
+    }
+
+    @Test("AC-4: 開くときの調べが締め切りを超えると、遅れた答えはメインスレッドで1回だけ知らされ、知らせの時点で Web の中身の依頼が記録済みになっている")
+    func lateAnswerIsRecordedBeforeSingleMainThreadNotification() async throws {
+        let prober = BlockingFocusProber()
+        defer { prober.release() }
+        let exposer = makeExposer()
+        let lookup = BackgroundOpeningTargetLookup(exposer: exposer, prober: prober)
+        guard case .pending(let pending) = lookup.lookUp(request(), waitingUpTo: .milliseconds(10)) else {
+            Issue.record("締め切りを超えたのに .pending ではない")
+            return
+        }
+        let box = NotificationBox()
+        let editor = editor
+        pending.whenFinished { _ in
+            box.onMain.append(Thread.isMainThread)
+            box.neededRequest.append(exposer.needsRequest(for: editor))
+        }
+
+        prober.release()
+        try await awaitFinish(of: pending)
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(box.onMain == [true])
+        #expect(box.neededRequest == [false])
     }
 
     @Test("AC-11: 知らせ先の登録が終わった後でも、その場で知らせる")

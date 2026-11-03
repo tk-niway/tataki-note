@@ -44,6 +44,7 @@ final class ImmediateDraftLibraryWriter: DraftLibraryWriting {
 nonisolated final class BackgroundDraftLibraryWriter: DraftLibraryWriting {
     private let queue = DispatchQueue(label: "DraftLibraryWriter", qos: .utility)
     private let pending = PendingDraftLibraryWrites()
+    private let relay = MainActorRelay()
 
     init() {}
 
@@ -56,6 +57,7 @@ nonisolated final class BackgroundDraftLibraryWriter: DraftLibraryWriting {
         guard pending.replace(fileName: fileName, with: request) else { return }
         ProcessInfo.processInfo.disableSuddenTermination()
         let pending = pending
+        let relay = relay
         queue.async {
             defer { ProcessInfo.processInfo.enableSuddenTermination() }
             guard let latest = pending.take(fileName: fileName) else { return }
@@ -68,9 +70,7 @@ nonisolated final class BackgroundDraftLibraryWriter: DraftLibraryWriting {
             }
             let result = DraftLibraryWriteResult(fileName: fileName, succeeded: succeeded)
             let completion = latest.completion
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated { completion(result) }
-            }
+            relay.send { completion(result) }
         }
     }
 
