@@ -222,6 +222,8 @@ final class PanelController: NSObject, NSWindowDelegate {
                 sidebarModel: sidebarModel,
                 saveAnimation: saveAnimation,
                 sharingAnchorRegistry: sharingAnchorRegistry,
+                findModel: findModel,
+                onFindAction: { [weak self] in self?.findController.perform($0) },
                 findRegistry: findEditorRegistry,
                 onFindTextChange: { findModel.textDidChange() },
                 onFindSelectionChange: { findModel.selectionDidChange() }
@@ -494,6 +496,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         case .commit: commit(shouldSendAfterInsert: false)
         case .commitAndSend: commit(shouldSendAfterInsert: true)
         case .openSearch: openSearch()
+        case .openFind: findController.perform(FindKeyAction.open(revealsReplace: false))
         case .saveDraft: saveDraftOrSignalEmpty()
         case .newDraft: requestNewScratch()
         case .toggleMode: session.toggleMode()

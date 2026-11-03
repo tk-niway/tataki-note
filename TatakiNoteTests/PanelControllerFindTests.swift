@@ -303,6 +303,40 @@ struct PanelControllerFindTests {
         }
     }
 
+    // MARK: - AC-37
+
+    @Test("AC-37: タイトルバーの虫眼鏡(openFind)を押すと、検索バーが出て検索欄へのフォーカスが求められる")
+    func openFindButtonOpensBarAndRequestsFocus() throws {
+        try withFixture(marked: "[foo] bar foo") { fixture in
+            let before = fixture.findModel.focusRequest.count
+            #expect(!fixture.findModel.isBarVisible)
+
+            #expect(fixture.controller.perform(.openFind, from: .button))
+
+            #expect(fixture.findModel.isBarVisible)
+            #expect(!fixture.findModel.isReplaceShown)
+            #expect(fixture.findModel.focusRequest.count == before + 1)
+            #expect(fixture.findModel.hasPendingFocus(for: .find))
+            #expect(fixture.model.isPresented)
+        }
+    }
+
+    @Test("AC-37: 虫眼鏡は開いている置換の欄を閉じず、押すたびに検索欄へのフォーカスを求め直す")
+    func openFindButtonKeepsReplaceShownAndRequestsFocusAgain() throws {
+        try withFixture { fixture in
+            #expect(fixture.controller.handleKey(optionCommandF))
+            fixture.findModel.didApplyFocus()
+            #expect(!fixture.findModel.hasPendingFocus(for: .find))
+            let before = fixture.findModel.focusRequest.count
+
+            #expect(fixture.controller.perform(.openFind, from: .button))
+
+            #expect(fixture.findModel.isReplaceShown)
+            #expect(fixture.findModel.focusRequest.count == before + 1)
+            #expect(fixture.findModel.hasPendingFocus(for: .find))
+        }
+    }
+
     // MARK: - AC-30
 
     @Test("AC-30: 入力欄の esc は検索バーを閉じて入力欄にフォーカスを戻し、パネルは閉じない")

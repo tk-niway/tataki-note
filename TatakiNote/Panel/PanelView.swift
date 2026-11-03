@@ -12,6 +12,8 @@ struct PanelView: View {
     let saveAnimation: SaveAnimationModel?
     let sharingAnchorRegistry: SharingAnchorRegistry?
     let appIcon: @MainActor (InsertionTarget) -> NSImage
+    let findModel: FindModel?
+    let onFindAction: (FindBarAction) -> Void
     let findRegistry: FindEditorRegistry?
     let onFindTextChange: () -> Void
     let onFindSelectionChange: () -> Void
@@ -26,6 +28,8 @@ struct PanelView: View {
         saveAnimation: SaveAnimationModel? = nil,
         sharingAnchorRegistry: SharingAnchorRegistry? = nil,
         appIcon: @escaping @MainActor (InsertionTarget) -> NSImage = { InsertionTargetBadge.systemIcon(for: $0) },
+        findModel: FindModel? = nil,
+        onFindAction: @escaping (FindBarAction) -> Void = { _ in },
         findRegistry: FindEditorRegistry? = nil,
         onFindTextChange: @escaping () -> Void = {},
         onFindSelectionChange: @escaping () -> Void = {}
@@ -39,6 +43,8 @@ struct PanelView: View {
         self.saveAnimation = saveAnimation
         self.sharingAnchorRegistry = sharingAnchorRegistry
         self.appIcon = appIcon
+        self.findModel = findModel
+        self.onFindAction = onFindAction
         self.findRegistry = findRegistry
         self.onFindTextChange = onFindTextChange
         self.onFindSelectionChange = onFindSelectionChange
@@ -131,6 +137,10 @@ struct PanelView: View {
         let content = statusBarContent
         return VStack(spacing: 0) {
             Color.clear.frame(height: PanelMetrics.titleBarHeight)
+            if let findModel, findModel.isBarVisible {
+                FindBarView(model: findModel, onAction: onFindAction)
+                    .zIndex(1)
+            }
             PromptTextEditor(
                 text: $model.text,
                 focusRequest: model.focusRequest,

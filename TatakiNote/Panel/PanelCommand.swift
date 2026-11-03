@@ -6,6 +6,7 @@ enum PanelCommand: Equatable, CaseIterable {
     case commit
     case commitAndSend
     case openSearch
+    case openFind
     case saveDraft
     case newDraft
     case toggleMode
@@ -32,7 +33,7 @@ extension PanelCommand {
             case .key: return true
             case .button: return mode == .insert
             }
-        case .close, .openSearch, .saveDraft, .newDraft, .toggleMode, .switchToNote, .switchToInsert,
+        case .close, .openSearch, .openFind, .saveDraft, .newDraft, .toggleMode, .switchToNote, .switchToInsert,
              .toggleSidebar, .openSettings, .exportToFile, .share:
             return true
         }
@@ -45,7 +46,7 @@ extension PanelCommand {
             return true
         case .close, .commit, .commitAndSend, .saveDraft, .newDraft, .share:
             return source == .button
-        case .openSearch, .toggleMode, .switchToNote, .switchToInsert, .toggleSidebar, .exportToFile:
+        case .openSearch, .openFind, .toggleMode, .switchToNote, .switchToInsert, .toggleSidebar, .exportToFile:
             return false
         }
     }
@@ -55,8 +56,8 @@ extension PanelCommand {
         switch self {
         case .saveDraft:
             return source == .button
-        case .close, .commit, .commitAndSend, .openSearch, .newDraft, .toggleMode, .switchToNote, .switchToInsert,
-             .toggleSidebar, .openSettings, .exportToFile, .share:
+        case .close, .commit, .commitAndSend, .openSearch, .openFind, .newDraft, .toggleMode, .switchToNote,
+             .switchToInsert, .toggleSidebar, .openSettings, .exportToFile, .share:
             return false
         }
     }

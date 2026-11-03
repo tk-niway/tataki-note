@@ -49,7 +49,9 @@ struct PanelTitleBar: View {
             sidebarToggleButton
                 .padding(.leading, 4)
             Spacer(minLength: 0)
+            findButton
             newDraftButton
+                .padding(.leading, 4)
             saveDraftButton
                 .padding(.leading, 4)
             shareButton
@@ -104,6 +106,17 @@ struct PanelTitleBar: View {
         .accessibilityLabel("サイドバー")
         .accessibilityValue(isSidebarOpen ? "開いています" : "閉じています")
         .accessibilityIdentifier("promptPanel.sidebarToggle")
+    }
+
+    private var findButton: some View {
+        Button(action: { onCommand(.openFind) }) {
+            iconLabel("magnifyingglass")
+        }
+        .buttonStyle(PanelIconButtonStyle())
+        .focusable(false)
+        .help("検索と置換(⌘F)")
+        .accessibilityLabel("検索")
+        .accessibilityIdentifier("promptPanel.findButton")
     }
 
     private var newDraftButton: some View {
