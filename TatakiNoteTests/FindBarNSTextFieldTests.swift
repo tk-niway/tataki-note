@@ -175,6 +175,25 @@ struct FindBarNSTextFieldTests {
         }
     }
 
+    @Test("AC-45: 欄のセルが文字を描く矩形は、欄の上と下の余白の差が 0.5 以下")
+    func cellDrawingRectIsVerticallyCentered() throws {
+        try withFixture(startsEditing: false) { fixture in
+            let field = fixture.field
+            field.isBordered = false
+            field.drawsBackground = false
+            field.font = .systemFont(ofSize: 12)
+            field.cell?.usesSingleLineMode = false
+            let cell = try #require(field.cell)
+
+            let drawing = cell.drawingRect(forBounds: field.bounds)
+
+            let top = drawing.minY - field.bounds.minY
+            let bottom = field.bounds.maxY - drawing.maxY
+            #expect(abs(top - bottom) <= 0.5)
+            #expect(drawing.height < field.bounds.height)
+        }
+    }
+
     @Test("AC-43: 欄の文字の改行は「↵」で見せ、モデルへは改行に戻す")
     func newlinesAreShownAsMarks() {
         #expect(FindBarTextField.displayText("a\nb\r\nc\rd") == "a↵b↵c↵d")

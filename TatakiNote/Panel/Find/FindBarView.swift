@@ -6,6 +6,7 @@ struct FindBarView: View {
     @Bindable var model: FindModel
     let onAction: (FindBarAction) -> Void
     @State private var focusedField: FindField?
+    @Environment(\.isAppAnimationReduced) private var isReduced
 
     private static let rightClusterWidth: CGFloat = 128
 
@@ -15,6 +16,7 @@ struct FindBarView: View {
                 findRow
                 if model.isReplaceShown {
                     replaceRow
+                        .transition(FindBarMotion.transition(isReduced: isReduced))
                 }
             }
             .padding(.top, 6)
@@ -22,6 +24,7 @@ struct FindBarView: View {
             .padding(.leading, 6)
             .padding(.trailing, 8)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .clipped()
             Divider()
         }
         .frame(height: FindBarMetrics.height(isVisible: true, isReplaceShown: model.isReplaceShown))
@@ -30,6 +33,7 @@ struct FindBarView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("findBar")
+        .transition(FindBarMotion.transition(isReduced: isReduced))
     }
 
     // MARK: - 検索の行

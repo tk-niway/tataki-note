@@ -305,13 +305,13 @@ struct PanelControllerFindTests {
 
     // MARK: - AC-37
 
-    @Test("AC-37: タイトルバーの虫眼鏡(openFind)を押すと、検索バーが出て検索欄へのフォーカスが求められる")
-    func openFindButtonOpensBarAndRequestsFocus() throws {
+    @Test("AC-37: タイトルバーの虫眼鏡(toggleFind)を押すと、検索バーが出て検索欄へのフォーカスが求められる")
+    func toggleFindButtonOpensBarAndRequestsFocus() throws {
         try withFixture(marked: "[foo] bar foo") { fixture in
             let before = fixture.findModel.focusRequest.count
             #expect(!fixture.findModel.isBarVisible)
 
-            #expect(fixture.controller.perform(.openFind, from: .button))
+            #expect(fixture.controller.perform(.toggleFind, from: .button))
 
             #expect(fixture.findModel.isBarVisible)
             #expect(!fixture.findModel.isReplaceShown)
@@ -321,19 +321,34 @@ struct PanelControllerFindTests {
         }
     }
 
-    @Test("AC-37: 虫眼鏡は開いている置換の欄を閉じず、押すたびに検索欄へのフォーカスを求め直す")
-    func openFindButtonKeepsReplaceShownAndRequestsFocusAgain() throws {
+    // MARK: - AC-44
+
+    @Test("AC-44: 検索バーが出ているときに虫眼鏡を押すと閉じて入力欄にフォーカスが戻り、検索語・置換語・オプション・置換の欄は残り、もう一度押すと同じ状態で出る")
+    func toggleFindButtonClosesBarAndKeepsState() throws {
         try withFixture { fixture in
-            #expect(fixture.controller.handleKey(optionCommandF))
-            fixture.findModel.didApplyFocus()
-            #expect(!fixture.findModel.hasPendingFocus(for: .find))
-            let before = fixture.findModel.focusRequest.count
+            fixture.openBar(revealsReplace: true, query: "foo", replacement: "X")
+            fixture.findModel.toggle(.caseSensitive)
+            fixture.focus(fixture.findField)
 
-            #expect(fixture.controller.perform(.openFind, from: .button))
+            #expect(fixture.controller.perform(.toggleFind, from: .button))
 
+            #expect(!fixture.findModel.isBarVisible)
+            #expect(fixture.findModel.matches.isEmpty)
+            #expect(fixture.model.isPresented)
+            #expect(fixture.panel.firstResponder === fixture.textView)
+            #expect(fixture.findModel.query == "foo")
+            #expect(fixture.findModel.replacement == "X")
+            #expect(fixture.findModel.options.isOn(.caseSensitive))
             #expect(fixture.findModel.isReplaceShown)
-            #expect(fixture.findModel.focusRequest.count == before + 1)
-            #expect(fixture.findModel.hasPendingFocus(for: .find))
+
+            #expect(fixture.controller.perform(.toggleFind, from: .button))
+
+            #expect(fixture.findModel.isBarVisible)
+            #expect(fixture.findModel.isReplaceShown)
+            #expect(fixture.findModel.query == "foo")
+            #expect(fixture.findModel.replacement == "X")
+            #expect(fixture.findModel.options.isOn(.caseSensitive))
+            #expect(fixture.findModel.matches.count == 3)
         }
     }
 
@@ -510,73 +525,104 @@ struct PanelControllerFindTests {
         }
     }
 
-    // MARK: - AC-32
+    // MARK: - AC-47
 
-    private var findBarHeight: CGFloat { FindBarMetrics.height(isVisible: true, isReplaceShown: false) }
-    private var replaceBarHeight: CGFloat { FindBarMetrics.height(isVisible: true, isReplaceShown: true) }
-
-    @Test("AC-32: ⌘F で窓が検索バーの高さだけ伸び、esc で閉じると戻り、ドラッグで決めた大きさにはならない")
-    func barStretchesAndRestoresPanel() throws {
-        try withFixture { fixture in
-            let base = fixture.panel.frame.height
-
-            #expect(fixture.controller.handleKey(commandF))
-
-            #expect(fixture.panel.frame.height == base + findBarHeight)
-            #expect(fixture.controller.sizeController.findBarHeight == findBarHeight)
-            #expect(fixture.controller.heldPanelSize == nil)
-
-            #expect(fixture.controller.handleKey(escape))
-
-            #expect(fixture.panel.frame.height == base)
-            #expect(fixture.controller.sizeController.findBarHeight == 0)
-            #expect(fixture.controller.heldPanelSize == nil)
-        }
+    private func assertPanelGeometryUnchanged(_ fixture: Fixture, frame: NSRect, minimumSize: NSSize) {
+        #expect(fixture.panel.frame == frame)
+        #expect(fixture.panel.contentMinSize == minimumSize)
+        #expect(fixture.controller.heldPanelSize == nil)
     }
 
-    @Test("AC-32: 置換の欄の開閉で窓が伸び縮みし、閉じるボタンで元の高さに戻る")
-    func replaceRowStretchesPanel() throws {
+    @Test("AC-47: ⌘F・⌥⌘F・山形・esc・虫眼鏡で、窓の位置・大きさ・最小の大きさ・覚えた大きさは変わらない")
+    func barOperationsKeepPanelGeometry() throws {
         try withFixture { fixture in
-            let base = fixture.panel.frame.height
+            let frame = fixture.panel.frame
+            let minimumSize = fixture.panel.contentMinSize
+
+            #expect(fixture.controller.handleKey(commandF))
+            #expect(fixture.findModel.isBarVisible)
+            assertPanelGeometryUnchanged(fixture, frame: frame, minimumSize: minimumSize)
 
             #expect(fixture.controller.handleKey(optionCommandF))
-            #expect(fixture.panel.frame.height == base + replaceBarHeight)
+            #expect(fixture.findModel.isReplaceShown)
+            assertPanelGeometryUnchanged(fixture, frame: frame, minimumSize: minimumSize)
 
             fixture.controller.findController.perform(FindBarAction.toggleReplace)
-            #expect(fixture.panel.frame.height == base + findBarHeight)
+            #expect(!fixture.findModel.isReplaceShown)
+            assertPanelGeometryUnchanged(fixture, frame: frame, minimumSize: minimumSize)
 
             fixture.controller.findController.perform(FindBarAction.toggleReplace)
-            #expect(fixture.panel.frame.height == base + replaceBarHeight)
+            #expect(fixture.findModel.isReplaceShown)
+            assertPanelGeometryUnchanged(fixture, frame: frame, minimumSize: minimumSize)
 
-            fixture.controller.findController.perform(FindBarAction.close)
-            #expect(fixture.panel.frame.height == base)
+            #expect(fixture.controller.handleKey(escape))
+            #expect(!fixture.findModel.isBarVisible)
+            assertPanelGeometryUnchanged(fixture, frame: frame, minimumSize: minimumSize)
+
+            fixture.controller.findController.toggleBar()
+            #expect(fixture.findModel.isBarVisible)
+            assertPanelGeometryUnchanged(fixture, frame: frame, minimumSize: minimumSize)
+
+            fixture.controller.findController.toggleBar()
+            #expect(!fixture.findModel.isBarVisible)
+            assertPanelGeometryUnchanged(fixture, frame: frame, minimumSize: minimumSize)
+        }
+    }
+
+    @Test("AC-47: 検索バーを出したまま閉じて開き直しても、開く大きさは検索バーを出していないときと同じ")
+    func reopenWithBarKeepsOpeningSize() throws {
+        try withFixture { fixture in
+            let base = fixture.panel.frame.size
+            fixture.openBar(revealsReplace: true)
+
+            fixture.controller.close()
+            fixture.controller.open()
+
+            #expect(fixture.findModel.isBarVisible)
+            #expect(fixture.panel.frame.size == base)
             #expect(fixture.controller.heldPanelSize == nil)
         }
     }
 
-    @Test("AC-32: 検索バーが出ている間に窓をドラッグすると、検索バーの分を除いた大きさを覚える")
-    func dragWhileBarShownRemembersBodySize() throws {
-        try withFixture { fixture in
-            let base = fixture.panel.frame.height
+    @Test("AC-47: 開く動きの途中で検索バーを出しても窓の枠に触れず、動きは本来の枠まで進む")
+    func barDuringOpeningMotionLeavesFrame() throws {
+        try withFixture(animated: true) { fixture in
+            let restFrame = try #require(fixture.animator.calls.first?.frame)
+            let lineFrame = fixture.panel.frame
+
             #expect(fixture.controller.handleKey(commandF))
-            let size = CGSize(width: fixture.panel.frame.width, height: base + findBarHeight + 40)
+            #expect(fixture.findModel.isBarVisible)
+            #expect(fixture.panel.frame == lineFrame)
 
-            fixture.controller.windowWillStartLiveResize(Notification(name: NSWindow.willStartLiveResizeNotification))
-            fixture.panel.setFrame(NSRect(origin: fixture.panel.frame.origin, size: size), display: false)
-            fixture.controller.windowDidEndLiveResize(Notification(name: NSWindow.didEndLiveResizeNotification))
+            fixture.animator.finish(0)
 
-            #expect(fixture.controller.heldPanelSize?.height == base + 40)
+            #expect(fixture.panel.frame == restFrame)
+        }
+    }
+
+    @Test("AC-47: サイドバーの開閉の動きの途中で検索バーを出しても、動きを終えずに進む")
+    func barDuringSidebarSlideKeepsSliding() throws {
+        try withFixture(animated: true) { fixture in
+            fixture.animator.finish(0)
+            fixture.controller.setSidebarOpen(true)
+            #expect(fixture.controller.sizeController.isSidebarSliding)
+            let jumps = fixture.animator.jumps.count
+
+            #expect(fixture.controller.handleKey(commandF))
+
+            #expect(fixture.findModel.isBarVisible)
+            #expect(fixture.controller.sizeController.isSidebarSliding)
+            #expect(fixture.animator.jumps.count == jumps)
         }
     }
 
     // MARK: - AC-33
 
-    @Test("AC-33: 検索バーを出したまま閉じて開き直すと、状態と窓の高さが残り、開いた時点の文章で数え直す")
-    func reopenKeepsBarStateAndHeight() throws {
+    @Test("AC-33: 検索バーを出したまま閉じて開き直すと、状態が残り、開いた時点の文章で数え直す")
+    func reopenKeepsBarStateAndRecounts() throws {
         try withFixture { fixture in
             fixture.openBar(revealsReplace: true, query: "foo", replacement: "X")
             fixture.findModel.toggle(.caseSensitive)
-            let heightWithBar = fixture.panel.frame.height
             #expect(fixture.findModel.matches.count == 3)
 
             fixture.controller.close()
@@ -590,25 +636,7 @@ struct PanelControllerFindTests {
             #expect(fixture.findModel.query == "foo")
             #expect(fixture.findModel.replacement == "X")
             #expect(fixture.findModel.options.isOn(.caseSensitive))
-            #expect(fixture.panel.frame.height == heightWithBar)
-            #expect(fixture.controller.sizeController.findBarHeight == replaceBarHeight)
-            #expect(fixture.controller.heldPanelSize == nil)
             #expect(fixture.findModel.matches.count == 2)
-        }
-    }
-
-    @Test("AC-33: 検索バーが閉じているときの開き直しは、検索バーの分を足さない")
-    func reopenWithoutBarKeepsHeight() throws {
-        try withFixture { fixture in
-            let base = fixture.panel.frame.height
-            fixture.openBar()
-            fixture.controller.findController.perform(FindKeyAction.close)
-
-            fixture.controller.close()
-            fixture.controller.open()
-
-            #expect(fixture.panel.frame.height == base)
-            #expect(fixture.controller.sizeController.findBarHeight == 0)
         }
     }
 
@@ -623,81 +651,6 @@ struct PanelControllerFindTests {
             #expect(fixture.findModel.isReplaceShown)
             #expect(fixture.findModel.query == "foo")
             #expect(fixture.findModel.replacement == "X")
-        }
-    }
-
-    // MARK: - AC-35
-
-    @Test("AC-35: 開く動きの途中で検索バーを出しても、動きが終わるまで窓は変わらず、終わると検索バーの分に合う")
-    func barOpenedDuringOpeningMotionAppliesAfterMotion() throws {
-        try withFixture(animated: true) { fixture in
-            let call = try #require(fixture.animator.calls.first)
-            let restFrame = call.frame
-            let lineFrame = fixture.panel.frame
-
-            #expect(fixture.controller.handleKey(commandF))
-
-            #expect(fixture.findModel.isBarVisible)
-            #expect(fixture.panel.frame == lineFrame)
-            #expect(fixture.controller.sizeController.findBarHeight == 0)
-
-            fixture.animator.finish(0)
-
-            #expect(fixture.panel.frame.height == restFrame.height + findBarHeight)
-            #expect(fixture.controller.sizeController.findBarHeight == findBarHeight)
-            #expect(fixture.controller.heldPanelSize == nil)
-        }
-    }
-
-    @Test("AC-35: 開く動きの途中で検索バーを出し、すぐパネルを閉じても、閉じる途中・隠れた後の窓の枠は変わらない")
-    func barOpenedDuringOpeningThenClosedKeepsFrame() throws {
-        try withFixture(animated: true) { fixture in
-            let restFrame = try #require(fixture.animator.calls.first?.frame)
-            #expect(fixture.controller.handleKey(commandF))
-
-            fixture.controller.close()
-
-            #expect(fixture.panel.frame == restFrame)
-            #expect(fixture.controller.sizeController.findBarHeight == 0)
-
-            fixture.animator.finish(1)
-
-            #expect(!fixture.panel.isVisible)
-            #expect(fixture.panel.frame == restFrame)
-            #expect(fixture.controller.sizeController.findBarHeight == 0)
-            #expect(fixture.findModel.isBarVisible)
-        }
-    }
-
-    @Test("AC-35: 開く動きの途中で検索バーを出して閉じたとき、動きが終わっても窓の高さは変わらない")
-    func barToggledDuringOpeningMotionLeavesHeight() throws {
-        try withFixture(animated: true) { fixture in
-            let restFrame = try #require(fixture.animator.calls.first?.frame)
-            #expect(fixture.controller.handleKey(commandF))
-            #expect(fixture.controller.handleKey(escape))
-
-            fixture.animator.finish(0)
-
-            #expect(fixture.panel.frame.height == restFrame.height)
-            #expect(fixture.controller.sizeController.findBarHeight == 0)
-        }
-    }
-
-    @Test("AC-35: サイドバーの開閉の動きの途中で検索バーを出すと、動きを先に終えてから高さを変える")
-    func barOpenedDuringSidebarSlideFinishesSlideFirst() throws {
-        try withFixture(animated: true) { fixture in
-            fixture.animator.finish(0)
-            fixture.controller.setSidebarOpen(true)
-            #expect(fixture.controller.sizeController.isSidebarSliding)
-            let slideTarget = try #require(fixture.animator.calls.last?.frame)
-
-            #expect(fixture.controller.handleKey(commandF))
-
-            #expect(!fixture.controller.sizeController.isSidebarSliding)
-            #expect(fixture.animator.jumps.last == slideTarget)
-            #expect(fixture.panel.frame.width == slideTarget.width)
-            #expect(fixture.panel.frame.height == slideTarget.height + findBarHeight)
-            #expect(fixture.controller.heldPanelSize == nil)
         }
     }
 

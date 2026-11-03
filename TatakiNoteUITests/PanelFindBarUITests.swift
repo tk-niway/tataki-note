@@ -3,8 +3,9 @@ import XCTest
 final class PanelFindBarUITests: PanelDraftsUITestCase {
     // AC-37
     // AC-38
+    // AC-44
     @MainActor
-    func testAC37_AC38_findButtonCountReplaceAllAndClose() throws {
+    func testAC37_AC38_AC44_findButtonCountReplaceAllAndClose() throws {
         let app = try launchApp()
         let panel = openPanel(in: app)
         let body = textView(in: app)
@@ -51,5 +52,12 @@ final class PanelFindBarUITests: PanelDraftsUITestCase {
         close.click()
         XCTAssertTrue(waitUntil { !findBar.exists }, "閉じるボタンで検索バーが消えない")
         XCTAssertTrue(app.dialogs["promptPanel"].exists, "検索バーを閉じたらパネルまで閉じた")
+
+        // AC-44
+        findButton.click()
+        XCTAssertTrue(waitUntil { element(in: app, identifier: "findBar").exists }, "虫眼鏡を押しても検索バーが出ない")
+        findButton.click()
+        XCTAssertTrue(waitUntil { !element(in: app, identifier: "findBar").exists }, "検索バーが出ているときに虫眼鏡を押しても閉じない")
+        XCTAssertTrue(app.dialogs["promptPanel"].exists, "虫眼鏡で検索バーを閉じたらパネルまで閉じた")
     }
 }

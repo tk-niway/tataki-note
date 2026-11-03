@@ -109,7 +109,7 @@ struct PanelTitleBar: View {
     }
 
     private var findButton: some View {
-        Button(action: { onCommand(.openFind) }) {
+        Button(action: { onCommand(.toggleFind) }) {
             iconLabel("magnifyingglass")
         }
         .buttonStyle(PanelIconButtonStyle())

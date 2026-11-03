@@ -6,7 +6,6 @@ final class PanelMotionController {
     private let animator: PanelFrameAnimating
     private let restoreMinimumSize: () -> Void
     private let makeGhost: (NSWindow) -> NSWindow?
-    private let didFinishShowing: () -> Void
 
     private var motion = PanelMotionState()
     private var restingFrame: NSRect?
@@ -20,14 +19,12 @@ final class PanelMotionController {
         panel: NSWindow,
         animator: PanelFrameAnimating,
         restoreMinimumSize: @escaping () -> Void,
-        makeGhost: @escaping (NSWindow) -> NSWindow? = { PanelClosingGhost.make(from: $0) },
-        didFinishShowing: @escaping () -> Void = {}
+        makeGhost: @escaping (NSWindow) -> NSWindow? = { PanelClosingGhost.make(from: $0) }
     ) {
         self.panel = panel
         self.animator = animator
         self.restoreMinimumSize = restoreMinimumSize
         self.makeGhost = makeGhost
-        self.didFinishShowing = didFinishShowing
     }
 
     /// パネルを `restFrame` で前に出す。アニメーションがオンなら線から広げる。
@@ -38,7 +35,6 @@ final class PanelMotionController {
             motion.showWithoutMotion()
             pendingCloseCompletion = nil
             restingFrame = nil
-            didFinishShowing()
             return
         }
         panel.contentMinSize = NSSize(width: 1, height: 1)
@@ -124,7 +120,6 @@ final class PanelMotionController {
         case .shown:
             restingFrame = nil
             restoreMinimumSize()
-            didFinishShowing()
         case .hidden:
             discardGhost()
             let completion = pendingCloseCompletion

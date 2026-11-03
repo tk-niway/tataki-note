@@ -169,6 +169,10 @@ struct PanelView: View {
                 PanelStatusBar(content: content, onCommand: onCommand)
             }
         }
+        .modifier(FindBarMotionModifier(
+            isBarVisible: findModel?.isBarVisible ?? false,
+            isReplaceShown: findModel?.isReplaceShown ?? false
+        ))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .textBackgroundColor))
         .overlay(alignment: .bottom) {

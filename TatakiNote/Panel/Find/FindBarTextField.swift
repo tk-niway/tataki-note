@@ -1,8 +1,36 @@
 import AppKit
 import SwiftUI
 
+/// 検索欄・置換欄のセル。文字を欄の縦の中央に置く。
+final class FindBarTextFieldCell: NSTextFieldCell {
+    override func drawingRect(forBounds rect: NSRect) -> NSRect {
+        centered(super.drawingRect(forBounds: rect))
+    }
+
+    override func edit(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?, event: NSEvent?) {
+        super.edit(withFrame: centered(rect), in: controlView, editor: textObj, delegate: delegate, event: event)
+    }
+
+    override func select(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?, start selStart: Int, length selLength: Int) {
+        super.select(withFrame: centered(rect), in: controlView, editor: textObj, delegate: delegate, start: selStart, length: selLength)
+    }
+
+    private func centered(_ rect: NSRect) -> NSRect {
+        FindBarFieldLayout.verticallyCentered(rect, contentHeight: lineHeight)
+    }
+
+    private var lineHeight: CGFloat {
+        ceil(NSLayoutManager().defaultLineHeight(for: font ?? .systemFont(ofSize: NSFont.systemFontSize)))
+    }
+}
+
 /// 検索欄・置換欄の `NSTextField`。⌘ の編集のキーを欄の編集として受け、取り消しは欄専用の履歴で行う。
 final class FindBarNSTextField: NSTextField, FindFieldIdentifying {
+    override class var cellClass: AnyClass? {
+        get { FindBarTextFieldCell.self }
+        set {}
+    }
+
     let findField: FindField
     /// この欄の文字だけを戻すための取り消しの履歴。
     let fieldUndoManager = UndoManager()

@@ -21,13 +21,11 @@ final class PanelFindController {
     private let model: FindModel
     private let registry: FindEditorRegistry
     private let panel: NSWindow
-    private let barHeightDidChange: () -> Void
 
-    init(model: FindModel, registry: FindEditorRegistry, panel: NSWindow, barHeightDidChange: @escaping () -> Void) {
+    init(model: FindModel, registry: FindEditorRegistry, panel: NSWindow) {
         self.model = model
         self.registry = registry
         self.panel = panel
-        self.barHeightDidChange = barHeightDidChange
     }
 
     /// ファーストレスポンダーからフォーカスの場所を決める。
@@ -58,8 +56,6 @@ final class PanelFindController {
 
     /// キーの操作を行う。
     func perform(_ action: FindKeyAction) {
-        let wasVisible = model.isBarVisible
-        let wasReplaceShown = model.isReplaceShown
         let focus = Self.focus(of: panel.firstResponder)
         switch action {
         case .open(let revealsReplace):
@@ -98,8 +94,14 @@ final class PanelFindController {
         case .swallow:
             break
         }
-        if wasVisible != model.isBarVisible || wasReplaceShown != model.isReplaceShown {
-            barHeightDidChange()
+    }
+
+    /// タイトルバーの虫眼鏡の操作。検索バーが出ていれば閉じ、出ていなければ ⌘F と同じく出す。
+    func toggleBar() {
+        if model.isBarVisible {
+            perform(FindKeyAction.close)
+        } else {
+            perform(FindKeyAction.open(revealsReplace: false))
         }
     }
 
@@ -107,11 +109,7 @@ final class PanelFindController {
     func perform(_ action: FindBarAction) {
         switch action {
         case .toggleReplace:
-            let wasReplaceShown = model.isReplaceShown
             model.toggleReplace()
-            if wasReplaceShown != model.isReplaceShown {
-                barHeightDidChange()
-            }
         case .previous: perform(FindKeyAction.previous)
         case .next: perform(FindKeyAction.next)
         case .close: perform(FindKeyAction.close)

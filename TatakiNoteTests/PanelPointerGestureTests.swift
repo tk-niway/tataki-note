@@ -13,8 +13,7 @@ struct PanelPointerGestureTests {
         isSidebarOpen: Bool = false,
         move: Set<PanelPointerModifier> = [.command],
         resize: Set<PanelPointerModifier> = [.option],
-        limit: CGFloat? = 1000,
-        minimumHeightAddition: CGFloat = 0
+        limit: CGFloat? = 1000
     ) -> PanelPointerContext {
         PanelPointerContext(
             panelFrame: frame ?? self.frame,
@@ -23,8 +22,7 @@ struct PanelPointerGestureTests {
             isSidebarOpen: isSidebarOpen,
             moveModifiers: move,
             resizeModifiers: resize,
-            screenTopLimit: limit,
-            minimumHeightAddition: minimumHeightAddition
+            screenTopLimit: limit
         )
     }
 
@@ -212,38 +210,6 @@ struct PanelPointerGestureTests {
         var gesture = resizingGesture(at: CGPoint(x: 600, y: 420))
         let step = gesture.handle(sample(CGPoint(x: -400, y: -400), [.option]), in: context())
         #expect(step == .setFrame(CGRect(x: 100, y: 100, width: 320, height: 160)))
-    }
-
-    @Test("AC-36: 検索バーが出ているとき、修飾キーのサイズ変更の最小の高さは検索バーの分だけ高い")
-    func resizingMinimumHeightIncludesFindBar() {
-        let withBar = context(minimumHeightAddition: 64)
-        var gesture = resizingGesture(at: CGPoint(x: 600, y: 420))
-        let step = gesture.handle(sample(CGPoint(x: -400, y: -400), [.option]), in: withBar)
-        #expect(step == .setFrame(CGRect(x: 100, y: 100, width: 320, height: 224)))
-    }
-
-    @Test("AC-36: 検索バーが出ていないとき、修飾キーのサイズ変更の最小の高さは今までと同じ")
-    func resizingMinimumHeightWithoutFindBarUnchanged() {
-        var gesture = resizingGesture(at: CGPoint(x: 600, y: 420))
-        let step = gesture.handle(sample(CGPoint(x: -400, y: -400), [.option]), in: context(minimumHeightAddition: 0))
-        #expect(step == .setFrame(CGRect(x: 100, y: 100, width: 320, height: 160)))
-    }
-
-    @Test("AC-36: 検索バーの分の最小の高さは、状況から文脈へ渡される")
-    func availabilityCarriesMinimumHeightAddition() {
-        let availability = PanelPointerAvailability.make(
-            isPresented: true,
-            motionPhase: .shown,
-            isSidebarSliding: false,
-            isSidebarOpen: false,
-            minimumHeightAddition: 64
-        )
-        #expect(availability.minimumHeightAddition == 64)
-        #expect(
-            PanelPointerAvailability.make(
-                isPresented: true, motionPhase: .shown, isSidebarSliding: false, isSidebarOpen: false
-            ).minimumHeightAddition == 0
-        )
     }
 
     @Test("AC-6: サイドバーが開いていれば最小の幅は 540")
