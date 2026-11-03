@@ -29,7 +29,7 @@ struct LineCut: Equatable {
     var edit: LineEdit?
 }
 
-/// パネルの入力欄の、VSCode のような行・単語の操作の計算。
+/// パネルの入力欄の、行・単語の操作の計算。
 enum LineEditing {
     static let fullLinePasteboardType = NSPasteboard.PasteboardType("jp.co.woube.TatakiNote.full-line")
 
