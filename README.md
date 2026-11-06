@@ -85,3 +85,7 @@ TatakiNote は、1日に1回、新しいバージョンがあるかを自動で�
 - [入力欄を選んだらパネルを自動で出す](docs/features/auto-show.md)
 - [設定ウィンドウ](docs/features/settings.md)
 - [アップデートとインストール](docs/features/updates.md)
+
+## ライセンス
+
+[MIT License](LICENSE) で公開しています。
