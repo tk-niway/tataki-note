@@ -53,11 +53,11 @@ struct PanelView: View {
     /// 入力欄が空のときに出す薄い文字。
     static let placeholderText = String(localized: "ここにプロンプトを書く…")
 
-    /// 幅 `editorWidth` の入力欄で、空のときのプレースホルダーの左端。
-    func placeholderLeading(editorWidth: CGFloat) -> CGFloat {
-        EditorTextLayout(font: settings.panelFont, readability: settings.editorReadability)
-            .placeholderLeading(viewWidth: editorWidth, baseInset: PanelMetrics.textContainerInset.width)
-    }
+    /// 入力欄の左上から、プレースホルダーの文字までの距離。
+    static let placeholderInset = CGSize(
+        width: PanelMetrics.textContainerInset.width + EditorTextLayout.lineFragmentPadding,
+        height: PanelMetrics.textContainerInset.height
+    )
 
     var body: some View {
         let isSidebarOpen = sidebarModel?.isOpen ?? false
@@ -156,16 +156,13 @@ struct PanelView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .topLeading) {
                     if model.text.isEmpty {
-                        GeometryReader { proxy in
-                            Text(verbatim: Self.placeholderText)
-                                .font(Font(font as CTFont))
-                                .foregroundStyle(.tertiary)
-                                .padding(.leading, placeholderLeading(editorWidth: proxy.size.width))
-                                .padding(.top, PanelMetrics.textContainerInset.height)
-                                .allowsHitTesting(false)
-                                .accessibilityHidden(true)
-                        }
-                        .allowsHitTesting(false)
+                        Text(verbatim: Self.placeholderText)
+                            .font(Font(font as CTFont))
+                            .foregroundStyle(.tertiary)
+                            .padding(.leading, Self.placeholderInset.width)
+                            .padding(.top, Self.placeholderInset.height)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
                     }
                 }
             if !content.isEmpty {

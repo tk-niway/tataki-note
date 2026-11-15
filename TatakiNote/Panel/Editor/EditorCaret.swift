@@ -3,6 +3,9 @@ import Foundation
 
 /// 入力欄のカーソルの形・位置・点滅の計算。
 enum EditorCaretGeometry {
+    /// 縦線の太さ。
+    static let barWidth: CGFloat = 2
+
     /// 下線の太さ。
     static let underlineThickness: CGFloat = 2
 
@@ -11,11 +14,6 @@ enum EditorCaretGeometry {
 
     /// 同じ行とみなす、上端の差の上限。
     static let sameLineTolerance: CGFloat = 1
-
-    /// システムのカーソルのまま描くか。縦線で太さが 1 のときだけ。
-    static func usesSystemCaret(shape: EditorCaretShape, width: Int) -> Bool {
-        shape == .bar && width == 1
-    }
 
     /// 自前のカーソルを点滅させる条件。窓がキーで、入力欄にフォーカスがあり、何も選択していないとき。
     static func isCaretActive(isKeyWindow: Bool, isFirstResponder: Bool, selectionLength: Int) -> Bool {

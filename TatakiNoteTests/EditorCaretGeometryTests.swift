@@ -26,7 +26,7 @@ struct EditorCaretGeometryTests {
 
     // MARK: - AC-16
 
-    @Test("AC-16: 縦線は太さぶんの幅で、高さは1行の高さに収まる")
+    @Test("AC-16: 縦線は渡した太さの幅で、高さは1行の高さに収まる")
     func barUsesConfiguredWidth() {
         #expect(rect(.bar, barWidth: 4) == CGRect(x: 40, y: 20, width: 4, height: 17))
         #expect(rect(.bar, barWidth: 1) == CGRect(x: 40, y: 20, width: 1, height: 17))
@@ -99,16 +99,10 @@ struct EditorCaretGeometryTests {
         #expect(fallback(lineSpacing: 4, paragraphSpacing: 6) == CGRect(x: 15, y: 35, width: 0, height: 17))
     }
 
-    // MARK: - AC-17
-
-    @Test("AC-17: システムのカーソルのままなのは、縦線で太さ 1 のときだけ")
-    func systemCaretOnlyForThinBar() {
-        for shape in EditorCaretShape.allCases {
-            for width in EditorReadability.caretWidthRange {
-                let expected = shape == .bar && width == 1
-                #expect(EditorCaretGeometry.usesSystemCaret(shape: shape, width: width) == expected, "\(shape) \(width)")
-            }
-        }
+    @Test("AC-16: 縦線の太さは 2 pt に固定されている")
+    func barWidthIsFixedAtTwoPoints() {
+        #expect(EditorCaretGeometry.barWidth == 2)
+        #expect(rect(.bar, barWidth: EditorCaretGeometry.barWidth).width == 2)
     }
 
     // MARK: - AC-18

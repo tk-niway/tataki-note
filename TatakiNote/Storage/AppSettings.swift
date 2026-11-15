@@ -146,11 +146,6 @@ import Observation
         }
     }
 
-    /// 入力欄の1行の長さの上限(全角の文字数)。`nil` は上限なし。
-    var editorMaxLineLength: Int? {
-        didSet { store.persist(\.editorMaxLineLength, of: self, as: SettingDefinitions.editorMaxLineLength) }
-    }
-
     /// 入力欄で折り返した行を字下げするか。
     var editorIndentsWrappedLines: Bool {
         didSet {
@@ -161,11 +156,6 @@ import Observation
     /// 入力欄のカーソルの形。
     var editorCaretShape: EditorCaretShape {
         didSet { store.persist(\.editorCaretShape, of: self, as: SettingDefinitions.editorCaretShape) }
-    }
-
-    /// 入力欄のカーソルの太さ(pt)。
-    var editorCaretWidth: Int {
-        didSet { store.persist(\.editorCaretWidth, of: self, as: SettingDefinitions.editorCaretWidth) }
     }
 
     /// 入力欄の今いる行をハイライトするか。
@@ -185,10 +175,8 @@ import Observation
             lineHeightMultiple: editorLineHeightMultiple,
             paragraphSpacingLines: editorParagraphSpacingLines,
             letterSpacingPercent: editorLetterSpacingPercent,
-            maxLineLength: editorMaxLineLength,
             indentsWrappedLines: editorIndentsWrappedLines,
             caretShape: editorCaretShape,
-            caretWidth: editorCaretWidth,
             highlightsCurrentLine: editorHighlightsCurrentLine
         )
     }
@@ -271,10 +259,8 @@ import Observation
         self.editorLineHeightMultiple = store.value(SettingDefinitions.editorLineHeightMultiple)
         self.editorParagraphSpacingLines = store.value(SettingDefinitions.editorParagraphSpacingLines)
         self.editorLetterSpacingPercent = store.value(SettingDefinitions.editorLetterSpacingPercent)
-        self.editorMaxLineLength = store.value(SettingDefinitions.editorMaxLineLength)
         self.editorIndentsWrappedLines = store.value(SettingDefinitions.editorIndentsWrappedLines)
         self.editorCaretShape = store.value(SettingDefinitions.editorCaretShape)
-        self.editorCaretWidth = store.value(SettingDefinitions.editorCaretWidth)
         self.editorHighlightsCurrentLine = store.value(SettingDefinitions.editorHighlightsCurrentLine)
         self.historyRetention = store.value(SettingDefinitions.historyRetention)
         self.checksForUpdatesAutomatically = store.value(SettingDefinitions.checksForUpdatesAutomatically)

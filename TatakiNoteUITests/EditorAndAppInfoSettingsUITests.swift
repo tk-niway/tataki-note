@@ -99,25 +99,19 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
 
         let paragraphSpacingValue = element(in: app, identifier: paragraphSpacingValueID)
         app.revealInSettings(paragraphSpacingValue)
+        XCTAssertEqual(text(of: paragraphSpacingValue), "0.25 行")
         let paragraphSpacingUp = incrementArrow(ofStepper: paragraphSpacingStepperID, in: app)
         app.revealInSettings(paragraphSpacingUp)
         paragraphSpacingUp.click()
-        XCTAssertTrue(waitUntil { self.text(of: paragraphSpacingValue) == "0.25 行" }, "段落の間隔が 0.25 行にならない")
+        XCTAssertTrue(waitUntil { self.text(of: paragraphSpacingValue) == "0.5 行" }, "段落の間隔が 0.5 行にならない")
 
         let letterSpacingValue = element(in: app, identifier: letterSpacingValueID)
         app.revealInSettings(letterSpacingValue)
+        XCTAssertEqual(text(of: letterSpacingValue), "7%")
         let letterSpacingUp = incrementArrow(ofStepper: letterSpacingStepperID, in: app)
         app.revealInSettings(letterSpacingUp)
         letterSpacingUp.click()
-        XCTAssertTrue(waitUntil { self.text(of: letterSpacingValue) == "1%" }, "字間が 1% にならない")
-
-        let maxLineLengthValue = element(in: app, identifier: maxLineLengthValueID)
-        app.revealInSettings(maxLineLengthValue)
-        XCTAssertEqual(text(of: maxLineLengthValue), "上限なし")
-        let maxLineLengthDown = decrementArrow(ofStepper: maxLineLengthStepperID, in: app)
-        app.revealInSettings(maxLineLengthDown)
-        maxLineLengthDown.click()
-        XCTAssertTrue(waitUntil { self.text(of: maxLineLengthValue) == "80 文字" }, "1行の長さの上限が 80 文字にならない")
+        XCTAssertTrue(waitUntil { self.text(of: letterSpacingValue) == "8%" }, "字間が 8% にならない")
 
         let wrapIndent = element(in: app, identifier: wrapIndentToggleID)
         app.revealInSettings(wrapIndent)
@@ -125,19 +119,11 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         wrapIndent.click()
         XCTAssertTrue(waitUntil { !self.isChecked(wrapIndent) }, "折り返した行の字下げがオフにならない")
 
-        let caretWidthValue = element(in: app, identifier: caretWidthValueID)
-        app.revealInSettings(caretWidthValue)
-        let caretWidthUp = incrementArrow(ofStepper: caretWidthStepperID, in: app)
-        app.revealInSettings(caretWidthUp)
-        caretWidthUp.click()
-        XCTAssertTrue(waitUntil { self.text(of: caretWidthValue) == "3 pt" }, "カーソルの太さが 3 pt にならない")
-
         let caretShapePicker = element(in: app, identifier: caretShapePickerID)
         app.revealInSettings(caretShapePicker)
         let blockSegment = segment("ブロック", in: caretShapePicker)
         XCTAssertTrue(blockSegment.waitForExistence(timeout: timeout), "カーソルの形の「ブロック」が無い")
         blockSegment.click()
-        XCTAssertTrue(waitUntil { !caretWidthUp.isEnabled }, "ブロックのときも太さのステッパーが押せる")
 
         let currentLineHighlight = element(in: app, identifier: currentLineHighlightToggleID)
         app.revealInSettings(currentLineHighlight)
@@ -373,12 +359,8 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     private let paragraphSpacingValueID = "settings.paragraphSpacingValue"
     private let letterSpacingStepperID = "settings.letterSpacingStepper"
     private let letterSpacingValueID = "settings.letterSpacingValue"
-    private let maxLineLengthStepperID = "settings.maxLineLengthStepper"
-    private let maxLineLengthValueID = "settings.maxLineLengthValue"
     private let wrapIndentToggleID = "settings.wrapIndentToggle"
     private let caretShapePickerID = "settings.caretShapePicker"
-    private let caretWidthStepperID = "settings.caretWidthStepper"
-    private let caretWidthValueID = "settings.caretWidthValue"
     private let currentLineHighlightToggleID = "settings.currentLineHighlightToggle"
     private let opacitySliderID = "settings.opacitySlider"
     private let opacityValueID = "settings.opacityValue"
@@ -445,16 +427,6 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         let stepper = found.elementType == .stepper ? found : found.steppers.firstMatch
         let arrow = stepper.incrementArrows.firstMatch
         XCTAssertTrue(arrow.waitForExistence(timeout: timeout), "ステッパーの上向きの矢印が無い: \(identifier)")
-        return arrow
-    }
-
-    @MainActor
-    private func decrementArrow(ofStepper identifier: String, in app: XCUIApplication) -> XCUIElement {
-        let found = element(in: app, identifier: identifier)
-        XCTAssertTrue(found.waitForExistence(timeout: timeout), "ステッパーが無い: \(identifier)")
-        let stepper = found.elementType == .stepper ? found : found.steppers.firstMatch
-        let arrow = stepper.decrementArrows.firstMatch
-        XCTAssertTrue(arrow.waitForExistence(timeout: timeout), "ステッパーの下向きの矢印が無い: \(identifier)")
         return arrow
     }
 

@@ -111,11 +111,13 @@ struct PanelViewSettingsTests {
 
         #expect(harness.settle {
             let newEnd = (textView.string as NSString).length
-            guard newEnd > 0, let textContainer = textView.textContainer else { return false }
-            let rect = textView.layoutManager?.boundingRect(
-                forGlyphRange: NSRange(location: newEnd - 1, length: 1),
-                in: textContainer
-            ) ?? .zero
+            guard newEnd > 0, let window = textView.window else { return false }
+            let screenRect = textView.firstRect(
+                forCharacterRange: NSRange(location: newEnd, length: 0),
+                actualRange: nil
+            )
+            guard screenRect.height > 0 else { return false }
+            let rect = textView.convert(window.convertFromScreen(screenRect), from: nil)
             return textView.visibleRect.intersects(rect)
         })
     }
@@ -159,6 +161,21 @@ struct PanelViewSettingsTests {
     @Test("AC-20: 最後の行で文字を打つと、文書の下端(余白の下端)まで見えるところまでスクロールする")
     func typingInLastLineRevealsBottomPadding() throws {
         let harness = try PanelViewHarness()
+        defer { harness.removeDefaults() }
+        let textView = try loadedLongText(harness)
+        textView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+        #expect(harness.settle { !showsDocumentBottom(textView) })
+
+        let end = (textView.string as NSString).length
+        textView.setSelectedRange(NSRange(location: end, length: 0))
+        textView.insertText("z", replacementRange: NSRange(location: end, length: 0))
+
+        #expect(harness.settle { showsDocumentBottom(textView) })
+    }
+
+    @Test("AC-20: 段落の間隔が大きくても、最後の行で文字を打つと文書の下端まで見える")
+    func typingInLastLineRevealsBottomWithLargeParagraphSpacing() throws {
+        let harness = try PanelViewHarness { $0.editorParagraphSpacingLines = 2 }
         defer { harness.removeDefaults() }
         let textView = try loadedLongText(harness)
         textView.scrollRangeToVisible(NSRange(location: 0, length: 0))

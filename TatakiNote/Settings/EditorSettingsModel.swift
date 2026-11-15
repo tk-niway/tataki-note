@@ -65,7 +65,7 @@ enum StatusItemNote: Equatable {
 
     /// 「段落の間隔」の下に出す説明文。
     static var paragraphSpacingDescription: String {
-        String(localized: "改行のあとに足す間隔を、行の高さを単位に決めます。折り返しただけの行の間には足しません。")
+        String(localized: "改行のあとに空ける間隔")
     }
 
     var letterSpacingText: String {
@@ -75,49 +75,12 @@ enum StatusItemNote: Equatable {
 
     /// 「字間」の下に出す説明文。
     static var letterSpacingDescription: String {
-        String(localized: "文字と文字の間に足す幅を、文字サイズに対する割合で決めます。")
-    }
-
-    var maxLineLengthText: String {
-        guard let length = EditorReadability.clampedMaxLineLength(settings.editorMaxLineLength) else {
-            return String(localized: "上限なし")
-        }
-        return String(localized: "\(length) 文字")
-    }
-
-    /// 「1行の長さの上限」の下に出す説明文。
-    static var maxLineLengthDescription: String {
-        String(localized: "1行に入る全角の文字数の上限です。入力欄のほうが広いときは、文章を中央に寄せます。")
-    }
-
-    /// 1行の長さの上限を1つ上げる。上限なしより先には進まない。
-    func incrementMaxLineLength() {
-        settings.editorMaxLineLength = EditorReadability.nextMaxLineLength(after: settings.editorMaxLineLength)
-    }
-
-    /// 1行の長さの上限を1つ下げる。下の端で止まる。
-    func decrementMaxLineLength() {
-        settings.editorMaxLineLength = EditorReadability.previousMaxLineLength(before: settings.editorMaxLineLength)
+        String(localized: "文字と文字の間の幅")
     }
 
     /// 「折り返した行の字下げ」の下に出す説明文。
     static var wrapIndentDescription: String {
-        String(localized: "字下げや箇条書きの行が折り返したとき、続きの行の左端を本文の始まりに揃えます。")
-    }
-
-    var caretWidthText: String {
-        let width = EditorReadability.clampedCaretWidth(settings.editorCaretWidth)
-        return String(localized: "\(width) pt")
-    }
-
-    /// 「カーソルの太さ」の下に出す説明文。
-    static var caretWidthDescription: String {
-        String(localized: "「縦線」のときの線の太さです。")
-    }
-
-    /// カーソルの太さを変えられるとき true。形が「縦線」のときだけ。
-    var isCaretWidthEnabled: Bool {
-        settings.editorCaretShape == .bar
+        String(localized: "続きの行を本文の始まりに揃えます")
     }
 
     /// フォント名を描くフォント。システムフォントのときはシステムフォント、書体を選んでいるときはその書体(12pt)。

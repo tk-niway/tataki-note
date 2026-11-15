@@ -34,62 +34,50 @@ private final class CaretFixture {
 
 @MainActor
 struct PromptTextViewCaretTests {
-    private func readability(shape: EditorCaretShape, width: Int) -> EditorReadability {
+    private func readability(shape: EditorCaretShape) -> EditorReadability {
         var value = EditorReadability.standard
         value.caretShape = shape
-        value.caretWidth = width
         return value
     }
 
     // MARK: - AC-17
 
-    @Test("AC-17: 縦線で太さ 1 のときは、システムのカーソルのままで、自前のカーソルは出ない")
-    func thinBarKeepsSystemCaret() {
-        let fixture = CaretFixture("あいう", readability: readability(shape: .bar, width: 1))
-
-        #expect(fixture.textView.insertionPointColor == fixture.originalColor)
-        #expect(fixture.textView.insertionPointColor != .clear)
-        #expect(fixture.textView.caretView?.isHidden ?? true)
-        #expect(fixture.caretRect == nil)
-    }
-
-    @Test("AC-17: それ以外の形・太さでは、システムのカーソルを消して自前のカーソルを出す")
-    func otherShapesUseOwnCaret() {
+    @Test("AC-17: 初期値の縦線も含め、どの形でもシステムのカーソルを消して自前のカーソルを出す")
+    func everyShapeUsesOwnCaret() {
         let variants = [
-            readability(shape: .bar, width: 2),
-            readability(shape: .bar, width: 4),
-            readability(shape: .block, width: 1),
-            readability(shape: .underline, width: 1),
+            EditorReadability.standard,
+            readability(shape: .bar),
+            readability(shape: .block),
+            readability(shape: .underline),
         ]
         for variant in variants {
             let fixture = CaretFixture("あいう", readability: variant)
             fixture.select(1)
 
-            #expect(fixture.textView.insertionPointColor == .clear, "\(variant.caretShape) \(variant.caretWidth)")
+            #expect(fixture.originalColor != .clear)
+            #expect(fixture.textView.insertionPointColor == .clear, "\(variant.caretShape)")
             #expect(fixture.textView.caretView?.isHidden == false)
             #expect(fixture.caretRect != nil)
             #expect(fixture.textView.caretView?.shape == variant.caretShape)
         }
     }
 
-    @Test("AC-17: 設定を戻すと、システムのカーソルの色に戻り、自前のカーソルは隠れる")
-    func returningToThinBarRestoresSystemCaret() {
-        let fixture = CaretFixture("あいう", readability: readability(shape: .block, width: 2))
+    @Test("AC-17: 形を変えても、システムのカーソルは消えたままで、自前のカーソルの形が変わる")
+    func changingShapeKeepsSystemCaretHidden() {
+        let fixture = CaretFixture("あいう", readability: readability(shape: .block))
         #expect(fixture.textView.insertionPointColor == .clear)
 
-        fixture.textView.applyReadability(readability(shape: .bar, width: 1))
-        #expect(fixture.textView.insertionPointColor == fixture.originalColor)
-        #expect(fixture.textView.caretView?.isHidden == true)
-        #expect(fixture.phase == .hidden)
-
-        fixture.textView.applyReadability(readability(shape: .underline, width: 1))
-        #expect(fixture.textView.insertionPointColor == .clear)
-        #expect(fixture.textView.caretView?.isHidden == false)
+        for shape in [EditorCaretShape.bar, .underline, .block] {
+            fixture.textView.applyReadability(readability(shape: shape))
+            #expect(fixture.textView.insertionPointColor == .clear, "\(shape)")
+            #expect(fixture.textView.caretView?.isHidden == false, "\(shape)")
+            #expect(fixture.textView.caretView?.shape == shape)
+        }
     }
 
     @Test("AC-17: 自前のカーソルは、選択を動かすとその位置に付いていく")
     func caretFollowsSelection() throws {
-        let fixture = CaretFixture("あいうえお\nかきくけこ", readability: readability(shape: .bar, width: 2))
+        let fixture = CaretFixture("あいうえお\nかきくけこ", readability: readability(shape: .bar))
 
         fixture.select(0)
         let start = try #require(fixture.caretRect)
@@ -101,12 +89,13 @@ struct PromptTextViewCaretTests {
         #expect(middle.minX > start.minX)
         #expect(nextLine.minY > start.minY)
         #expect(nextLine.minX < middle.minX)
+        #expect(start.width == EditorCaretGeometry.barWidth)
         #expect(start.width == 2)
     }
 
     @Test("AC-17: 自前のカーソルは、選択がある間は出さない")
     func noCaretRectWhileSelecting() {
-        let fixture = CaretFixture("あいうえお", readability: readability(shape: .bar, width: 2))
+        let fixture = CaretFixture("あいうえお", readability: readability(shape: .bar))
         fixture.select(1, length: 2)
         #expect(fixture.caretRect == nil)
         fixture.select(2)
@@ -115,7 +104,7 @@ struct PromptTextViewCaretTests {
 
     @Test("AC-17: 空の入力欄でも、自前のカーソルの位置が取れる")
     func caretRectExistsInEmptyEditor() throws {
-        let fixture = CaretFixture("", readability: readability(shape: .bar, width: 2))
+        let fixture = CaretFixture("", readability: readability(shape: .bar))
         fixture.select(0)
 
         let rect = try #require(fixture.caretRect)
@@ -126,7 +115,7 @@ struct PromptTextViewCaretTests {
 
     @Test("AC-17: 文章の末尾の改行の後(次の行の頭)でも、自前のカーソルの位置が取れ、前の行の下にある")
     func caretRectExistsAfterTrailingNewline() throws {
-        let fixture = CaretFixture("a\n", readability: readability(shape: .bar, width: 2))
+        let fixture = CaretFixture("a\n", readability: readability(shape: .bar))
         fixture.select(0)
         let firstLine = try #require(fixture.caretRect)
 
@@ -140,7 +129,7 @@ struct PromptTextViewCaretTests {
 
     @Test("AC-17: カーソルの位置の枠は、幅 0 でも捨てずに取れる")
     func zeroWidthSegmentIsKept() throws {
-        let fixture = CaretFixture("あいう", readability: readability(shape: .bar, width: 2))
+        let fixture = CaretFixture("あいう", readability: readability(shape: .bar))
         let atStart = try #require(fixture.textView.caretSegmentRect(at: 0))
         let atEnd = try #require(fixture.textView.caretSegmentRect(at: 3))
 
@@ -150,10 +139,10 @@ struct PromptTextViewCaretTests {
 
     @Test("AC-16: ブロックと下線は、カーソルの位置の文字の幅になり、行末では半角1文字ぶんになる")
     func blockAndUnderlineMatchCharacterWidth() throws {
-        let layout = EditorTextLayout(font: CaretFixture.font, readability: readability(shape: .block, width: 2))
+        let layout = EditorTextLayout(font: CaretFixture.font, readability: readability(shape: .block))
 
         for shape in [EditorCaretShape.block, .underline] {
-            let fixture = CaretFixture("あいう\n", readability: readability(shape: shape, width: 2))
+            let fixture = CaretFixture("あいう\n", readability: readability(shape: shape))
 
             fixture.select(1)
             let onCharacter = try #require(fixture.caretRect)
@@ -169,13 +158,13 @@ struct PromptTextViewCaretTests {
 
     @Test("AC-18: 窓に入っていない間は点滅しない")
     func doesNotBlinkWithoutWindow() {
-        let fixture = CaretFixture("あいう", readability: readability(shape: .bar, width: 2))
+        let fixture = CaretFixture("あいう", readability: readability(shape: .bar))
         #expect(fixture.phase == .hidden)
     }
 
     @Test("AC-18: 窓がキーで入力欄にフォーカスがあり何も選択していなければ点滅し、選択すると消える")
     func blinksOnlyWithoutSelection() {
-        let fixture = CaretFixture("あいうえお", readability: readability(shape: .bar, width: 2))
+        let fixture = CaretFixture("あいうえお", readability: readability(shape: .bar))
         fixture.select(2)
         #expect(fixture.phase == .hidden)
 
@@ -191,7 +180,7 @@ struct PromptTextViewCaretTests {
 
     @Test("AC-18: 窓がキーでなくなる・フォーカスが外れると消え、戻ると点滅する")
     func stopsBlinkingWhenFocusIsLost() {
-        let fixture = CaretFixture("あいう", readability: readability(shape: .bar, width: 2))
+        let fixture = CaretFixture("あいう", readability: readability(shape: .bar))
         fixture.textView.setCaretFocus(isKeyWindow: true, isFirstResponder: true)
         #expect(fixture.phase == .on)
 
@@ -207,7 +196,7 @@ struct PromptTextViewCaretTests {
 
     @Test("AC-18: 打つ・動かすと、消えている途中でも点いた状態に戻る")
     func typingAndMovingRestartBlink() {
-        let fixture = CaretFixture("あいう", readability: readability(shape: .bar, width: 2))
+        let fixture = CaretFixture("あいう", readability: readability(shape: .bar))
         fixture.textView.setCaretFocus(isKeyWindow: true, isFirstResponder: true)
         fixture.textView.caretView?.send(.tick)
         #expect(fixture.phase == .off)
@@ -219,16 +208,6 @@ struct PromptTextViewCaretTests {
         #expect(fixture.phase == .off)
         fixture.textView.insertText("え", replacementRange: NSRange(location: 1, length: 0))
         #expect(fixture.phase == .on)
-    }
-
-    @Test("AC-18: システムのカーソルのままのときは、自前のカーソルは点滅しない")
-    func systemCaretDoesNotBlinkOwnCaret() {
-        let fixture = CaretFixture("あいう", readability: readability(shape: .bar, width: 2))
-        fixture.textView.setCaretFocus(isKeyWindow: true, isFirstResponder: true)
-        #expect(fixture.phase == .on)
-
-        fixture.textView.applyReadability(readability(shape: .bar, width: 1))
-        #expect(fixture.phase == .hidden)
     }
 
     // MARK: - AC-20

@@ -152,26 +152,6 @@ enum SettingDefinitions {
         normalize: EditorReadability.clampedLetterSpacingPercent
     )
 
-    static let editorMaxLineLength = SettingDefinition<Int?>(
-        key: "editorMaxLineLength",
-        read: { storage in
-            guard let value = StoredValue.number(in: storage, forKey: "editorMaxLineLength")?.doubleValue,
-                  value.isFinite
-            else { return nil }
-            let lower = Double(EditorReadability.maxLineLengthRange.lowerBound)
-            let upper = Double(EditorReadability.maxLineLengthRange.upperBound)
-            return EditorReadability.clampedMaxLineLength(Int(min(max(value, lower), upper)))
-        },
-        write: { length, storage in
-            if let length {
-                storage.set(length, forKey: "editorMaxLineLength")
-            } else {
-                storage.removeObject(forKey: "editorMaxLineLength")
-            }
-        },
-        normalize: EditorReadability.clampedMaxLineLength
-    )
-
     static let editorIndentsWrappedLines: SettingDefinition<Bool> = .boolean(
         "editorIndentsWrappedLines",
         default: EditorReadability.standard.indentsWrappedLines
@@ -180,20 +160,6 @@ enum SettingDefinitions {
     static let editorCaretShape: SettingDefinition<EditorCaretShape> = .stringEnum(
         "editorCaretShape",
         default: EditorReadability.standard.caretShape
-    )
-
-    static let editorCaretWidth = SettingDefinition<Int>(
-        key: "editorCaretWidth",
-        read: { storage in
-            guard let value = StoredValue.number(in: storage, forKey: "editorCaretWidth")?.doubleValue,
-                  value.isFinite
-            else { return EditorReadability.defaultCaretWidth }
-            let lower = Double(EditorReadability.caretWidthRange.lowerBound)
-            let upper = Double(EditorReadability.caretWidthRange.upperBound)
-            return Int(min(max(value, lower), upper))
-        },
-        write: { width, storage in storage.set(width, forKey: "editorCaretWidth") },
-        normalize: EditorReadability.clampedCaretWidth
     )
 
     static let editorHighlightsCurrentLine: SettingDefinition<Bool> = .boolean(

@@ -187,23 +187,6 @@ struct PanelSettingsView: View {
                         .accessibilityIdentifier("settings.letterSpacingStepper")
                     }
                 }
-                SettingsRow(title: "1行の長さの上限", description: EditorSettingsModel.maxLineLengthDescription) {
-                    HStack(spacing: 6) {
-                        Text(verbatim: model.maxLineLengthText)
-                            .monospacedDigit()
-                            .frame(width: 64, alignment: .trailing)
-                            .accessibilityIdentifier("settings.maxLineLengthValue")
-                        Stepper {
-                            Text("1行の長さの上限")
-                        } onIncrement: {
-                            model.incrementMaxLineLength()
-                        } onDecrement: {
-                            model.decrementMaxLineLength()
-                        }
-                        .labelsHidden()
-                        .accessibilityIdentifier("settings.maxLineLengthStepper")
-                    }
-                }
                 SettingsRow(title: "折り返した行の字下げ", description: EditorSettingsModel.wrapIndentDescription) {
                     Toggle("折り返した行の字下げ", isOn: $settings.editorIndentsWrappedLines)
                         .toggleStyle(.switch)
@@ -230,25 +213,6 @@ struct PanelSettingsView: View {
                     .fixedSize()
                     .accessibilityIdentifier("settings.caretShapePicker")
                 }
-                SettingsRow(title: "カーソルの太さ", description: EditorSettingsModel.caretWidthDescription) {
-                    HStack(spacing: 6) {
-                        Text(verbatim: model.caretWidthText)
-                            .monospacedDigit()
-                            .frame(width: 64, alignment: .trailing)
-                            .accessibilityIdentifier("settings.caretWidthValue")
-                        Stepper(
-                            value: $settings.editorCaretWidth,
-                            in: EditorReadability.caretWidthRange,
-                            step: 1
-                        ) {
-                            Text("カーソルの太さ")
-                        }
-                        .labelsHidden()
-                        .accessibilityIdentifier("settings.caretWidthStepper")
-                    }
-                }
-                .disabled(!model.isCaretWidthEnabled)
-                .opacity(model.isCaretWidthEnabled ? 1 : 0.4)
                 SettingsRow(title: "今いる行のハイライト") {
                     Toggle("今いる行のハイライト", isOn: $settings.editorHighlightsCurrentLine)
                         .toggleStyle(.switch)

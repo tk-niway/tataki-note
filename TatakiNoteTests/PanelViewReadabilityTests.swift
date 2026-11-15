@@ -33,8 +33,12 @@ struct PanelViewReadabilityTests {
         let harness = try PanelViewHarness()
         defer { harness.removeDefaults() }
         let textView = try loadedTextView(harness)
+        let initial = layout(of: harness)
         #expect(paragraphStyle(textView, at: 0)?.lineSpacing == 0)
-        #expect(textView.textStorage?.attribute(.kern, at: 0, effectiveRange: nil) == nil)
+        #expect(paragraphStyle(textView, at: 0)?.paragraphSpacing == initial.paragraphSpacing)
+        #expect(initial.paragraphSpacing > 0)
+        #expect((textView.textStorage?.attribute(.kern, at: 0, effectiveRange: nil) as? CGFloat) == initial.kern)
+        #expect(initial.kern > 0)
 
         harness.settings.editorLineHeightMultiple = 1.5
         harness.settings.editorParagraphSpacingLines = 1
@@ -74,28 +78,9 @@ struct PanelViewReadabilityTests {
         #expect(harness.settle { (paragraphStyle(textView, at: 0)?.headIndent ?? 0) > 0 })
     }
 
-    @Test("AC-13: 開いたまま1行の長さの上限を変えると、入力欄の左右の余白がすぐに変わり、上限なしで元に戻る")
-    func lineLengthSettingReachesOpenEditorInsets() throws {
-        let harness = try PanelViewHarness()
-        defer { harness.removeDefaults() }
-        let textView = try loadedTextView(harness)
-        let base = PanelMetrics.textContainerInset.width
-        #expect(textView.textContainerInset.width == base)
-
-        harness.settings.editorMaxLineLength = 20
-        let maxWidth = try #require(layout(of: harness).maxContainerWidth)
-        let expected = ((textView.bounds.width - maxWidth) / 2).rounded(.down)
-        #expect(expected > base)
-        #expect(harness.settle { textView.textContainerInset.width == expected })
-        #expect(textView.textContainerOrigin.x == expected)
-
-        harness.settings.editorMaxLineLength = nil
-        #expect(harness.settle { textView.textContainerInset.width == base })
-    }
-
     // MARK: - AC-12
 
-    @Test("AC-12: 8つの設定を変えても、パネルの文章(モデルの text)と入力欄の文字は変わらない")
+    @Test("AC-12: 6つの設定を変えても、パネルの文章(モデルの text)と入力欄の文字は変わらない")
     func settingsKeepModelTextAndEditorText() throws {
         let harness = try PanelViewHarness()
         defer { harness.removeDefaults() }
@@ -104,10 +89,8 @@ struct PanelViewReadabilityTests {
         harness.settings.editorLineHeightMultiple = 1.8
         harness.settings.editorParagraphSpacingLines = 0.75
         harness.settings.editorLetterSpacingPercent = 15
-        harness.settings.editorMaxLineLength = 25
         harness.settings.editorIndentsWrappedLines = false
         harness.settings.editorCaretShape = .block
-        harness.settings.editorCaretWidth = 4
         harness.settings.editorHighlightsCurrentLine = true
         let expected = layout(of: harness)
         #expect(harness.settle { paragraphStyle(textView, at: 0)?.lineSpacing == expected.lineSpacing })
@@ -140,54 +123,60 @@ struct PanelViewReadabilityTests {
         #expect(harness.settle { textView.bottomPadding == 5 * base })
     }
 
-    // MARK: - AC-15
+    // MARK: - AC-26
 
-    @Test("AC-15: 1行の長さの上限で中央に寄せているとき、プレースホルダーの左端は入力欄の文章の始まりの位置にある")
-    func placeholderLeadingMatchesCenteredTextStart() throws {
-        let harness = try PanelViewHarness { $0.editorMaxLineLength = 20 }
-        defer { harness.removeDefaults() }
-        let textView = try #require(harness.textView)
-        let base = PanelMetrics.textContainerInset.width
-        #expect(harness.settle { textView.textContainerOrigin.x > base })
-        let padding = try #require(textView.textContainer?.lineFragmentPadding)
-
-        let leading = harness.hostingView.rootView.placeholderLeading(editorWidth: textView.bounds.width)
-
-        #expect(leading == textView.textContainerOrigin.x + padding)
-        #expect(leading > base + padding)
+    private func applyNonDefaultSettings(_ settings: AppSettings) {
+        settings.editorLineHeightMultiple = 2.0
+        settings.editorParagraphSpacingLines = 2
+        settings.editorLetterSpacingPercent = 20
+        settings.editorIndentsWrappedLines = false
+        settings.editorCaretShape = .block
+        settings.editorHighlightsCurrentLine = true
     }
 
-    @Test("AC-15: 「上限なし」のプレースホルダーの左端は、今と同じ位置(基本の余白 + 行の余白)")
-    func placeholderLeadingWithoutLimitIsUnchanged() throws {
-        let harness = try PanelViewHarness()
+    @Test("AC-26: 6つの設定をどれも初期値と違う値にしても、入力欄の左右の余白は今と同じで、パネルの幅を変えても変わらない")
+    func horizontalInsetIsIndependentOfSettings() throws {
+        let harness = try PanelViewHarness(configure: applyNonDefaultSettings)
         defer { harness.removeDefaults() }
         let textView = try #require(harness.textView)
-        let padding = try #require(textView.textContainer?.lineFragmentPadding)
+        let expected = PanelMetrics.textContainerInset
 
-        let leading = harness.hostingView.rootView.placeholderLeading(editorWidth: textView.bounds.width)
+        #expect(harness.settle { textView.textLayout?.readability == harness.settings.editorReadability })
+        #expect(textView.textContainerInset.width == expected.width)
+        #expect(textView.textContainerOrigin.x == expected.width)
 
-        #expect(leading == PanelMetrics.textContainerInset.width + NSTextContainer().lineFragmentPadding)
-        #expect(leading == textView.textContainerOrigin.x + padding)
+        for width in [800, PanelMetrics.defaultSize.width - 100] {
+            harness.panel.setContentSize(NSSize(width: width, height: PanelMetrics.defaultSize.height))
+            #expect(harness.settle { textView.bounds.width > 0 })
+            #expect(textView.textContainerInset.width == expected.width, "幅 \(width)")
+            #expect(textView.textContainerOrigin.x == expected.width, "幅 \(width)")
+        }
     }
 
-    @Test("AC-15: 開いたまま上限を変えると、プレースホルダーの左端も入力欄の文章の始まりについていく")
-    func placeholderLeadingFollowsLimitChanges() throws {
-        let harness = try PanelViewHarness()
+    @Test("AC-26: 入力欄は、設定によらず幅いっぱい(左右の余白を除いた幅)で折り返す")
+    func textContainerFillsEditorWidth() throws {
+        let harness = try PanelViewHarness(configure: applyNonDefaultSettings)
+        defer { harness.removeDefaults() }
+        let textView = try #require(harness.textView)
+        let container = try #require(textView.textContainer)
+
+        for width in [PanelMetrics.defaultSize.width + 200, PanelMetrics.defaultSize.width] {
+            harness.panel.setContentSize(NSSize(width: width, height: PanelMetrics.defaultSize.height))
+            #expect(harness.settle {
+                abs(container.size.width - (textView.bounds.width - 2 * PanelMetrics.textContainerInset.width)) < 1
+            }, "幅 \(width)")
+        }
+    }
+
+    @Test("AC-26: 空の入力欄のプレースホルダーの左上は、入力欄の文章の始まりの位置にあり、どの設定でも変わらない")
+    func placeholderInsetMatchesTextStart() throws {
+        let harness = try PanelViewHarness(configure: applyNonDefaultSettings)
         defer { harness.removeDefaults() }
         let textView = try #require(harness.textView)
         let padding = try #require(textView.textContainer?.lineFragmentPadding)
 
-        harness.settings.editorMaxLineLength = 20
-        #expect(harness.settle {
-            harness.hostingView.rootView.placeholderLeading(editorWidth: textView.bounds.width)
-                == textView.textContainerOrigin.x + padding
-                && textView.textContainerOrigin.x > PanelMetrics.textContainerInset.width
-        })
-
-        harness.settings.editorMaxLineLength = nil
-        #expect(harness.settle {
-            harness.hostingView.rootView.placeholderLeading(editorWidth: textView.bounds.width)
-                == PanelMetrics.textContainerInset.width + padding
-        })
+        #expect(PanelView.placeholderInset.width == textView.textContainerOrigin.x + padding)
+        #expect(PanelView.placeholderInset.width == PanelMetrics.textContainerInset.width + NSTextContainer().lineFragmentPadding)
+        #expect(PanelView.placeholderInset.height == textView.textContainerOrigin.y)
     }
 }

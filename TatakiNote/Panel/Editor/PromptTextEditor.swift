@@ -31,15 +31,9 @@ final class PromptTextView: EditorTextView {
     /// 配置が変わって、新しく打つ文字の属性を入れ直す必要があるか。
     var needsTypingAttributes = false
 
-    /// 左右の余白の幅。
-    var horizontalInset: CGFloat = 0
-
     /// 余白を足す前の textContainerInset。
     var baseContainerInset: NSSize = .zero {
-        didSet {
-            horizontalInset = resolvedHorizontalInset
-            applyContainerInset()
-        }
+        didSet { applyContainerInset() }
     }
 
     /// 最後の行の下に空ける高さ。
@@ -254,8 +248,7 @@ final class PromptTextView: EditorTextView {
     }
 
     func applyContainerInset() {
-        let base = NSSize(width: horizontalInset, height: baseContainerInset.height)
-        textContainerInset = EditorBottomPadding.containerInset(base: base, padding: bottomPadding)
+        textContainerInset = EditorBottomPadding.containerInset(base: baseContainerInset, padding: bottomPadding)
         invalidateTextContainerOrigin()
         sizeToFit()
     }
@@ -265,17 +258,31 @@ final class PromptTextView: EditorTextView {
         let text = string as NSString
         guard EditorBottomPadding.isInLastLine(range, of: text) else { return }
         let end = min(NSMaxRange(range), text.length)
+        for _ in 0..<Self.maxRevealPasses {
+            let previousMaxY = bounds.maxY
+            guard scrollBottomPaddingIntoView(at: end, in: window) else { return }
+            textLayoutManager?.textViewportLayoutController.layoutViewport()
+            sizeToFit()
+            if bounds.maxY == previousMaxY { return }
+        }
+    }
+
+    private static let maxRevealPasses = 4
+
+    private func scrollBottomPaddingIntoView(at end: Int, in window: NSWindow) -> Bool {
         let screenRect = firstRect(forCharacterRange: NSRange(location: end, length: 0), actualRange: nil)
-        guard screenRect.height > 0 else { return }
+        guard screenRect.height > 0 else { return false }
         let caretRect = convert(window.convertFromScreen(screenRect), from: nil)
+        sizeToFit()
         let rect = EditorBottomPadding.revealRect(
             caretRect: caretRect,
-            documentMaxY: caretRect.maxY + baseContainerInset.height + bottomPadding,
+            documentMaxY: max(caretRect.maxY + baseContainerInset.height + bottomPadding, bounds.maxY),
             visibleHeight: visibleRect.height,
             padding: bottomPadding,
             isInLastLine: true
         )
         scrollToVisible(rect)
+        return true
     }
 
     // MARK: - キー操作

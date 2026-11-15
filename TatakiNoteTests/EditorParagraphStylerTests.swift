@@ -10,8 +10,17 @@ struct EditorParagraphStylerTests {
         NSFont(name: "Menlo-Regular", size: 14) ?? .monospacedSystemFont(ofSize: 14, weight: .regular)
     }
 
+    private let plain = EditorReadability(
+        lineHeightMultiple: 1.0,
+        paragraphSpacingLines: 0,
+        letterSpacingPercent: 0,
+        indentsWrappedLines: true,
+        caretShape: .bar,
+        highlightsCurrentLine: false
+    )
+
     private func readability(_ edit: (inout EditorReadability) -> Void) -> EditorReadability {
-        var value = EditorReadability.standard
+        var value = plain
         edit(&value)
         return value
     }
@@ -55,7 +64,7 @@ struct EditorParagraphStylerTests {
 
     @Test("AC-4: 行間 1.0 倍では行の間隔が 0")
     func standardLineSpacingIsZero() {
-        let layout = EditorTextLayout(font: font, readability: .standard)
+        let layout = EditorTextLayout(font: font, readability: plain)
         let storage = makeStorage()
         EditorParagraphStyler(layout: layout, lineWidth: Self.lineWidth).apply(to: storage)
         #expect(style(at: 0, in: storage)?.lineSpacing == 0)
@@ -77,9 +86,23 @@ struct EditorParagraphStylerTests {
             #expect(style(at: start(of: paragraph, in: storage), in: storage)?.paragraphSpacing == spaced.paragraphSpacing, "\(paragraph)")
         }
 
-        let none = EditorTextLayout(font: font, readability: .standard)
+        let none = EditorTextLayout(font: font, readability: plain)
         EditorParagraphStyler(layout: none, lineWidth: Self.lineWidth).apply(to: storage)
         #expect(style(at: 0, in: storage)?.paragraphSpacing == 0)
+    }
+
+    @Test("AC-5: 初期値では、すべての段落に 0.25 行ぶんの間隔が付き、行の間隔は 0")
+    func standardParagraphSpacing() {
+        let layout = EditorTextLayout(font: font, readability: .standard)
+        let storage = makeStorage()
+        EditorParagraphStyler(layout: layout, lineWidth: Self.lineWidth).apply(to: storage)
+
+        #expect(abs(layout.paragraphSpacing - 0.25 * layout.lineHeight) < 0.0001)
+        for paragraph in ["abc", "1. 番号", "・中黒"] {
+            let applied = style(at: start(of: paragraph, in: storage), in: storage)
+            #expect(applied?.paragraphSpacing == layout.paragraphSpacing, "\(paragraph)")
+            #expect(applied?.lineSpacing == 0, "\(paragraph)")
+        }
     }
 
     @Test("AC-6: 字間が 0 より大きいとき、文章全体に文字サイズ × p / 100 の字間が付く")
@@ -95,10 +118,20 @@ struct EditorParagraphStylerTests {
 
     @Test("AC-6: 字間 0% の文章には .kern 属性がどこにも無い")
     func noKernAtZeroPercent() {
-        let layout = EditorTextLayout(font: font, readability: .standard)
+        let layout = EditorTextLayout(font: font, readability: plain)
         let storage = makeStorage()
         EditorParagraphStyler(layout: layout, lineWidth: Self.lineWidth).apply(to: storage)
         #expect(kernValues(in: storage) == [nil])
+    }
+
+    @Test("AC-6: 初期値(字間 7%)では、文章全体に文字サイズ × 7 / 100 の字間が付く")
+    func standardKernIsAppliedToWholeText() {
+        let layout = EditorTextLayout(font: font, readability: .standard)
+        let storage = makeStorage()
+        EditorParagraphStyler(layout: layout, lineWidth: Self.lineWidth).apply(to: storage)
+
+        #expect(abs(layout.kern - 0.98) < 0.0001)
+        #expect(kernValues(in: storage) == [layout.kern])
     }
 
     @Test("AC-6: 字間を p% から 0% に戻すと .kern 属性が外れ、別の値にすると付け直される")
@@ -112,7 +145,7 @@ struct EditorParagraphStylerTests {
         EditorParagraphStyler(layout: ten, lineWidth: Self.lineWidth).apply(to: storage)
         #expect(kernValues(in: storage) == [ten.kern])
 
-        let zero = EditorTextLayout(font: font, readability: .standard)
+        let zero = EditorTextLayout(font: font, readability: plain)
         EditorParagraphStyler(layout: zero, lineWidth: Self.lineWidth).apply(to: storage)
         #expect(kernValues(in: storage) == [nil])
     }
@@ -121,14 +154,14 @@ struct EditorParagraphStylerTests {
     func zeroKernAttributeIsRemoved() {
         let storage = makeStorage()
         storage.addAttribute(.kern, value: CGFloat(0), range: NSRange(location: 0, length: storage.length))
-        let layout = EditorTextLayout(font: font, readability: .standard)
+        let layout = EditorTextLayout(font: font, readability: plain)
         EditorParagraphStyler(layout: layout, lineWidth: Self.lineWidth).apply(to: storage)
         #expect(kernValues(in: storage) == [nil])
     }
 
     @Test("AC-10: 字下げや箇条書きのある段落の折り返した行は本文の始まりに揃い、1行目はそのまま")
     func wrappedLinesAlignWithBodyStart() {
-        let layout = EditorTextLayout(font: font, readability: .standard)
+        let layout = EditorTextLayout(font: font, readability: plain)
         let storage = makeStorage()
         EditorParagraphStyler(layout: layout, lineWidth: Self.lineWidth).apply(to: storage)
 
@@ -157,7 +190,7 @@ struct EditorParagraphStylerTests {
 
     @Test("AC-10: 字下げは1行の幅の半分を超えない")
     func indentIsCappedAtHalfTheLineWidth() {
-        let layout = EditorTextLayout(font: font, readability: .standard)
+        let layout = EditorTextLayout(font: font, readability: plain)
         let storage = makeStorage("        - 項目")
         let narrow = width(of: "        - ") / 2
         EditorParagraphStyler(layout: layout, lineWidth: narrow).apply(to: storage)
@@ -166,7 +199,7 @@ struct EditorParagraphStylerTests {
 
     @Test("AC-10: 幅が変わると字下げが付け直され、同じ属性の段落には触れない")
     func onlyChangedParagraphsAreRestyled() {
-        let layout = EditorTextLayout(font: font, readability: .standard)
+        let layout = EditorTextLayout(font: font, readability: plain)
         let storage = makeStorage()
         let styler = EditorParagraphStyler(layout: layout, lineWidth: Self.lineWidth)
 
@@ -182,7 +215,7 @@ struct EditorParagraphStylerTests {
 
     @Test("AC-10: 一部の段落だけ編集されたときは、その段落だけが付け直される")
     func editedParagraphIsRestyled() {
-        let layout = EditorTextLayout(font: font, readability: .standard)
+        let layout = EditorTextLayout(font: font, readability: plain)
         let storage = makeStorage()
         let styler = EditorParagraphStyler(layout: layout, lineWidth: Self.lineWidth)
         styler.apply(to: storage)

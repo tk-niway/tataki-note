@@ -1,10 +1,7 @@
 import AppKit
 
-/// フォントと見え方の設定から決まる、入力欄の行の間隔・字間・1行の幅。
+/// フォントと見え方の設定から決まる、入力欄の行の間隔・字間。
 struct EditorTextLayout: Equatable {
-    /// 幅をちょうど N 文字ぶんにしたときに、浮動小数の誤差で N 文字目が次の行へ回らないための余裕。
-    static let lineWidthSlack: CGFloat = 0.5
-
     /// テキストコンテナの左右の行の余白。
     static let lineFragmentPadding: CGFloat = NSTextContainer().lineFragmentPadding
 
@@ -54,12 +51,6 @@ struct EditorTextLayout: Equatable {
         Self.kern(for: font, readability: readability)
     }
 
-    /// 1行の長さの上限から決まる、テキストコンテナの幅の上限。上限なしは nil。
-    var maxContainerWidth: CGFloat? {
-        guard let maxLineLength = readability.maxLineLength else { return nil }
-        return CGFloat(maxLineLength) * fullWidthAdvance + 2 * Self.lineFragmentPadding + Self.lineWidthSlack
-    }
-
     /// 字下げの幅を入れた段落スタイル。1行目はそのまま。
     func paragraphStyle(headIndent: CGFloat) -> NSParagraphStyle {
         let style = (NSParagraphStyle.default.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
@@ -80,12 +71,6 @@ struct EditorTextLayout: Equatable {
             attributes[.kern] = kern
         }
         return attributes
-    }
-
-    /// 空の入力欄のプレースホルダーの左端。文章の始まりの位置。
-    func placeholderLeading(viewWidth: CGFloat, baseInset: CGFloat) -> CGFloat {
-        EditorLineLength.alignedHorizontalInset(viewWidth: viewWidth, baseInset: baseInset, maxContainerWidth: maxContainerWidth)
-            + Self.lineFragmentPadding
     }
 
     private static func kern(for font: NSFont, readability: EditorReadability) -> CGFloat {

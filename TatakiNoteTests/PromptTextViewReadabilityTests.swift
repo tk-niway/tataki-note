@@ -94,10 +94,17 @@ struct PromptTextViewReadabilityTests {
         lineHeightMultiple: 1.5,
         paragraphSpacingLines: 1,
         letterSpacingPercent: 10,
-        maxLineLength: nil,
         indentsWrappedLines: true,
         caretShape: .bar,
-        caretWidth: 2,
+        highlightsCurrentLine: false
+    )
+
+    private let plain = EditorReadability(
+        lineHeightMultiple: 1.0,
+        paragraphSpacingLines: 0,
+        letterSpacingPercent: 0,
+        indentsWrappedLines: true,
+        caretShape: .bar,
         highlightsCurrentLine: false
     )
 
@@ -117,16 +124,10 @@ struct PromptTextViewReadabilityTests {
         value.letterSpacingPercent = 20
         variants.append(value)
         value = .standard
-        value.maxLineLength = 20
-        variants.append(value)
-        value = .standard
         value.indentsWrappedLines = false
         variants.append(value)
         value = .standard
         value.caretShape = .block
-        variants.append(value)
-        value = .standard
-        value.caretWidth = 4
         variants.append(value)
         value = .standard
         value.highlightsCurrentLine = true
@@ -260,7 +261,7 @@ struct PromptTextViewReadabilityTests {
 
     // MARK: - AC-12
 
-    @Test("AC-12: 8つの設定をどう変えても、入力欄の文字は変わらない")
+    @Test("AC-12: 6つの設定をどう変えても、入力欄の文字は変わらない")
     func settingsNeverChangeText() {
         let text = "- 長い箇条書きの項目\n\nふつうの段落 with English\n1. 番号付き"
         let fixture = ReadabilityFixture(text, readability: .standard)
@@ -331,9 +332,21 @@ struct PromptTextViewReadabilityTests {
 
     // MARK: - AC-13
 
-    @Test("AC-13: 設定を変えると、新しく打つ文字の属性と左右の余白もその値になる")
-    func settingsReachTypingAttributesAndInsets() {
+    @Test("AC-13: 初期値の設定では、新しく打つ文字に字間 7% と段落の間隔 0.25 行が付く")
+    func standardSettingsReachTypingAttributes() {
         let fixture = ReadabilityFixture("", readability: .standard)
+        let layout = EditorTextLayout(font: ReadabilityFixture.font, readability: .standard)
+        let style = fixture.textView.typingAttributes[.paragraphStyle] as? NSParagraphStyle
+        #expect(abs(layout.kern - ReadabilityFixture.font.pointSize * 0.07) < 0.0001)
+        #expect((fixture.textView.typingAttributes[.kern] as? CGFloat) == layout.kern)
+        #expect(style?.paragraphSpacing == layout.paragraphSpacing)
+        #expect((style?.paragraphSpacing ?? 0) > 0)
+        #expect(style?.lineSpacing == 0)
+    }
+
+    @Test("AC-13: 設定を変えると、新しく打つ文字の属性もその値になり、左右の余白は変わらない")
+    func settingsReachTypingAttributesAndInsets() {
+        let fixture = ReadabilityFixture("", readability: plain)
         let textView = fixture.textView
         #expect(textView.typingAttributes[.kern] == nil)
 
@@ -343,58 +356,17 @@ struct PromptTextViewReadabilityTests {
         #expect(style?.paragraphSpacing == wideLayout.paragraphSpacing)
         #expect((textView.typingAttributes[.kern] as? CGFloat) == wideLayout.kern)
 
-        textView.applyReadability(.standard)
+        textView.applyReadability(plain)
         #expect(textView.typingAttributes[.kern] == nil)
         #expect((textView.typingAttributes[.paragraphStyle] as? NSParagraphStyle)?.lineSpacing == 0)
 
         textView.baseContainerInset = NSSize(width: 10, height: 8)
-        var limited = EditorReadability.standard
-        limited.maxLineLength = 20
-        textView.setFrameSize(NSSize(width: 800, height: 300))
-        #expect(textView.textContainerInset.width == 10)
-        textView.applyReadability(limited)
-        let layout = EditorTextLayout(font: ReadabilityFixture.font, readability: limited)
-        let expected = EditorLineLength.alignedHorizontalInset(
-            viewWidth: 800,
-            baseInset: 10,
-            maxContainerWidth: layout.maxContainerWidth
-        )
-        #expect(expected > 10)
-        #expect(textView.textContainerInset.width == expected)
-        #expect(textView.textContainerOrigin.x == expected)
-
-        textView.setFrameSize(NSSize(width: 200, height: 300))
-        #expect(textView.textContainerInset.width == 10)
-    }
-
-    @Test("AC-15: 入力欄の幅が端数でも、実際の余白で全角の上限 N 文字が1行に入り、N+1 文字は折り返す")
-    func limitCharactersFitInRealEditorAtFractionalWidths() throws {
-        var limited = EditorReadability.standard
-        limited.maxLineLength = 20
-        let layout = EditorTextLayout(font: ReadabilityFixture.font, readability: limited)
-        let maxWidth = try #require(layout.maxContainerWidth)
-        let baseWidth = (maxWidth + 2 * PanelMetrics.textContainerInset.width).rounded(.up) + 40
-
-        for extra in stride(from: 0.0, through: 3.0, by: 0.25) {
-            for characters in [20, 21] {
-                let textView = PromptTextView(frame: NSRect(x: 0, y: 0, width: baseWidth + extra, height: 300))
-                textView.configurePlainTextEditing(
-                    textContainerInset: PanelMetrics.textContainerInset,
-                    accessibilityIdentifier: "test"
-                )
-                textView.baseContainerInset = PanelMetrics.textContainerInset
-                textView.applyFont(ReadabilityFixture.font)
-                textView.applyReadability(limited)
-                textView.string = String(repeating: "あ", count: characters)
-
-                let manager = try #require(textView.textLayoutManager)
-                manager.ensureLayout(for: manager.documentRange)
-                var lines = 0
-                manager.enumerateTextLayoutFragments(from: manager.documentRange.location, options: [.ensuresLayout]) { fragment in
-                    lines += fragment.textLineFragments.count
-                    return true
-                }
-                #expect(lines == (characters == 20 ? 1 : 2), "幅 \(baseWidth + extra) の \(characters) 文字")
+        for variant in allVariants {
+            textView.applyReadability(variant)
+            for width in [200.0, 800.0] {
+                textView.setFrameSize(NSSize(width: width, height: 300))
+                #expect(textView.textContainerInset.width == 10)
+                #expect(textView.textContainerOrigin.x == 10)
             }
         }
     }

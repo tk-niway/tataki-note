@@ -17,7 +17,6 @@ extension PromptTextView {
         guard layout != textLayout else { return }
         textLayout = layout
         needsTypingAttributes = true
-        updateHorizontalInset()
         restyleText()
         updateCaretAppearance()
         refreshCurrentLineHighlight()
@@ -38,49 +37,17 @@ extension PromptTextView {
         EditorParagraphStyler(layout: layout, lineWidth: lineWidth).apply(to: storage)
     }
 
-    // MARK: - 左右の余白
-
-    /// 1行の長さの上限と入力欄の幅から決まる、左右の余白の幅。
-    var resolvedHorizontalInset: CGFloat {
-        EditorLineLength.alignedHorizontalInset(
-            viewWidth: bounds.width,
-            baseInset: baseContainerInset.width,
-            maxContainerWidth: textLayout?.maxContainerWidth
-        )
-    }
-
-    /// 左右の余白が変わるときだけ、余白を当て直す。
-    func updateHorizontalInset() {
-        let resolved = resolvedHorizontalInset
-        guard resolved != horizontalInset else { return }
-        horizontalInset = resolved
-        applyContainerInset()
-    }
-
-    /// 入力欄の幅が変わったときに、余白と段落の属性を決め直す。
+    /// 入力欄の幅が変わったときに、段落の属性とカーソルを決め直す。
     func handleWidthChange() {
-        updateHorizontalInset()
         restyleText()
         refreshCaret()
     }
 
     // MARK: - カーソル
 
-    /// 自前のカーソルを描くか。システムのカーソルのままなら false。
-    var usesOwnCaret: Bool {
-        !EditorCaretGeometry.usesSystemCaret(shape: readability.caretShape, width: readability.caretWidth)
-    }
-
-    /// システムのカーソルと自前のカーソルを、今の設定に合わせて切り替える。
+    /// システムのカーソルを消し、自前のカーソルを今の設定に合わせて描く。
     func updateCaretAppearance() {
         let baseColor = baseInsertionPointColor ?? .controlTextColor
-        guard usesOwnCaret else {
-            insertionPointColor = baseColor
-            caretView?.isHidden = true
-            caretView?.caretRect = nil
-            caretView?.send(.deactivate)
-            return
-        }
         insertionPointColor = .clear
         let view = caretView ?? makeCaretView()
         view.isHidden = false
@@ -92,7 +59,7 @@ extension PromptTextView {
     /// カーソルの位置が変わりうる出来事の後に、自前のカーソルの位置と点滅を直す。
     func refreshCaret() {
         refreshCurrentLineHighlight()
-        guard usesOwnCaret, let view = caretView else { return }
+        guard let view = caretView else { return }
         view.caretRect = currentCaretRect()
         let isActive = EditorCaretGeometry.isCaretActive(
             isKeyWindow: isCaretWindowKey,
@@ -183,7 +150,7 @@ extension PromptTextView {
             ?? fallbackCaretRect(at: selection.location, layout: layout)
         return EditorCaretGeometry.rect(
             shape: readability.caretShape,
-            barWidth: CGFloat(readability.caretWidth),
+            barWidth: EditorCaretGeometry.barWidth,
             caretRect: caret,
             textHeight: layout.baseLineHeight,
             characterRect: characterRect(at: selection.location),
@@ -255,7 +222,7 @@ extension PromptTextView {
     }
 
     private var lineWidth: CGFloat {
-        max(0, bounds.width - 2 * horizontalInset - 2 * EditorTextLayout.lineFragmentPadding)
+        max(0, bounds.width - 2 * baseContainerInset.width - 2 * EditorTextLayout.lineFragmentPadding)
     }
 
     private func applyTypingAttributes(of layout: EditorTextLayout) {
