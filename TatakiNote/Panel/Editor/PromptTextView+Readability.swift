@@ -8,6 +8,7 @@ extension PromptTextView {
         guard readability != self.readability || textLayout == nil else { return }
         self.readability = readability
         refreshTextLayout()
+        refreshCurrentLineHighlight()
     }
 
     /// 今のフォントと設定から配置を作り直し、違っていれば余白と段落の属性を付け直す。
@@ -19,6 +20,7 @@ extension PromptTextView {
         updateHorizontalInset()
         restyleText()
         updateCaretAppearance()
+        refreshCurrentLineHighlight()
     }
 
     /// 文章の段落ごとの属性を付け直す。変換中は確定の後まで保留する。
@@ -89,6 +91,7 @@ extension PromptTextView {
 
     /// カーソルの位置が変わりうる出来事の後に、自前のカーソルの位置と点滅を直す。
     func refreshCaret() {
+        refreshCurrentLineHighlight()
         guard usesOwnCaret, let view = caretView else { return }
         view.caretRect = currentCaretRect()
         let isActive = EditorCaretGeometry.isCaretActive(
@@ -149,6 +152,27 @@ extension PromptTextView {
         addSubview(view)
         caretView = view
         return view
+    }
+
+    /// 今いる行のハイライトの矩形(入力欄の座標)。オフ・選択がある・取れないときは nil。
+    func makeCurrentLineHighlightRect() -> CGRect? {
+        guard readability.highlightsCurrentLine, let layout = textLayout, let container = textContainer else { return nil }
+        let selection = selectedRange()
+        guard let range = EditorCurrentLine.paragraphRange(
+            in: string as NSString,
+            selection: selection,
+            isEnabled: readability.highlightsCurrentLine
+        ) else { return nil }
+        let lineRects = range.length > 0 ? FindHighlighter.rects(for: range, in: self) : []
+        let caret = lineRects.isEmpty
+            ? (caretSegmentRect(at: selection.location) ?? fallbackCaretRect(at: selection.location, layout: layout))
+            : nil
+        return EditorCurrentLine.rect(
+            lineRects: lineRects,
+            caretRect: caret,
+            containerMinX: textContainerOrigin.x,
+            containerWidth: container.size.width
+        )
     }
 
     private func currentCaretRect() -> CGRect? {

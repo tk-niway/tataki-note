@@ -230,4 +230,134 @@ struct PromptTextViewCaretTests {
         fixture.textView.applyReadability(readability(shape: .bar, width: 1))
         #expect(fixture.phase == .hidden)
     }
+
+    // MARK: - AC-20
+
+    private func highlighting(_ isOn: Bool = true) -> EditorReadability {
+        var value = EditorReadability.standard
+        value.highlightsCurrentLine = isOn
+        return value
+    }
+
+    private func highlightAlpha(of textView: PromptTextView, atX x: CGFloat, y: CGFloat) -> CGFloat? {
+        guard let bitmap = textView.bitmapImageRepForCachingDisplay(in: textView.bounds) else { return nil }
+        textView.cacheDisplay(in: textView.bounds, to: bitmap)
+        let scale = CGFloat(bitmap.pixelsWide) / textView.bounds.width
+        return bitmap.colorAt(x: Int(x * scale), y: Int(y * scale))?.alphaComponent
+    }
+
+    @Test("AC-20: ハイライトがオンなら、カーソルのある段落の矩形が文章の幅で取れ、別の段落へ動かすと移る")
+    func highlightFollowsCaretParagraph() throws {
+        let fixture = CaretFixture("あいうえお\nかきくけこ\nさしすせそ", readability: highlighting())
+        let origin = fixture.textView.textContainerOrigin
+        let containerWidth = try #require(fixture.textView.textContainer).size.width
+
+        fixture.select(1)
+        let first = try #require(fixture.textView.currentLineHighlightRect)
+        fixture.select(7)
+        let second = try #require(fixture.textView.currentLineHighlightRect)
+        fixture.select(13)
+        let third = try #require(fixture.textView.currentLineHighlightRect)
+
+        #expect(second.minY > first.minY)
+        #expect(third.minY > second.minY)
+        #expect(second.minY >= first.maxY - 1)
+        for rect in [first, second, third] {
+            #expect(rect.minX == origin.x)
+            #expect(rect.width == containerWidth)
+            #expect(rect.width > 0)
+            #expect(rect.height > 0)
+        }
+    }
+
+    @Test("AC-20: 折り返して見えている行の全部を覆う")
+    func highlightCoversWrappedLines() throws {
+        let long = String(repeating: "あ", count: 80)
+        let fixture = CaretFixture(long + "\nいう", readability: highlighting())
+        let lineHeight = try #require(fixture.textView.textLayout).baseLineHeight
+        fixture.select(2)
+        let wrapped = try #require(fixture.textView.currentLineHighlightRect)
+
+        #expect(wrapped.height > lineHeight * 2)
+    }
+
+    @Test("AC-20: 折り返した段落の次の段落のハイライトは、その下に付く")
+    func highlightBelowWrappedParagraph() throws {
+        let long = String(repeating: "あ", count: 80)
+        let fixture = CaretFixture(long + "\nいう", readability: highlighting())
+        if let layoutManager = fixture.textView.textLayoutManager {
+            layoutManager.ensureLayout(for: layoutManager.documentRange)
+        }
+        fixture.select(2)
+        let wrapped = try #require(fixture.textView.currentLineHighlightRect)
+        fixture.select(long.count + 2)
+        let next = try #require(fixture.textView.currentLineHighlightRect)
+
+        #expect(next.minY >= wrapped.maxY - 1)
+    }
+
+    @Test("AC-20: 文字を選択している間とオフのときは、ハイライトしない")
+    func highlightHiddenWhileSelectingOrOff() {
+        let fixture = CaretFixture("あいうえお\nかきくけこ", readability: highlighting())
+        fixture.select(1)
+        #expect(fixture.textView.currentLineHighlightRect != nil)
+
+        fixture.select(1, length: 2)
+        #expect(fixture.textView.currentLineHighlightRect == nil)
+
+        fixture.select(1)
+        #expect(fixture.textView.currentLineHighlightRect != nil)
+
+        fixture.textView.applyReadability(highlighting(false))
+        #expect(fixture.textView.currentLineHighlightRect == nil)
+
+        fixture.textView.applyReadability(highlighting(true))
+        #expect(fixture.textView.currentLineHighlightRect != nil)
+    }
+
+    @Test("AC-20: 空の入力欄と末尾の改行の後の空の行でも、ハイライトの矩形が取れる")
+    func highlightExistsOnEmptyLines() throws {
+        let empty = CaretFixture("", readability: highlighting())
+        empty.select(0)
+        let emptyRect = try #require(empty.textView.currentLineHighlightRect)
+        #expect(emptyRect.height > 0)
+
+        let trailing = CaretFixture("a\n", readability: highlighting())
+        trailing.select(0)
+        let firstLine = try #require(trailing.textView.currentLineHighlightRect)
+        trailing.select(2)
+        let lastLine = try #require(trailing.textView.currentLineHighlightRect)
+        #expect(lastLine.minY > firstLine.minY)
+    }
+
+    @Test("AC-20: 文章を打つと、ハイライトが今の段落に付いていく")
+    func highlightFollowsTyping() throws {
+        let fixture = CaretFixture("あ", readability: highlighting())
+        fixture.select(1)
+        let before = try #require(fixture.textView.currentLineHighlightRect)
+
+        fixture.textView.insertText("\nい", replacementRange: NSRange(location: 1, length: 0))
+        let after = try #require(fixture.textView.currentLineHighlightRect)
+
+        #expect(after.minY > before.minY)
+    }
+
+    @Test("AC-20: 色は文章の幅の中の、今の段落の行にだけ塗られる")
+    func highlightIsPainted() throws {
+        let fixture = CaretFixture("あ\n\n\n\nい", readability: highlighting())
+        fixture.select(0)
+        let rect = try #require(fixture.textView.currentLineHighlightRect)
+        let paintedX = rect.maxX - 8
+        let painted = try #require(highlightAlpha(of: fixture.textView, atX: paintedX, y: rect.midY))
+        #expect(painted > 0)
+
+        fixture.select(4)
+        let moved = try #require(highlightAlpha(of: fixture.textView, atX: paintedX, y: rect.midY))
+        #expect(moved == 0)
+
+        fixture.textView.applyReadability(highlighting(false))
+        fixture.select(0)
+        let off = try #require(highlightAlpha(of: fixture.textView, atX: paintedX, y: rect.midY))
+        #expect(off == 0)
+    }
 }

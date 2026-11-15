@@ -65,6 +65,31 @@ final class PromptTextView: EditorTextView {
     /// 窓がキーになる・外れる通知の見張り。
     var caretWindowObservers: [NSObjectProtocol] = []
 
+    /// 今いる行のハイライトの矩形(入力欄の座標)。出さないときは nil。
+    private(set) var currentLineHighlightRect: CGRect?
+
+    // MARK: - 今いる行のハイライト
+
+    /// 設定・選択・文章・幅から、今いる行のハイライトの矩形を決め直し、前の矩形と今の矩形を描き直す。
+    func refreshCurrentLineHighlight() {
+        let rect = makeCurrentLineHighlightRect()
+        guard rect != currentLineHighlightRect else { return }
+        let previous = currentLineHighlightRect
+        currentLineHighlightRect = rect
+        for changed in [previous, rect] {
+            if let changed {
+                setNeedsDisplay(changed.insetBy(dx: -1, dy: -1))
+            }
+        }
+    }
+
+    override func drawBackground(in rect: NSRect) {
+        super.drawBackground(in: rect)
+        guard let highlight = currentLineHighlightRect, highlight.intersects(rect) else { return }
+        EditorCurrentLine.color.setFill()
+        highlight.intersection(rect).fill(using: .sourceOver)
+    }
+
     // MARK: - 余白
 
     override var textContainerOrigin: NSPoint {
