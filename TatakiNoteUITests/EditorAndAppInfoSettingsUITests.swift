@@ -64,8 +64,9 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     // AC-3
     // AC-4
     // AC-5
+    // AC-23
     @MainActor
-    func testAC2_AC3_AC4_AC5_AC6_AC41_editorScenario() throws {
+    func testAC2_AC3_AC4_AC5_AC6_AC23_AC41_editorScenario() throws {
         let app = XCUIApplication()
         launch(app, permission: AccessibilityOverride.untrusted)
         openPanelSettings(in: app)
@@ -86,6 +87,63 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         app.revealInSettings(bottomPaddingUp)
         bottomPaddingUp.click()
         XCTAssertTrue(waitUntil { self.text(of: bottomPaddingValue).contains("4 行") }, "余白が 4 行にならない")
+
+        // AC-23
+        let lineHeightValue = element(in: app, identifier: lineHeightValueID)
+        app.revealInSettings(lineHeightValue)
+        XCTAssertEqual(text(of: lineHeightValue), "1.0 倍")
+        let lineHeightUp = incrementArrow(ofStepper: lineHeightStepperID, in: app)
+        app.revealInSettings(lineHeightUp)
+        lineHeightUp.click()
+        XCTAssertTrue(waitUntil { self.text(of: lineHeightValue) == "1.1 倍" }, "行間が 1.1 倍にならない")
+
+        let paragraphSpacingValue = element(in: app, identifier: paragraphSpacingValueID)
+        app.revealInSettings(paragraphSpacingValue)
+        let paragraphSpacingUp = incrementArrow(ofStepper: paragraphSpacingStepperID, in: app)
+        app.revealInSettings(paragraphSpacingUp)
+        paragraphSpacingUp.click()
+        XCTAssertTrue(waitUntil { self.text(of: paragraphSpacingValue) == "0.25 行" }, "段落の間隔が 0.25 行にならない")
+
+        let letterSpacingValue = element(in: app, identifier: letterSpacingValueID)
+        app.revealInSettings(letterSpacingValue)
+        let letterSpacingUp = incrementArrow(ofStepper: letterSpacingStepperID, in: app)
+        app.revealInSettings(letterSpacingUp)
+        letterSpacingUp.click()
+        XCTAssertTrue(waitUntil { self.text(of: letterSpacingValue) == "1%" }, "字間が 1% にならない")
+
+        let maxLineLengthValue = element(in: app, identifier: maxLineLengthValueID)
+        app.revealInSettings(maxLineLengthValue)
+        XCTAssertEqual(text(of: maxLineLengthValue), "上限なし")
+        let maxLineLengthDown = decrementArrow(ofStepper: maxLineLengthStepperID, in: app)
+        app.revealInSettings(maxLineLengthDown)
+        maxLineLengthDown.click()
+        XCTAssertTrue(waitUntil { self.text(of: maxLineLengthValue) == "80 文字" }, "1行の長さの上限が 80 文字にならない")
+
+        let wrapIndent = element(in: app, identifier: wrapIndentToggleID)
+        app.revealInSettings(wrapIndent)
+        XCTAssertTrue(isChecked(wrapIndent))
+        wrapIndent.click()
+        XCTAssertTrue(waitUntil { !self.isChecked(wrapIndent) }, "折り返した行の字下げがオフにならない")
+
+        let caretWidthValue = element(in: app, identifier: caretWidthValueID)
+        app.revealInSettings(caretWidthValue)
+        let caretWidthUp = incrementArrow(ofStepper: caretWidthStepperID, in: app)
+        app.revealInSettings(caretWidthUp)
+        caretWidthUp.click()
+        XCTAssertTrue(waitUntil { self.text(of: caretWidthValue) == "3 pt" }, "カーソルの太さが 3 pt にならない")
+
+        let caretShapePicker = element(in: app, identifier: caretShapePickerID)
+        app.revealInSettings(caretShapePicker)
+        let blockSegment = segment("ブロック", in: caretShapePicker)
+        XCTAssertTrue(blockSegment.waitForExistence(timeout: timeout), "カーソルの形の「ブロック」が無い")
+        blockSegment.click()
+        XCTAssertTrue(waitUntil { !caretWidthUp.isEnabled }, "ブロックのときも太さのステッパーが押せる")
+
+        let currentLineHighlight = element(in: app, identifier: currentLineHighlightToggleID)
+        app.revealInSettings(currentLineHighlight)
+        XCTAssertFalse(isChecked(currentLineHighlight))
+        currentLineHighlight.click()
+        XCTAssertTrue(waitUntil { self.isChecked(currentLineHighlight) }, "今いる行のハイライトがオンにならない")
 
         // AC-5
         let opacityValue = element(in: app, identifier: opacityValueID)
@@ -309,6 +367,19 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     private let fontSizeValueID = "settings.fontSizeValue"
     private let bottomPaddingStepperID = "settings.bottomPaddingStepper"
     private let bottomPaddingValueID = "settings.bottomPaddingValue"
+    private let lineHeightStepperID = "settings.lineHeightStepper"
+    private let lineHeightValueID = "settings.lineHeightValue"
+    private let paragraphSpacingStepperID = "settings.paragraphSpacingStepper"
+    private let paragraphSpacingValueID = "settings.paragraphSpacingValue"
+    private let letterSpacingStepperID = "settings.letterSpacingStepper"
+    private let letterSpacingValueID = "settings.letterSpacingValue"
+    private let maxLineLengthStepperID = "settings.maxLineLengthStepper"
+    private let maxLineLengthValueID = "settings.maxLineLengthValue"
+    private let wrapIndentToggleID = "settings.wrapIndentToggle"
+    private let caretShapePickerID = "settings.caretShapePicker"
+    private let caretWidthStepperID = "settings.caretWidthStepper"
+    private let caretWidthValueID = "settings.caretWidthValue"
+    private let currentLineHighlightToggleID = "settings.currentLineHighlightToggle"
     private let opacitySliderID = "settings.opacitySlider"
     private let opacityValueID = "settings.opacityValue"
     private let widthFieldID = "settings.panelDefaultWidthField"
@@ -375,6 +446,22 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         let arrow = stepper.incrementArrows.firstMatch
         XCTAssertTrue(arrow.waitForExistence(timeout: timeout), "ステッパーの上向きの矢印が無い: \(identifier)")
         return arrow
+    }
+
+    @MainActor
+    private func decrementArrow(ofStepper identifier: String, in app: XCUIApplication) -> XCUIElement {
+        let found = element(in: app, identifier: identifier)
+        XCTAssertTrue(found.waitForExistence(timeout: timeout), "ステッパーが無い: \(identifier)")
+        let stepper = found.elementType == .stepper ? found : found.steppers.firstMatch
+        let arrow = stepper.decrementArrows.firstMatch
+        XCTAssertTrue(arrow.waitForExistence(timeout: timeout), "ステッパーの下向きの矢印が無い: \(identifier)")
+        return arrow
+    }
+
+    @MainActor
+    private func segment(_ name: String, in picker: XCUIElement) -> XCUIElement {
+        let predicate = NSPredicate(format: "label == %@ OR title == %@", name, name)
+        return picker.descendants(matching: .any).matching(predicate).firstMatch
     }
 
     @MainActor

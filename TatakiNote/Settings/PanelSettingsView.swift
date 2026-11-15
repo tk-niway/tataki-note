@@ -12,6 +12,8 @@ struct PanelSettingsView: View {
         VStack(alignment: .leading, spacing: 18) {
             screenGroup
             fontAndOpacityGroup
+            editorTextGroup
+            editorCaretGroup
             defaultSizeGroup
             pointerGroup
             statusItemsGroup
@@ -125,6 +127,134 @@ struct PanelSettingsView: View {
                 }
                 .labelsHidden()
                 .accessibilityIdentifier("settings.bottomPaddingStepper")
+            }
+        }
+    }
+
+    // MARK: - 文章の見え方
+
+    private var editorTextGroup: some View {
+        SettingsGroup(title: "文章の見え方", identifier: "settings.group.editorText") {
+            SettingsCard {
+                SettingsRow(title: "行間") {
+                    HStack(spacing: 6) {
+                        Text(verbatim: model.lineHeightText)
+                            .monospacedDigit()
+                            .frame(width: 64, alignment: .trailing)
+                            .accessibilityIdentifier("settings.lineHeightValue")
+                        Stepper(
+                            value: $settings.editorLineHeightMultiple,
+                            in: EditorReadability.lineHeightMultipleRange,
+                            step: EditorReadability.lineHeightMultipleStep
+                        ) {
+                            Text("行間")
+                        }
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings.lineHeightStepper")
+                    }
+                }
+                SettingsRow(title: "段落の間隔", description: EditorSettingsModel.paragraphSpacingDescription) {
+                    HStack(spacing: 6) {
+                        Text(verbatim: model.paragraphSpacingText)
+                            .monospacedDigit()
+                            .frame(width: 64, alignment: .trailing)
+                            .accessibilityIdentifier("settings.paragraphSpacingValue")
+                        Stepper(
+                            value: $settings.editorParagraphSpacingLines,
+                            in: EditorReadability.paragraphSpacingLinesRange,
+                            step: EditorReadability.paragraphSpacingLinesStep
+                        ) {
+                            Text("段落の間隔")
+                        }
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings.paragraphSpacingStepper")
+                    }
+                }
+                SettingsRow(title: "字間", description: EditorSettingsModel.letterSpacingDescription) {
+                    HStack(spacing: 6) {
+                        Text(verbatim: model.letterSpacingText)
+                            .monospacedDigit()
+                            .frame(width: 64, alignment: .trailing)
+                            .accessibilityIdentifier("settings.letterSpacingValue")
+                        Stepper(
+                            value: $settings.editorLetterSpacingPercent,
+                            in: EditorReadability.letterSpacingPercentRange,
+                            step: 1
+                        ) {
+                            Text("字間")
+                        }
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings.letterSpacingStepper")
+                    }
+                }
+                SettingsRow(title: "1行の長さの上限", description: EditorSettingsModel.maxLineLengthDescription) {
+                    HStack(spacing: 6) {
+                        Text(verbatim: model.maxLineLengthText)
+                            .monospacedDigit()
+                            .frame(width: 64, alignment: .trailing)
+                            .accessibilityIdentifier("settings.maxLineLengthValue")
+                        Stepper {
+                            Text("1行の長さの上限")
+                        } onIncrement: {
+                            model.incrementMaxLineLength()
+                        } onDecrement: {
+                            model.decrementMaxLineLength()
+                        }
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings.maxLineLengthStepper")
+                    }
+                }
+                SettingsRow(title: "折り返した行の字下げ", description: EditorSettingsModel.wrapIndentDescription) {
+                    Toggle("折り返した行の字下げ", isOn: $settings.editorIndentsWrappedLines)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings.wrapIndentToggle")
+                }
+            }
+        }
+    }
+
+    // MARK: - カーソル
+
+    private var editorCaretGroup: some View {
+        SettingsGroup(title: "カーソル", identifier: "settings.group.editorCaret") {
+            SettingsCard {
+                SettingsRow(title: "カーソルの形") {
+                    Picker("カーソルの形", selection: $settings.editorCaretShape) {
+                        ForEach(EditorCaretShape.allCases, id: \.self) { shape in
+                            Text(verbatim: shape.displayName).tag(shape)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    .accessibilityIdentifier("settings.caretShapePicker")
+                }
+                SettingsRow(title: "カーソルの太さ", description: EditorSettingsModel.caretWidthDescription) {
+                    HStack(spacing: 6) {
+                        Text(verbatim: model.caretWidthText)
+                            .monospacedDigit()
+                            .frame(width: 64, alignment: .trailing)
+                            .accessibilityIdentifier("settings.caretWidthValue")
+                        Stepper(
+                            value: $settings.editorCaretWidth,
+                            in: EditorReadability.caretWidthRange,
+                            step: 1
+                        ) {
+                            Text("カーソルの太さ")
+                        }
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings.caretWidthStepper")
+                    }
+                }
+                .disabled(!model.isCaretWidthEnabled)
+                .opacity(model.isCaretWidthEnabled ? 1 : 0.4)
+                SettingsRow(title: "今いる行のハイライト") {
+                    Toggle("今いる行のハイライト", isOn: $settings.editorHighlightsCurrentLine)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings.currentLineHighlightToggle")
+                }
             }
         }
     }
