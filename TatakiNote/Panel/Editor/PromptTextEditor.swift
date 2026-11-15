@@ -47,6 +47,24 @@ final class PromptTextView: EditorTextView {
         didSet { applyContainerInset() }
     }
 
+    /// 自前のカーソルを描く view。システムのカーソルだけを使っている間は作られない。
+    var caretView: EditorCaretView?
+
+    /// 自前のカーソルの点滅の時間。
+    var caretBlinkPeriods = EditorCaretBlink.Periods.system()
+
+    /// 自前のカーソルを描くときに使う、元のカーソルの色。
+    lazy var baseInsertionPointColor = insertionPointColor
+
+    /// 入力欄がある窓がキーか。
+    var isCaretWindowKey = false
+
+    /// 入力欄がファーストレスポンダか。
+    var isCaretFirstResponder = false
+
+    /// 窓がキーになる・外れる通知の見張り。
+    var caretWindowObservers: [NSObjectProtocol] = []
+
     // MARK: - 余白
 
     override var textContainerOrigin: NSPoint {
@@ -80,11 +98,18 @@ final class PromptTextView: EditorTextView {
         if pendingRestyle {
             restyleText()
         }
+        refreshCaret()
+    }
+
+    override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+        super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+        refreshCaret()
     }
 
     override func didChangeText() {
         super.didChangeText()
         restyleText()
+        refreshCaret()
         revealBottomPadding(for: selectedRange())
         findBorderView?.needsDisplay = true
         observeUndoManagerIfNeeded()
@@ -93,6 +118,30 @@ final class PromptTextView: EditorTextView {
 
     isolated deinit {
         removeUndoObservers()
+        removeCaretWindowObservers()
+    }
+
+    // MARK: - カーソルの出来事
+
+    override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        if accepted {
+            setCaretFocus(isKeyWindow: window?.isKeyWindow ?? false, isFirstResponder: true)
+        }
+        return accepted
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        if resigned {
+            setCaretFocus(isKeyWindow: isCaretWindowKey, isFirstResponder: false)
+        }
+        return resigned
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        observeCaretWindow()
     }
 
     private func observeUndoManagerIfNeeded() {
@@ -125,6 +174,7 @@ final class PromptTextView: EditorTextView {
     override var string: String {
         didSet {
             restyleText()
+            refreshCaret()
             onStringChange?()
         }
     }
@@ -135,6 +185,7 @@ final class PromptTextView: EditorTextView {
         stillSelecting stillSelectingFlag: Bool
     ) {
         super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelectingFlag)
+        refreshCaret()
         if !findHighlights.isEmpty {
             refreshSelectionAppearance()
         }
