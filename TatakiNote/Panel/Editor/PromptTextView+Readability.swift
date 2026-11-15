@@ -121,13 +121,14 @@ extension PromptTextView {
         return view
     }
 
-    /// 今いる行のハイライトの矩形(入力欄の座標)。オフ・選択がある・取れないときは nil。
+    /// 今いる行のハイライトの矩形(入力欄の座標)。オフ・変換中でなく選択がある・取れないときは nil。
     func makeCurrentLineHighlightRect() -> CGRect? {
         guard readability.highlightsCurrentLine, let layout = textLayout, let container = textContainer else { return nil }
         let selection = selectedRange()
         guard let range = EditorCurrentLine.paragraphRange(
             in: string as NSString,
             selection: selection,
+            markedRange: hasMarkedText() ? markedRange() : nil,
             isEnabled: readability.highlightsCurrentLine
         ) else { return nil }
         let lineRects = range.length > 0 ? FindHighlighter.rects(for: range, in: self) : []

@@ -294,6 +294,32 @@ struct PromptTextViewCaretTests {
         #expect(fixture.textView.currentLineHighlightRect != nil)
     }
 
+    @Test("AC-27: 変換中は、文節が選択されていても、未確定の文字のある行のハイライトが出たままになり、確定の後はカーソルの行に出る")
+    func highlightStaysWhileComposing() throws {
+        let fixture = CaretFixture("あいう\nかきく", readability: highlighting())
+        fixture.select(4)
+        let before = try #require(fixture.textView.currentLineHighlightRect)
+
+        fixture.textView.setMarkedText(
+            "にほん",
+            selectedRange: NSRange(location: 0, length: 3),
+            replacementRange: NSRange(location: 4, length: 0)
+        )
+        #expect(fixture.textView.hasMarkedText())
+        #expect(fixture.textView.selectedRange().length > 0)
+        let composing = try #require(fixture.textView.currentLineHighlightRect)
+        #expect(composing.minY == before.minY)
+
+        fixture.textView.unmarkText()
+        fixture.select(7)
+        #expect(!fixture.textView.hasMarkedText())
+        let confirmed = try #require(fixture.textView.currentLineHighlightRect)
+        #expect(confirmed.minY == before.minY)
+
+        fixture.select(4, length: 2)
+        #expect(fixture.textView.currentLineHighlightRect == nil)
+    }
+
     @Test("AC-20: 空の入力欄と末尾の改行の後の空の行でも、ハイライトの矩形が取れる")
     func highlightExistsOnEmptyLines() throws {
         let empty = CaretFixture("", readability: highlighting())

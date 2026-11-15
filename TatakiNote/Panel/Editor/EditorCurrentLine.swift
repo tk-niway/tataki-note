@@ -9,9 +9,14 @@ enum EditorCurrentLine {
             : NSColor.black.withAlphaComponent(0.05)
     }
 
-    /// ハイライトする段落の範囲。オフ・選択が長さ 1 以上なら nil。
-    static func paragraphRange(in text: NSString, selection: NSRange, isEnabled: Bool) -> NSRange? {
-        guard isEnabled, selection.length == 0, selection.location != NSNotFound,
+    /// ハイライトする段落の範囲。未確定の文字があればその段落、無ければカーソルの段落。オフ・未確定の文字が無くて選択が長さ 1 以上なら nil。
+    static func paragraphRange(in text: NSString, selection: NSRange, markedRange: NSRange? = nil, isEnabled: Bool) -> NSRange? {
+        guard isEnabled else { return nil }
+        if let markedRange, markedRange.location != NSNotFound, markedRange.length > 0,
+           markedRange.location >= 0, NSMaxRange(markedRange) <= text.length {
+            return text.paragraphRange(for: markedRange)
+        }
+        guard selection.length == 0, selection.location != NSNotFound,
               selection.location >= 0, selection.location <= text.length
         else { return nil }
         return text.paragraphRange(for: NSRange(location: selection.location, length: 0))

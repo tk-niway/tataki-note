@@ -36,6 +36,24 @@ struct EditorCurrentLineTests {
         #expect(range("abc\ndef", 1, length: 4) == nil)
     }
 
+    @Test("AC-27: 未確定の文字がある間は、選択の長さを見ずに、その文字のある段落になる")
+    func markedTextOverridesSelectionLength() {
+        let text = "あいう\nえお\nかき" as NSString
+        let marked = NSRange(location: 4, length: 2)
+        let selection = NSRange(location: 4, length: 1)
+        #expect(EditorCurrentLine.paragraphRange(in: text, selection: selection, markedRange: marked, isEnabled: true)
+            == NSRange(location: 4, length: 3))
+    }
+
+    @Test("AC-27: 未確定の文字があっても、オフのときと、範囲が文章の外のときは、ハイライトしない")
+    func markedTextRespectsDisabledAndBounds() {
+        let text = "abc" as NSString
+        let marked = NSRange(location: 1, length: 1)
+        #expect(EditorCurrentLine.paragraphRange(in: text, selection: marked, markedRange: marked, isEnabled: false) == nil)
+        let outside = NSRange(location: 2, length: 5)
+        #expect(EditorCurrentLine.paragraphRange(in: text, selection: outside, markedRange: outside, isEnabled: true) == nil)
+    }
+
     @Test("AC-20: オフのときは、ハイライトしない")
     func noRangeWhenDisabled() {
         #expect(range("abc", 1, isEnabled: false) == nil)
