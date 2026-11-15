@@ -126,6 +126,81 @@ enum SettingDefinitions {
         normalize: EditorBottomPadding.clampedLines
     )
 
+    static let editorLineHeightMultiple: SettingDefinition<Double> = .clampedNumber(
+        "editorLineHeightMultiple",
+        default: EditorReadability.defaultLineHeightMultiple,
+        clamp: EditorReadability.clampedLineHeightMultiple
+    )
+
+    static let editorParagraphSpacingLines: SettingDefinition<Double> = .clampedNumber(
+        "editorParagraphSpacingLines",
+        default: EditorReadability.defaultParagraphSpacingLines,
+        clamp: EditorReadability.clampedParagraphSpacingLines
+    )
+
+    static let editorLetterSpacingPercent = SettingDefinition<Int>(
+        key: "editorLetterSpacingPercent",
+        read: { storage in
+            guard let value = StoredValue.number(in: storage, forKey: "editorLetterSpacingPercent")?.doubleValue,
+                  value.isFinite
+            else { return EditorReadability.defaultLetterSpacingPercent }
+            let lower = Double(EditorReadability.letterSpacingPercentRange.lowerBound)
+            let upper = Double(EditorReadability.letterSpacingPercentRange.upperBound)
+            return Int(min(max(value, lower), upper))
+        },
+        write: { percent, storage in storage.set(percent, forKey: "editorLetterSpacingPercent") },
+        normalize: EditorReadability.clampedLetterSpacingPercent
+    )
+
+    static let editorMaxLineLength = SettingDefinition<Int?>(
+        key: "editorMaxLineLength",
+        read: { storage in
+            guard let value = StoredValue.number(in: storage, forKey: "editorMaxLineLength")?.doubleValue,
+                  value.isFinite
+            else { return nil }
+            let lower = Double(EditorReadability.maxLineLengthRange.lowerBound)
+            let upper = Double(EditorReadability.maxLineLengthRange.upperBound)
+            return EditorReadability.clampedMaxLineLength(Int(min(max(value, lower), upper)))
+        },
+        write: { length, storage in
+            if let length {
+                storage.set(length, forKey: "editorMaxLineLength")
+            } else {
+                storage.removeObject(forKey: "editorMaxLineLength")
+            }
+        },
+        normalize: EditorReadability.clampedMaxLineLength
+    )
+
+    static let editorIndentsWrappedLines: SettingDefinition<Bool> = .boolean(
+        "editorIndentsWrappedLines",
+        default: EditorReadability.standard.indentsWrappedLines
+    )
+
+    static let editorCaretShape: SettingDefinition<EditorCaretShape> = .stringEnum(
+        "editorCaretShape",
+        default: EditorReadability.standard.caretShape
+    )
+
+    static let editorCaretWidth = SettingDefinition<Int>(
+        key: "editorCaretWidth",
+        read: { storage in
+            guard let value = StoredValue.number(in: storage, forKey: "editorCaretWidth")?.doubleValue,
+                  value.isFinite
+            else { return EditorReadability.defaultCaretWidth }
+            let lower = Double(EditorReadability.caretWidthRange.lowerBound)
+            let upper = Double(EditorReadability.caretWidthRange.upperBound)
+            return Int(min(max(value, lower), upper))
+        },
+        write: { width, storage in storage.set(width, forKey: "editorCaretWidth") },
+        normalize: EditorReadability.clampedCaretWidth
+    )
+
+    static let editorHighlightsCurrentLine: SettingDefinition<Bool> = .boolean(
+        "editorHighlightsCurrentLine",
+        default: EditorReadability.standard.highlightsCurrentLine
+    )
+
     static let historyRetention: SettingDefinition<HistoryRetention> = .stringEnum(
         "historyRetention",
         default: .defaultValue

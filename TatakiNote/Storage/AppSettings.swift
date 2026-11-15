@@ -125,6 +125,74 @@ import Observation
         }
     }
 
+    /// 入力欄の行間(倍)。
+    var editorLineHeightMultiple: Double {
+        didSet {
+            store.persist(\.editorLineHeightMultiple, of: self, as: SettingDefinitions.editorLineHeightMultiple)
+        }
+    }
+
+    /// 入力欄の段落の間隔(行ぶん)。
+    var editorParagraphSpacingLines: Double {
+        didSet {
+            store.persist(\.editorParagraphSpacingLines, of: self, as: SettingDefinitions.editorParagraphSpacingLines)
+        }
+    }
+
+    /// 入力欄の字間(%)。
+    var editorLetterSpacingPercent: Int {
+        didSet {
+            store.persist(\.editorLetterSpacingPercent, of: self, as: SettingDefinitions.editorLetterSpacingPercent)
+        }
+    }
+
+    /// 入力欄の1行の長さの上限(全角の文字数)。`nil` は上限なし。
+    var editorMaxLineLength: Int? {
+        didSet { store.persist(\.editorMaxLineLength, of: self, as: SettingDefinitions.editorMaxLineLength) }
+    }
+
+    /// 入力欄で折り返した行を字下げするか。
+    var editorIndentsWrappedLines: Bool {
+        didSet {
+            store.persist(\.editorIndentsWrappedLines, of: self, as: SettingDefinitions.editorIndentsWrappedLines)
+        }
+    }
+
+    /// 入力欄のカーソルの形。
+    var editorCaretShape: EditorCaretShape {
+        didSet { store.persist(\.editorCaretShape, of: self, as: SettingDefinitions.editorCaretShape) }
+    }
+
+    /// 入力欄のカーソルの太さ(pt)。
+    var editorCaretWidth: Int {
+        didSet { store.persist(\.editorCaretWidth, of: self, as: SettingDefinitions.editorCaretWidth) }
+    }
+
+    /// 入力欄の今いる行をハイライトするか。
+    var editorHighlightsCurrentLine: Bool {
+        didSet {
+            store.persist(
+                \.editorHighlightsCurrentLine,
+                of: self,
+                as: SettingDefinitions.editorHighlightsCurrentLine
+            )
+        }
+    }
+
+    /// 入力欄の見え方の設定をまとめたもの。
+    var editorReadability: EditorReadability {
+        EditorReadability(
+            lineHeightMultiple: editorLineHeightMultiple,
+            paragraphSpacingLines: editorParagraphSpacingLines,
+            letterSpacingPercent: editorLetterSpacingPercent,
+            maxLineLength: editorMaxLineLength,
+            indentsWrappedLines: editorIndentsWrappedLines,
+            caretShape: editorCaretShape,
+            caretWidth: editorCaretWidth,
+            highlightsCurrentLine: editorHighlightsCurrentLine
+        )
+    }
+
     /// 履歴を残す期間。
     var historyRetention: HistoryRetention {
         didSet { store.persist(\.historyRetention, of: self, as: SettingDefinitions.historyRetention) }
@@ -200,6 +268,14 @@ import Observation
         self.confirmsQuit = store.value(SettingDefinitions.confirmsQuit)
         self.historyLimit = store.value(SettingDefinitions.historyLimit)
         self.editorBottomPaddingLines = store.value(SettingDefinitions.editorBottomPaddingLines)
+        self.editorLineHeightMultiple = store.value(SettingDefinitions.editorLineHeightMultiple)
+        self.editorParagraphSpacingLines = store.value(SettingDefinitions.editorParagraphSpacingLines)
+        self.editorLetterSpacingPercent = store.value(SettingDefinitions.editorLetterSpacingPercent)
+        self.editorMaxLineLength = store.value(SettingDefinitions.editorMaxLineLength)
+        self.editorIndentsWrappedLines = store.value(SettingDefinitions.editorIndentsWrappedLines)
+        self.editorCaretShape = store.value(SettingDefinitions.editorCaretShape)
+        self.editorCaretWidth = store.value(SettingDefinitions.editorCaretWidth)
+        self.editorHighlightsCurrentLine = store.value(SettingDefinitions.editorHighlightsCurrentLine)
         self.historyRetention = store.value(SettingDefinitions.historyRetention)
         self.checksForUpdatesAutomatically = store.value(SettingDefinitions.checksForUpdatesAutomatically)
         self.panelMoveModifiers = store.value(SettingDefinitions.panelMoveModifiers)
