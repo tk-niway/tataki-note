@@ -50,6 +50,39 @@ enum StatusItemNote: Equatable {
         String(localized: "入力欄の最後の行の下に空ける行数です。0 にすると余白なしになります。")
     }
 
+    private static let fixedLocale = Locale(identifier: "en_US_POSIX")
+
+    var lineHeightText: String {
+        let value = EditorReadability.clampedLineHeightMultiple(settings.editorLineHeightMultiple)
+        return String(localized: "\(value.formatted(.number.precision(.fractionLength(1)).grouping(.never).locale(Self.fixedLocale))) 倍")
+    }
+
+    var paragraphSpacingText: String {
+        let value = EditorReadability.clampedParagraphSpacingLines(settings.editorParagraphSpacingLines)
+        let text = value.formatted(.number.precision(.fractionLength(0...2)).grouping(.never).locale(Self.fixedLocale))
+        return String(localized: "\(text) 行")
+    }
+
+    /// 「段落の間隔」の下に出す説明文。
+    static var paragraphSpacingDescription: String {
+        String(localized: "改行のあとに空ける間隔")
+    }
+
+    var letterSpacingText: String {
+        let percent = EditorReadability.clampedLetterSpacingPercent(settings.editorLetterSpacingPercent)
+        return String(localized: "\(percent)%")
+    }
+
+    /// 「字間」の下に出す説明文。
+    static var letterSpacingDescription: String {
+        String(localized: "文字と文字の間の幅")
+    }
+
+    /// 「折り返した行の字下げ」の下に出す説明文。
+    static var wrapIndentDescription: String {
+        String(localized: "続きの行を本文の始まりに揃えます")
+    }
+
     /// フォント名を描くフォント。システムフォントのときはシステムフォント、書体を選んでいるときはその書体(12pt)。
     var fontNameFont: NSFont {
         guard let font = settings.resolvedPanelFont else { return .systemFont(ofSize: Self.fontNameSize) }

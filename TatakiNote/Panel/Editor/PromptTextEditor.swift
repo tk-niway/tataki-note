@@ -19,6 +19,18 @@ final class PromptTextView: EditorTextView {
     private var undoObservers: [NSObjectProtocol] = []
     private weak var observedUndoManager: UndoManager?
 
+    /// 今の見え方の設定。
+    var readability: EditorReadability = .standard
+
+    /// 今のフォントと見え方の設定から決めた配置。フォントが無い間は nil。
+    var textLayout: EditorTextLayout?
+
+    /// 変換中に付け直せなかった属性が残っているか。
+    var pendingRestyle = false
+
+    /// 配置が変わって、新しく打つ文字の属性を入れ直す必要があるか。
+    var needsTypingAttributes = false
+
     /// 余白を足す前の textContainerInset。
     var baseContainerInset: NSSize = .zero {
         didSet { applyContainerInset() }
@@ -27,6 +39,49 @@ final class PromptTextView: EditorTextView {
     /// 最後の行の下に空ける高さ。
     var bottomPadding: CGFloat = 0 {
         didSet { applyContainerInset() }
+    }
+
+    /// 自前のカーソルを描く view。システムのカーソルだけを使っている間は作られない。
+    var caretView: EditorCaretView?
+
+    /// 自前のカーソルの点滅の時間。
+    var caretBlinkPeriods = EditorCaretBlink.Periods.system()
+
+    /// 自前のカーソルを描くときに使う、元のカーソルの色。
+    lazy var baseInsertionPointColor = insertionPointColor
+
+    /// 入力欄がある窓がキーか。
+    var isCaretWindowKey = false
+
+    /// 入力欄がファーストレスポンダか。
+    var isCaretFirstResponder = false
+
+    /// 窓がキーになる・外れる通知の見張り。
+    var caretWindowObservers: [NSObjectProtocol] = []
+
+    /// 今いる行のハイライトの矩形(入力欄の座標)。出さないときは nil。
+    private(set) var currentLineHighlightRect: CGRect?
+
+    // MARK: - 今いる行のハイライト
+
+    /// 設定・選択・文章・幅から、今いる行のハイライトの矩形を決め直し、前の矩形と今の矩形を描き直す。
+    func refreshCurrentLineHighlight() {
+        let rect = makeCurrentLineHighlightRect()
+        guard rect != currentLineHighlightRect else { return }
+        let previous = currentLineHighlightRect
+        currentLineHighlightRect = rect
+        for changed in [previous, rect] {
+            if let changed {
+                setNeedsDisplay(changed.insetBy(dx: -1, dy: -1))
+            }
+        }
+    }
+
+    override func drawBackground(in rect: NSRect) {
+        super.drawBackground(in: rect)
+        guard let highlight = currentLineHighlightRect, highlight.intersects(rect) else { return }
+        EditorCurrentLine.color.setFill()
+        highlight.intersection(rect).fill(using: .sourceOver)
     }
 
     // MARK: - 余白
@@ -40,8 +95,40 @@ final class PromptTextView: EditorTextView {
         revealBottomPadding(for: range)
     }
 
+    override func setFrameSize(_ newSize: NSSize) {
+        let widthChanged = newSize.width != frame.size.width
+        super.setFrameSize(newSize)
+        if widthChanged {
+            handleWidthChange()
+        }
+    }
+
+    // MARK: - 変換とフォント
+
+    override func applyFont(_ font: NSFont) {
+        super.applyFont(font)
+        if textLayout?.font != self.font {
+            refreshTextLayout()
+        }
+    }
+
+    override func unmarkText() {
+        super.unmarkText()
+        if pendingRestyle {
+            restyleText()
+        }
+        refreshCaret()
+    }
+
+    override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+        super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+        refreshCaret()
+    }
+
     override func didChangeText() {
         super.didChangeText()
+        restyleText()
+        refreshCaret()
         revealBottomPadding(for: selectedRange())
         findBorderView?.needsDisplay = true
         observeUndoManagerIfNeeded()
@@ -50,6 +137,30 @@ final class PromptTextView: EditorTextView {
 
     isolated deinit {
         removeUndoObservers()
+        removeCaretWindowObservers()
+    }
+
+    // MARK: - カーソルの出来事
+
+    override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        if accepted {
+            setCaretFocus(isKeyWindow: window?.isKeyWindow ?? false, isFirstResponder: true)
+        }
+        return accepted
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        if resigned {
+            setCaretFocus(isKeyWindow: isCaretWindowKey, isFirstResponder: false)
+        }
+        return resigned
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        observeCaretWindow()
     }
 
     private func observeUndoManagerIfNeeded() {
@@ -62,7 +173,10 @@ final class PromptTextView: EditorTextView {
                 object: undoManager,
                 queue: nil
             ) { [weak self] _ in
-                MainActor.assumeIsolated { self?.onStringChange?() }
+                MainActor.assumeIsolated {
+                    self?.restyleText()
+                    self?.onStringChange?()
+                }
             }
             undoObservers.append(observer)
         }
@@ -77,7 +191,11 @@ final class PromptTextView: EditorTextView {
     }
 
     override var string: String {
-        didSet { onStringChange?() }
+        didSet {
+            restyleText()
+            refreshCaret()
+            onStringChange?()
+        }
     }
 
     override func setSelectedRanges(
@@ -86,6 +204,7 @@ final class PromptTextView: EditorTextView {
         stillSelecting stillSelectingFlag: Bool
     ) {
         super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelectingFlag)
+        refreshCaret()
         if !findHighlights.isEmpty {
             refreshSelectionAppearance()
         }
@@ -128,7 +247,7 @@ final class PromptTextView: EditorTextView {
         needsDisplay = true
     }
 
-    private func applyContainerInset() {
+    func applyContainerInset() {
         textContainerInset = EditorBottomPadding.containerInset(base: baseContainerInset, padding: bottomPadding)
         invalidateTextContainerOrigin()
         sizeToFit()
@@ -139,17 +258,31 @@ final class PromptTextView: EditorTextView {
         let text = string as NSString
         guard EditorBottomPadding.isInLastLine(range, of: text) else { return }
         let end = min(NSMaxRange(range), text.length)
+        for _ in 0..<Self.maxRevealPasses {
+            let previousMaxY = bounds.maxY
+            guard scrollBottomPaddingIntoView(at: end, in: window) else { return }
+            textLayoutManager?.textViewportLayoutController.layoutViewport()
+            sizeToFit()
+            if bounds.maxY == previousMaxY { return }
+        }
+    }
+
+    private static let maxRevealPasses = 4
+
+    private func scrollBottomPaddingIntoView(at end: Int, in window: NSWindow) -> Bool {
         let screenRect = firstRect(forCharacterRange: NSRange(location: end, length: 0), actualRange: nil)
-        guard screenRect.height > 0 else { return }
+        guard screenRect.height > 0 else { return false }
         let caretRect = convert(window.convertFromScreen(screenRect), from: nil)
+        sizeToFit()
         let rect = EditorBottomPadding.revealRect(
             caretRect: caretRect,
-            documentMaxY: caretRect.maxY + baseContainerInset.height + bottomPadding,
+            documentMaxY: max(caretRect.maxY + baseContainerInset.height + bottomPadding, bounds.maxY),
             visibleHeight: visibleRect.height,
             padding: bottomPadding,
             isInLastLine: true
         )
         scrollToVisible(rect)
+        return true
     }
 
     // MARK: - キー操作
@@ -303,6 +436,7 @@ struct PromptTextEditor: NSViewRepresentable {
     let font: NSFont
     var placeholder: String = ""
     var bottomPaddingLines: Int = 0
+    var readability: EditorReadability = .standard
     let onKeyInput: (PanelKeyInput) -> Bool
     var findRegistry: FindEditorRegistry?
     var onFindTextChange: () -> Void = {}
@@ -311,7 +445,10 @@ struct PromptTextEditor: NSViewRepresentable {
     typealias Coordinator = EditorTextCoordinator
 
     private var bottomPadding: CGFloat {
-        EditorBottomPadding.height(lines: bottomPaddingLines, lineHeight: EditorBottomPadding.lineHeight(for: font))
+        EditorBottomPadding.height(
+            lines: bottomPaddingLines,
+            lineHeight: EditorTextLayout(font: font, readability: readability).lineHeight
+        )
     }
 
     func makeCoordinator() -> Coordinator {
@@ -329,6 +466,7 @@ struct PromptTextEditor: NSViewRepresentable {
         )
         textView.baseContainerInset = PanelMetrics.textContainerInset
         textView.applyFont(font)
+        textView.applyReadability(readability)
         textView.bottomPadding = bottomPadding
         textView.placeholder = placeholder
         textView.string = text
@@ -345,6 +483,8 @@ struct PromptTextEditor: NSViewRepresentable {
         findRegistry?.editor = textView
         context.coordinator.text = $text
         textView.applyFont(font)
+        textView.applyReadability(readability)
+        let bottomPadding = bottomPadding
         if textView.bottomPadding != bottomPadding {
             textView.bottomPadding = bottomPadding
         }

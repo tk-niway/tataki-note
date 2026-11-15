@@ -4,80 +4,6 @@ import Testing
 @testable import TatakiNote
 
 @MainActor
-private final class PanelViewHarness {
-    let settings: AppSettings
-    let model = PanelModel()
-    let panel: PromptPanel
-    let hostingView: NSHostingView<PanelView>
-    private let suiteName = UUID().uuidString
-    private let defaults: InMemoryDefaults
-
-    init(configure: (AppSettings) -> Void = { _ in }) throws {
-        defaults = try #require(InMemoryDefaults(suiteName: suiteName))
-        settings = AppSettings(store: SettingsStore(defaults: defaults))
-        configure(settings)
-        panel = PromptPanel(contentRect: NSRect(origin: .zero, size: PanelMetrics.defaultSize))
-        hostingView = NSHostingView(
-            rootView: PanelView(model: model, settings: settings, onKeyInput: { _ in false }, onClose: {})
-        )
-        hostingView.sizingOptions = []
-        panel.contentView = hostingView
-        panel.setContentSize(PanelMetrics.defaultSize)
-        settle()
-    }
-
-    func removeDefaults() {
-        defaults.removePersistentDomain(forName: suiteName)
-    }
-
-    func settle() {
-        for _ in 0..<3 {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
-            hostingView.layoutSubtreeIfNeeded()
-        }
-    }
-
-    @discardableResult
-    func settle(until condition: () -> Bool) -> Bool {
-        let deadline = Date().addingTimeInterval(2)
-        settle()
-        while !condition() && Date() < deadline {
-            settle()
-        }
-        return condition()
-    }
-
-    var textView: PromptTextView? {
-        Self.firstSubview(of: PromptTextView.self, in: hostingView)
-    }
-
-    var editorHeight: CGFloat? {
-        textView?.enclosingScrollView?.frame.height
-    }
-
-    var textFonts: [NSFont?] {
-        guard let storage = textView?.textStorage else { return [] }
-        var fonts: [NSFont?] = []
-        storage.enumerateAttribute(.font, in: NSRange(location: 0, length: storage.length)) { value, _, _ in
-            fonts.append(value as? NSFont)
-        }
-        return fonts
-    }
-
-    private static func firstSubview<T: NSView>(of type: T.Type, in view: NSView) -> T? {
-        if let match = view as? T {
-            return match
-        }
-        for subview in view.subviews {
-            if let match = firstSubview(of: type, in: subview) {
-                return match
-            }
-        }
-        return nil
-    }
-}
-
-@MainActor
 struct PanelViewSettingsTests {
     private let alphaTolerance: CGFloat = 0.001
 
@@ -185,11 +111,13 @@ struct PanelViewSettingsTests {
 
         #expect(harness.settle {
             let newEnd = (textView.string as NSString).length
-            guard newEnd > 0, let textContainer = textView.textContainer else { return false }
-            let rect = textView.layoutManager?.boundingRect(
-                forGlyphRange: NSRange(location: newEnd - 1, length: 1),
-                in: textContainer
-            ) ?? .zero
+            guard newEnd > 0, let window = textView.window else { return false }
+            let screenRect = textView.firstRect(
+                forCharacterRange: NSRange(location: newEnd, length: 0),
+                actualRange: nil
+            )
+            guard screenRect.height > 0 else { return false }
+            let rect = textView.convert(window.convertFromScreen(screenRect), from: nil)
             return textView.visibleRect.intersects(rect)
         })
     }
@@ -233,6 +161,21 @@ struct PanelViewSettingsTests {
     @Test("AC-20: 最後の行で文字を打つと、文書の下端(余白の下端)まで見えるところまでスクロールする")
     func typingInLastLineRevealsBottomPadding() throws {
         let harness = try PanelViewHarness()
+        defer { harness.removeDefaults() }
+        let textView = try loadedLongText(harness)
+        textView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+        #expect(harness.settle { !showsDocumentBottom(textView) })
+
+        let end = (textView.string as NSString).length
+        textView.setSelectedRange(NSRange(location: end, length: 0))
+        textView.insertText("z", replacementRange: NSRange(location: end, length: 0))
+
+        #expect(harness.settle { showsDocumentBottom(textView) })
+    }
+
+    @Test("AC-20: 段落の間隔が大きくても、最後の行で文字を打つと文書の下端まで見える")
+    func typingInLastLineRevealsBottomWithLargeParagraphSpacing() throws {
+        let harness = try PanelViewHarness { $0.editorParagraphSpacingLines = 2 }
         defer { harness.removeDefaults() }
         let textView = try loadedLongText(harness)
         textView.scrollRangeToVisible(NSRange(location: 0, length: 0))
