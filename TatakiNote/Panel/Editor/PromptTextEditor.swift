@@ -19,9 +19,27 @@ final class PromptTextView: EditorTextView {
     private var undoObservers: [NSObjectProtocol] = []
     private weak var observedUndoManager: UndoManager?
 
+    /// 今の見え方の設定。
+    var readability: EditorReadability = .standard
+
+    /// 今のフォントと見え方の設定から決めた配置。フォントが無い間は nil。
+    var textLayout: EditorTextLayout?
+
+    /// 変換中に付け直せなかった属性が残っているか。
+    var pendingRestyle = false
+
+    /// 配置が変わって、新しく打つ文字の属性を入れ直す必要があるか。
+    var needsTypingAttributes = false
+
+    /// 左右の余白の幅。
+    var horizontalInset: CGFloat = 0
+
     /// 余白を足す前の textContainerInset。
     var baseContainerInset: NSSize = .zero {
-        didSet { applyContainerInset() }
+        didSet {
+            horizontalInset = resolvedHorizontalInset
+            applyContainerInset()
+        }
     }
 
     /// 最後の行の下に空ける高さ。
@@ -40,8 +58,33 @@ final class PromptTextView: EditorTextView {
         revealBottomPadding(for: range)
     }
 
+    override func setFrameSize(_ newSize: NSSize) {
+        let widthChanged = newSize.width != frame.size.width
+        super.setFrameSize(newSize)
+        if widthChanged {
+            handleWidthChange()
+        }
+    }
+
+    // MARK: - 変換とフォント
+
+    override func applyFont(_ font: NSFont) {
+        super.applyFont(font)
+        if textLayout?.font != self.font {
+            refreshTextLayout()
+        }
+    }
+
+    override func unmarkText() {
+        super.unmarkText()
+        if pendingRestyle {
+            restyleText()
+        }
+    }
+
     override func didChangeText() {
         super.didChangeText()
+        restyleText()
         revealBottomPadding(for: selectedRange())
         findBorderView?.needsDisplay = true
         observeUndoManagerIfNeeded()
@@ -62,7 +105,10 @@ final class PromptTextView: EditorTextView {
                 object: undoManager,
                 queue: nil
             ) { [weak self] _ in
-                MainActor.assumeIsolated { self?.onStringChange?() }
+                MainActor.assumeIsolated {
+                    self?.restyleText()
+                    self?.onStringChange?()
+                }
             }
             undoObservers.append(observer)
         }
@@ -77,7 +123,10 @@ final class PromptTextView: EditorTextView {
     }
 
     override var string: String {
-        didSet { onStringChange?() }
+        didSet {
+            restyleText()
+            onStringChange?()
+        }
     }
 
     override func setSelectedRanges(
@@ -128,8 +177,9 @@ final class PromptTextView: EditorTextView {
         needsDisplay = true
     }
 
-    private func applyContainerInset() {
-        textContainerInset = EditorBottomPadding.containerInset(base: baseContainerInset, padding: bottomPadding)
+    func applyContainerInset() {
+        let base = NSSize(width: horizontalInset, height: baseContainerInset.height)
+        textContainerInset = EditorBottomPadding.containerInset(base: base, padding: bottomPadding)
         invalidateTextContainerOrigin()
         sizeToFit()
     }
@@ -303,6 +353,7 @@ struct PromptTextEditor: NSViewRepresentable {
     let font: NSFont
     var placeholder: String = ""
     var bottomPaddingLines: Int = 0
+    var readability: EditorReadability = .standard
     let onKeyInput: (PanelKeyInput) -> Bool
     var findRegistry: FindEditorRegistry?
     var onFindTextChange: () -> Void = {}
@@ -311,7 +362,10 @@ struct PromptTextEditor: NSViewRepresentable {
     typealias Coordinator = EditorTextCoordinator
 
     private var bottomPadding: CGFloat {
-        EditorBottomPadding.height(lines: bottomPaddingLines, lineHeight: EditorBottomPadding.lineHeight(for: font))
+        EditorBottomPadding.height(
+            lines: bottomPaddingLines,
+            lineHeight: EditorTextLayout(font: font, readability: readability).lineHeight
+        )
     }
 
     func makeCoordinator() -> Coordinator {
@@ -329,6 +383,7 @@ struct PromptTextEditor: NSViewRepresentable {
         )
         textView.baseContainerInset = PanelMetrics.textContainerInset
         textView.applyFont(font)
+        textView.applyReadability(readability)
         textView.bottomPadding = bottomPadding
         textView.placeholder = placeholder
         textView.string = text
@@ -345,6 +400,8 @@ struct PromptTextEditor: NSViewRepresentable {
         findRegistry?.editor = textView
         context.coordinator.text = $text
         textView.applyFont(font)
+        textView.applyReadability(readability)
+        let bottomPadding = bottomPadding
         if textView.bottomPadding != bottomPadding {
             textView.bottomPadding = bottomPadding
         }

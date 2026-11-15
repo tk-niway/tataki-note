@@ -50,13 +50,14 @@ struct PanelView: View {
         self.onFindSelectionChange = onFindSelectionChange
     }
 
-    private static let placeholderInset = NSSize(
-        width: PanelMetrics.textContainerInset.width + NSTextContainer().lineFragmentPadding,
-        height: PanelMetrics.textContainerInset.height
-    )
-
     /// 入力欄が空のときに出す薄い文字。
     static let placeholderText = String(localized: "ここにプロンプトを書く…")
+
+    /// 幅 `editorWidth` の入力欄で、空のときのプレースホルダーの左端。
+    func placeholderLeading(editorWidth: CGFloat) -> CGFloat {
+        EditorTextLayout(font: settings.panelFont, readability: settings.editorReadability)
+            .placeholderLeading(viewWidth: editorWidth, baseInset: PanelMetrics.textContainerInset.width)
+    }
 
     var body: some View {
         let isSidebarOpen = sidebarModel?.isOpen ?? false
@@ -146,6 +147,7 @@ struct PanelView: View {
                 font: font,
                 placeholder: Self.placeholderText,
                 bottomPaddingLines: settings.editorBottomPaddingLines,
+                readability: settings.editorReadability,
                 onKeyInput: onKeyInput,
                 findRegistry: findRegistry,
                 onFindTextChange: onFindTextChange,
@@ -154,13 +156,16 @@ struct PanelView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .topLeading) {
                     if model.text.isEmpty {
-                        Text(verbatim: Self.placeholderText)
-                            .font(Font(font as CTFont))
-                            .foregroundStyle(.tertiary)
-                            .padding(.leading, Self.placeholderInset.width)
-                            .padding(.top, Self.placeholderInset.height)
-                            .allowsHitTesting(false)
-                            .accessibilityHidden(true)
+                        GeometryReader { proxy in
+                            Text(verbatim: Self.placeholderText)
+                                .font(Font(font as CTFont))
+                                .foregroundStyle(.tertiary)
+                                .padding(.leading, placeholderLeading(editorWidth: proxy.size.width))
+                                .padding(.top, PanelMetrics.textContainerInset.height)
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                        }
+                        .allowsHitTesting(false)
                     }
                 }
             if !content.isEmpty {

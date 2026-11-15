@@ -8,4 +8,9 @@ enum EditorLineLength {
         guard viewWidth - 2 * baseInset > maxContainerWidth else { return baseInset }
         return (viewWidth - maxContainerWidth) / 2
     }
+
+    /// `horizontalInset` を整数の位置に切り捨てた幅。文章を置く幅が上限より狭くならない。
+    static func alignedHorizontalInset(viewWidth: CGFloat, baseInset: CGFloat, maxContainerWidth: CGFloat?) -> CGFloat {
+        horizontalInset(viewWidth: viewWidth, baseInset: baseInset, maxContainerWidth: maxContainerWidth).rounded(.down)
+    }
 }

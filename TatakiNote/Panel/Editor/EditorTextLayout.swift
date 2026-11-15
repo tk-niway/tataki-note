@@ -84,7 +84,7 @@ struct EditorTextLayout: Equatable {
 
     /// 空の入力欄のプレースホルダーの左端。文章の始まりの位置。
     func placeholderLeading(viewWidth: CGFloat, baseInset: CGFloat) -> CGFloat {
-        EditorLineLength.horizontalInset(viewWidth: viewWidth, baseInset: baseInset, maxContainerWidth: maxContainerWidth)
+        EditorLineLength.alignedHorizontalInset(viewWidth: viewWidth, baseInset: baseInset, maxContainerWidth: maxContainerWidth)
             + Self.lineFragmentPadding
     }
 

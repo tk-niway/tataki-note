@@ -180,6 +180,29 @@ struct EditorTextLayoutTests {
         #expect(limited.placeholderLeading(viewWidth: width, baseInset: 10) == 10 + padding)
     }
 
+    @Test("AC-15: 上限なしのプレースホルダーの左端は、どの幅でも今の「基本の余白 + 行の余白」と同じ")
+    func placeholderLeadingWithoutLimitMatchesCurrentInset() {
+        let layout = EditorTextLayout(font: .systemFont(ofSize: 14), readability: .standard)
+        let current = PanelMetrics.textContainerInset.width + NSTextContainer().lineFragmentPadding
+        for width in [0, 300, 520, 2000] as [CGFloat] {
+            #expect(layout.placeholderLeading(viewWidth: width, baseInset: PanelMetrics.textContainerInset.width) == current)
+        }
+    }
+
+    @Test("AC-15: 中央寄せのプレースホルダーの左端は、中央寄せの余白 + 行の余白")
+    func placeholderLeadingCenteredAddsLinePadding() {
+        let layout = EditorTextLayout(
+            font: .systemFont(ofSize: 14),
+            readability: readability { $0.maxLineLength = 20 }
+        )
+        let base = PanelMetrics.textContainerInset.width
+        let maxWidth = layout.maxContainerWidth ?? 0
+        let inset = EditorLineLength.alignedHorizontalInset(viewWidth: 800, baseInset: base, maxContainerWidth: maxWidth)
+        #expect(inset > base)
+        #expect(inset == inset.rounded())
+        #expect(layout.placeholderLeading(viewWidth: 800, baseInset: base) == inset + NSTextContainer().lineFragmentPadding)
+    }
+
     @Test("AC-8: 文字サイズ・字間を変えても、上限 N 文字の幅に全角の文字がちょうど N 文字まで1行に入る")
     func exactlyLimitCharactersFitOnOneLine() {
         for size in [14.0, 24.0] {
