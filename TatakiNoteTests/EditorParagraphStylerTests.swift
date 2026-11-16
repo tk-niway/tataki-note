@@ -248,4 +248,33 @@ struct EditorParagraphStylerTests {
         EditorParagraphStyler(layout: layout, lineWidth: Self.lineWidth).apply(to: storage)
         #expect(storage.string == Self.sample)
     }
+
+    @Test("AC-10: 隠す字間の印が付いた文字の字間には触れず、それ以外の字間だけを設定の値にする")
+    func hiddenKernsAreLeftAlone() {
+        let layout = EditorTextLayout(font: font, readability: readability { $0.letterSpacingPercent = 5 })
+        let storage = makeStorage("abc https://example.com/x def")
+        let hidden = NSRange(location: 4, length: 8)
+        storage.addAttributes([.kern: CGFloat(-7), .editorURLHidden: true], range: hidden)
+        let styler = EditorParagraphStyler(layout: layout, lineWidth: Self.lineWidth)
+
+        styler.apply(to: storage)
+
+        var runs: [(NSRange, CGFloat?)] = []
+        storage.enumerateAttribute(.kern, in: NSRange(location: 0, length: storage.length)) { value, range, _ in
+            runs.append((range, (value as? NSNumber).map { CGFloat($0.doubleValue) }))
+        }
+        #expect(runs.count == 3)
+        #expect(runs[0].0 == NSRange(location: 0, length: 4) && runs[0].1 == layout.kern)
+        #expect(runs[1].0 == hidden && runs[1].1 == -7)
+        #expect(runs[2].1 == layout.kern)
+        #expect(styler.apply(to: storage) == 0)
+    }
+
+    @Test("AC-10: 隠す印が無いときは、字間を文章全体の1つの範囲として今までと同じに付ける")
+    func kernWithoutMarksStaysOneRun() {
+        let layout = EditorTextLayout(font: font, readability: readability { $0.letterSpacingPercent = 5 })
+        let storage = makeStorage("abc https://example.com/x def\n次の段落")
+        EditorParagraphStyler(layout: layout, lineWidth: Self.lineWidth).apply(to: storage)
+        #expect(kernValues(in: storage) == [layout.kern])
+    }
 }

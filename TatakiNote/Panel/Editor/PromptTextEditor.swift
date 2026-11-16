@@ -62,6 +62,27 @@ final class PromptTextView: EditorTextView {
     /// 今いる行のハイライトの矩形(入力欄の座標)。出さないときは nil。
     private(set) var currentLineHighlightRect: CGRect?
 
+    /// URL を畳んで色を付けるか。
+    var foldsURLs = false {
+        didSet {
+            if foldsURLs != oldValue {
+                refreshURLFolds()
+            }
+        }
+    }
+
+    /// 今の URL の見え方。
+    var urlPresentations: [EditorURLPresentation] = []
+
+    /// URL の付け直しの中か。
+    var isApplyingURLFolds = false
+
+    /// 前回 `textStorage` に付けた隠す字間。
+    var appliedHiddenKerns: [EditorHiddenKern] = []
+
+    /// 前回 rendering 属性で色を付けた範囲。
+    var appliedURLColorRanges: [NSRange] = []
+
     // MARK: - 今いる行のハイライト
 
     /// 設定・選択・文章・幅から、今いる行のハイライトの矩形を決め直し、前の矩形と今の矩形を描き直す。
@@ -79,9 +100,11 @@ final class PromptTextView: EditorTextView {
 
     override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
-        guard let highlight = currentLineHighlightRect, highlight.intersects(rect) else { return }
-        EditorCurrentLine.color.setFill()
-        highlight.intersection(rect).fill(using: .sourceOver)
+        if let highlight = currentLineHighlightRect, highlight.intersects(rect) {
+            EditorCurrentLine.color.setFill()
+            highlight.intersection(rect).fill(using: .sourceOver)
+        }
+        drawURLEllipses(in: rect)
     }
 
     // MARK: - 余白
@@ -205,6 +228,9 @@ final class PromptTextView: EditorTextView {
     ) {
         super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelectingFlag)
         refreshCaret()
+        if !stillSelectingFlag, !isApplyingURLFolds {
+            refreshURLFolds()
+        }
         if !findHighlights.isEmpty {
             refreshSelectionAppearance()
         }

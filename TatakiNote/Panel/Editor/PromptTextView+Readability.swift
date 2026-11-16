@@ -29,6 +29,7 @@ extension PromptTextView {
             return
         }
         pendingRestyle = false
+        defer { refreshURLFolds(textDidChange: true) }
         guard let layout = textLayout, let storage = textStorage else { return }
         if needsTypingAttributes {
             needsTypingAttributes = false
