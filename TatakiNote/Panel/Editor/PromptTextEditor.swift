@@ -83,6 +83,37 @@ final class PromptTextView: EditorTextView {
     /// 前回 rendering 属性で色を付けた範囲。
     var appliedURLColorRanges: [NSRange] = []
 
+    /// URL を開く役。
+    var urlOpener: EditorURLOpening = WorkspaceEditorURLOpener()
+
+    /// 見え方の全 URL の矩形(入力欄の座標)。
+    var urlHitAreas: [EditorURLHitArea] = []
+
+    /// 畳んだ URL に付けた吹き出しのタグ。
+    var urlToolTipTags: [NSView.ToolTipTag] = []
+
+    /// 畳んだ URL の吹き出しの文字を返す持ち主。
+    lazy var urlToolTipOwner = EditorURLToolTipOwner { [weak self] point in
+        self?.urlToolTip(at: point)
+    }
+
+    // MARK: - URL のクリックとメニュー
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        if handleURLClick(at: point, modifiers: event.modifierFlags) {
+            return
+        }
+        super.mouseDown(with: event)
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let url = urlForContextMenu(at: convert(event.locationInWindow, from: nil))
+        let menu = super.menu(for: event)
+        guard let url else { return menu }
+        return urlContextMenu(base: menu, url: url)
+    }
+
     // MARK: - 今いる行のハイライト
 
     /// 設定・選択・文章・幅から、今いる行のハイライトの矩形を決め直し、前の矩形と今の矩形を描き直す。

@@ -42,6 +42,7 @@ extension PromptTextView {
     func handleWidthChange() {
         restyleText()
         refreshCaret()
+        refreshURLHitAreas()
     }
 
     // MARK: - カーソル

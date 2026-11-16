@@ -9,6 +9,7 @@ extension PromptTextView {
         let wasApplyingURLFolds = isApplyingURLFolds
         isApplyingURLFolds = true
         defer { isApplyingURLFolds = wasApplyingURLFolds }
+        defer { refreshURLHitAreas() }
 
         guard foldsURLs,
               let layout = textLayout,
