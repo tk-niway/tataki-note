@@ -38,6 +38,7 @@ extension PromptTextView {
             storageChanged = styler.apply(kerns, to: storage)
             appliedHiddenKerns = kerns
             if storageChanged {
+                layoutManager.ensureLayout(for: layoutManager.documentRange)
                 keepCaretLineInPlace(selection: selection, minYBefore: caretMinYBefore)
                 refreshCaret()
             }
@@ -120,6 +121,9 @@ extension PromptTextView {
         appliedHiddenKerns = []
         appliedURLColorRanges = []
         if changed {
+            if let layoutManager = textLayoutManager {
+                layoutManager.ensureLayout(for: layoutManager.documentRange)
+            }
             refreshCaret()
             needsDisplay = true
         }

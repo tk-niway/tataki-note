@@ -244,6 +244,7 @@ final class PromptTextView: EditorTextView {
         findHighlights = highlights
         updateFindBorder()
         refreshSelectionAppearance()
+        refreshURLFolds()
     }
 
     private func updateFindBorder() {
@@ -463,6 +464,7 @@ struct PromptTextEditor: NSViewRepresentable {
     var placeholder: String = ""
     var bottomPaddingLines: Int = 0
     var readability: EditorReadability = .standard
+    var foldsURLs: Bool = false
     let onKeyInput: (PanelKeyInput) -> Bool
     var findRegistry: FindEditorRegistry?
     var onFindTextChange: () -> Void = {}
@@ -493,6 +495,7 @@ struct PromptTextEditor: NSViewRepresentable {
         textView.baseContainerInset = PanelMetrics.textContainerInset
         textView.applyFont(font)
         textView.applyReadability(readability)
+        textView.foldsURLs = foldsURLs
         textView.bottomPadding = bottomPadding
         textView.placeholder = placeholder
         textView.string = text
@@ -510,6 +513,7 @@ struct PromptTextEditor: NSViewRepresentable {
         context.coordinator.text = $text
         textView.applyFont(font)
         textView.applyReadability(readability)
+        textView.foldsURLs = foldsURLs
         let bottomPadding = bottomPadding
         if textView.bottomPadding != bottomPadding {
             textView.bottomPadding = bottomPadding

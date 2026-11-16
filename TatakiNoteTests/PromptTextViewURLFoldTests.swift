@@ -55,6 +55,10 @@ private final class FoldFixture {
         textView.foldsURLs = foldsURLs
         textView.string = text
         textView.setSelectedRange(selection)
+        if let layoutManager = textView.textLayoutManager {
+            layoutManager.ensureLayout(for: layoutManager.documentRange)
+        }
+        textView.refreshCaret()
     }
 
     var undoManager: UndoManager {
