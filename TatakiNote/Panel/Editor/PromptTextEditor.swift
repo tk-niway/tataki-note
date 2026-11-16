@@ -176,6 +176,7 @@ final class PromptTextView: EditorTextView {
 
     override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
         super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+        ensureLayoutBeforeMarkedText()
         refreshCaret()
     }
 

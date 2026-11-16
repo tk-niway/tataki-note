@@ -117,6 +117,12 @@ struct EditorURLFoldStyler {
         return true
     }
 
+    /// 変換の位置より前に隠す文字があり、変換中のカーソルの位置を出す前に配置を確定させる必要があるなら true。
+    static func needsLayoutBeforeMarkedText(hiddenKerns: [EditorHiddenKern], markedLocation: Int) -> Bool {
+        guard markedLocation != NSNotFound else { return false }
+        return hiddenKerns.contains { $0.location < markedLocation }
+    }
+
     private func isApplied(_ item: EditorHiddenKern, in storage: NSTextStorage) -> Bool {
         let attributes = storage.attributes(at: item.location, effectiveRange: nil)
         return attributes[.editorURLHidden] != nil

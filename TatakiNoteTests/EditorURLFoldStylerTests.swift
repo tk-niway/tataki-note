@@ -102,4 +102,24 @@ struct EditorURLFoldStylerTests {
             #expect(storage.attribute(.ligature, at: hidden, effectiveRange: nil) == nil)
         }
     }
+
+    // MARK: - AC-26
+
+    @Test("AC-26: 配置を確定させるのは、変換の位置より前に隠す文字があるときだけ")
+    func layoutIsNeededOnlyWhenHiddenTextPrecedesMarkedText() {
+        func kerns(_ ranges: [Range<Int>]) -> [EditorHiddenKern] {
+            ranges.flatMap { $0 }.map { EditorHiddenKern(location: $0, kern: -5, isEllipsis: false) }
+        }
+        let none = EditorURLFoldStyler.needsLayoutBeforeMarkedText(hiddenKerns: [], markedLocation: 10)
+        let after = EditorURLFoldStyler.needsLayoutBeforeMarkedText(hiddenKerns: kerns([0..<8, 20..<31]), markedLocation: 40)
+        let before = EditorURLFoldStyler.needsLayoutBeforeMarkedText(hiddenKerns: kerns([50..<61]), markedLocation: 40)
+        let same = EditorURLFoldStyler.needsLayoutBeforeMarkedText(hiddenKerns: kerns([40..<51]), markedLocation: 40)
+        let notFound = EditorURLFoldStyler.needsLayoutBeforeMarkedText(hiddenKerns: kerns([0..<8]), markedLocation: NSNotFound)
+
+        #expect(none == false)
+        #expect(after == true)
+        #expect(before == false)
+        #expect(same == false)
+        #expect(notFound == false)
+    }
 }

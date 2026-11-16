@@ -405,6 +405,43 @@ struct PromptTextViewURLFoldTests {
         #expect(abs(ellipsis.minY - characterRect.minY) < characterRect.height)
     }
 
+    // MARK: - AC-26
+
+    @Test("AC-26: 畳んだ URL の次の行で変換を始めた直後のカーソルと今いる行のハイライトは、配置を確定した後の位置と同じ")
+    func caretAfterFoldedURLIsSettledWhenMarkedTextStarts() throws {
+        var readability = FoldFixture.readability
+        readability.highlightsCurrentLine = true
+        let text = "\(FoldFixture.wrappingURL)\n後書き"
+        let lineStart = (text as NSString).length - 3
+        let fixture = FoldFixture(text, readability: readability, selection: NSRange(location: lineStart, length: 0))
+        let opened = FoldFixture(text, readability: readability, foldsURLs: false)
+        let urlRange = fixture.range(of: FoldFixture.wrappingURL)
+        let foldedHeight = FindHighlighter.rects(for: urlRange, in: fixture.textView).reduce(0) { $0 + $1.height }
+        let openedHeight = FindHighlighter.rects(for: urlRange, in: opened.textView).reduce(0) { $0 + $1.height }
+        #expect(foldedHeight < openedHeight)
+        let textView = fixture.textView
+        let layoutManager = try #require(textView.textLayoutManager)
+        let contentManager = try #require(layoutManager.textContentManager)
+        let urlEnd = try #require(contentManager.location(contentManager.documentRange.location, offsetBy: lineStart - 1))
+        let urlParagraph = try #require(NSTextRange(location: contentManager.documentRange.location, end: urlEnd))
+        layoutManager.invalidateLayout(for: urlParagraph)
+
+        textView.setMarkedText("にほ", selectedRange: NSRange(location: 2, length: 0), replacementRange: noReplacement)
+        #expect(textView.hasMarkedText())
+        let started = try #require(textView.caretView?.caretRect)
+        let startedHighlight = try #require(textView.currentLineHighlightRect)
+
+        layoutManager.ensureLayout(for: layoutManager.documentRange)
+        textView.refreshCaret()
+        let settled = try #require(textView.caretView?.caretRect)
+        let settledHighlight = try #require(textView.currentLineHighlightRect)
+
+        #expect(abs(started.minY - settled.minY) < 0.5)
+        #expect(abs(started.minX - settled.minX) < 0.5)
+        #expect(abs(startedHighlight.minY - settledHighlight.minY) < 0.5)
+        #expect(abs(startedHighlight.height - settledHighlight.height) < 0.5)
+    }
+
     @Test("AC-9: 変換中でない間は、設定を変えるとすぐ付け直される")
     func foldsRefreshImmediatelyWithoutMarkedText() {
         let fixture = FoldFixture(Self.sample)

@@ -59,6 +59,22 @@ extension PromptTextView {
         }
     }
 
+    /// 変換の前に畳んだ URL があるとき、文書の先頭から変換のある段落の終わりまでの配置を確定させる。
+    func ensureLayoutBeforeMarkedText() {
+        guard foldsURLs,
+              hasMarkedText(),
+              let layoutManager = textLayoutManager,
+              let contentManager = layoutManager.textContentManager
+        else { return }
+        let marked = markedRange()
+        guard EditorURLFoldStyler.needsLayoutBeforeMarkedText(hiddenKerns: appliedHiddenKerns, markedLocation: marked.location) else { return }
+        let text = string as NSString
+        guard marked.location <= text.length else { return }
+        let end = NSMaxRange(text.paragraphRange(for: marked))
+        guard let range = Self.textRange(NSRange(location: 0, length: end), in: contentManager) else { return }
+        layoutManager.ensureLayout(for: range)
+    }
+
     // MARK: - 「…」
 
     /// 畳んだ URL の「…」を描く矩形(入力欄の座標)。枠が取れない位置は含まない。
