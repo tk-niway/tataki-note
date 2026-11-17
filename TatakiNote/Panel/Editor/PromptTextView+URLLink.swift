@@ -9,10 +9,6 @@ extension PromptTextView {
             removeToolTip(tag)
         }
         urlToolTipTags = []
-        guard foldsURLs else {
-            urlHitAreas = []
-            return
-        }
         let length = (string as NSString).length
         urlHitAreas = urlPresentations.map { presentation in
             EditorURLHitArea(
@@ -34,9 +30,8 @@ extension PromptTextView {
         return EditorURLClick.url(at: point, in: urlHitAreas.filter(\.isFolded))?.text
     }
 
-    /// 点の下の URL。設定がオフなら nil。
+    /// 点の下の URL。無ければ nil。
     func urlForContextMenu(at point: CGPoint) -> EditorURL? {
-        guard foldsURLs else { return nil }
         return EditorURLClick.url(at: point, in: urlHitAreas)
     }
 
@@ -44,8 +39,7 @@ extension PromptTextView {
 
     /// ⌘ クリックで点の下の URL を開く。扱ったら true。
     func handleURLClick(at point: CGPoint, modifiers: NSEvent.ModifierFlags) -> Bool {
-        guard foldsURLs,
-              EditorURLClick.opensURL(modifiers: modifiers),
+        guard EditorURLClick.opensURL(modifiers: modifiers),
               let url = EditorURLClick.url(at: point, in: urlHitAreas)
         else { return false }
         if let target = URL(string: url.text) {

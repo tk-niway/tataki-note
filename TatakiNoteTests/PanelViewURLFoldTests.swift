@@ -53,7 +53,7 @@ struct PanelViewURLFoldTests {
 
         harness.settings.editorFoldsURLs = false
         #expect(harness.settle { hiddenCount(textView, in: range) == 0 })
-        #expect(textView.urlPresentations.isEmpty)
+        #expect(textView.urlPresentations.allSatisfy { $0.fold == nil })
         #expect(textView.appliedHiddenKerns.isEmpty)
         #expect(textView.string == sampleText)
         #expect(harness.model.text == sampleText)

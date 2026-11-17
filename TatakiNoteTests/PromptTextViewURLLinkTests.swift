@@ -42,6 +42,37 @@ private final class LinkFixture {
         let rect = firstArea?.rects.first ?? .zero
         return CGPoint(x: rect.midX, y: rect.midY)
     }
+
+    func hasRenderedColor(in range: NSRange) -> Bool {
+        guard let layoutManager = textView.textLayoutManager,
+              let contentManager = layoutManager.textContentManager
+        else { return false }
+        var found = false
+        for location in range.location..<NSMaxRange(range) {
+            guard let start = contentManager.location(contentManager.documentRange.location, offsetBy: location) else { continue }
+            layoutManager.enumerateRenderingAttributes(from: start, reverse: false) { _, attributes, renderedRange in
+                if renderedRange.contains(start), attributes[.foregroundColor] != nil {
+                    found = true
+                }
+                return false
+            }
+        }
+        return found
+    }
+
+    func hasNegativeKernOrHiddenMark() -> Bool {
+        guard let storage = textView.textStorage else { return false }
+        var found = false
+        storage.enumerateAttributes(in: NSRange(location: 0, length: storage.length), options: []) { attributes, _, _ in
+            if let kern = (attributes[.kern] as? NSNumber)?.doubleValue, kern < 0 {
+                found = true
+            }
+            if attributes[.editorURLHidden] != nil {
+                found = true
+            }
+        }
+        return found
+    }
 }
 
 @MainActor
@@ -76,21 +107,23 @@ struct PromptTextViewURLLinkTests {
         #expect(folded.textView.urlToolTip(at: LinkFixture.outsidePoint) == nil)
     }
 
-    @Test("AC-17: 設定オフでは吹き出しも矩形も付かない")
+    @Test("AC-17: 設定オフでは吹き出しが付かず、矩形だけが作られる")
     func noToolTipWhenOff() {
         let fixture = LinkFixture(text: foldedText, foldsURLs: false)
-        #expect(fixture.textView.urlHitAreas.isEmpty)
+        #expect(fixture.firstArea?.isFolded == false)
+        #expect(fixture.firstArea?.rects.isEmpty == false)
         #expect(fixture.textView.urlToolTipTags.isEmpty)
-        #expect(fixture.textView.urlToolTip(at: CGPoint(x: 40, y: 10)) == nil)
+        #expect(fixture.textView.urlToolTip(at: fixture.centerOfFirstURL) == nil)
     }
 
-    @Test("AC-17: 設定をオフにすると付けた吹き出しが外れる")
+    @Test("AC-17: 設定をオフにすると付けた吹き出しが外れ、矩形は残る")
     func toolTipsRemovedWhenTurnedOff() {
         let fixture = LinkFixture(text: foldedText)
         #expect(!fixture.textView.urlToolTipTags.isEmpty)
         fixture.textView.foldsURLs = false
         #expect(fixture.textView.urlToolTipTags.isEmpty)
-        #expect(fixture.textView.urlHitAreas.isEmpty)
+        #expect(fixture.firstArea?.isFolded == false)
+        #expect(fixture.firstArea?.rects.isEmpty == false)
     }
 
     // MARK: - ⌘ クリック
@@ -127,11 +160,42 @@ struct PromptTextViewURLLinkTests {
         #expect(fixture.opener.opened.isEmpty)
     }
 
-    @Test("AC-18: 設定オフでは ⌘ クリックで開かない")
-    func commandClickDoesNothingWhenOff() {
+    @Test("AC-18: 設定オフでも ⌘ クリックで URL の全文を開く役に渡し、色と字間は付かない")
+    func commandClickOpensWhenOff() throws {
         let fixture = LinkFixture(text: foldedText, foldsURLs: false)
-        #expect(!fixture.textView.handleURLClick(at: CGPoint(x: 40, y: 10), modifiers: .command))
-        #expect(fixture.opener.opened.isEmpty)
+        let handled = fixture.textView.handleURLClick(at: fixture.centerOfFirstURL, modifiers: .command)
+        #expect(handled)
+        #expect(fixture.opener.opened == [try #require(URL(string: LinkFixture.longURL))])
+        #expect(fixture.textView.appliedHiddenKerns.isEmpty)
+        #expect(fixture.textView.appliedURLColorRanges.isEmpty)
+        #expect(!fixture.textView.handleURLClick(at: fixture.centerOfFirstURL, modifiers: []))
+        #expect(!fixture.textView.handleURLClick(at: LinkFixture.outsidePoint, modifiers: .command))
+        #expect(fixture.opener.opened.count == 1)
+    }
+
+    @Test("AC-18: 設定オフでは URL に色の rendering 属性も負の字間も付かない(最初からオフ・オンからオフ)")
+    func noStyleWhenOff() {
+        let urlRange = (foldedText as NSString).range(of: LinkFixture.longURL)
+        let fromStart = LinkFixture(text: foldedText, foldsURLs: false)
+        #expect(!fromStart.hasRenderedColor(in: urlRange))
+        #expect(!fromStart.hasNegativeKernOrHiddenMark())
+        #expect(fromStart.textView.urlEllipsisRects().isEmpty)
+
+        let switched = LinkFixture(text: foldedText)
+        #expect(switched.hasNegativeKernOrHiddenMark())
+        switched.textView.foldsURLs = false
+        #expect(!switched.hasRenderedColor(in: urlRange))
+        #expect(!switched.hasNegativeKernOrHiddenMark())
+        #expect(switched.textView.appliedHiddenKerns.isEmpty)
+        #expect(switched.textView.appliedURLColorRanges.isEmpty)
+    }
+
+    @Test("AC-18: オンからオフにしても ⌘ クリックで URL の全文を開く")
+    func commandClickOpensAfterTurningOff() throws {
+        let fixture = LinkFixture(text: foldedText)
+        fixture.textView.foldsURLs = false
+        #expect(fixture.textView.handleURLClick(at: fixture.centerOfFirstURL, modifiers: .command))
+        #expect(fixture.opener.opened == [try #require(URL(string: LinkFixture.longURL))])
     }
 
     // MARK: - 右クリックのメニュー
@@ -176,14 +240,26 @@ struct PromptTextViewURLLinkTests {
         #expect(fixture.opener.opened == [try #require(URL(string: LinkFixture.longURL))])
     }
 
-    @Test("AC-19: URL の上なら右クリックの対象の URL が決まり、URL の外・設定オフでは決まらない")
+    @Test("AC-19: URL の上なら右クリックの対象の URL が決まり、URL の外では決まらない")
     func contextMenuURLLookup() {
         let fixture = LinkFixture(text: foldedText)
         #expect(fixture.textView.urlForContextMenu(at: fixture.centerOfFirstURL)?.text == LinkFixture.longURL)
         #expect(fixture.textView.urlForContextMenu(at: LinkFixture.outsidePoint) == nil)
+    }
 
+    @Test("AC-19: 設定オフでも URL の上の右クリックの対象が決まり、メニューに「リンクを開く」がある")
+    func contextMenuWhenOff() throws {
         let off = LinkFixture(text: foldedText, foldsURLs: false)
-        #expect(off.textView.urlForContextMenu(at: CGPoint(x: 40, y: 10)) == nil)
+        let url = try #require(off.textView.urlForContextMenu(at: off.centerOfFirstURL))
+        #expect(url.text == LinkFixture.longURL)
+        #expect(off.textView.urlForContextMenu(at: LinkFixture.outsidePoint) == nil)
+        let menu = off.textView.urlContextMenu(base: NSMenu(), url: url)
+        let item = try #require(menu.items.first)
+        #expect(item.title == "リンクを開く")
+        let target = try #require(item.target as? NSObject)
+        let action = try #require(item.action)
+        _ = target.perform(action, with: item)
+        #expect(off.opener.opened == [try #require(URL(string: LinkFixture.longURL))])
     }
 
     // MARK: - パネルの吹き出しの設定

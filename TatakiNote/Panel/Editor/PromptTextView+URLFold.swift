@@ -18,6 +18,9 @@ extension PromptTextView {
               let contentManager = layoutManager.textContentManager
         else {
             clearURLFolds()
+            urlPresentations = EditorURLDetector.urls(in: string as NSString).map {
+                EditorURLPresentation(url: $0, fold: nil)
+            }
             return
         }
 

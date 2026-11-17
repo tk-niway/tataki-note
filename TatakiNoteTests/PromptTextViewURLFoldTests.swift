@@ -201,7 +201,8 @@ struct PromptTextViewURLFoldTests {
         #expect(abs(fixture.width(of: url) - plain.width(of: url)) < 0.5)
         #expect(fixture.hiddenCount(in: url) == 0)
         #expect(fixture.renderedColor(at: url.location) == nil)
-        #expect(fixture.textView.urlPresentations.isEmpty)
+        #expect(!fixture.textView.urlPresentations.isEmpty)
+        #expect(fixture.textView.urlPresentations.allSatisfy { $0.fold == nil })
 
         fixture.textView.foldsURLs = true
         #expect(abs(fixture.width(of: url) - folded) < 0.5)
@@ -370,7 +371,7 @@ struct PromptTextViewURLFoldTests {
         #expect(!textView.hasMarkedText())
         #expect(textView.string.hasPrefix("にほ"))
         #expect(fixture.hiddenCount(in: fixture.range(of: Self.long)) == 0)
-        #expect(textView.urlPresentations.isEmpty)
+        #expect(textView.urlPresentations.allSatisfy { $0.fold == nil })
     }
 
     @Test("AC-9: URL より前で変換しても、「…」は畳んだ URL の中の同じ文字に描かれる")
