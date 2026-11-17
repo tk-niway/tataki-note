@@ -291,15 +291,19 @@ struct PromptTextViewURLFoldFindTests {
 
         let schemeRange = NSRange(location: url.location, length: "https://".count)
 
+        let iconLocation = NSMaxRange(schemeRange) - 1
+
         func schemeKerns() -> [CGFloat] {
-            (schemeRange.location..<NSMaxRange(schemeRange)).compactMap { location in
+            (schemeRange.location..<iconLocation).compactMap { location in
                 guard storage.attribute(.editorURLHidden, at: location, effectiveRange: nil) != nil else { return nil }
                 return (storage.attribute(.kern, at: location, effectiveRange: nil) as? NSNumber).map { CGFloat($0.doubleValue) }
             }
         }
 
-        #expect(schemeKerns().count == schemeRange.length)
+        #expect(schemeKerns().count == schemeRange.length - 1)
         #expect(schemeKerns().allSatisfy { $0 < 0 })
+        #expect(storage.attribute(.editorURLHidden, at: iconLocation, effectiveRange: nil) != nil)
+        #expect(storage.attribute(.editorURLLinkIcon, at: iconLocation, effectiveRange: nil) != nil)
 
         fixture.textView.foldsURLs = false
         #expect(fixture.hiddenCount(in: url) == 0)
@@ -310,9 +314,12 @@ struct PromptTextViewURLFoldFindTests {
             #expect(kern == layout.kern)
         }
 
+        #expect(storage.attribute(.editorURLLinkIcon, at: iconLocation, effectiveRange: nil) == nil)
+
         fixture.textView.foldsURLs = true
-        #expect(schemeKerns().count == schemeRange.length)
+        #expect(schemeKerns().count == schemeRange.length - 1)
         #expect(schemeKerns().allSatisfy { $0 < 0 })
+        #expect(storage.attribute(.editorURLLinkIcon, at: iconLocation, effectiveRange: nil) != nil)
         #expect(fixture.hiddenCount(in: url) > schemeRange.length)
         #expect(fixture.renderedColor(.foregroundColor, at: url.location)?.alphaComponent == 0)
         #expect(fixture.renderedColor(.foregroundColor, at: NSMaxRange(url) - 1) == EditorURLFoldStyler.urlColor)

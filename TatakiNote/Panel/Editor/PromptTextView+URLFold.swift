@@ -118,6 +118,52 @@ extension PromptTextView {
         }
     }
 
+    // MARK: - リンクのアイコン
+
+    /// 畳んだ URL の先頭のリンクのアイコンを描く矩形(入力欄の座標)。枠が取れない位置は含まない。
+    func urlLinkIconRects() -> [CGRect] {
+        guard let font = textLayout?.font,
+              let size = EditorURLLinkIcon.size(pointSize: font.pointSize),
+              let storage = textStorage,
+              let layoutManager = textLayoutManager,
+              let contentManager = layoutManager.textContentManager
+        else { return [] }
+        var locations: [Int] = []
+        storage.enumerateAttribute(.editorURLLinkIcon, in: NSRange(location: 0, length: storage.length), options: []) { value, range, _ in
+            guard value != nil else { return }
+            locations.append(contentsOf: range.location..<NSMaxRange(range))
+        }
+        let origin = textContainerOrigin
+        var rects: [CGRect] = []
+        for location in locations {
+            guard let range = Self.textRange(NSRange(location: location, length: 1), in: contentManager) else { continue }
+            layoutManager.enumerateTextSegments(in: range, type: .standard, options: []) { _, frame, baseline, _ in
+                let rect = EditorURLLinkIcon.rect(
+                    minX: frame.minX + origin.x,
+                    baselineY: frame.minY + origin.y + baseline,
+                    ascender: font.ascender,
+                    descender: font.descender,
+                    size: size
+                )
+                if rect.origin.x.isFinite, rect.origin.y.isFinite {
+                    rects.append(rect)
+                }
+                return false
+            }
+        }
+        return rects
+    }
+
+    /// 畳んだ URL の先頭のリンクのアイコンを描く。
+    func drawURLLinkIcons(in dirtyRect: NSRect) {
+        guard let font = textLayout?.font, !appliedHiddenKerns.isEmpty,
+              let image = EditorURLLinkIcon.image(pointSize: font.pointSize, color: EditorURLFoldStyler.urlColor)
+        else { return }
+        for rect in urlLinkIconRects() where rect.intersects(dirtyRect) {
+            image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+        }
+    }
+
     private func urlEllipsisString(font: NSFont) -> NSAttributedString {
         NSAttributedString(
             string: EditorURLFold.ellipsis,
@@ -195,7 +241,7 @@ extension PromptTextView {
     private func resetTypingAttributesAroundHiddenText(layout: EditorTextLayout) {
         var attributes = typingAttributes
         var changed = false
-        for key in [NSAttributedString.Key.editorURLHidden, .editorURLEllipsis, .ligature] where attributes[key] != nil {
+        for key in [NSAttributedString.Key.editorURLHidden, .editorURLEllipsis, .editorURLLinkIcon, .ligature] where attributes[key] != nil {
             attributes[key] = nil
             changed = true
         }

@@ -180,6 +180,7 @@ final class PromptTextView: EditorTextView {
             highlight.intersection(rect).fill(using: .sourceOver)
         }
         drawURLEllipses(in: rect)
+        drawURLLinkIcons(in: rect)
     }
 
     // MARK: - 余白

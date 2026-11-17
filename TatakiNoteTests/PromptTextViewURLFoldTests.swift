@@ -589,4 +589,103 @@ struct PromptTextViewURLFoldTests {
         let outside = fixture.range(of: "前置き")
         #expect(fixture.kern(at: outside.location) == newLayout.kern)
     }
+
+    // MARK: - AC-32
+
+    private static let iconOffset = "https://".count - 1
+
+    private func slashWidth(_ font: NSFont) -> CGFloat {
+        NSAttributedString(string: "/", attributes: [.font: font]).size().width
+    }
+
+    @Test("AC-32: 畳んだ URL の先頭にアイコンの矩形が1つあり、URL の左端の近くで URL の行の中にある")
+    func foldedURLHasLinkIconAtItsLeftEdge() throws {
+        let fixture = FoldFixture(Self.sample)
+        let url = fixture.range(of: Self.long)
+        let urlRect = fixture.rect(of: url)
+
+        let icons = fixture.textView.urlLinkIconRects()
+        #expect(icons.count == 1)
+        let icon = try #require(icons.first)
+        #expect(icon.minX >= urlRect.minX - 0.5)
+        #expect(icon.minX < urlRect.minX + FoldFixture.font.pointSize / 2)
+        #expect(icon.maxY > urlRect.minY)
+        #expect(icon.minY < urlRect.maxY)
+        #expect(fixture.textView.string == Self.sample)
+    }
+
+    @Test("AC-32: ドメインの文字は、アイコンの幅とすき間の分だけ後ろから始まる")
+    func domainStartsAfterTheIconAndGap() throws {
+        let fixture = FoldFixture(Self.sample)
+        let url = fixture.range(of: Self.long)
+        let plain = FoldFixture(Self.sample, foldsURLs: false)
+        let urlRect = fixture.rect(of: url)
+        let size = try #require(EditorURLLinkIcon.size(pointSize: FoldFixture.font.pointSize))
+        let gap = EditorURLLinkIcon.gap(pointSize: FoldFixture.font.pointSize)
+
+        let domainStart = url.location + "https://".count
+        let foldedThird = fixture.rect(of: NSRange(location: domainStart + 1, length: 1))
+        let plainFirst = plain.rect(of: NSRange(location: domainStart, length: 1))
+        let plainThird = plain.rect(of: NSRange(location: domainStart + 1, length: 1))
+        let expected = size.width + gap + (plainThird.minX - plainFirst.minX)
+        #expect(abs((foldedThird.minX - urlRect.minX) - expected) < 1.5)
+    }
+
+    @Test("AC-32: アイコンの文字の字間は、その文字の幅の負の値にアイコンの幅とすき間を足した値")
+    func linkIconKernLeavesRoomForIconAndGap() throws {
+        let fixture = FoldFixture(Self.sample)
+        let url = fixture.range(of: Self.long)
+
+        let size = try #require(EditorURLLinkIcon.size(pointSize: FoldFixture.font.pointSize))
+        let gap = EditorURLLinkIcon.gap(pointSize: FoldFixture.font.pointSize)
+        let expectedKern = -slashWidth(FoldFixture.font) + size.width + gap
+        let kern = try #require(fixture.kern(at: url.location + Self.iconOffset))
+        #expect(abs(kern - expectedKern) < 0.01)
+    }
+
+    @Test("AC-32: カーソルが触れて開いた URL・一致で開いた URL・短い URL だけの文章・設定オフにはアイコンが無く、字間は設定の値に戻る")
+    func noLinkIconWhenOpenedShortOrOff() {
+        let fixture = FoldFixture(Self.sample)
+        let url = fixture.range(of: Self.long)
+        let iconLocation = url.location + Self.iconOffset
+        #expect(fixture.textView.urlLinkIconRects().count == 1)
+
+        fixture.textView.setSelectedRange(NSRange(location: url.location + 20, length: 0))
+        #expect(fixture.textView.urlLinkIconRects().isEmpty)
+        #expect(fixture.kern(at: iconLocation) == layout.kern)
+
+        fixture.textView.setSelectedRange(NSRange(location: 0, length: 0))
+        #expect(fixture.textView.urlLinkIconRects().count == 1)
+
+        let match = NSRange(location: url.location + 20, length: 4)
+        fixture.textView.showFindHighlights([match], current: match)
+        #expect(fixture.textView.urlLinkIconRects().isEmpty)
+        #expect(fixture.kern(at: iconLocation) == layout.kern)
+        fixture.textView.showFindHighlights([], current: nil)
+        #expect(fixture.textView.urlLinkIconRects().count == 1)
+
+        let shortOnly = FoldFixture("前置き\n\(Self.short)\n後書き")
+        #expect(shortOnly.textView.urlLinkIconRects().isEmpty)
+
+        let off = FoldFixture(Self.sample, foldsURLs: false)
+        #expect(off.textView.urlLinkIconRects().isEmpty)
+        #expect(off.kern(at: iconLocation) == layout.kern)
+    }
+
+    @Test("AC-32: 文字の大きさを変えると、アイコンの字間が新しいフォントサイズのアイコンの幅とすき間で付け直される")
+    func fontChangeRefreshesLinkIconKern() throws {
+        let fixture = FoldFixture(Self.sample)
+        let url = fixture.range(of: Self.long)
+        let before = try #require(fixture.textView.urlLinkIconRects().first)
+        let newFont = NSFont.systemFont(ofSize: 20)
+
+        fixture.textView.applyFont(newFont)
+
+        let size = try #require(EditorURLLinkIcon.size(pointSize: 20))
+        let expectedKern = -slashWidth(newFont) + size.width + EditorURLLinkIcon.gap(pointSize: 20)
+        let kern = try #require(fixture.kern(at: url.location + Self.iconOffset))
+        #expect(abs(kern - expectedKern) < 0.01)
+        let after = try #require(fixture.textView.urlLinkIconRects().first)
+        #expect(after.height > before.height)
+    }
 }

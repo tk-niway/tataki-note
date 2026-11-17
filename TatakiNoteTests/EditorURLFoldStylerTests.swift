@@ -12,8 +12,16 @@ struct EditorURLFoldStylerTests {
         string == "…" ? 10 : 7
     }
 
-    private func styler(baseKern: CGFloat = 0) -> EditorURLFoldStyler {
-        EditorURLFoldStyler(font: font, baseKern: baseKern) { widths($0) }
+    private static let iconWidth: CGFloat = 12
+
+    private func styler(baseKern: CGFloat = 0, linkIconWidth: CGFloat? = EditorURLFoldStylerTests.iconWidth) -> EditorURLFoldStyler {
+        var styler = EditorURLFoldStyler(font: font, baseKern: baseKern) { widths($0) }
+        styler.linkIconWidth = linkIconWidth
+        return styler
+    }
+
+    private var iconGap: CGFloat {
+        EditorURLLinkIcon.gap(pointSize: font.pointSize)
     }
 
     private func presentations(selection: NSRange = NSRange(location: 0, length: 0)) -> [EditorURLPresentation] {
@@ -35,10 +43,13 @@ struct EditorURLFoldStylerTests {
         let middle = try #require(fold.middleRange)
         let kerns = styler(baseKern: 1.5).hiddenKerns(for: presentations, in: Self.text as NSString)
 
+        let iconLocation = NSMaxRange(fold.schemeRange) - 1
         #expect(kerns.count == fold.schemeRange.length + middle.length)
-        for item in kerns where item.location != NSMaxRange(middle) - 1 {
+        for item in kerns where item.location != NSMaxRange(middle) - 1 && item.location != iconLocation {
             #expect(item.kern == -7)
         }
+        let icon = try #require(kerns.first { $0.location == iconLocation })
+        #expect(icon.kern == -7 + Self.iconWidth + iconGap)
         let last = try #require(kerns.first { $0.location == NSMaxRange(middle) - 1 })
         #expect(last.kern == -7 + 10 + 1.5)
     }
@@ -101,6 +112,90 @@ struct EditorURLFoldStylerTests {
             #expect(kern == (baseKern > 0 ? baseKern : nil))
             #expect(storage.attribute(.ligature, at: hidden, effectiveRange: nil) == nil)
         }
+    }
+
+    // MARK: - AC-30
+
+    private func linkIconLocations(in storage: NSTextStorage) -> [Int] {
+        (0..<storage.length).filter { storage.attribute(.editorURLLinkIcon, at: $0, effectiveRange: nil) != nil }
+    }
+
+    @Test("AC-30: スキームの最後の文字にだけアイコンの幅とすき間の字間と印が付き、ほかの文字は幅の負の値のまま")
+    func linkIconKernIsOnTheLastSchemeCharacterOnly() throws {
+        let presentations = presentations()
+        let fold = try #require(presentations.first?.fold)
+        let iconLocation = NSMaxRange(fold.schemeRange) - 1
+        let kerns = styler().hiddenKerns(for: presentations, in: Self.text as NSString)
+
+        #expect(kerns.filter(\.isLinkIcon).map(\.location) == [iconLocation])
+        let icon = try #require(kerns.first { $0.location == iconLocation })
+        #expect(icon.kern == -7 + Self.iconWidth + iconGap)
+        #expect(!icon.isEllipsis)
+        let schemeOthers = kerns.filter { $0.location >= fold.schemeRange.location && $0.location < iconLocation }
+        #expect(schemeOthers.count == fold.schemeRange.length - 1)
+        #expect(schemeOthers.allSatisfy { $0.kern == -7 && !$0.isLinkIcon })
+    }
+
+    @Test("AC-30: スキームだけ隠す URL にもアイコンの字間と印が付く")
+    func linkIconIsAlsoOnSchemeOnlyFold() throws {
+        let text = "前置き https://example.com/abcdefghijk 後書き" as NSString
+        let presentations = EditorURLPresentation.make(
+            urls: EditorURLDetector.urls(in: text),
+            selection: NSRange(location: 0, length: 0),
+            findRanges: []
+        )
+        let fold = try #require(presentations.first?.fold)
+        #expect(fold.middleRange == nil)
+        let kerns = styler().hiddenKerns(for: presentations, in: text)
+
+        #expect(kerns.count == fold.schemeRange.length)
+        #expect(kerns.filter(\.isLinkIcon).map(\.location) == [NSMaxRange(fold.schemeRange) - 1])
+        let storage = NSTextStorage(string: text as String, attributes: [.font: font])
+        styler().apply(kerns, to: storage)
+        #expect(linkIconLocations(in: storage) == [NSMaxRange(fold.schemeRange) - 1])
+    }
+
+    @Test("AC-30: アイコンの大きさが取れないときは印を付けず、字間は幅の負の値のまま")
+    func noLinkIconWithoutIconWidth() {
+        let kerns = styler(linkIconWidth: nil).hiddenKerns(for: presentations(), in: Self.text as NSString)
+
+        #expect(kerns.allSatisfy { !$0.isLinkIcon })
+        #expect(kerns.filter { !$0.isEllipsis }.allSatisfy { $0.kern == -7 })
+    }
+
+    @Test("AC-30: アイコンの印は付けた位置にだけ付き、字間を外すと印が消えて字間は設定の値に戻る")
+    func linkIconMarkIsAppliedAndRemoved() throws {
+        for baseKern: CGFloat in [0, 1.5] {
+            let storage = makeStorage()
+            let presentations = presentations()
+            let fold = try #require(presentations.first?.fold)
+            let iconLocation = NSMaxRange(fold.schemeRange) - 1
+            let kerns = styler(baseKern: baseKern).hiddenKerns(for: presentations, in: Self.text as NSString)
+
+            styler(baseKern: baseKern).apply(kerns, to: storage)
+            #expect(linkIconLocations(in: storage) == [iconLocation])
+            let kern = storage.attribute(.kern, at: iconLocation, effectiveRange: nil) as? CGFloat
+            #expect(kern == -7 + Self.iconWidth + iconGap)
+            #expect(!styler(baseKern: baseKern).apply(kerns, to: storage))
+
+            #expect(styler(baseKern: baseKern).apply([], to: storage))
+            #expect(linkIconLocations(in: storage).isEmpty)
+            let restored = storage.attribute(.kern, at: iconLocation, effectiveRange: nil) as? CGFloat
+            #expect(restored == (baseKern > 0 ? baseKern : nil))
+        }
+    }
+
+    @Test("AC-30: アイコンの位置の字間が変わっても付け直し、印だけが違う場合も付け直す")
+    func linkIconChangeIsReapplied() {
+        let storage = makeStorage()
+        let withIcon = styler().hiddenKerns(for: presentations(), in: Self.text as NSString)
+        let withoutIcon = styler(linkIconWidth: nil).hiddenKerns(for: presentations(), in: Self.text as NSString)
+
+        styler().apply(withIcon, to: storage)
+        #expect(styler().apply(withoutIcon, to: storage))
+        #expect(linkIconLocations(in: storage).isEmpty)
+        #expect(styler().apply(withIcon, to: storage))
+        #expect(linkIconLocations(in: storage).count == 1)
     }
 
     // MARK: - AC-26

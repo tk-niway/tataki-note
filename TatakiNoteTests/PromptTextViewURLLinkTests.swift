@@ -185,12 +185,15 @@ struct PromptTextViewURLLinkTests {
         #expect(!fromStart.hasRenderedColor(in: urlRange))
         #expect(!fromStart.hasNegativeKernOrHiddenMark())
         #expect(fromStart.textView.urlEllipsisRects().isEmpty)
+        #expect(fromStart.textView.urlLinkIconRects().isEmpty)
 
         let switched = LinkFixture(text: foldedText)
         #expect(switched.hasNegativeKernOrHiddenMark())
+        #expect(!switched.textView.urlLinkIconRects().isEmpty)
         switched.textView.foldsURLs = false
         #expect(!switched.hasRenderedColor(in: urlRange))
         #expect(!switched.hasNegativeKernOrHiddenMark())
+        #expect(switched.textView.urlLinkIconRects().isEmpty)
         #expect(switched.textView.appliedHiddenKerns.isEmpty)
         #expect(switched.textView.appliedURLColorRanges.isEmpty)
     }

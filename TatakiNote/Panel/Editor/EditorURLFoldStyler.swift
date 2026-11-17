@@ -5,6 +5,8 @@ extension NSAttributedString.Key {
     static let editorURLHidden = NSAttributedString.Key("TatakiNoteEditorURLHidden")
     /// 畳んだ URL の「…」を描く文字に付ける印。
     static let editorURLEllipsis = NSAttributedString.Key("TatakiNoteEditorURLEllipsis")
+    /// 畳んだ URL のリンクのアイコンを描く文字に付ける印。
+    static let editorURLLinkIcon = NSAttributedString.Key("TatakiNoteEditorURLLinkIcon")
 }
 
 /// 隠す1文字の字間。
@@ -13,6 +15,15 @@ struct EditorHiddenKern: Equatable {
     let kern: CGFloat
     /// 「…」を描く文字なら true。
     let isEllipsis: Bool
+    /// リンクのアイコンを描く文字なら true。
+    let isLinkIcon: Bool
+
+    init(location: Int, kern: CGFloat, isEllipsis: Bool, isLinkIcon: Bool = false) {
+        self.location = location
+        self.kern = kern
+        self.isEllipsis = isEllipsis
+        self.isLinkIcon = isLinkIcon
+    }
 }
 
 /// 畳んだ URL の隠す文字に、幅を 0 にする字間と印を付け外しする。文字は変えない。
@@ -21,6 +32,8 @@ struct EditorURLFoldStyler {
     /// 字間の設定の値。
     let baseKern: CGFloat
     var measure: (String) -> CGFloat
+    /// リンクのアイコンの幅。作れないときは nil(アイコンを描かない)。
+    var linkIconWidth: CGFloat?
 
     /// URL の色。
     static let urlColor: NSColor = .linkColor
@@ -29,6 +42,7 @@ struct EditorURLFoldStyler {
         self.font = font
         self.baseKern = baseKern
         self.measure = measure ?? { NSAttributedString(string: $0, attributes: [.font: font]).size().width }
+        self.linkIconWidth = EditorURLLinkIcon.size(pointSize: font.pointSize)?.width
     }
 
     /// 見え方から、隠す文字ごとの字間を作る。
@@ -48,6 +62,7 @@ struct EditorURLFoldStyler {
                 ranges.append(middle)
             }
             let middleLast = fold.middleRange.map { NSMaxRange($0) - 1 }
+            let iconLocation = linkIconWidth == nil ? nil : NSMaxRange(LineEditing.clamped(fold.schemeRange, toLength: text.length)) - 1
             for range in ranges {
                 let clamped = LineEditing.clamped(range, toLength: text.length)
                 for location in clamped.location..<NSMaxRange(clamped) {
@@ -57,7 +72,11 @@ struct EditorURLFoldStyler {
                     if isEllipsis {
                         kern += width(of: EditorURLFold.ellipsis) + baseKern
                     }
-                    result.append(EditorHiddenKern(location: location, kern: kern, isEllipsis: isEllipsis))
+                    let isLinkIcon = location == iconLocation
+                    if isLinkIcon, let iconWidth = linkIconWidth {
+                        kern += iconWidth + EditorURLLinkIcon.gap(pointSize: font.pointSize)
+                    }
+                    result.append(EditorHiddenKern(location: location, kern: kern, isEllipsis: isEllipsis, isLinkIcon: isLinkIcon))
                 }
             }
         }
@@ -94,6 +113,7 @@ struct EditorURLFoldStyler {
             let range = NSRange(location: location, length: 1)
             storage.removeAttribute(.editorURLHidden, range: range)
             storage.removeAttribute(.editorURLEllipsis, range: range)
+            storage.removeAttribute(.editorURLLinkIcon, range: range)
             storage.removeAttribute(.ligature, range: range)
             if baseKern > 0 {
                 storage.addAttribute(.kern, value: baseKern, range: range)
@@ -112,6 +132,11 @@ struct EditorURLFoldStyler {
             } else {
                 storage.removeAttribute(.editorURLEllipsis, range: range)
             }
+            if item.isLinkIcon {
+                storage.addAttribute(.editorURLLinkIcon, value: true, range: range)
+            } else {
+                storage.removeAttribute(.editorURLLinkIcon, range: range)
+            }
         }
         storage.endEditing()
         return true
@@ -127,6 +152,7 @@ struct EditorURLFoldStyler {
         let attributes = storage.attributes(at: item.location, effectiveRange: nil)
         return attributes[.editorURLHidden] != nil
             && (attributes[.editorURLEllipsis] != nil) == item.isEllipsis
+            && (attributes[.editorURLLinkIcon] != nil) == item.isLinkIcon
             && (attributes[.kern] as? NSNumber)?.doubleValue == Double(item.kern)
             && (attributes[.ligature] as? NSNumber)?.intValue == 0
     }
