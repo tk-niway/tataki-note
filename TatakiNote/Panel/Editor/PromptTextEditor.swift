@@ -97,6 +97,50 @@ final class PromptTextView: EditorTextView {
         self?.urlToolTip(at: point)
     }
 
+    /// 今、マウスカーソルを指にしているか。
+    var isShowingURLPointingHand = false
+
+    /// マウスカーソルを設定する処理。
+    var urlCursorApplier: (NSCursor) -> Void = { $0.set() }
+
+    /// マウスカーソルのための追跡の領域。
+    var urlCursorTrackingArea: NSTrackingArea?
+
+    // MARK: - URL のマウスカーソル
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        updateURLCursor(at: convert(event.locationInWindow, from: nil), modifiers: event.modifierFlags)
+    }
+
+    override func flagsChanged(with event: NSEvent) {
+        super.flagsChanged(with: event)
+        guard let window else { return }
+        updateURLCursor(at: convert(window.mouseLocationOutsideOfEventStream, from: nil), modifiers: event.modifierFlags)
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        super.cursorUpdate(with: event)
+        updateURLCursor(at: convert(event.locationInWindow, from: nil), modifiers: event.modifierFlags)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        isShowingURLPointingHand = false
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        guard urlCursorTrackingArea == nil else { return }
+        let area = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self
+        )
+        addTrackingArea(area)
+        urlCursorTrackingArea = area
+    }
+
     // MARK: - URL のクリックとメニュー
 
     override func mouseDown(with event: NSEvent) {

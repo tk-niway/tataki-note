@@ -48,4 +48,36 @@ struct EditorURLClickTests {
         #expect(EditorURLClick.url(at: CGPoint(x: 20, y: 35), in: areas) == nil)
         #expect(EditorURLClick.url(at: CGPoint(x: 20, y: 15), in: []) == nil)
     }
+
+    private var pointingAreas: [EditorURLHitArea] {
+        [EditorURLHitArea(url: first, rects: [CGRect(x: 10, y: 0, width: 100, height: 20)], isFolded: true)]
+    }
+
+    private let visible = CGRect(x: 0, y: 0, width: 400, height: 300)
+
+    @Test("AC-27: ⌘ だけ(capsLock・function は無視)で URL の上なら指にする")
+    func showsPointingHandOnURLWithCommand() {
+        let point = CGPoint(x: 50, y: 10)
+        #expect(EditorURLClick.showsPointingHand(at: point, modifiers: .command, in: pointingAreas, visibleRect: visible))
+        #expect(EditorURLClick.showsPointingHand(at: point, modifiers: [.command, .capsLock], in: pointingAreas, visibleRect: visible))
+        #expect(EditorURLClick.showsPointingHand(at: point, modifiers: [.command, .function], in: pointingAreas, visibleRect: visible))
+    }
+
+    @Test("AC-27: 修飾キーなし・⌘ 以外の組み合わせでは指にしない")
+    func hidesPointingHandForOtherModifiers() {
+        let point = CGPoint(x: 50, y: 10)
+        for modifiers: NSEvent.ModifierFlags in [[], .shift, .option, .control, [.command, .shift], [.command, .option], [.command, .control]] {
+            #expect(!EditorURLClick.showsPointingHand(at: point, modifiers: modifiers, in: pointingAreas, visibleRect: visible))
+        }
+    }
+
+    @Test("AC-27: URL の外・見えている範囲の外・URL が無いときは指にしない")
+    func hidesPointingHandOutsideURL() {
+        #expect(!EditorURLClick.showsPointingHand(at: CGPoint(x: 200, y: 10), modifiers: .command, in: pointingAreas, visibleRect: visible))
+        #expect(!EditorURLClick.showsPointingHand(
+            at: CGPoint(x: 50, y: 10), modifiers: .command, in: pointingAreas,
+            visibleRect: CGRect(x: 0, y: 100, width: 400, height: 300)
+        ))
+        #expect(!EditorURLClick.showsPointingHand(at: CGPoint(x: 50, y: 10), modifiers: .command, in: [], visibleRect: visible))
+    }
 }

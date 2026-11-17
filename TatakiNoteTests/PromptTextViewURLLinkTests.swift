@@ -12,6 +12,11 @@ private final class RecordingURLOpener: EditorURLOpening {
 }
 
 @MainActor
+private final class CursorRecorder {
+    var cursors: [NSCursor] = []
+}
+
+@MainActor
 private final class LinkFixture {
     static let longURL = "https://example.com/docs/2026/11/some-page"
     static let shortURL = "https://example.com/s"
@@ -260,6 +265,76 @@ struct PromptTextViewURLLinkTests {
         let action = try #require(item.action)
         _ = target.perform(action, with: item)
         #expect(off.opener.opened == [try #require(URL(string: LinkFixture.longURL))])
+    }
+
+    // MARK: - マウスカーソル
+
+    private func cursorFixture(text: String, selection: NSRange = NSRange(location: 0, length: 0), foldsURLs: Bool = true) -> (LinkFixture, CursorRecorder) {
+        let fixture = LinkFixture(text: text, selection: selection, foldsURLs: foldsURLs)
+        let recorder = CursorRecorder()
+        fixture.textView.urlCursorApplier = { recorder.cursors.append($0) }
+        return (fixture, recorder)
+    }
+
+    private let bounds = CGRect(x: 0, y: 0, width: 400, height: 300)
+
+    @Test("AC-28: ⌘ だけで URL の上なら指にし、外れる・⌘ を離す・他の修飾キーが加わると I ビームに戻す")
+    func pointingHandFollowsConditions() {
+        let (fixture, recorder) = cursorFixture(text: foldedText)
+        let textView = fixture.textView
+        let inside = fixture.centerOfFirstURL
+
+        textView.updateURLCursor(at: inside, modifiers: .command, visibleRect: bounds)
+        #expect(recorder.cursors == [.pointingHand])
+        #expect(textView.isShowingURLPointingHand)
+
+        textView.updateURLCursor(at: LinkFixture.outsidePoint, modifiers: .command, visibleRect: bounds)
+        #expect(recorder.cursors == [.pointingHand, .iBeam])
+        #expect(!textView.isShowingURLPointingHand)
+
+        textView.updateURLCursor(at: inside, modifiers: .command, visibleRect: bounds)
+        textView.updateURLCursor(at: inside, modifiers: [], visibleRect: bounds)
+        #expect(recorder.cursors.suffix(2) == [.pointingHand, .iBeam])
+
+        textView.updateURLCursor(at: inside, modifiers: .command, visibleRect: bounds)
+        textView.updateURLCursor(at: inside, modifiers: [.command, .shift], visibleRect: bounds)
+        #expect(recorder.cursors.suffix(2) == [.pointingHand, .iBeam])
+        #expect(!textView.isShowingURLPointingHand)
+    }
+
+    @Test("AC-28: 指にしていない間は何も設定しない")
+    func noCursorWhenNotShowingHand() {
+        let (fixture, recorder) = cursorFixture(text: foldedText)
+        let inside = fixture.centerOfFirstURL
+        fixture.textView.updateURLCursor(at: inside, modifiers: [], visibleRect: bounds)
+        fixture.textView.updateURLCursor(at: LinkFixture.outsidePoint, modifiers: .command, visibleRect: bounds)
+        fixture.textView.updateURLCursor(at: inside, modifiers: .shift, visibleRect: bounds)
+        #expect(recorder.cursors.isEmpty)
+    }
+
+    @Test("AC-28: 指にしている間は動くたびに指を設定し直す")
+    func reappliesHandWhileOverURL() {
+        let (fixture, recorder) = cursorFixture(text: foldedText)
+        let inside = fixture.centerOfFirstURL
+        fixture.textView.updateURLCursor(at: inside, modifiers: .command, visibleRect: bounds)
+        fixture.textView.updateURLCursor(at: inside, modifiers: .command, visibleRect: bounds)
+        #expect(recorder.cursors == [.pointingHand, .pointingHand])
+    }
+
+    @Test("AC-28: 開いた URL・30 文字以下の URL・設定オフのどれでも指にする")
+    func pointingHandForEveryPresentation() {
+        let revealed = cursorFixture(text: foldedText, selection: NSRange(location: 6, length: 0))
+        #expect(revealed.0.firstArea?.isFolded == false)
+        revealed.0.textView.updateURLCursor(at: revealed.0.centerOfFirstURL, modifiers: .command, visibleRect: bounds)
+        #expect(revealed.1.cursors == [.pointingHand])
+
+        let short = cursorFixture(text: "memo " + LinkFixture.shortURL + " end")
+        short.0.textView.updateURLCursor(at: short.0.centerOfFirstURL, modifiers: .command, visibleRect: bounds)
+        #expect(short.1.cursors == [.pointingHand])
+
+        let off = cursorFixture(text: foldedText, foldsURLs: false)
+        off.0.textView.updateURLCursor(at: off.0.centerOfFirstURL, modifiers: .command, visibleRect: bounds)
+        #expect(off.1.cursors == [.pointingHand])
     }
 
     // MARK: - パネルの吹き出しの設定

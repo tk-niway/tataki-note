@@ -48,6 +48,25 @@ extension PromptTextView {
         return true
     }
 
+    // MARK: - マウスカーソル
+
+    /// ⌘ だけを押して URL の上にいるときはカーソルを指にし、外れたら I ビームに戻す。
+    func updateURLCursor(at point: CGPoint, modifiers: NSEvent.ModifierFlags, visibleRect: CGRect? = nil) {
+        let shows = EditorURLClick.showsPointingHand(
+            at: point,
+            modifiers: modifiers,
+            in: urlHitAreas,
+            visibleRect: visibleRect ?? self.visibleRect
+        )
+        if shows {
+            urlCursorApplier(.pointingHand)
+            isShowingURLPointingHand = true
+        } else if isShowingURLPointingHand {
+            urlCursorApplier(.iBeam)
+            isShowingURLPointingHand = false
+        }
+    }
+
     // MARK: - 右クリックのメニュー
 
     /// 元のメニューの先頭に「リンクを開く」を足したメニュー。

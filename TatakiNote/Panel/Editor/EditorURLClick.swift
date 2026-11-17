@@ -15,6 +15,18 @@ enum EditorURLClick {
     }
 }
 
+extension EditorURLClick {
+    /// 点が見えている範囲の中で、修飾キーが ⌘ だけ、かつ点の下に URL があれば true。
+    static func showsPointingHand(
+        at point: CGPoint,
+        modifiers: NSEvent.ModifierFlags,
+        in areas: [EditorURLHitArea],
+        visibleRect: CGRect
+    ) -> Bool {
+        visibleRect.contains(point) && opensURL(modifiers: modifiers) && url(at: point, in: areas) != nil
+    }
+}
+
 /// URL と、入力欄の座標でのその矩形。
 struct EditorURLHitArea: Equatable {
     let url: EditorURL
