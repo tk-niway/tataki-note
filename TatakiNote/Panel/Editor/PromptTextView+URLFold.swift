@@ -64,18 +64,29 @@ extension PromptTextView {
 
     /// 変換の前に畳んだ URL があるとき、文書の先頭から変換のある段落の終わりまでの配置を確定させる。
     func ensureLayoutBeforeMarkedText() {
-        guard foldsURLs,
-              hasMarkedText(),
-              let layoutManager = textLayoutManager,
-              let contentManager = layoutManager.textContentManager
-        else { return }
+        guard foldsURLs, hasMarkedText() else { return }
         let marked = markedRange()
         guard EditorURLFoldStyler.needsLayoutBeforeMarkedText(hiddenKerns: appliedHiddenKerns, markedLocation: marked.location) else { return }
+        ensureLayout(throughParagraphOf: marked)
+    }
+
+    /// カーソルより前に畳んだ URL があるとき、文書の先頭からカーソルのある段落の終わりまでの配置を確定させる。
+    func ensureLayoutBeforeCaret() {
+        guard foldsURLs, !hasMarkedText() else { return }
+        let selection = selectedRange()
+        guard EditorURLFoldStyler.needsLayoutBefore(location: selection.location, hiddenKerns: appliedHiddenKerns) else { return }
+        ensureLayout(throughParagraphOf: selection)
+    }
+
+    private func ensureLayout(throughParagraphOf range: NSRange) {
+        guard let layoutManager = textLayoutManager,
+              let contentManager = layoutManager.textContentManager
+        else { return }
         let text = string as NSString
-        guard marked.location <= text.length else { return }
-        let end = NSMaxRange(text.paragraphRange(for: marked))
-        guard let range = Self.textRange(NSRange(location: 0, length: end), in: contentManager) else { return }
-        layoutManager.ensureLayout(for: range)
+        guard range.location <= text.length else { return }
+        let end = NSMaxRange(text.paragraphRange(for: range))
+        guard let textRange = Self.textRange(NSRange(location: 0, length: end), in: contentManager) else { return }
+        layoutManager.ensureLayout(for: textRange)
     }
 
     // MARK: - 「…」

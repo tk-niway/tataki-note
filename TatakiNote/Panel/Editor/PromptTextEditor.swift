@@ -228,6 +228,7 @@ final class PromptTextView: EditorTextView {
     override func didChangeText() {
         super.didChangeText()
         restyleText()
+        ensureLayoutBeforeCaret()
         refreshCaret()
         revealBottomPadding(for: selectedRange())
         findBorderView?.needsDisplay = true

@@ -217,4 +217,24 @@ struct EditorURLFoldStylerTests {
         #expect(same == false)
         #expect(notFound == false)
     }
+
+    // MARK: - AC-34
+
+    @Test("AC-34: カーソルの位置より前に隠す文字があるときだけ配置を確定させる")
+    func layoutIsNeededOnlyWhenHiddenTextPrecedesCaret() {
+        func kerns(_ ranges: [Range<Int>]) -> [EditorHiddenKern] {
+            ranges.flatMap { $0 }.map { EditorHiddenKern(location: $0, kern: -5, isEllipsis: false) }
+        }
+        let none = EditorURLFoldStyler.needsLayoutBefore(location: 10, hiddenKerns: [])
+        let after = EditorURLFoldStyler.needsLayoutBefore(location: 40, hiddenKerns: kerns([0..<8, 20..<31]))
+        let before = EditorURLFoldStyler.needsLayoutBefore(location: 40, hiddenKerns: kerns([50..<61]))
+        let same = EditorURLFoldStyler.needsLayoutBefore(location: 40, hiddenKerns: kerns([40..<51]))
+        let notFound = EditorURLFoldStyler.needsLayoutBefore(location: NSNotFound, hiddenKerns: kerns([0..<8]))
+
+        #expect(none == false)
+        #expect(after == true)
+        #expect(before == false)
+        #expect(same == false)
+        #expect(notFound == false)
+    }
 }
