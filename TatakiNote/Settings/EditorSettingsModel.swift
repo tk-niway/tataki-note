@@ -83,6 +83,11 @@ enum StatusItemNote: Equatable {
         String(localized: "続きの行を本文の始まりに揃えます")
     }
 
+    /// 「URL を畳む」の下に出す説明文。
+    static var foldURLsDescription: String {
+        String(localized: "長い URL を短くし、色を変えて表示します。⌘ クリックで開きます")
+    }
+
     /// フォント名を描くフォント。システムフォントのときはシステムフォント、書体を選んでいるときはその書体(12pt)。
     var fontNameFont: NSFont {
         guard let font = settings.resolvedPanelFont else { return .systemFont(ofSize: Self.fontNameSize) }

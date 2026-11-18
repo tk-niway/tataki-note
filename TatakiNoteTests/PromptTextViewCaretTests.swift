@@ -297,6 +297,8 @@ struct PromptTextViewCaretTests {
     @Test("AC-27: 変換中は、文節が選択されていても、未確定の文字のある行のハイライトが出たままになり、確定の後はカーソルの行に出る")
     func highlightStaysWhileComposing() throws {
         let fixture = CaretFixture("あいう\nかきく", readability: highlighting())
+        let layoutManager = try #require(fixture.textView.textLayoutManager)
+        layoutManager.ensureLayout(for: layoutManager.documentRange)
         fixture.select(4)
         let before = try #require(fixture.textView.currentLineHighlightRect)
 

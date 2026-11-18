@@ -62,6 +62,102 @@ final class PromptTextView: EditorTextView {
     /// 今いる行のハイライトの矩形(入力欄の座標)。出さないときは nil。
     private(set) var currentLineHighlightRect: CGRect?
 
+    /// URL を畳んで色を付けるか。
+    var foldsURLs = false {
+        didSet {
+            if foldsURLs != oldValue {
+                refreshURLFolds()
+            }
+        }
+    }
+
+    /// 今の URL の見え方。
+    var urlPresentations: [EditorURLPresentation] = []
+
+    /// URL の付け直しの中か。
+    var isApplyingURLFolds = false
+
+    /// 前回 `textStorage` に付けた隠す字間。
+    var appliedHiddenKerns: [EditorHiddenKern] = []
+
+    /// 前回 rendering 属性で色を付けた範囲。
+    var appliedURLColorRanges: [NSRange] = []
+
+    /// URL を開く役。
+    var urlOpener: EditorURLOpening = WorkspaceEditorURLOpener()
+
+    /// 見え方の全 URL の矩形(入力欄の座標)。
+    var urlHitAreas: [EditorURLHitArea] = []
+
+    /// 畳んだ URL に付けた吹き出しのタグ。
+    var urlToolTipTags: [NSView.ToolTipTag] = []
+
+    /// 畳んだ URL の吹き出しの文字を返す持ち主。
+    lazy var urlToolTipOwner = EditorURLToolTipOwner { [weak self] point in
+        self?.urlToolTip(at: point)
+    }
+
+    /// 今、マウスカーソルを指にしているか。
+    var isShowingURLPointingHand = false
+
+    /// マウスカーソルを設定する処理。
+    var urlCursorApplier: (NSCursor) -> Void = { $0.set() }
+
+    /// マウスカーソルのための追跡の領域。
+    var urlCursorTrackingArea: NSTrackingArea?
+
+    // MARK: - URL のマウスカーソル
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        updateURLCursor(at: convert(event.locationInWindow, from: nil), modifiers: event.modifierFlags)
+    }
+
+    override func flagsChanged(with event: NSEvent) {
+        super.flagsChanged(with: event)
+        guard let window else { return }
+        updateURLCursor(at: convert(window.mouseLocationOutsideOfEventStream, from: nil), modifiers: event.modifierFlags)
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        super.cursorUpdate(with: event)
+        updateURLCursor(at: convert(event.locationInWindow, from: nil), modifiers: event.modifierFlags)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        isShowingURLPointingHand = false
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        guard urlCursorTrackingArea == nil else { return }
+        let area = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self
+        )
+        addTrackingArea(area)
+        urlCursorTrackingArea = area
+    }
+
+    // MARK: - URL のクリックとメニュー
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        if handleURLClick(at: point, modifiers: event.modifierFlags) {
+            return
+        }
+        super.mouseDown(with: event)
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let url = urlForContextMenu(at: convert(event.locationInWindow, from: nil))
+        let menu = super.menu(for: event)
+        guard let url else { return menu }
+        return urlContextMenu(base: menu, url: url)
+    }
+
     // MARK: - 今いる行のハイライト
 
     /// 設定・選択・文章・幅から、今いる行のハイライトの矩形を決め直し、前の矩形と今の矩形を描き直す。
@@ -79,9 +175,12 @@ final class PromptTextView: EditorTextView {
 
     override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
-        guard let highlight = currentLineHighlightRect, highlight.intersects(rect) else { return }
-        EditorCurrentLine.color.setFill()
-        highlight.intersection(rect).fill(using: .sourceOver)
+        if let highlight = currentLineHighlightRect, highlight.intersects(rect) {
+            EditorCurrentLine.color.setFill()
+            highlight.intersection(rect).fill(using: .sourceOver)
+        }
+        drawURLEllipses(in: rect)
+        drawURLLinkIcons(in: rect)
     }
 
     // MARK: - 余白
@@ -122,12 +221,14 @@ final class PromptTextView: EditorTextView {
 
     override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
         super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+        ensureLayoutBeforeMarkedText()
         refreshCaret()
     }
 
     override func didChangeText() {
         super.didChangeText()
         restyleText()
+        ensureLayoutBeforeCaret()
         refreshCaret()
         revealBottomPadding(for: selectedRange())
         findBorderView?.needsDisplay = true
@@ -205,6 +306,9 @@ final class PromptTextView: EditorTextView {
     ) {
         super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelectingFlag)
         refreshCaret()
+        if !stillSelectingFlag, !isApplyingURLFolds {
+            refreshURLFolds()
+        }
         if !findHighlights.isEmpty {
             refreshSelectionAppearance()
         }
@@ -218,6 +322,7 @@ final class PromptTextView: EditorTextView {
         findHighlights = highlights
         updateFindBorder()
         refreshSelectionAppearance()
+        refreshURLFolds()
     }
 
     private func updateFindBorder() {
@@ -437,6 +542,7 @@ struct PromptTextEditor: NSViewRepresentable {
     var placeholder: String = ""
     var bottomPaddingLines: Int = 0
     var readability: EditorReadability = .standard
+    var foldsURLs: Bool = false
     let onKeyInput: (PanelKeyInput) -> Bool
     var findRegistry: FindEditorRegistry?
     var onFindTextChange: () -> Void = {}
@@ -467,6 +573,7 @@ struct PromptTextEditor: NSViewRepresentable {
         textView.baseContainerInset = PanelMetrics.textContainerInset
         textView.applyFont(font)
         textView.applyReadability(readability)
+        textView.foldsURLs = foldsURLs
         textView.bottomPadding = bottomPadding
         textView.placeholder = placeholder
         textView.string = text
@@ -484,6 +591,7 @@ struct PromptTextEditor: NSViewRepresentable {
         context.coordinator.text = $text
         textView.applyFont(font)
         textView.applyReadability(readability)
+        textView.foldsURLs = foldsURLs
         let bottomPadding = bottomPadding
         if textView.bottomPadding != bottomPadding {
             textView.bottomPadding = bottomPadding

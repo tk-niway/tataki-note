@@ -169,6 +169,11 @@ import Observation
         }
     }
 
+    /// 入力欄で URL を畳んで表示するか。
+    var editorFoldsURLs: Bool {
+        didSet { store.persist(\.editorFoldsURLs, of: self, as: SettingDefinitions.editorFoldsURLs) }
+    }
+
     /// 入力欄の見え方の設定をまとめたもの。
     var editorReadability: EditorReadability {
         EditorReadability(
@@ -262,6 +267,7 @@ import Observation
         self.editorIndentsWrappedLines = store.value(SettingDefinitions.editorIndentsWrappedLines)
         self.editorCaretShape = store.value(SettingDefinitions.editorCaretShape)
         self.editorHighlightsCurrentLine = store.value(SettingDefinitions.editorHighlightsCurrentLine)
+        self.editorFoldsURLs = store.value(SettingDefinitions.editorFoldsURLs)
         self.historyRetention = store.value(SettingDefinitions.historyRetention)
         self.checksForUpdatesAutomatically = store.value(SettingDefinitions.checksForUpdatesAutomatically)
         self.panelMoveModifiers = store.value(SettingDefinitions.panelMoveModifiers)

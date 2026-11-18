@@ -193,6 +193,12 @@ struct PanelSettingsView: View {
                         .labelsHidden()
                         .accessibilityIdentifier("settings.wrapIndentToggle")
                 }
+                SettingsRow(title: "URL を畳む", description: EditorSettingsModel.foldURLsDescription) {
+                    Toggle("URL を畳む", isOn: $settings.editorFoldsURLs)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                        .accessibilityIdentifier("settings.foldURLsToggle")
+                }
             }
         }
     }

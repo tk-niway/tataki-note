@@ -148,6 +148,7 @@ struct PanelView: View {
                 placeholder: Self.placeholderText,
                 bottomPaddingLines: settings.editorBottomPaddingLines,
                 readability: settings.editorReadability,
+                foldsURLs: settings.editorFoldsURLs,
                 onKeyInput: onKeyInput,
                 findRegistry: findRegistry,
                 onFindTextChange: onFindTextChange,

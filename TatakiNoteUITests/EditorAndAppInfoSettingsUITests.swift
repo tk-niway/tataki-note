@@ -66,7 +66,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     // AC-5
     // AC-23
     @MainActor
-    func testAC2_AC3_AC4_AC5_AC6_AC23_AC41_editorScenario() throws {
+    func testAC2_AC3_AC4_AC5_AC6_AC16_AC23_AC41_editorScenario() throws {
         let app = XCUIApplication()
         launch(app, permission: AccessibilityOverride.untrusted)
         openPanelSettings(in: app)
@@ -130,6 +130,13 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
         XCTAssertFalse(isChecked(currentLineHighlight))
         currentLineHighlight.click()
         XCTAssertTrue(waitUntil { self.isChecked(currentLineHighlight) }, "今いる行のハイライトがオンにならない")
+
+        // AC-16
+        let foldURLs = element(in: app, identifier: foldURLsToggleID)
+        app.revealInSettings(foldURLs)
+        XCTAssertTrue(isChecked(foldURLs))
+        foldURLs.click()
+        XCTAssertTrue(waitUntil { !self.isChecked(foldURLs) }, "URL を畳むがオフにならない")
 
         // AC-5
         let opacityValue = element(in: app, identifier: opacityValueID)
@@ -362,6 +369,7 @@ final class EditorAndAppInfoSettingsUITests: XCTestCase {
     private let wrapIndentToggleID = "settings.wrapIndentToggle"
     private let caretShapePickerID = "settings.caretShapePicker"
     private let currentLineHighlightToggleID = "settings.currentLineHighlightToggle"
+    private let foldURLsToggleID = "settings.foldURLsToggle"
     private let opacitySliderID = "settings.opacitySlider"
     private let opacityValueID = "settings.opacityValue"
     private let widthFieldID = "settings.panelDefaultWidthField"

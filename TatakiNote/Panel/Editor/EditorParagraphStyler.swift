@@ -28,7 +28,8 @@ struct EditorParagraphStyler {
             }
         }
 
-        let kernNeedsFix = needsKernFix(in: storage, range: whole)
+        let kernRanges = visibleRanges(in: storage, range: whole)
+        let kernNeedsFix = kernRanges.contains { needsKernFix(in: storage, range: $0) }
         guard !changes.isEmpty || kernNeedsFix else { return 0 }
 
         storage.beginEditing()
@@ -36,14 +37,26 @@ struct EditorParagraphStyler {
             storage.addAttribute(.paragraphStyle, value: change.style, range: change.range)
         }
         if kernNeedsFix {
-            if layout.kern > 0 {
-                storage.addAttribute(.kern, value: layout.kern, range: whole)
-            } else {
-                storage.removeAttribute(.kern, range: whole)
+            for range in kernRanges where needsKernFix(in: storage, range: range) {
+                if layout.kern > 0 {
+                    storage.addAttribute(.kern, value: layout.kern, range: range)
+                } else {
+                    storage.removeAttribute(.kern, range: range)
+                }
             }
         }
         storage.endEditing()
         return changes.count
+    }
+
+    private func visibleRanges(in storage: NSTextStorage, range: NSRange) -> [NSRange] {
+        var ranges: [NSRange] = []
+        storage.enumerateAttribute(.editorURLHidden, in: range, options: []) { value, subrange, _ in
+            if value == nil {
+                ranges.append(subrange)
+            }
+        }
+        return ranges
     }
 
     private func headIndent(of paragraph: NSString, cache: inout [String: CGFloat]) -> CGFloat {

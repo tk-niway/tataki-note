@@ -27,6 +27,7 @@ final class PromptPanel: NSPanel {
         isFloatingPanel = true
         level = .floating
         hidesOnDeactivate = false
+        allowsToolTipsWhenApplicationIsInactive = true
         isReleasedWhenClosed = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         isMovableByWindowBackground = true

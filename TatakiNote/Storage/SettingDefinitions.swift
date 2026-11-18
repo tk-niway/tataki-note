@@ -167,6 +167,8 @@ enum SettingDefinitions {
         default: EditorReadability.standard.highlightsCurrentLine
     )
 
+    static let editorFoldsURLs: SettingDefinition<Bool> = .boolean("editorFoldsURLs", default: true)
+
     static let historyRetention: SettingDefinition<HistoryRetention> = .stringEnum(
         "historyRetention",
         default: .defaultValue
