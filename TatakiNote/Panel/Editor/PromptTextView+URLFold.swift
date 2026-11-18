@@ -70,12 +70,10 @@ extension PromptTextView {
         ensureLayout(throughParagraphOf: marked)
     }
 
-    /// カーソルより前に畳んだ URL があるとき、文書の先頭からカーソルのある段落の終わりまでの配置を確定させる。
+    /// 変換中でなければ、文書の先頭からカーソルのある段落の終わりまでの配置を確定させる。
     func ensureLayoutBeforeCaret() {
-        guard foldsURLs, !hasMarkedText() else { return }
-        let selection = selectedRange()
-        guard EditorURLFoldStyler.needsLayoutBefore(location: selection.location, hiddenKerns: appliedHiddenKerns) else { return }
-        ensureLayout(throughParagraphOf: selection)
+        guard !hasMarkedText() else { return }
+        ensureLayout(throughParagraphOf: selectedRange())
     }
 
     private func ensureLayout(throughParagraphOf range: NSRange) {

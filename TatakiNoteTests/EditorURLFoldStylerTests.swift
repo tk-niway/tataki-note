@@ -218,9 +218,9 @@ struct EditorURLFoldStylerTests {
         #expect(notFound == false)
     }
 
-    // MARK: - AC-34
+    // MARK: - AC-26
 
-    @Test("AC-34: カーソルの位置より前に隠す文字があるときだけ配置を確定させる")
+    @Test("AC-26: カーソルの位置より前に隠す文字があるときだけ、変換の前の配置の確定が要る")
     func layoutIsNeededOnlyWhenHiddenTextPrecedesCaret() {
         func kerns(_ ranges: [Range<Int>]) -> [EditorHiddenKern] {
             ranges.flatMap { $0 }.map { EditorHiddenKern(location: $0, kern: -5, isEllipsis: false) }

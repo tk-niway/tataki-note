@@ -23,6 +23,11 @@ private final class FoldFixture {
     static let longURL = "https://example.com/docs/2026/11/some-page"
     static let wrappingURL = "https://example.com/"
         + (1...12).map { "segment\($0)-with-some-words" }.joined(separator: "/")
+    static let wrappingJapaneseText = String(repeating: "吾輩は猫である。名前はまだ無い。どこで生れたかとんと見当がつかぬ。", count: 6)
+    static let wrappingEnglishText = String(
+        repeating: "The quick brown fox jumps over the lazy dog while the sun sets slowly behind the hills. ",
+        count: 4
+    )
 
     static let readability = EditorReadability(
         lineHeightMultiple: 1.5,
@@ -443,28 +448,41 @@ struct PromptTextViewURLFoldTests {
         #expect(abs(startedHighlight.height - settledHighlight.height) < 0.5)
     }
 
-    // MARK: - AC-34
+    // MARK: - AC-35
 
-    @Test("AC-34: 畳んだ URL の後ろで改行した直後と続けて1文字打った直後のカーソルと今いる行のハイライトは、配置を確定した後の位置と同じ")
-    func caretAfterFoldedURLIsSettledWhenTextChanges() throws {
+    @Test(
+        "AC-35: 数行に折り返す段落の末尾で改行した直後と続けて1文字打った直後のカーソルと今いる行のハイライトは、配置を確定した後の位置と同じ",
+        arguments: [
+            ("畳んだ URL", "\(FoldFixture.wrappingURL) を見る", true),
+            ("設定オフの長い URL", "\(FoldFixture.wrappingURL) を見る", false),
+            ("長い日本語の文章", FoldFixture.wrappingJapaneseText, true),
+            ("長い英文", FoldFixture.wrappingEnglishText, true),
+        ]
+    )
+    func caretIsSettledWhenTextChanges(kind: String, text: String, foldsURLs: Bool) throws {
         var readability = FoldFixture.readability
         readability.highlightsCurrentLine = true
-        let text = "\(FoldFixture.wrappingURL) を見る"
         let fixture = FoldFixture(
             text,
             readability: readability,
+            foldsURLs: foldsURLs,
             selection: NSRange(location: (text as NSString).length, length: 0)
         )
-        let opened = FoldFixture(text, readability: readability, foldsURLs: false)
-        let urlRange = fixture.range(of: FoldFixture.wrappingURL)
-        let foldedHeight = FindHighlighter.rects(for: urlRange, in: fixture.textView).reduce(0) { $0 + $1.height }
-        let openedHeight = FindHighlighter.rects(for: urlRange, in: opened.textView).reduce(0) { $0 + $1.height }
-        #expect(foldedHeight < openedHeight)
         let textView = fixture.textView
         let layoutManager = try #require(textView.textLayoutManager)
+        let urlRange = fixture.range(of: FoldFixture.wrappingURL)
+
+        let isFolded = urlRange.location != NSNotFound && fixture.kern(at: urlRange.location + 1).map { $0 < 0 } == true
+        #expect(isFolded == (foldsURLs && urlRange.location != NSNotFound), Comment(rawValue: kind))
+        if !isFolded {
+            let paragraph = NSRange(location: 0, length: (text as NSString).length)
+            let paragraphRects = FindHighlighter.rects(for: paragraph, in: textView)
+            let lineHeight = try #require(paragraphRects.map(\.height).min())
+            #expect(paragraphRects.reduce(0) { $0 + $1.height } >= lineHeight * 2, Comment(rawValue: kind))
+        }
 
         func expectSettled(_ label: String) throws {
-            #expect(fixture.kern(at: urlRange.location + 1).map { $0 < 0 } == true, Comment(rawValue: label))
+            let label = "\(kind): \(label)"
             let started = try #require(textView.caretView?.caretRect)
             let startedHighlight = try #require(textView.currentLineHighlightRect)
             layoutManager.ensureLayout(for: layoutManager.documentRange)
