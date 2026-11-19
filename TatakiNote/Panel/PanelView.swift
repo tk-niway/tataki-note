@@ -50,13 +50,14 @@ struct PanelView: View {
         self.onFindSelectionChange = onFindSelectionChange
     }
 
-    private static let placeholderInset = NSSize(
-        width: PanelMetrics.textContainerInset.width + NSTextContainer().lineFragmentPadding,
-        height: PanelMetrics.textContainerInset.height
-    )
-
     /// 入力欄が空のときに出す薄い文字。
     static let placeholderText = String(localized: "ここにプロンプトを書く…")
+
+    /// 入力欄の左上から、プレースホルダーの文字までの距離。
+    static let placeholderInset = CGSize(
+        width: PanelMetrics.textContainerInset.width + EditorTextLayout.lineFragmentPadding,
+        height: PanelMetrics.textContainerInset.height
+    )
 
     var body: some View {
         let isSidebarOpen = sidebarModel?.isOpen ?? false
@@ -146,6 +147,8 @@ struct PanelView: View {
                 font: font,
                 placeholder: Self.placeholderText,
                 bottomPaddingLines: settings.editorBottomPaddingLines,
+                readability: settings.editorReadability,
+                foldsURLs: settings.editorFoldsURLs,
                 onKeyInput: onKeyInput,
                 findRegistry: findRegistry,
                 onFindTextChange: onFindTextChange,

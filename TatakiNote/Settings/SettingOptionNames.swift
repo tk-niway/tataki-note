@@ -16,6 +16,19 @@ extension PanelScreen {
     }
 }
 
+extension EditorCaretShape {
+    var displayName: String {
+        switch self {
+        case .bar:
+            String(localized: "縦線")
+        case .block:
+            String(localized: "ブロック")
+        case .underline:
+            String(localized: "下線")
+        }
+    }
+}
+
 extension DraftMode {
     var displayName: String {
         switch self {

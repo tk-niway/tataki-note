@@ -446,11 +446,13 @@ struct EditorTextViewTests {
         let cursorAtEnd = await harness.settle { textView.selectedRange() == NSRange(location: end, length: 0) }
         #expect(cursorAtEnd)
         let endVisible = await harness.settle {
-            guard let textContainer = textView.textContainer else { return false }
-            let rect = textView.layoutManager?.boundingRect(
-                forGlyphRange: NSRange(location: end - 1, length: 1),
-                in: textContainer
-            ) ?? .zero
+            guard let window = textView.window else { return false }
+            let screenRect = textView.firstRect(
+                forCharacterRange: NSRange(location: end, length: 0),
+                actualRange: nil
+            )
+            guard screenRect.height > 0 else { return false }
+            let rect = textView.convert(window.convertFromScreen(screenRect), from: nil)
             return textView.visibleRect.intersects(rect)
         }
         #expect(endVisible)
