@@ -17,6 +17,7 @@ extension PromptTextView {
         guard layout != textLayout else { return }
         textLayout = layout
         needsTypingAttributes = true
+        needsFullURLRestyle = true
         restyleText()
         updateCaretAppearance()
         refreshCurrentLineHighlight()
@@ -35,7 +36,9 @@ extension PromptTextView {
             needsTypingAttributes = false
             applyTypingAttributes(of: layout)
         }
-        EditorParagraphStyler(layout: layout, lineWidth: lineWidth).apply(to: storage)
+        if EditorParagraphStyler(layout: layout, lineWidth: lineWidth).apply(to: storage) > 0 {
+            needsFullURLRestyle = true
+        }
     }
 
     /// 入力欄の幅が変わったときに、段落の属性とカーソルを決め直す。

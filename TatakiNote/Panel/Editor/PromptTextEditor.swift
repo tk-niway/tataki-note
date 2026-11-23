@@ -66,6 +66,7 @@ final class PromptTextView: EditorTextView {
     var foldsURLs = false {
         didSet {
             if foldsURLs != oldValue {
+                needsFullURLRestyle = true
                 refreshURLFolds()
             }
         }
@@ -77,8 +78,32 @@ final class PromptTextView: EditorTextView {
     /// URL の付け直しの中か。
     var isApplyingURLFolds = false
 
-    /// 前回 `textStorage` に付けた隠す字間。
-    var appliedHiddenKerns: [EditorHiddenKern] = []
+    /// 文章の URL の一覧。
+    var urlIndex = EditorURLIndex()
+
+    /// 次の付け直しを文書全体で行うか。
+    var needsFullURLRestyle = true
+
+    /// `textStorage` に畳みの印を付けているか。
+    var hasURLFoldMarks = false
+
+    /// 文字の変更が許されてから `didChangeText` までの間か。
+    var isChangingText = false
+
+    /// URL の見え方を決め直した回数。
+    var urlFoldRefreshCount = 0
+
+    /// 直近の付け直しの範囲。
+    var lastURLFoldUpdate: EditorURLFoldUpdate?
+
+    /// 直近の決め直しで使った選択。
+    var lastURLFoldSelection: NSRange?
+
+    /// 文章の変更の通知の見張り。
+    var textStorageObserver: NSObjectProtocol?
+
+    /// 変更の通知を見張っている `textStorage`。
+    weak var observedTextStorage: NSTextStorage?
 
     /// 前回 rendering 属性で色を付けた範囲。
     var appliedURLColorRanges: [NSRange] = []
@@ -225,8 +250,25 @@ final class PromptTextView: EditorTextView {
         refreshCaret()
     }
 
+    override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?) -> Bool {
+        let allowed = super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
+        if allowed {
+            isChangingText = true
+        }
+        return allowed
+    }
+
+    override func shouldChangeText(inRanges affectedRanges: [NSValue], replacementStrings: [String]?) -> Bool {
+        let allowed = super.shouldChangeText(inRanges: affectedRanges, replacementStrings: replacementStrings)
+        if allowed {
+            isChangingText = true
+        }
+        return allowed
+    }
+
     override func didChangeText() {
         super.didChangeText()
+        isChangingText = false
         restyleText()
         ensureLayoutBeforeCaret()
         refreshCaret()
@@ -237,6 +279,7 @@ final class PromptTextView: EditorTextView {
     }
 
     isolated deinit {
+        removeTextStorageObserver()
         removeUndoObservers()
         removeCaretWindowObservers()
     }
@@ -293,6 +336,8 @@ final class PromptTextView: EditorTextView {
 
     override var string: String {
         didSet {
+            isChangingText = false
+            needsFullURLRestyle = true
             restyleText()
             refreshCaret()
             onStringChange?()
@@ -306,7 +351,13 @@ final class PromptTextView: EditorTextView {
     ) {
         super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelectingFlag)
         refreshCaret()
-        if !stillSelectingFlag, !isApplyingURLFolds {
+        if EditorURLRefreshRule.refreshesOnSelectionChange(
+            isStillSelecting: stillSelectingFlag,
+            isApplyingURLFolds: isApplyingURLFolds,
+            isChangingText: isChangingText,
+            hasPendingEdits: urlIndex.hasPendingEdits,
+            isSelectionChanged: selectedRange() != lastURLFoldSelection
+        ) {
             refreshURLFolds()
         }
         if !findHighlights.isEmpty {
