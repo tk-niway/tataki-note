@@ -1,7 +1,7 @@
 import Foundation
 
 /// 入力欄の中の1つの URL。
-struct EditorURL: Equatable {
+nonisolated struct EditorURL: Equatable {
     /// 文章の中の範囲(UTF-16)。
     let range: NSRange
     /// URL の全文。
@@ -12,10 +12,16 @@ struct EditorURL: Equatable {
 enum EditorURLDetector {
     /// 文章の前から順に、重ならない URL を返す。
     static func urls(in text: NSString) -> [EditorURL] {
-        let length = text.length
+        urls(in: text, range: NSRange(location: 0, length: text.length))
+    }
+
+    /// 範囲の中だけを見て、前から順に重ならない URL を返す。範囲の外の文字は無いものとして扱い、位置は文章全体の位置。
+    static func urls(in text: NSString, range: NSRange) -> [EditorURL] {
+        let range = LineEditing.clamped(range, toLength: text.length)
+        let length = range.length
         guard length > 0 else { return [] }
         var units = [UInt16](repeating: 0, count: length)
-        text.getCharacters(&units, range: NSRange(location: 0, length: length))
+        text.getCharacters(&units, range: range)
 
         var result: [EditorURL] = []
         var index = 0
@@ -24,7 +30,8 @@ enum EditorURLDetector {
                 index += 1
                 continue
             }
-            result.append(EditorURL(range: found.range, text: text.substring(with: found.range)))
+            let shifted = NSRange(location: found.range.location + range.location, length: found.range.length)
+            result.append(EditorURL(range: shifted, text: found.text))
             index = NSMaxRange(found.range)
         }
         return result
@@ -49,20 +56,22 @@ enum EditorURLDetector {
     }
 
     private static func schemeLength(in units: [UInt16], at start: Int) -> Int? {
-        let http = Array("http".utf16)
-        guard start + http.count < units.count else { return nil }
-        for (offset, expected) in http.enumerated() where lowercased(units[start + offset]) != expected {
+        guard start + httpUnits.count < units.count else { return nil }
+        for (offset, expected) in httpUnits.enumerated() where lowercased(units[start + offset]) != expected {
             return nil
         }
-        var cursor = start + http.count
+        var cursor = start + httpUnits.count
         if lowercased(units[cursor]) == 0x73 { cursor += 1 }
-        let separator = Array("://".utf16)
-        guard cursor + separator.count <= units.count else { return nil }
-        for (offset, expected) in separator.enumerated() where units[cursor + offset] != expected {
+        guard cursor + separatorUnits.count <= units.count else { return nil }
+        for (offset, expected) in separatorUnits.enumerated() where units[cursor + offset] != expected {
             return nil
         }
-        return cursor + separator.count - start
+        return cursor + separatorUnits.count - start
     }
+
+    private static let httpUnits = Array("http".utf16)
+
+    private static let separatorUnits = Array("://".utf16)
 
     private static func trimmedEnd(units: [UInt16], start: Int, end: Int) -> Int {
         var end = end

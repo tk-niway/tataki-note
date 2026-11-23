@@ -1,15 +1,25 @@
 import AppKit
 
 extension PromptTextView {
+    /// rendering 属性の色が文章の変更で文字と一緒に動くか。
+    static let urlColorsFollowText = true
+
     // MARK: - 畳む・開く
 
-    /// 文章・選択・検索の一致・設定から URL の見え方を決め直し、隠す字間と色を付け直す。
+    /// 文章・選択・検索の一致・設定から URL の見え方を決め直し、変わった所だけ隠す字間と色を付け直す。
     func refreshURLFolds(textDidChange: Bool = false) {
+        observeTextStorageIfNeeded()
         guard !hasMarkedText() else { return }
         let wasApplyingURLFolds = isApplyingURLFolds
         isApplyingURLFolds = true
         defer { isApplyingURLFolds = wasApplyingURLFolds }
-        defer { refreshURLHitAreas() }
+        defer { invalidateURLHitAreas() }
+
+        urlFoldRefreshCount += 1
+        let text = string as NSString
+        let selection = selectedRange()
+        lastURLFoldSelection = selection
+        let change = urlIndex.update(in: text)
 
         guard foldsURLs,
               let layout = textLayout,
@@ -18,29 +28,40 @@ extension PromptTextView {
               let contentManager = layoutManager.textContentManager
         else {
             clearURLFolds()
-            urlPresentations = EditorURLDetector.urls(in: string as NSString).map {
-                EditorURLPresentation(url: $0, fold: nil)
-            }
+            urlPresentations = urlIndex.urls.map { EditorURLPresentation(url: $0, fold: nil) }
+            needsFullURLRestyle = true
+            lastURLFoldUpdate = EditorURLFoldUpdate(redetectedRange: change.redetectedRange, restyleRanges: [], recolorRanges: [])
             return
         }
 
-        let text = string as NSString
-        let selection = selectedRange()
-        let urls = EditorURLDetector.urls(in: text)
         let presentations = EditorURLPresentation.make(
-            urls: urls,
+            urls: urlIndex.urls,
             selection: selection,
             findRanges: findHighlights.map(\.range)
         )
+        let previous = EditorURLRestyleScope.shifted(urlPresentations, through: change.edits)
+        let restyleRanges = EditorURLRestyleScope.restyleRanges(
+            previous: previous,
+            current: presentations,
+            redetectedRange: change.redetectedRange,
+            isWhole: needsFullURLRestyle || change.isWhole,
+            textLength: text.length
+        )
         urlPresentations = presentations
+        needsFullURLRestyle = false
 
-        let styler = EditorURLFoldStyler(font: layout.font, baseKern: layout.kern)
-        let kerns = styler.hiddenKerns(for: presentations, in: text)
+        hasURLFoldMarks = presentations.contains { $0.fold != nil }
         var storageChanged = false
-        if textDidChange || kerns != appliedHiddenKerns {
+        if !restyleRanges.isEmpty {
+            let styler = EditorURLFoldStyler(font: layout.font, baseKern: layout.kern)
             let caretMinYBefore = selection.location == NSNotFound ? nil : caretSegmentRect(at: selection.location)?.minY
-            storageChanged = styler.apply(kerns, to: storage)
-            appliedHiddenKerns = kerns
+            for range in restyleRanges {
+                let overlapping = presentations.filter { NSIntersectionRange($0.url.range, range).length > 0 }
+                let kerns = styler.hiddenKerns(for: overlapping, in: text)
+                if styler.apply(kerns, to: storage, in: range) {
+                    storageChanged = true
+                }
+            }
             if storageChanged {
                 layoutManager.ensureLayout(for: layoutManager.documentRange)
                 keepCaretLineInPlace(selection: selection, minYBefore: caretMinYBefore)
@@ -48,25 +69,77 @@ extension PromptTextView {
             }
         }
 
-        let colorRanges = Self.colorRanges(of: presentations, length: text.length)
-        let recolors = storageChanged || textDidChange || colorRanges != appliedURLColorRanges
-        if recolors {
-            applyURLColors(presentations, length: text.length, layoutManager: layoutManager, contentManager: contentManager)
-            appliedURLColorRanges = colorRanges
+        let recolorRanges = EditorURLRestyleScope.recolorRanges(
+            restyleRanges: restyleRanges,
+            change: change,
+            textLength: text.length,
+            colorsFollowText: Self.urlColorsFollowText
+        )
+        if !recolorRanges.isEmpty {
+            applyURLColors(
+                presentations,
+                in: recolorRanges,
+                length: text.length,
+                layoutManager: layoutManager,
+                contentManager: contentManager
+            )
         }
 
+        appliedURLColorRanges = Self.colorRanges(of: presentations, length: text.length)
+        lastURLFoldUpdate = EditorURLFoldUpdate(
+            redetectedRange: change.redetectedRange,
+            restyleRanges: restyleRanges,
+            recolorRanges: recolorRanges
+        )
         resetTypingAttributesAroundHiddenText(layout: layout)
 
-        if storageChanged || recolors {
+        if storageChanged || !recolorRanges.isEmpty {
             needsDisplay = true
         }
+    }
+
+    /// `textStorage` の文字の変更の通知を見張り、変更を `urlIndex` に記録する。
+    func observeTextStorageIfNeeded() {
+        guard let storage = textStorage, storage !== observedTextStorage else { return }
+        removeTextStorageObserver()
+        observedTextStorage = storage
+        urlIndex.invalidate()
+        textStorageObserver = NotificationCenter.default.addObserver(
+            forName: NSTextStorage.didProcessEditingNotification,
+            object: storage,
+            queue: nil
+        ) { [weak self] notification in
+            MainActor.assumeIsolated {
+                guard let self,
+                      let storage = notification.object as? NSTextStorage,
+                      storage.editedMask.contains(.editedCharacters)
+                else { return }
+                self.urlIndex.record(EditorTextEdit(range: storage.editedRange, changeInLength: storage.changeInLength))
+            }
+        }
+    }
+
+    /// 文字の変更の通知の見張りをやめる。
+    func removeTextStorageObserver() {
+        if let textStorageObserver {
+            NotificationCenter.default.removeObserver(textStorageObserver)
+        }
+        textStorageObserver = nil
+        observedTextStorage = nil
+    }
+
+    /// 今の見え方から作った、隠す文字ごとの字間。
+    var appliedHiddenKerns: [EditorHiddenKern] {
+        guard foldsURLs, let layout = textLayout else { return [] }
+        return EditorURLFoldStyler(font: layout.font, baseKern: layout.kern)
+            .hiddenKerns(for: urlPresentations, in: string as NSString)
     }
 
     /// 変換の前に畳んだ URL があるとき、文書の先頭から変換のある段落の終わりまでの配置を確定させる。
     func ensureLayoutBeforeMarkedText() {
         guard foldsURLs, hasMarkedText() else { return }
         let marked = markedRange()
-        guard EditorURLFoldStyler.needsLayoutBeforeMarkedText(hiddenKerns: appliedHiddenKerns, markedLocation: marked.location) else { return }
+        guard EditorURLFoldStyler.needsLayoutBeforeMarkedText(presentations: urlPresentations, markedLocation: marked.location) else { return }
         ensureLayout(throughParagraphOf: marked)
     }
 
@@ -120,7 +193,7 @@ extension PromptTextView {
 
     /// 畳んだ URL の「…」を描く。
     func drawURLEllipses(in dirtyRect: NSRect) {
-        guard let font = textLayout?.font, !appliedHiddenKerns.isEmpty else { return }
+        guard let font = textLayout?.font, hasURLFoldMarks else { return }
         let string = urlEllipsisString(font: font)
         for rect in urlEllipsisRects() where rect.intersects(dirtyRect) {
             string.draw(at: rect.origin)
@@ -165,7 +238,7 @@ extension PromptTextView {
 
     /// 畳んだ URL の先頭のリンクのアイコンを描く。
     func drawURLLinkIcons(in dirtyRect: NSRect) {
-        guard let font = textLayout?.font, !appliedHiddenKerns.isEmpty,
+        guard let font = textLayout?.font, hasURLFoldMarks,
               let image = EditorURLLinkIcon.image(pointSize: font.pointSize, color: EditorURLFoldStyler.urlColor)
         else { return }
         for rect in urlLinkIconRects() where rect.intersects(dirtyRect) {
@@ -185,7 +258,7 @@ extension PromptTextView {
     private func clearURLFolds() {
         urlPresentations = []
         var changed = false
-        if !appliedHiddenKerns.isEmpty, let storage = textStorage {
+        if hasURLFoldMarks, let storage = textStorage {
             let styler = EditorURLFoldStyler(font: textLayout?.font ?? NSFont.systemFont(ofSize: NSFont.systemFontSize), baseKern: textLayout?.kern ?? 0)
             changed = styler.apply([], to: storage)
         }
@@ -193,7 +266,7 @@ extension PromptTextView {
             layoutManager.removeRenderingAttribute(.foregroundColor, for: layoutManager.documentRange)
             changed = true
         }
-        appliedHiddenKerns = []
+        hasURLFoldMarks = false
         appliedURLColorRanges = []
         if changed {
             if let layoutManager = textLayoutManager {
@@ -226,19 +299,24 @@ extension PromptTextView {
 
     private func applyURLColors(
         _ presentations: [EditorURLPresentation],
+        in ranges: [NSRange],
         length: Int,
         layoutManager: NSTextLayoutManager,
         contentManager: NSTextContentManager
     ) {
-        layoutManager.removeRenderingAttribute(.foregroundColor, for: layoutManager.documentRange)
-        for presentation in presentations {
-            let urlRange = LineEditing.clamped(presentation.url.range, toLength: length)
-            if let range = Self.textRange(urlRange, in: contentManager) {
-                layoutManager.addRenderingAttribute(.foregroundColor, value: EditorURLFoldStyler.urlColor, for: range)
+        for scope in ranges {
+            if let scopeRange = Self.textRange(scope, in: contentManager) {
+                layoutManager.removeRenderingAttribute(.foregroundColor, for: scopeRange)
             }
-            for hidden in Self.hiddenRanges(of: presentation, length: length) {
-                if let range = Self.textRange(hidden, in: contentManager) {
-                    layoutManager.addRenderingAttribute(.foregroundColor, value: NSColor.clear, for: range)
+            for presentation in presentations where NSIntersectionRange(presentation.url.range, scope).length > 0 {
+                let urlRange = LineEditing.clamped(presentation.url.range, toLength: length)
+                if let range = Self.textRange(urlRange, in: contentManager) {
+                    layoutManager.addRenderingAttribute(.foregroundColor, value: EditorURLFoldStyler.urlColor, for: range)
+                }
+                for hidden in Self.hiddenRanges(of: presentation, length: length) {
+                    if let range = Self.textRange(hidden, in: contentManager) {
+                        layoutManager.addRenderingAttribute(.foregroundColor, value: NSColor.clear, for: range)
+                    }
                 }
             }
         }

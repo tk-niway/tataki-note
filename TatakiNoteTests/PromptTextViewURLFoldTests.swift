@@ -86,6 +86,18 @@ private final class FoldFixture {
         storage.attribute(.editorURLHidden, at: location, effectiveRange: nil) != nil
     }
 
+    func hasEllipsis(at location: Int) -> Bool {
+        storage.attribute(.editorURLEllipsis, at: location, effectiveRange: nil) != nil
+    }
+
+    func hasLinkIcon(at location: Int) -> Bool {
+        storage.attribute(.editorURLLinkIcon, at: location, effectiveRange: nil) != nil
+    }
+
+    func ligature(at location: Int) -> Int? {
+        (storage.attribute(.ligature, at: location, effectiveRange: nil) as? NSNumber)?.intValue
+    }
+
     func hiddenCount(in range: NSRange) -> Int {
         (range.location..<NSMaxRange(range)).filter { isHidden(at: $0) }.count
     }
@@ -127,6 +139,85 @@ private final class FoldFixture {
 
     func insert(_ string: String) {
         textView.insertText(string, replacementRange: textView.selectedRange())
+    }
+}
+
+@MainActor
+private final class ColorProbe {
+    enum Kind: String, Equatable {
+        case none
+        case clear
+        case url
+        case other
+    }
+
+    static let text = "前の段落\n" + FoldFixture.longURL + " end"
+
+    let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+    let urlRange: NSRange
+
+    init?() {
+        textView.isRichText = false
+        textView.font = FoldFixture.font
+        textView.string = Self.text
+        urlRange = (Self.text as NSString).range(of: FoldFixture.longURL)
+        guard let layoutManager = textView.textLayoutManager,
+              let contentManager = layoutManager.textContentManager
+        else { return nil }
+        func textRange(_ range: NSRange) -> NSTextRange? {
+            let start = contentManager.documentRange.location
+            guard let lower = contentManager.location(start, offsetBy: range.location),
+                  let upper = contentManager.location(lower, offsetBy: range.length)
+            else { return nil }
+            return NSTextRange(location: lower, end: upper)
+        }
+        let hidden = [
+            NSRange(location: urlRange.location, length: 8),
+            NSRange(location: urlRange.location + 20, length: 6),
+        ]
+        guard let urlTextRange = textRange(urlRange) else { return nil }
+        layoutManager.addRenderingAttribute(.foregroundColor, value: EditorURLFoldStyler.urlColor, for: urlTextRange)
+        for range in hidden {
+            guard let hiddenRange = textRange(range) else { return nil }
+            layoutManager.addRenderingAttribute(.foregroundColor, value: NSColor.clear, for: hiddenRange)
+        }
+        layoutManager.ensureLayout(for: layoutManager.documentRange)
+    }
+
+    func kind(at location: Int) -> Kind {
+        guard let layoutManager = textView.textLayoutManager,
+              let contentManager = layoutManager.textContentManager,
+              let start = contentManager.location(contentManager.documentRange.location, offsetBy: location)
+        else { return .other }
+        var color: NSColor?
+        layoutManager.enumerateRenderingAttributes(from: start, reverse: false) { _, attributes, range in
+            if range.contains(start) {
+                color = attributes[.foregroundColor] as? NSColor
+            }
+            return false
+        }
+        guard let color else { return .none }
+        if color.alphaComponent == 0 { return .clear }
+        if color == EditorURLFoldStyler.urlColor { return .url }
+        return .other
+    }
+
+    func kinds(in range: Range<Int>) -> [Kind] {
+        range.map { kind(at: $0) }
+    }
+
+    func replace(_ range: NSRange, with string: String) {
+        textView.textStorage?.replaceCharacters(in: range, with: string)
+        if let layoutManager = textView.textLayoutManager {
+            layoutManager.ensureLayout(for: layoutManager.documentRange)
+        }
+    }
+
+    func outcome(at location: Int, moved: Kind, stayed: Kind) -> String {
+        let actual = kind(at: location)
+        if actual == moved { return "動いた" }
+        if actual == stayed { return "残った" }
+        return "消えた(\(actual.rawValue))"
     }
 }
 
@@ -746,5 +837,309 @@ struct PromptTextViewURLFoldTests {
         #expect(abs(kern - expectedKern) < 0.01)
         let after = try #require(fixture.textView.urlLinkIconRects().first)
         #expect(after.height > before.height)
+    }
+
+    // MARK: - 新しく作った入力欄との比べ
+
+    private static let multi = "冒頭の段落\n\(long)\n中ほどの段落です\nhttps://example.com/docs/2026/11/another-long-page-name/with/more\n途中 \(long)/x を見る\n末尾の段落"
+
+    private static let longDocument: String = (0..<200).map { number in
+        number % 5 == 0
+            ? "段落 \(number) の本文 https://example.com/docs/2026/11/page-\(number)-some-long-title"
+            : "段落 \(number) の本文です"
+    }.joined(separator: "\n")
+
+    private func ensureLayout(_ fixture: FoldFixture) {
+        if let layoutManager = fixture.textView.textLayoutManager {
+            layoutManager.invalidateLayout(for: layoutManager.documentRange)
+            layoutManager.ensureLayout(for: layoutManager.documentRange)
+        }
+    }
+
+    private func colorName(_ color: NSColor?) -> String {
+        guard let color else { return "なし" }
+        if color.alphaComponent == 0 { return "透明" }
+        return color == EditorURLFoldStyler.urlColor ? "URL" : "他"
+    }
+
+    private func rectsDiffer(_ first: [CGRect], _ second: [CGRect]) -> Bool {
+        first.count != second.count || zip(first, second).contains { !isSame($0, $1) }
+    }
+
+    private func mismatches(_ fixture: FoldFixture, comparesCaret: Bool = false) -> [String] {
+        let textView = fixture.textView
+        let caret = textView.caretView?.caretRect
+        let fresh = FoldFixture(
+            textView.string,
+            readability: textView.readability,
+            foldsURLs: textView.foldsURLs,
+            selection: textView.selectedRange()
+        )
+        ensureLayout(fixture)
+        ensureLayout(fresh)
+        var found: [String] = []
+        for location in 0..<(textView.string as NSString).length {
+            if fixture.isHidden(at: location) != fresh.isHidden(at: location) { found.append("隠す印 \(location)") }
+            if fixture.hasEllipsis(at: location) != fresh.hasEllipsis(at: location) { found.append("「…」の印 \(location)") }
+            if fixture.hasLinkIcon(at: location) != fresh.hasLinkIcon(at: location) { found.append("アイコンの印 \(location)") }
+            if fixture.ligature(at: location) != fresh.ligature(at: location) { found.append("合字 \(location)") }
+            let kernDiffers: Bool
+            switch (fixture.kern(at: location), fresh.kern(at: location)) {
+            case (nil, nil): kernDiffers = false
+            case let (first?, second?): kernDiffers = abs(first - second) > 0.01
+            default: kernDiffers = true
+            }
+            if kernDiffers { found.append("字間 \(location)") }
+            let first = colorName(fixture.renderedColor(at: location))
+            let second = colorName(fresh.renderedColor(at: location))
+            if first != second { found.append("色 \(location): \(first) と \(second)") }
+        }
+        if rectsDiffer(textView.urlEllipsisRects(), fresh.textView.urlEllipsisRects()) { found.append("「…」の矩形") }
+        if rectsDiffer(textView.urlLinkIconRects(), fresh.textView.urlLinkIconRects()) { found.append("アイコンの矩形") }
+        if comparesCaret {
+            switch (caret, fresh.textView.caretView?.caretRect) {
+            case let (first?, second?): if !isSame(first, second) { found.append("カーソルの位置") }
+            case (nil, nil): break
+            default: found.append("カーソルの位置")
+            }
+        }
+        return found
+    }
+
+    private func expectMatchesFresh(_ fixture: FoldFixture, _ label: String, comparesCaret: Bool = false) {
+        let found = mismatches(fixture, comparesCaret: comparesCaret)
+        #expect(found.isEmpty, Comment(rawValue: "\(label): \(found.prefix(8).joined(separator: ", "))"))
+    }
+
+    // MARK: - AC-6
+
+    private func expectAwayEdit(_ label: String, _ operation: (FoldFixture) -> Void) {
+        let fixture = FoldFixture(Self.multi, selection: NSRange(location: 1, length: 0))
+        operation(fixture)
+        expectMatchesFresh(fixture, label)
+    }
+
+    @Test("AC-6: URL から離れた所で打つと、新しく作った入力欄と同じ")
+    func typingAwayFromURLsMatchesAFreshEditor() {
+        expectAwayEdit("打つ") { $0.type("あ", at: NSRange(location: 1, length: 0)) }
+    }
+
+    @Test("AC-6: URL から離れた所で改行すると、新しく作った入力欄と同じ")
+    func newlineAwayFromURLsMatchesAFreshEditor() {
+        expectAwayEdit("改行する") { $0.type("\n", at: NSRange(location: 1, length: 0)) }
+    }
+
+    @Test("AC-6: URL から離れた所で確定すると、新しく作った入力欄と同じ")
+    func insertingAwayFromURLsMatchesAFreshEditor() {
+        expectAwayEdit("確定する") { $0.insert("確定") }
+        expectAwayEdit("改行を確定する") { $0.insert("\n") }
+    }
+
+    @Test("AC-6: URL から離れた最後の段落で打つと、新しく作った入力欄と同じ")
+    func typingInLastParagraphMatchesAFreshEditor() {
+        let end = (Self.multi as NSString).length
+        expectAwayEdit("最後の段落で打つ") { $0.type("あ", at: NSRange(location: end - 3, length: 0)) }
+    }
+
+    @Test("AC-6: URL から離れた所で続けて打つと、新しく作った入力欄と同じ")
+    func typingRepeatedlyAwayFromURLsMatchesAFreshEditor() {
+        expectAwayEdit("続けて打つ") {
+            $0.type("あ", at: NSRange(location: 1, length: 0))
+            $0.type("い", at: NSRange(location: 2, length: 0))
+            $0.insert("う")
+        }
+    }
+
+    @Test("AC-6: 設定オフでは、打っても印・負の字間・色が付かない")
+    func editsWithFoldingOffAddNoMarks() {
+        let fixture = FoldFixture(Self.multi, foldsURLs: false, selection: NSRange(location: 1, length: 0))
+        fixture.type("あ", at: NSRange(location: 1, length: 0))
+        fixture.insert("\n")
+        fixture.insert("確定")
+
+        for location in 0..<(fixture.textView.string as NSString).length {
+            #expect(!fixture.isHidden(at: location))
+            #expect(fixture.kern(at: location) == layout.kern)
+            #expect(fixture.renderedColor(at: location) == nil)
+        }
+        #expect(fixture.textView.urlEllipsisRects().isEmpty)
+        #expect(fixture.textView.urlLinkIconRects().isEmpty)
+        #expect(fixture.textView.urlPresentations.count == 3)
+        #expect(fixture.textView.urlPresentations.allSatisfy { $0.fold == nil })
+        expectMatchesFresh(fixture, "設定オフ")
+    }
+
+    // MARK: - AC-7
+
+    @Test("AC-7: URL に触れる変更・置換・入れ替え・設定の切り替えの後も、新しく作った入力欄と同じ")
+    func editsTouchingURLsMatchAFreshEditor() {
+        let url = NSRange(location: (Self.multi as NSString).range(of: Self.long).location, length: (Self.long as NSString).length)
+        let urlEnd = NSMaxRange(url)
+        let paragraphEnd = (Self.multi as NSString).range(of: "中ほどの段落です").location + 8
+        var wider = FoldFixture.readability
+        wider.letterSpacingPercent = 30
+        let operations: [(String, (FoldFixture) -> Void)] = [
+            ("URL の末尾で打つ", { $0.type("x", at: NSRange(location: urlEnd, length: 0)) }),
+            ("URL の末尾で確定する", {
+                $0.textView.setSelectedRange(NSRange(location: urlEnd, length: 0))
+                $0.insert("x")
+            }),
+            ("URL の中で打つ", { $0.type("x", at: NSRange(location: url.location + 10, length: 0)) }),
+            ("URL の直前で英字を打つ", { $0.type("a", at: NSRange(location: url.location, length: 0)) }),
+            ("URL の直後に空白を打つ", { $0.type(" ", at: NSRange(location: urlEnd, length: 0)) }),
+            ("URL の直後で改行して打つ", {
+                $0.textView.setSelectedRange(NSRange(location: urlEnd, length: 0))
+                $0.insert("\n")
+                $0.insert("あ")
+            }),
+            ("URL を貼る", {
+                $0.textView.setSelectedRange(NSRange(location: paragraphEnd, length: 0))
+                $0.insert(" " + Self.long + "/pasted")
+            }),
+            ("URL の段落をつなぐ", { $0.type("", at: NSRange(location: url.location - 1, length: 1)) }),
+            ("URL の段落を分ける", { $0.type("\n", at: NSRange(location: url.location + 5, length: 0)) }),
+            ("段落の始まりで打つ", { $0.type("あ", at: NSRange(location: urlEnd + 1, length: 0)) }),
+            ("URL を消す", { $0.type("", at: url) }),
+            ("置換", {
+                let text = $0.textView.string as NSString
+                $0.textView.replaceForFind(
+                    [
+                        FindEdit(range: text.range(of: "中ほど"), replacement: "真ん中の"),
+                        FindEdit(range: NSRange(location: url.location + 20, length: 4), replacement: "XYZWV"),
+                    ],
+                    selectionAfter: NSRange(location: 0, length: 0)
+                )
+            }),
+            ("文章の入れ替え", {
+                $0.textView.string = "別の文章\n\(Self.long)/changed\n後書き"
+                $0.textView.setSelectedRange(NSRange(location: 0, length: 0))
+            }),
+            ("設定をオフにする", { $0.textView.foldsURLs = false }),
+            ("設定をオフにしてオンに戻す", {
+                $0.textView.foldsURLs = false
+                $0.textView.foldsURLs = true
+            }),
+            ("字間の設定を変える", { $0.textView.applyReadability(wider) }),
+        ]
+        for (label, operation) in operations {
+            let fixture = FoldFixture(Self.multi, selection: NSRange(location: 1, length: 0))
+            operation(fixture)
+            expectMatchesFresh(fixture, label, comparesCaret: label.contains("直後で改行"))
+        }
+    }
+
+    @Test("AC-7: 取り消し・やり直しの後も、新しく作った入力欄と同じ")
+    func undoAndRedoMatchAFreshEditor() {
+        let url = (Self.multi as NSString).range(of: Self.long)
+        let edits: [(String, NSRange, String)] = [
+            ("URL の末尾で打つ", NSRange(location: NSMaxRange(url), length: 0), "x"),
+            ("URL を消す", url, ""),
+            ("段落をつなぐ", NSRange(location: url.location - 1, length: 1), ""),
+        ]
+        for (label, range, replacement) in edits {
+            let fixture = FoldFixture(Self.multi, selection: NSRange(location: 1, length: 0), undo: true)
+            fixture.type(replacement, at: range)
+            expectMatchesFresh(fixture, "\(label)の後")
+            fixture.undoManager.undo()
+            #expect(fixture.textView.string == Self.multi)
+            expectMatchesFresh(fixture, "\(label)を取り消した後")
+            fixture.undoManager.redo()
+            expectMatchesFresh(fixture, "\(label)をやり直した後")
+        }
+    }
+
+    // MARK: - AC-8
+
+    @Test("AC-8: 200 段落・URL 40 個の文章で URL の無い段落に1文字打つと、付け直すのはその段落だけ")
+    func typingInURLFreeParagraphRestylesOnlyThatParagraph() throws {
+        let fixture = FoldFixture(Self.longDocument)
+        let textView = fixture.textView
+        #expect(textView.urlPresentations.count == 40)
+        let target = fixture.range(of: "段落 101 の本文です")
+        try #require(target.location != NSNotFound)
+        let location = target.location + 4
+
+        for label in ["shouldChangeText", "insertText"] {
+            let before = (textView.string as NSString).length
+            if label == "insertText" {
+                textView.setSelectedRange(NSRange(location: location, length: 0))
+                fixture.insert("y")
+            } else {
+                fixture.type("x", at: NSRange(location: location, length: 0))
+            }
+            #expect((textView.string as NSString).length == before + 1)
+            let paragraph = (textView.string as NSString).paragraphRange(for: NSRange(location: location, length: 0))
+            let update = try #require(textView.lastURLFoldUpdate, Comment(rawValue: label))
+            #expect(update.redetectedRange == paragraph, Comment(rawValue: label))
+            #expect(update.restyleRanges == [paragraph], Comment(rawValue: label))
+            let firstRecolor = try #require(update.recolorRanges.first, Comment(rawValue: label))
+            #expect(firstRecolor.location >= paragraph.location, Comment(rawValue: label))
+            if PromptTextView.urlColorsFollowText {
+                #expect(update.recolorRanges == [paragraph], Comment(rawValue: label))
+            }
+            #expect(textView.urlPresentations.count == 40)
+        }
+    }
+
+    // MARK: - AC-9
+
+    @Test("AC-9: 1文字打つと見え方の決め直しは1回で、その後カーソルを URL に入れると開き、出すと畳まれる")
+    func oneKeystrokeRefreshesOnce() {
+        for label in ["shouldChangeText", "insertText"] {
+            let fixture = FoldFixture(Self.sample)
+            let textView = fixture.textView
+            textView.setSelectedRange(NSRange(location: 0, length: 0))
+            let before = textView.urlFoldRefreshCount
+            if label == "insertText" {
+                fixture.insert("あ")
+            } else {
+                fixture.type("あ", at: NSRange(location: 0, length: 0))
+            }
+            #expect(textView.urlFoldRefreshCount - before == 1, Comment(rawValue: label))
+
+            let url = fixture.range(of: Self.long)
+            #expect(fixture.hiddenCount(in: url) > 0, Comment(rawValue: label))
+            textView.setSelectedRange(NSRange(location: url.location + 10, length: 0))
+            #expect(fixture.hiddenCount(in: url) == 0, Comment(rawValue: label))
+            textView.setSelectedRange(NSRange(location: 0, length: 0))
+            #expect(fixture.hiddenCount(in: url) > 0, Comment(rawValue: label))
+        }
+    }
+
+    // MARK: - AC-15
+
+    @Test("AC-15: urlColorsFollowText は、前の段落に文字を入れる・消したときに rendering 属性の色が文字と一緒に動くかの実際の振る舞いと合う")
+    func colorsFollowTextConstantMatchesRenderingBehavior() throws {
+        let inserting = try #require(ColorProbe())
+        let url = inserting.urlRange
+        let upperBound = NSMaxRange(url) + 1
+        let before = inserting.kinds(in: (url.location - 1)..<upperBound)
+        #expect(before.contains(.none) && before.contains(.clear) && before.contains(.url))
+        #expect(zip(before, before.dropFirst()).contains { $0 != $1 })
+
+        inserting.replace(NSRange(location: 0, length: 0), with: "x")
+        let afterInsert = inserting.kinds(in: url.location..<(NSMaxRange(url) + 2))
+        let insertMoved = afterInsert == before
+        let insertReport = [
+            "URL の終わり: " + inserting.outcome(at: NSMaxRange(url), moved: .url, stayed: .none),
+            "URL の始まり: " + inserting.outcome(at: url.location, moved: .none, stayed: .clear),
+            "透明と URL の色の境目: " + inserting.outcome(at: url.location + 8, moved: .clear, stayed: .url),
+        ].joined(separator: " / ")
+
+        let deleting = try #require(ColorProbe())
+        deleting.replace(NSRange(location: 0, length: 1), with: "")
+        let afterDelete = deleting.kinds(in: (url.location - 2)..<NSMaxRange(url))
+        let deleteMoved = afterDelete == before
+        let deleteReport = [
+            "URL の終わり: " + deleting.outcome(at: NSMaxRange(url) - 1, moved: .none, stayed: .url),
+            "URL の始まり: " + deleting.outcome(at: url.location - 1, moved: .clear, stayed: .none),
+            "透明と URL の色の境目: " + deleting.outcome(at: url.location + 7, moved: .url, stayed: .clear),
+        ].joined(separator: " / ")
+
+        let follows = insertMoved && deleteMoved
+        #expect(
+            PromptTextView.urlColorsFollowText == follows,
+            Comment(rawValue: "入れる: \(insertReport) | 消す: \(deleteReport)")
+        )
     }
 }
