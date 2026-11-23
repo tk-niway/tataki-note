@@ -37,6 +37,7 @@ private final class LinkFixture {
             layoutManager.ensureLayout(for: layoutManager.documentRange)
         }
         textView.refreshURLFolds(textDidChange: true)
+        textView.ensureURLHitAreas()
     }
 
     var firstArea: EditorURLHitArea? {
@@ -338,6 +339,218 @@ struct PromptTextViewURLLinkTests {
         let off = cursorFixture(text: foldedText, foldsURLs: false)
         off.0.textView.updateURLCursor(at: off.0.centerOfFirstURL, modifiers: .command, visibleRect: bounds)
         #expect(off.1.cursors == [.pointingHand])
+    }
+
+    // MARK: - 当たり範囲を作る時期
+
+    private let noReplacement = NSRange(location: NSNotFound, length: 0)
+
+    private func freshAreas(of textView: PromptTextView) -> [EditorURLHitArea] {
+        let length = (textView.string as NSString).length
+        return textView.urlPresentations.map { presentation in
+            EditorURLHitArea(
+                url: presentation.url,
+                rects: FindHighlighter.rects(for: LineEditing.clamped(presentation.url.range, toLength: length), in: textView),
+                isFolded: presentation.fold != nil
+            )
+        }
+    }
+
+    private func center(of area: EditorURLHitArea?) -> CGPoint {
+        let rect = area?.rects.first ?? .zero
+        return CGPoint(x: rect.midX, y: rect.midY)
+    }
+
+    private func enteredEvent() throws -> NSEvent {
+        try #require(NSEvent.enterExitEvent(
+            with: .mouseEntered,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            eventNumber: 0,
+            trackingNumber: 0,
+            userData: nil
+        ))
+    }
+
+    @Test("AC-11: 打った後は当たり範囲と吹き出しをすぐには作らず、マウスが入ると今の作り方と同じ値で作る")
+    func hitAreasBuiltOnMouseEntered() throws {
+        let fixture = LinkFixture(text: foldedText)
+        let textView = fixture.textView
+        #expect(!textView.urlToolTipTags.isEmpty)
+
+        textView.insertText("前の段落\n", replacementRange: noReplacement)
+        #expect(textView.urlHitAreaCache == nil)
+        #expect(textView.urlToolTipTags.isEmpty)
+
+        textView.mouseEntered(with: try enteredEvent())
+        let areas = try #require(textView.urlHitAreaCache)
+        #expect(areas == freshAreas(of: textView))
+        let foldedRectCount = areas.filter(\.isFolded).reduce(0) { $0 + $1.rects.count }
+        #expect(foldedRectCount > 0)
+        #expect(textView.urlToolTipTags.count == foldedRectCount)
+    }
+
+    @Test("AC-11: 設定オフでも、打った後は作らず、マウスが入ると矩形だけを作る")
+    func hitAreasBuiltOnMouseEnteredWhenOff() throws {
+        let fixture = LinkFixture(text: foldedText, foldsURLs: false)
+        let textView = fixture.textView
+
+        textView.insertText("前の段落\n", replacementRange: noReplacement)
+        #expect(textView.urlHitAreaCache == nil)
+
+        textView.mouseEntered(with: try enteredEvent())
+        let areas = try #require(textView.urlHitAreaCache)
+        #expect(areas == freshAreas(of: textView))
+        #expect(areas.allSatisfy { !$0.isFolded })
+        #expect(textView.urlToolTipTags.isEmpty)
+    }
+
+    @Test("AC-11: 動く・⌘ を押す・⌘ クリック・右クリックのときにも、作り直しが要れば作る")
+    func hitAreasBuiltOnOtherMouseEvents() {
+        let fixture = LinkFixture(text: foldedText)
+        let textView = fixture.textView
+        let recorder = CursorRecorder()
+        textView.urlCursorApplier = { recorder.cursors.append($0) }
+
+        textView.insertText("前の段落\n", replacementRange: noReplacement)
+        #expect(textView.urlHitAreaCache == nil)
+        textView.updateURLCursor(at: LinkFixture.outsidePoint, modifiers: [])
+        #expect(textView.urlHitAreaCache == freshAreas(of: textView))
+
+        textView.insertText("a", replacementRange: noReplacement)
+        #expect(textView.urlHitAreaCache == nil)
+        _ = textView.handleURLClick(at: LinkFixture.outsidePoint, modifiers: [])
+        #expect(textView.urlHitAreaCache == nil)
+        _ = textView.handleURLClick(at: LinkFixture.outsidePoint, modifiers: .command)
+        #expect(textView.urlHitAreaCache == freshAreas(of: textView))
+
+        textView.insertText("b", replacementRange: noReplacement)
+        #expect(textView.urlHitAreaCache == nil)
+        _ = textView.urlForContextMenu(at: LinkFixture.outsidePoint)
+        #expect(textView.urlHitAreaCache == freshAreas(of: textView))
+    }
+
+    @Test("AC-11: 選択が変わると作り直しが要り、前と同じ選択では作ってある当たり範囲を保つ")
+    func hitAreasKeptWhenSelectionUnchanged() throws {
+        let fixture = LinkFixture(text: foldedText)
+        let textView = fixture.textView
+        let before = try #require(textView.urlHitAreaCache)
+        let tagCount = textView.urlToolTipTags.count
+        #expect(tagCount > 0)
+
+        textView.setSelectedRange(textView.selectedRange())
+        #expect(textView.urlHitAreaCache == before)
+        #expect(textView.urlToolTipTags.count == tagCount)
+
+        textView.setSelectedRange(NSRange(location: 1, length: 0))
+        #expect(textView.urlHitAreaCache == nil)
+        #expect(textView.urlToolTipTags.isEmpty)
+
+        textView.ensureURLHitAreas()
+        #expect(textView.urlHitAreaCache == freshAreas(of: textView))
+
+        textView.setSelectedRange(NSRange(location: 6, length: 0))
+        #expect(textView.urlHitAreaCache == nil)
+        textView.ensureURLHitAreas()
+        #expect(textView.urlHitAreaCache?.first?.isFolded == false)
+    }
+
+    @Test("AC-11: 設定オフでも、選択が変わると作り直しが要る")
+    func hitAreasInvalidatedBySelectionWhenOff() {
+        let fixture = LinkFixture(text: foldedText, foldsURLs: false)
+        let textView = fixture.textView
+        #expect(textView.urlHitAreaCache != nil)
+        textView.setSelectedRange(NSRange(location: 1, length: 0))
+        #expect(textView.urlHitAreaCache == nil)
+        textView.ensureURLHitAreas()
+        #expect(textView.urlHitAreaCache == freshAreas(of: textView))
+    }
+
+    @Test("AC-12: 打って URL の位置が動いた後、⌘ クリック・右クリック・指のカーソル・吹き出しが動いた後の URL を指す")
+    func linkTargetsFollowTypedPosition() throws {
+        let fixture = LinkFixture(text: foldedText)
+        let textView = fixture.textView
+        let recorder = CursorRecorder()
+        textView.urlCursorApplier = { recorder.cursors.append($0) }
+        let oldCenter = fixture.centerOfFirstURL
+
+        textView.insertText("前の段落\n", replacementRange: noReplacement)
+        let moved = center(of: freshAreas(of: textView).first)
+        #expect(moved != oldCenter)
+
+        #expect(textView.urlToolTip(at: moved) == LinkFixture.longURL)
+        #expect(textView.urlToolTip(at: oldCenter) == nil)
+        #expect(textView.urlForContextMenu(at: moved)?.text == LinkFixture.longURL)
+        #expect(textView.urlForContextMenu(at: oldCenter) == nil)
+        textView.updateURLCursor(at: moved, modifiers: .command, visibleRect: CGRect(x: 0, y: 0, width: 400, height: 300))
+        #expect(recorder.cursors == [.pointingHand])
+
+        #expect(textView.handleURLClick(at: moved, modifiers: .command))
+        #expect(fixture.opener.opened == [try #require(URL(string: LinkFixture.longURL))])
+        #expect(!textView.handleURLClick(at: oldCenter, modifiers: .command))
+        #expect(fixture.opener.opened.count == 1)
+    }
+
+    @Test("AC-12: 設定オフで打って URL の位置が動いた後も、⌘ クリックと「リンクを開く」が動いた後の URL を指す")
+    func linkTargetsFollowTypedPositionWhenOff() throws {
+        let fixture = LinkFixture(text: foldedText, foldsURLs: false)
+        let textView = fixture.textView
+        let oldCenter = fixture.centerOfFirstURL
+
+        textView.insertText("前の段落\n", replacementRange: noReplacement)
+        let moved = center(of: freshAreas(of: textView).first)
+        #expect(moved != oldCenter)
+
+        #expect(textView.urlForContextMenu(at: moved)?.text == LinkFixture.longURL)
+        #expect(textView.urlForContextMenu(at: oldCenter) == nil)
+        #expect(textView.handleURLClick(at: moved, modifiers: .command))
+        #expect(fixture.opener.opened == [try #require(URL(string: LinkFixture.longURL))])
+        #expect(!textView.handleURLClick(at: oldCenter, modifiers: .command))
+    }
+
+    private func expectLinkFollowsLayout(_ fixture: LinkFixture, oldCenter: CGPoint, opened: Int) throws {
+        let textView = fixture.textView
+        let rects = freshAreas(of: textView).first?.rects ?? []
+        let newCenter = center(of: freshAreas(of: textView).first)
+        #expect(!rects.isEmpty)
+        #expect(!rects.contains { $0.contains(oldCenter) })
+
+        #expect(textView.urlForContextMenu(at: newCenter)?.text == LinkFixture.longURL)
+        #expect(textView.urlForContextMenu(at: oldCenter) == nil)
+        #expect(textView.handleURLClick(at: newCenter, modifiers: .command))
+        #expect(fixture.opener.opened.count == opened + 1)
+        let expectedURL = try #require(URL(string: LinkFixture.longURL))
+        #expect(fixture.opener.opened.last == expectedURL)
+        #expect(!textView.handleURLClick(at: oldCenter, modifiers: .command))
+        #expect(fixture.opener.opened.count == opened + 1)
+    }
+
+    @Test("AC-12: 設定オフでフォントの大きさを変えた後も、⌘ クリックと「リンクを開く」が変えた後の URL を指す")
+    func linkTargetsFollowFontChangeWhenOff() throws {
+        let fixture = LinkFixture(text: "前の段落\n" + foldedText, foldsURLs: false)
+        let oldCenter = fixture.centerOfFirstURL
+        #expect(fixture.textView.urlHitAreaCache != nil)
+
+        fixture.textView.applyFont(NSFont.systemFont(ofSize: 28))
+        #expect(fixture.textView.urlHitAreaCache == nil)
+        try expectLinkFollowsLayout(fixture, oldCenter: oldCenter, opened: 0)
+    }
+
+    @Test("AC-12: 設定オフで行の高さを変えた後も、⌘ クリックと「リンクを開く」が変えた後の URL を指す")
+    func linkTargetsFollowLineHeightChangeWhenOff() throws {
+        let fixture = LinkFixture(text: "前の段落\n" + foldedText, foldsURLs: false)
+        let oldCenter = fixture.centerOfFirstURL
+        #expect(fixture.textView.urlHitAreaCache != nil)
+
+        var readability = EditorReadability.standard
+        readability.lineHeightMultiple = 2.0
+        readability.paragraphSpacingLines = 2.0
+        fixture.textView.applyReadability(readability)
+        #expect(fixture.textView.urlHitAreaCache == nil)
+        try expectLinkFollowsLayout(fixture, oldCenter: oldCenter, opened: 0)
     }
 
     // MARK: - パネルの吹き出しの設定

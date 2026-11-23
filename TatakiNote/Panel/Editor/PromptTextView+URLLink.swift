@@ -3,21 +3,35 @@ import AppKit
 extension PromptTextView {
     // MARK: - 当たりと吹き出し
 
-    /// 見え方の全 URL の矩形を作り直し、畳んだ URL に吹き出しを付け直す。
-    func refreshURLHitAreas() {
+    /// 見え方の全 URL の矩形(入力欄の座標)。作り直しが要れば作ってから返す。
+    var urlHitAreas: [EditorURLHitArea] {
+        ensureURLHitAreas()
+        return urlHitAreaCache ?? []
+    }
+
+    /// 当たり範囲を作り直しが要る状態にし、付けている吹き出しを外す。
+    func invalidateURLHitAreas() {
+        urlHitAreaCache = nil
+        guard !urlToolTipTags.isEmpty else { return }
         for tag in urlToolTipTags {
             removeToolTip(tag)
         }
         urlToolTipTags = []
+    }
+
+    /// 作り直しが要れば、見え方の全 URL の矩形を作り、畳んだ URL に吹き出しを付ける。
+    func ensureURLHitAreas() {
+        guard urlHitAreaCache == nil else { return }
         let length = (string as NSString).length
-        urlHitAreas = urlPresentations.map { presentation in
+        let areas = urlPresentations.map { presentation in
             EditorURLHitArea(
                 url: presentation.url,
                 rects: FindHighlighter.rects(for: LineEditing.clamped(presentation.url.range, toLength: length), in: self),
                 isFolded: presentation.fold != nil
             )
         }
-        for area in urlHitAreas where area.isFolded {
+        urlHitAreaCache = areas
+        for area in areas where area.isFolded {
             for rect in area.rects {
                 urlToolTipTags.append(addToolTip(rect, owner: urlToolTipOwner, userData: nil))
             }

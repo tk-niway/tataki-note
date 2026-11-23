@@ -111,8 +111,8 @@ final class PromptTextView: EditorTextView {
     /// URL を開く役。
     var urlOpener: EditorURLOpening = WorkspaceEditorURLOpener()
 
-    /// 見え方の全 URL の矩形(入力欄の座標)。
-    var urlHitAreas: [EditorURLHitArea] = []
+    /// 作ってある見え方の全 URL の矩形(入力欄の座標)。nil は作り直しが要る。
+    var urlHitAreaCache: [EditorURLHitArea]?
 
     /// 畳んだ URL に付けた吹き出しのタグ。
     var urlToolTipTags: [NSView.ToolTipTag] = []
@@ -147,6 +147,11 @@ final class PromptTextView: EditorTextView {
     override func cursorUpdate(with event: NSEvent) {
         super.cursorUpdate(with: event)
         updateURLCursor(at: convert(event.locationInWindow, from: nil), modifiers: event.modifierFlags)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        ensureURLHitAreas()
     }
 
     override func mouseExited(with event: NSEvent) {

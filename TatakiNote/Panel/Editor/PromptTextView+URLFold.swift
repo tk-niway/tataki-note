@@ -13,7 +13,7 @@ extension PromptTextView {
         let wasApplyingURLFolds = isApplyingURLFolds
         isApplyingURLFolds = true
         defer { isApplyingURLFolds = wasApplyingURLFolds }
-        defer { refreshURLHitAreas() }
+        defer { invalidateURLHitAreas() }
 
         urlFoldRefreshCount += 1
         let text = string as NSString

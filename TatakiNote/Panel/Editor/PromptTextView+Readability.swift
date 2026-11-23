@@ -19,6 +19,7 @@ extension PromptTextView {
         needsTypingAttributes = true
         needsFullURLRestyle = true
         restyleText()
+        invalidateURLHitAreas()
         updateCaretAppearance()
         refreshCurrentLineHighlight()
     }
@@ -45,7 +46,7 @@ extension PromptTextView {
     func handleWidthChange() {
         restyleText()
         refreshCaret()
-        refreshURLHitAreas()
+        invalidateURLHitAreas()
     }
 
     // MARK: - カーソル
