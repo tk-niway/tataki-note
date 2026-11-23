@@ -19,6 +19,18 @@ final class PromptTextView: EditorTextView {
     private var undoObservers: [NSObjectProtocol] = []
     private weak var observedUndoManager: UndoManager?
 
+    /// 今の見え方の設定。
+    var readability: EditorReadability = .standard
+
+    /// 今のフォントと見え方の設定から決めた配置。フォントが無い間は nil。
+    var textLayout: EditorTextLayout?
+
+    /// 変換中に付け直せなかった属性が残っているか。
+    var pendingRestyle = false
+
+    /// 配置が変わって、新しく打つ文字の属性を入れ直す必要があるか。
+    var needsTypingAttributes = false
+
     /// 余白を足す前の textContainerInset。
     var baseContainerInset: NSSize = .zero {
         didSet { applyContainerInset() }
@@ -27,6 +39,178 @@ final class PromptTextView: EditorTextView {
     /// 最後の行の下に空ける高さ。
     var bottomPadding: CGFloat = 0 {
         didSet { applyContainerInset() }
+    }
+
+    /// 自前のカーソルを描く view。システムのカーソルだけを使っている間は作られない。
+    var caretView: EditorCaretView?
+
+    /// 自前のカーソルの点滅の時間。
+    var caretBlinkPeriods = EditorCaretBlink.Periods.system()
+
+    /// 自前のカーソルを描くときに使う、元のカーソルの色。
+    lazy var baseInsertionPointColor = insertionPointColor
+
+    /// 入力欄がある窓がキーか。
+    var isCaretWindowKey = false
+
+    /// 入力欄がファーストレスポンダか。
+    var isCaretFirstResponder = false
+
+    /// 窓がキーになる・外れる通知の見張り。
+    var caretWindowObservers: [NSObjectProtocol] = []
+
+    /// 今いる行のハイライトの矩形(入力欄の座標)。出さないときは nil。
+    private(set) var currentLineHighlightRect: CGRect?
+
+    /// URL を畳んで色を付けるか。
+    var foldsURLs = false {
+        didSet {
+            if foldsURLs != oldValue {
+                needsFullURLRestyle = true
+                refreshURLFolds()
+            }
+        }
+    }
+
+    /// 今の URL の見え方。
+    var urlPresentations: [EditorURLPresentation] = []
+
+    /// URL の付け直しの中か。
+    var isApplyingURLFolds = false
+
+    /// 文章の URL の一覧。
+    var urlIndex = EditorURLIndex()
+
+    /// 次の付け直しを文書全体で行うか。
+    var needsFullURLRestyle = true
+
+    /// `textStorage` に畳みの印を付けているか。
+    var hasURLFoldMarks = false
+
+    /// 文字の変更が許されてから `didChangeText` までの間か。
+    var isChangingText = false
+
+    /// URL の見え方を決め直した回数。
+    var urlFoldRefreshCount = 0
+
+    /// 直近の付け直しの範囲。
+    var lastURLFoldUpdate: EditorURLFoldUpdate?
+
+    /// 直近の決め直しで使った選択。
+    var lastURLFoldSelection: NSRange?
+
+    /// 文章の変更の通知の見張り。
+    var textStorageObserver: NSObjectProtocol?
+
+    /// 変更の通知を見張っている `textStorage`。
+    weak var observedTextStorage: NSTextStorage?
+
+    /// 前回 rendering 属性で色を付けた範囲。
+    var appliedURLColorRanges: [NSRange] = []
+
+    /// URL を開く役。
+    var urlOpener: EditorURLOpening = WorkspaceEditorURLOpener()
+
+    /// 作ってある見え方の全 URL の矩形(入力欄の座標)。nil は作り直しが要る。
+    var urlHitAreaCache: [EditorURLHitArea]?
+
+    /// 畳んだ URL に付けた吹き出しのタグ。
+    var urlToolTipTags: [NSView.ToolTipTag] = []
+
+    /// 畳んだ URL の吹き出しの文字を返す持ち主。
+    lazy var urlToolTipOwner = EditorURLToolTipOwner { [weak self] point in
+        self?.urlToolTip(at: point)
+    }
+
+    /// 今、マウスカーソルを指にしているか。
+    var isShowingURLPointingHand = false
+
+    /// マウスカーソルを設定する処理。
+    var urlCursorApplier: (NSCursor) -> Void = { $0.set() }
+
+    /// マウスカーソルのための追跡の領域。
+    var urlCursorTrackingArea: NSTrackingArea?
+
+    // MARK: - URL のマウスカーソル
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        updateURLCursor(at: convert(event.locationInWindow, from: nil), modifiers: event.modifierFlags)
+    }
+
+    override func flagsChanged(with event: NSEvent) {
+        super.flagsChanged(with: event)
+        guard let window else { return }
+        updateURLCursor(at: convert(window.mouseLocationOutsideOfEventStream, from: nil), modifiers: event.modifierFlags)
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        super.cursorUpdate(with: event)
+        updateURLCursor(at: convert(event.locationInWindow, from: nil), modifiers: event.modifierFlags)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        ensureURLHitAreas()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        isShowingURLPointingHand = false
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        guard urlCursorTrackingArea == nil else { return }
+        let area = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self
+        )
+        addTrackingArea(area)
+        urlCursorTrackingArea = area
+    }
+
+    // MARK: - URL のクリックとメニュー
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        if handleURLClick(at: point, modifiers: event.modifierFlags) {
+            return
+        }
+        super.mouseDown(with: event)
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let url = urlForContextMenu(at: convert(event.locationInWindow, from: nil))
+        let menu = super.menu(for: event)
+        guard let url else { return menu }
+        return urlContextMenu(base: menu, url: url)
+    }
+
+    // MARK: - 今いる行のハイライト
+
+    /// 設定・選択・文章・幅から、今いる行のハイライトの矩形を決め直し、前の矩形と今の矩形を描き直す。
+    func refreshCurrentLineHighlight() {
+        let rect = makeCurrentLineHighlightRect()
+        guard rect != currentLineHighlightRect else { return }
+        let previous = currentLineHighlightRect
+        currentLineHighlightRect = rect
+        for changed in [previous, rect] {
+            if let changed {
+                setNeedsDisplay(changed.insetBy(dx: -1, dy: -1))
+            }
+        }
+    }
+
+    override func drawBackground(in rect: NSRect) {
+        super.drawBackground(in: rect)
+        if let highlight = currentLineHighlightRect, highlight.intersects(rect) {
+            EditorCurrentLine.color.setFill()
+            highlight.intersection(rect).fill(using: .sourceOver)
+        }
+        drawURLEllipses(in: rect)
+        drawURLLinkIcons(in: rect)
     }
 
     // MARK: - 余白
@@ -40,8 +224,59 @@ final class PromptTextView: EditorTextView {
         revealBottomPadding(for: range)
     }
 
+    override func setFrameSize(_ newSize: NSSize) {
+        let widthChanged = newSize.width != frame.size.width
+        super.setFrameSize(newSize)
+        if widthChanged {
+            handleWidthChange()
+        }
+    }
+
+    // MARK: - 変換とフォント
+
+    override func applyFont(_ font: NSFont) {
+        super.applyFont(font)
+        if textLayout?.font != self.font {
+            refreshTextLayout()
+        }
+    }
+
+    override func unmarkText() {
+        super.unmarkText()
+        if pendingRestyle {
+            restyleText()
+        }
+        refreshCaret()
+    }
+
+    override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+        super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+        ensureLayoutBeforeMarkedText()
+        refreshCaret()
+    }
+
+    override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?) -> Bool {
+        let allowed = super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
+        if allowed {
+            isChangingText = true
+        }
+        return allowed
+    }
+
+    override func shouldChangeText(inRanges affectedRanges: [NSValue], replacementStrings: [String]?) -> Bool {
+        let allowed = super.shouldChangeText(inRanges: affectedRanges, replacementStrings: replacementStrings)
+        if allowed {
+            isChangingText = true
+        }
+        return allowed
+    }
+
     override func didChangeText() {
         super.didChangeText()
+        isChangingText = false
+        restyleText()
+        ensureLayoutBeforeCaret()
+        refreshCaret()
         revealBottomPadding(for: selectedRange())
         findBorderView?.needsDisplay = true
         observeUndoManagerIfNeeded()
@@ -49,7 +284,32 @@ final class PromptTextView: EditorTextView {
     }
 
     isolated deinit {
+        removeTextStorageObserver()
         removeUndoObservers()
+        removeCaretWindowObservers()
+    }
+
+    // MARK: - カーソルの出来事
+
+    override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        if accepted {
+            setCaretFocus(isKeyWindow: window?.isKeyWindow ?? false, isFirstResponder: true)
+        }
+        return accepted
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        if resigned {
+            setCaretFocus(isKeyWindow: isCaretWindowKey, isFirstResponder: false)
+        }
+        return resigned
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        observeCaretWindow()
     }
 
     private func observeUndoManagerIfNeeded() {
@@ -62,7 +322,10 @@ final class PromptTextView: EditorTextView {
                 object: undoManager,
                 queue: nil
             ) { [weak self] _ in
-                MainActor.assumeIsolated { self?.onStringChange?() }
+                MainActor.assumeIsolated {
+                    self?.restyleText()
+                    self?.onStringChange?()
+                }
             }
             undoObservers.append(observer)
         }
@@ -77,7 +340,13 @@ final class PromptTextView: EditorTextView {
     }
 
     override var string: String {
-        didSet { onStringChange?() }
+        didSet {
+            isChangingText = false
+            needsFullURLRestyle = true
+            restyleText()
+            refreshCaret()
+            onStringChange?()
+        }
     }
 
     override func setSelectedRanges(
@@ -86,6 +355,16 @@ final class PromptTextView: EditorTextView {
         stillSelecting stillSelectingFlag: Bool
     ) {
         super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelectingFlag)
+        refreshCaret()
+        if EditorURLRefreshRule.refreshesOnSelectionChange(
+            isStillSelecting: stillSelectingFlag,
+            isApplyingURLFolds: isApplyingURLFolds,
+            isChangingText: isChangingText,
+            hasPendingEdits: urlIndex.hasPendingEdits,
+            isSelectionChanged: selectedRange() != lastURLFoldSelection
+        ) {
+            refreshURLFolds()
+        }
         if !findHighlights.isEmpty {
             refreshSelectionAppearance()
         }
@@ -99,6 +378,7 @@ final class PromptTextView: EditorTextView {
         findHighlights = highlights
         updateFindBorder()
         refreshSelectionAppearance()
+        refreshURLFolds()
     }
 
     private func updateFindBorder() {
@@ -128,7 +408,7 @@ final class PromptTextView: EditorTextView {
         needsDisplay = true
     }
 
-    private func applyContainerInset() {
+    func applyContainerInset() {
         textContainerInset = EditorBottomPadding.containerInset(base: baseContainerInset, padding: bottomPadding)
         invalidateTextContainerOrigin()
         sizeToFit()
@@ -139,17 +419,31 @@ final class PromptTextView: EditorTextView {
         let text = string as NSString
         guard EditorBottomPadding.isInLastLine(range, of: text) else { return }
         let end = min(NSMaxRange(range), text.length)
+        for _ in 0..<Self.maxRevealPasses {
+            let previousMaxY = bounds.maxY
+            guard scrollBottomPaddingIntoView(at: end, in: window) else { return }
+            textLayoutManager?.textViewportLayoutController.layoutViewport()
+            sizeToFit()
+            if bounds.maxY == previousMaxY { return }
+        }
+    }
+
+    private static let maxRevealPasses = 4
+
+    private func scrollBottomPaddingIntoView(at end: Int, in window: NSWindow) -> Bool {
         let screenRect = firstRect(forCharacterRange: NSRange(location: end, length: 0), actualRange: nil)
-        guard screenRect.height > 0 else { return }
+        guard screenRect.height > 0 else { return false }
         let caretRect = convert(window.convertFromScreen(screenRect), from: nil)
+        sizeToFit()
         let rect = EditorBottomPadding.revealRect(
             caretRect: caretRect,
-            documentMaxY: caretRect.maxY + baseContainerInset.height + bottomPadding,
+            documentMaxY: max(caretRect.maxY + baseContainerInset.height + bottomPadding, bounds.maxY),
             visibleHeight: visibleRect.height,
             padding: bottomPadding,
             isInLastLine: true
         )
         scrollToVisible(rect)
+        return true
     }
 
     // MARK: - キー操作
@@ -303,6 +597,8 @@ struct PromptTextEditor: NSViewRepresentable {
     let font: NSFont
     var placeholder: String = ""
     var bottomPaddingLines: Int = 0
+    var readability: EditorReadability = .standard
+    var foldsURLs: Bool = false
     let onKeyInput: (PanelKeyInput) -> Bool
     var findRegistry: FindEditorRegistry?
     var onFindTextChange: () -> Void = {}
@@ -311,7 +607,10 @@ struct PromptTextEditor: NSViewRepresentable {
     typealias Coordinator = EditorTextCoordinator
 
     private var bottomPadding: CGFloat {
-        EditorBottomPadding.height(lines: bottomPaddingLines, lineHeight: EditorBottomPadding.lineHeight(for: font))
+        EditorBottomPadding.height(
+            lines: bottomPaddingLines,
+            lineHeight: EditorTextLayout(font: font, readability: readability).lineHeight
+        )
     }
 
     func makeCoordinator() -> Coordinator {
@@ -329,6 +628,8 @@ struct PromptTextEditor: NSViewRepresentable {
         )
         textView.baseContainerInset = PanelMetrics.textContainerInset
         textView.applyFont(font)
+        textView.applyReadability(readability)
+        textView.foldsURLs = foldsURLs
         textView.bottomPadding = bottomPadding
         textView.placeholder = placeholder
         textView.string = text
@@ -345,6 +646,9 @@ struct PromptTextEditor: NSViewRepresentable {
         findRegistry?.editor = textView
         context.coordinator.text = $text
         textView.applyFont(font)
+        textView.applyReadability(readability)
+        textView.foldsURLs = foldsURLs
+        let bottomPadding = bottomPadding
         if textView.bottomPadding != bottomPadding {
             textView.bottomPadding = bottomPadding
         }
