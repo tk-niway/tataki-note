@@ -136,4 +136,76 @@ struct EditorURLDetectorTests {
         #expect(urls.first?.range == NSRange(location: 3, length: 13))
         #expect((text as NSString).substring(with: urls[0].range) == "https://a.com")
     }
+
+    // MARK: - 範囲版
+
+    private let rangedSample = "前置き https://example.com/a(b)c 中\nhttp://x.jp/path?q=1#f, と😀 https://example.com/docs/2026/11/some-page.\n\nabchttps://no.example 後"
+
+    private func paragraphBoundaries(of text: NSString) -> [Int] {
+        var boundaries = [0]
+        var index = 0
+        while index < text.length {
+            index = NSMaxRange(text.paragraphRange(for: NSRange(location: index, length: 0)))
+            boundaries.append(index)
+        }
+        return boundaries
+    }
+
+    @Test("AC-2: 段落の境目にそろえた範囲の結果は、全文の結果のうち範囲に始まりのあるものと同じ")
+    func rangeMatchesWholeResultsStartingInRange() {
+        let text = rangedSample as NSString
+        let whole = EditorURLDetector.urls(in: text)
+        #expect(!whole.isEmpty)
+        let boundaries = paragraphBoundaries(of: text)
+        for start in boundaries {
+            for end in boundaries where end >= start {
+                let range = NSRange(location: start, length: end - start)
+                let expected = whole.filter { NSLocationInRange($0.range.location, range) }
+                #expect(EditorURLDetector.urls(in: text, range: range) == expected, "範囲 \(range)")
+            }
+        }
+    }
+
+    @Test("AC-2: 範囲の外の文字は無いものとして扱い、位置は文章全体の位置になる")
+    func rangeIgnoresOutsideAndReportsWholeTextLocations() {
+        let text = "abchttps://a.com https://b.com" as NSString
+        let urls = EditorURLDetector.urls(in: text, range: NSRange(location: 3, length: 27))
+        #expect(urls.map(\.text) == ["https://a.com", "https://b.com"])
+        #expect(urls.map(\.range) == [NSRange(location: 3, length: 13), NSRange(location: 17, length: 13)])
+        #expect(urls.allSatisfy { text.substring(with: $0.range) == $0.text })
+    }
+
+    @Test("AC-2: 範囲が空・範囲が文章の端・文章より外へはみ出すときも位置が正しい")
+    func rangeAtEdgesAndEmpty() {
+        let text = "https://a.com\nx https://b.com" as NSString
+        #expect(EditorURLDetector.urls(in: text, range: NSRange(location: 4, length: 0)).isEmpty)
+        #expect(EditorURLDetector.urls(in: "" as NSString, range: NSRange(location: 0, length: 0)).isEmpty)
+        let head = EditorURLDetector.urls(in: text, range: NSRange(location: 0, length: 14))
+        #expect(head.map(\.range) == [NSRange(location: 0, length: 13)])
+        let tail = EditorURLDetector.urls(in: text, range: NSRange(location: 14, length: 100))
+        #expect(tail.map(\.range) == [NSRange(location: 16, length: 13)])
+        #expect(tail.map(\.text) == ["https://b.com"])
+        #expect(EditorURLDetector.urls(in: text, range: NSRange(location: 100, length: 5)).isEmpty)
+    }
+
+    @Test("AC-2: サロゲートペアの後ろから始まる範囲の URL の位置が UTF-16 で正しい")
+    func rangeAfterSurrogatePair() {
+        let text = "😀\n😀 https://a.com" as NSString
+        let urls = EditorURLDetector.urls(in: text, range: NSRange(location: 3, length: text.length - 3))
+        #expect(urls.map(\.range) == [NSRange(location: 6, length: 13)])
+        #expect(text.substring(with: urls[0].range) == "https://a.com")
+    }
+
+    @Test("AC-2: 範囲の始まりの直前の英数字は見ない")
+    func rangeDoesNotLookBeforeItsStart() {
+        let text = "abhttps://a.com" as NSString
+        #expect(EditorURLDetector.urls(in: text).isEmpty)
+        #expect(EditorURLDetector.urls(in: text, range: NSRange(location: 2, length: 13)).map(\.text) == ["https://a.com"])
+    }
+
+    @Test("AC-2: 範囲を全体にした結果は、全文の検出と同じ")
+    func wholeRangeEqualsWholeDetection() {
+        let text = rangedSample as NSString
+        #expect(EditorURLDetector.urls(in: text, range: NSRange(location: 0, length: text.length)) == EditorURLDetector.urls(in: text))
+    }
 }
