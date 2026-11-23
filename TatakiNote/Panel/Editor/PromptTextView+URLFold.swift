@@ -66,7 +66,7 @@ extension PromptTextView {
     func ensureLayoutBeforeMarkedText() {
         guard foldsURLs, hasMarkedText() else { return }
         let marked = markedRange()
-        guard EditorURLFoldStyler.needsLayoutBeforeMarkedText(hiddenKerns: appliedHiddenKerns, markedLocation: marked.location) else { return }
+        guard EditorURLFoldStyler.needsLayoutBeforeMarkedText(presentations: urlPresentations, markedLocation: marked.location) else { return }
         ensureLayout(throughParagraphOf: marked)
     }
 

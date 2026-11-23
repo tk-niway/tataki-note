@@ -198,18 +198,143 @@ struct EditorURLFoldStylerTests {
         #expect(linkIconLocations(in: storage).count == 1)
     }
 
+    // MARK: - AC-5
+
+    private static let secondUrl = "https://example.org/blog/2026/12/another-long-title/last-part"
+    private static let twoUrlText = "前置き \(url) 間 \(secondUrl) 後書き"
+
+    private func twoUrlPresentations() -> [EditorURLPresentation] {
+        EditorURLPresentation.make(
+            urls: EditorURLDetector.urls(in: Self.twoUrlText as NSString),
+            selection: NSRange(location: 0, length: 0),
+            findRanges: []
+        )
+    }
+
+    private func attributeSnapshot(of storage: NSTextStorage) -> [String] {
+        (0..<storage.length).map { location in
+            let attributes = storage.attributes(at: location, effectiveRange: nil)
+            let kern = (attributes[.kern] as? NSNumber)?.doubleValue
+            let ligature = (attributes[.ligature] as? NSNumber)?.intValue
+            return "\(kern.map { "\($0)" } ?? "-")|\(ligature.map { "\($0)" } ?? "-")|"
+                + "\(attributes[.editorURLHidden] != nil)|\(attributes[.editorURLEllipsis] != nil)|\(attributes[.editorURLLinkIcon] != nil)"
+        }
+    }
+
+    @Test("AC-5: 範囲を限った付け直しは、範囲の外の文字の属性を変えず、範囲の中は文書全体の付け直しと同じになる")
+    func restrictedApplyTouchesOnlyTheRange() throws {
+        let text = Self.twoUrlText as NSString
+        let presentations = twoUrlPresentations()
+        #expect(presentations.count == 2)
+        let kerns = styler(baseKern: 1.5).hiddenKerns(for: presentations, in: text)
+        let firstRange = presentations[0].url.range
+
+        let whole = NSTextStorage(string: Self.twoUrlText, attributes: [.font: font])
+        styler(baseKern: 1.5).apply(kerns, to: whole)
+
+        let restricted = NSTextStorage(string: Self.twoUrlText, attributes: [.font: font])
+        let before = attributeSnapshot(of: restricted)
+        #expect(styler(baseKern: 1.5).apply(kerns, to: restricted, in: firstRange))
+        let after = attributeSnapshot(of: restricted)
+        let wholeSnapshot = attributeSnapshot(of: whole)
+
+        for location in 0..<restricted.length {
+            if NSLocationInRange(location, firstRange) {
+                #expect(after[location] == wholeSnapshot[location])
+            } else {
+                #expect(after[location] == before[location])
+            }
+        }
+        #expect(after[firstRange.location..<NSMaxRange(firstRange)].contains { $0.contains("|true|") })
+        #expect(!styler(baseKern: 1.5).apply(kerns, to: restricted, in: firstRange))
+    }
+
+    @Test("AC-5: 範囲を限って空の字間を渡すと、範囲の中の印だけを外し、範囲の外の印は残る")
+    func restrictedApplyRemovesMarksOnlyInTheRange() {
+        let text = Self.twoUrlText as NSString
+        let presentations = twoUrlPresentations()
+        let kerns = styler().hiddenKerns(for: presentations, in: text)
+        let storage = NSTextStorage(string: Self.twoUrlText, attributes: [.font: font])
+        styler().apply(kerns, to: storage)
+        let firstRange = presentations[0].url.range
+        let secondRange = presentations[1].url.range
+
+        #expect(styler().apply([], to: storage, in: firstRange))
+
+        func hiddenLocations(in range: NSRange) -> [Int] {
+            (range.location..<NSMaxRange(range)).filter { storage.attribute(.editorURLHidden, at: $0, effectiveRange: nil) != nil }
+        }
+        #expect(hiddenLocations(in: firstRange).isEmpty)
+        #expect(!hiddenLocations(in: secondRange).isEmpty)
+    }
+
+    @Test("AC-5: 範囲が文章の外にはみ出しても収め、長さ 0 の範囲では何も変えない")
+    func restrictedApplyClampsTheRange() {
+        let text = Self.twoUrlText as NSString
+        let kerns = styler().hiddenKerns(for: twoUrlPresentations(), in: text)
+        let storage = NSTextStorage(string: Self.twoUrlText, attributes: [.font: font])
+
+        #expect(!styler().apply(kerns, to: storage, in: NSRange(location: 3, length: 0)))
+        #expect(!styler().apply(kerns, to: storage, in: NSRange(location: storage.length + 5, length: 4)))
+        #expect(styler().apply(kerns, to: storage, in: NSRange(location: 0, length: storage.length + 100)))
+        let whole = NSTextStorage(string: Self.twoUrlText, attributes: [.font: font])
+        styler().apply(kerns, to: whole)
+        #expect(attributeSnapshot(of: storage) == attributeSnapshot(of: whole))
+    }
+
+    // MARK: - AC-10
+
+    @Test("AC-10: 配置の確定の判定は、見え方から決めても、隠す字間の一覧から決めた判定と同じになる")
+    func layoutDecisionMatchesHiddenKernDecision() {
+        let text = String(repeating: "x", count: 300) as NSString
+        let schemeOnly = EditorURLFold(schemeRange: NSRange(location: 50, length: 8), middleRange: nil)
+        let middleOnly = EditorURLFold(schemeRange: NSRange(location: 100, length: 0), middleRange: NSRange(location: 104, length: 20))
+        let both = EditorURLFold(schemeRange: NSRange(location: 150, length: 8), middleRange: NSRange(location: 158, length: 12))
+        func presentation(_ location: Int, _ fold: EditorURLFold?) -> EditorURLPresentation {
+            EditorURLPresentation(url: EditorURL(range: NSRange(location: location, length: 40), text: ""), fold: fold)
+        }
+        let sets: [[EditorURLPresentation]] = [
+            [],
+            [presentation(50, nil)],
+            [presentation(50, schemeOnly)],
+            [presentation(100, middleOnly)],
+            [presentation(50, schemeOnly), presentation(100, middleOnly), presentation(150, both)],
+            [presentation(150, both)],
+        ]
+        let locations = [0, 49, 50, 51, 100, 103, 104, 105, 150, 151, 200, NSNotFound]
+        for presentations in sets {
+            let kerns = styler().hiddenKerns(for: presentations, in: text)
+            for location in locations {
+                let expected = location != NSNotFound && kerns.contains { $0.location < location }
+                #expect(EditorURLFoldStyler.needsLayoutBefore(location: location, presentations: presentations) == expected)
+                #expect(EditorURLFoldStyler.needsLayoutBeforeMarkedText(presentations: presentations, markedLocation: location) == expected)
+            }
+        }
+    }
+
     // MARK: - AC-26
+
+    private func foldedPresentations(_ hiddenRanges: [Range<Int>]) -> [EditorURLPresentation] {
+        hiddenRanges.map { hidden in
+            let url = EditorURL(range: NSRange(location: hidden.lowerBound, length: hidden.count + 10), text: "")
+            let fold = EditorURLFold(
+                schemeRange: NSRange(location: hidden.lowerBound, length: hidden.count),
+                middleRange: nil
+            )
+            return EditorURLPresentation(url: url, fold: fold)
+        }
+    }
 
     @Test("AC-26: 配置を確定させるのは、変換の位置より前に隠す文字があるときだけ")
     func layoutIsNeededOnlyWhenHiddenTextPrecedesMarkedText() {
-        func kerns(_ ranges: [Range<Int>]) -> [EditorHiddenKern] {
-            ranges.flatMap { $0 }.map { EditorHiddenKern(location: $0, kern: -5, isEllipsis: false) }
+        func kerns(_ ranges: [Range<Int>]) -> [EditorURLPresentation] {
+            foldedPresentations(ranges)
         }
-        let none = EditorURLFoldStyler.needsLayoutBeforeMarkedText(hiddenKerns: [], markedLocation: 10)
-        let after = EditorURLFoldStyler.needsLayoutBeforeMarkedText(hiddenKerns: kerns([0..<8, 20..<31]), markedLocation: 40)
-        let before = EditorURLFoldStyler.needsLayoutBeforeMarkedText(hiddenKerns: kerns([50..<61]), markedLocation: 40)
-        let same = EditorURLFoldStyler.needsLayoutBeforeMarkedText(hiddenKerns: kerns([40..<51]), markedLocation: 40)
-        let notFound = EditorURLFoldStyler.needsLayoutBeforeMarkedText(hiddenKerns: kerns([0..<8]), markedLocation: NSNotFound)
+        let none = EditorURLFoldStyler.needsLayoutBeforeMarkedText(presentations: [], markedLocation: 10)
+        let after = EditorURLFoldStyler.needsLayoutBeforeMarkedText(presentations: kerns([0..<8, 20..<31]), markedLocation: 40)
+        let before = EditorURLFoldStyler.needsLayoutBeforeMarkedText(presentations: kerns([50..<61]), markedLocation: 40)
+        let same = EditorURLFoldStyler.needsLayoutBeforeMarkedText(presentations: kerns([40..<51]), markedLocation: 40)
+        let notFound = EditorURLFoldStyler.needsLayoutBeforeMarkedText(presentations: kerns([0..<8]), markedLocation: NSNotFound)
 
         #expect(none == false)
         #expect(after == true)
@@ -222,14 +347,14 @@ struct EditorURLFoldStylerTests {
 
     @Test("AC-26: カーソルの位置より前に隠す文字があるときだけ、変換の前の配置の確定が要る")
     func layoutIsNeededOnlyWhenHiddenTextPrecedesCaret() {
-        func kerns(_ ranges: [Range<Int>]) -> [EditorHiddenKern] {
-            ranges.flatMap { $0 }.map { EditorHiddenKern(location: $0, kern: -5, isEllipsis: false) }
+        func kerns(_ ranges: [Range<Int>]) -> [EditorURLPresentation] {
+            foldedPresentations(ranges)
         }
-        let none = EditorURLFoldStyler.needsLayoutBefore(location: 10, hiddenKerns: [])
-        let after = EditorURLFoldStyler.needsLayoutBefore(location: 40, hiddenKerns: kerns([0..<8, 20..<31]))
-        let before = EditorURLFoldStyler.needsLayoutBefore(location: 40, hiddenKerns: kerns([50..<61]))
-        let same = EditorURLFoldStyler.needsLayoutBefore(location: 40, hiddenKerns: kerns([40..<51]))
-        let notFound = EditorURLFoldStyler.needsLayoutBefore(location: NSNotFound, hiddenKerns: kerns([0..<8]))
+        let none = EditorURLFoldStyler.needsLayoutBefore(location: 10, presentations: [])
+        let after = EditorURLFoldStyler.needsLayoutBefore(location: 40, presentations: kerns([0..<8, 20..<31]))
+        let before = EditorURLFoldStyler.needsLayoutBefore(location: 40, presentations: kerns([50..<61]))
+        let same = EditorURLFoldStyler.needsLayoutBefore(location: 40, presentations: kerns([40..<51]))
+        let notFound = EditorURLFoldStyler.needsLayoutBefore(location: NSNotFound, presentations: kerns([0..<8]))
 
         #expect(none == false)
         #expect(after == true)

@@ -86,14 +86,21 @@ struct EditorURLFoldStyler {
     /// 前の印を外して字間を `baseKern` に戻し、新しい字間と印・`.ligature = 0` を付ける。変えたら true。
     @discardableResult
     func apply(_ kerns: [EditorHiddenKern], to storage: NSTextStorage) -> Bool {
-        let length = storage.length
+        apply(kerns, to: storage, in: NSRange(location: 0, length: storage.length))
+    }
+
+    /// 範囲の中だけ、前の印を外して字間を `baseKern` に戻し、新しい字間と印・`.ligature = 0` を付ける。変えたら true。
+    @discardableResult
+    func apply(_ kerns: [EditorHiddenKern], to storage: NSTextStorage, in range: NSRange) -> Bool {
+        let scope = LineEditing.clamped(range, toLength: storage.length)
+        guard scope.length > 0 else { return false }
         var wanted: [Int: EditorHiddenKern] = [:]
-        for item in kerns where item.location >= 0 && item.location < length {
+        for item in kerns where item.location >= scope.location && item.location < NSMaxRange(scope) {
             wanted[item.location] = item
         }
 
         var marked: [Int] = []
-        storage.enumerateAttribute(.editorURLHidden, in: NSRange(location: 0, length: length), options: []) { value, range, _ in
+        storage.enumerateAttribute(.editorURLHidden, in: scope, options: []) { value, range, _ in
             guard value != nil else { return }
             marked.append(contentsOf: range.location..<NSMaxRange(range))
         }
@@ -142,15 +149,22 @@ struct EditorURLFoldStyler {
         return true
     }
 
-    /// 変換の位置より前に隠す文字があり、変換中のカーソルの位置を出す前に配置を確定させる必要があるなら true。
-    static func needsLayoutBeforeMarkedText(hiddenKerns: [EditorHiddenKern], markedLocation: Int) -> Bool {
-        needsLayoutBefore(location: markedLocation, hiddenKerns: hiddenKerns)
+    /// 変換の位置より前に畳んだ URL の隠す文字があるなら true。
+    static func needsLayoutBeforeMarkedText(presentations: [EditorURLPresentation], markedLocation: Int) -> Bool {
+        needsLayoutBefore(location: markedLocation, presentations: presentations)
     }
 
-    /// 位置より前に隠す文字があり、その位置のカーソルを出す前に配置を確定させる必要があるなら true。
-    static func needsLayoutBefore(location: Int, hiddenKerns: [EditorHiddenKern]) -> Bool {
+    /// 位置より前に畳んだ URL の隠す文字があるなら true。
+    static func needsLayoutBefore(location: Int, presentations: [EditorURLPresentation]) -> Bool {
         guard location != NSNotFound else { return false }
-        return hiddenKerns.contains { $0.location < location }
+        return presentations.contains { presentation in
+            guard let fold = presentation.fold else { return false }
+            if fold.schemeRange.length > 0 {
+                return fold.schemeRange.location < location
+            }
+            guard let middle = fold.middleRange, middle.length > 0 else { return false }
+            return middle.location < location
+        }
     }
 
     private func isApplied(_ item: EditorHiddenKern, in storage: NSTextStorage) -> Bool {
